@@ -1,0 +1,524 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.edi.CwhpManifestMapper">
+    <select id="selectCwhpXrayInfoCheck" parameterType="HashMap" resultType="HashMap">
+        /** CwhpManifestMapper.selectCwhpXrayInfoCheck */
+        SELECT
+            MRN
+            ,MSN
+            ,HSN
+            ,BL
+        FROM
+            XRAY_INFO
+        WHERE
+            MRN = #{MRN}
+            AND MSN = #{MSN}
+            AND HSN IN (<foreach collection="subList" item="item" separator=",">#{item.HSN}</foreach>)
+            AND ISNULL(CT_COUNT,0) > 0
+    </select>
+
+    <update id="cwhpUpdateXrayInfo" parameterType="HashMap">
+        /** CwhpManifestMapper.cwhpUpdateXrayInfo */
+        UPDATE
+            XRAY_INFO
+          SET
+            CT_MRN = #{PIECES}
+            ,WT_MRN = #{GWT}
+            ,CTUNIT = #{UNIT_PIECES}
+            ,VOYAGENO = #{VOYAGE}
+            ,SHIPNAME = #{VESSEL_FLIGHT}
+            ,DTM_ARRV = #{AR_DATE}
+            ,CARRCODE = #{LINE_CODE}
+            ,BL = #{HBL_NO}
+            ,MBL = #{MBL_NO}
+            ,CON = #{CON}
+            ,SH_FIRM = #{SHIPPER_NAME}
+            ,SH_NAD1 = SUBSTRING(ISNULL(CAST(UPPER(#{SHIPPER_ADDRESS}) AS NVARCHAR(300)), ''), 1, 50)
+            ,SH_NAD2 = SUBSTRING(ISNULL(CAST(UPPER(#{SHIPPER_ADDRESS}) AS NVARCHAR(300)), ''), 50, 50)
+            ,SH_NAD3 = SUBSTRING(ISNULL(CAST(UPPER(#{SHIPPER_ADDRESS}) AS NVARCHAR(300)), ''), 100, 50)
+            ,SH_TEL = #{SHIPPER_TEL}
+            ,CN_FIRM = #{CONSIGNEE_NAME}
+            ,CN_RGST = #{CONSIGNEE_BUSINESS_ID}
+            ,CN_NAD1 = SUBSTRING(ISNULL(CAST(UPPER(#{CONSIGNEE_ADDRESS}) AS NVARCHAR(300)), ''), 1, 50)
+            ,CN_NAD2 = SUBSTRING(ISNULL(CAST(UPPER(#{CONSIGNEE_ADDRESS}) AS NVARCHAR(300)), ''), 50, 50)
+            ,CN_NAD3 = SUBSTRING(ISNULL(CAST(UPPER(#{CONSIGNEE_ADDRESS}) AS NVARCHAR(300)), ''), 100, 50)
+            ,CN_TEL = #{CONSIGNEE_TEL}
+            ,CUSTOMS_NUM = #{CUSTOMS_NUM} <!--CUSTOMS_NUM-->
+            ,GOODS_SELECT = #{ECM_TYPE}
+            ,USE_SELECT = #{CD_USE_TYPE}
+            ,SENDING_COUNTRY = #{SHIPPER_COUNTRY_CODE}
+            ,LEVY = #{AMOUNT_CUR}
+            ,INPUT_DATE = GETDATE()
+            ,TRUCKER = #{TRUCKER}
+            ,PASS_NOTI = #{INSPECTION_TYPE}
+            ,ORI_PASS_NOTI = #{CD_TYPE}
+            ,ORI_PASS_REASON = #{SE_INSPECTION_CODE}
+            <if test='srchBound == "SEA"'>
+            ,ADD_ISSUE_NOTE = #{REMARK}
+            ,PID = #{PID}
+            </if>
+        WHERE
+            MRN = #{MRN}
+            AND MSN = #{MSN}
+            AND HSN = #{HSN}
+
+        IF @@ROWCOUNT = 0
+
+        INSERT INTO XRAY_INFO(
+             MRN
+            ,MSN
+            ,HSN
+            ,PASS_NOTI
+            ,GOODS
+            ,CT_MRN
+            ,WT_MRN
+            ,CTUNIT
+            ,SHIPNAME
+            ,VOYAGENO
+            ,DTM_ARRV
+            ,CARRCODE
+            ,BL
+            ,MBL
+            ,CON
+            ,SH_FIRM
+            ,SH_NAD1
+            ,SH_NAD2
+            ,SH_NAD3
+            ,SH_TEL
+            ,CN_FIRM
+            ,CN_RGST
+            ,CN_NAD1
+            ,CN_NAD2
+            ,CN_NAD3
+            ,CN_TEL
+            ,INP_COUNT
+            ,CUSTOMS_NUM
+            ,GOODS_SELECT
+            ,USE_SELECT
+            ,SENDING_COUNTRY
+            ,ADD_ISSUE
+            ,ADD_ISSUE_NOTE
+            ,LEVY
+            ,DTM_PASS_NOTI
+            ,ORI_PASS_NOTI
+            ,INPUT_DATE
+            ,INP_DOCYY
+            ,INP_DOC
+            ,STATUS
+            ,PASS_STATUS
+            ,PASS_NOTI_SEQ
+            ,FLG_NOTEs
+            ,FD_FIRM
+            ,USETYPE
+            ,CT_COUNT
+            ,PASS_REASON
+            ,SENDING_AIRPORT
+            ,QUARANTINE_SELECT
+            ,XRAY_5TL_COUNT
+            ,IMAGE_COUNT
+            ,ORI_PASS_REASON
+            ,PREC_MOVE_INOUT
+            ,FLG_632_RAQ
+            ,TRUCKER
+            ,USER_REQ_1
+            ,USER_REQ_2
+            ,USER_REQ_3
+            ,USER_REQ_4
+            <if test='srchBound == "SEA"'>
+            ,CN_ZIP
+            ,PID
+            ,ORIGINAL_BL
+            </if>
+            <if test='srchBound == "AIR"'>
+            ,DTM_SCAN_FIRST
+            ,XRAY_NUM
+            ,INS_GUBUN
+            ,DOC_APPROVE
+            ,RESEND_YN
+            ,PREC_GUBUN
+            ,FLG_BIG_YN
+            ,DTM_SCAN_OUT
+            ,PID
+            ,FLG_6NB_RAQ
+            ,UNIPASS_SEND_6NB
+            ,REJECT_YN
+            ,DTM_SCAN_CURRENT
+            ,QUARANTINE_COMP
+            ,printSeqNo
+            ,MACHINE_NUM
+            </if>
+        )
+        VALUES(
+            #{MRN}
+            ,#{MSN}
+            ,#{HSN}
+            ,#{INSPECTION_TYPE}
+            ,#{COMMODITY_ITEM}
+            ,#{PIECES}
+            ,#{GWT}
+            ,#{UNIT_PIECES}
+            ,#{VESSEL_FLIGHT}
+            ,#{VOYAGE}
+            ,#{AR_DATE}
+            ,#{LINE_CODE}
+            ,#{HBL_NO}
+            ,#{MBL_NO}
+            ,#{CON}
+            ,#{SHIPPER_NAME}
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{SHIPPER_ADDRESS}) AS NVARCHAR(300)), ''), 1, 50)
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{SHIPPER_ADDRESS}) AS NVARCHAR(300)), ''), 50, 50)
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{SHIPPER_ADDRESS}) AS NVARCHAR(300)), ''), 100, 50)
+            ,#{SHIPPER_TEL}
+            ,#{CONSIGNEE_NAME}
+            ,#{CONSIGNEE_BUSINESS_ID}
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{CONSIGNEE_ADDRESS}) AS NVARCHAR(300)), ''), 1, 50)
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{CONSIGNEE_ADDRESS}) AS NVARCHAR(300)), ''), 50, 50)
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{CONSIGNEE_ADDRESS}) AS NVARCHAR(300)), ''), 100, 50)
+            ,#{CONSIGNEE_TEL}
+            ,'0'
+            ,#{CUSTOMS_NUM} <!--특별통관지정번호-->
+            ,#{ECM_TYPE}
+            ,#{CD_USE_TYPE}
+            ,#{SHIPPER_COUNTRY_CODE}
+            ,'' <!--ADD_ISSUE-->
+            ,#{ADD_ISSUE_NOTE} <!--합산대상내역-->
+            ,#{AMOUNT_CUR}
+            ,''
+            ,#{INSPECTION_TYPE}
+            ,CONVERT(VARCHAR(8), GETDATE(), 112) + REPLACE(CONVERT(VARCHAR(8), GETDATE(), 108), ':', '')
+            ,''
+            ,'0'
+            ,''
+            ,''
+            ,'0'
+            ,'' <!--FLG_NOTEs -->
+            ,#{FD_FIRM}
+            ,''
+            ,'0'
+            ,'' <!-- PASS_REASON -->
+            ,#{ORIG_CODE}
+            ,''
+            ,'0'
+            ,'0' <!-- IMAGE_COUNT -->
+            ,#{SE_INSPECTION_CODE}
+            ,''
+            ,''
+            ,#{DELIVERY_CODE} <!--TRUCKER-->
+            ,#{USER_REQ_1} <!--USER_REQ_1-->
+            ,#{USER_REQ_2} <!--USER_REQ_2-->
+            ,#{USER_REQ_3} <!--USER_REQ_3-->
+            ,#{USER_REQ_4} <!--USER_REQ_4-->
+            <if test='srchBound == "SEA"'>
+            ,#{CONSIGNEE_ZIPCODE}
+            ,#{PID}
+            ,''
+            </if>
+            <if test='srchBound == "AIR"'>
+            ,''  <!--DTM_SCAN_FIRST-->
+            ,''  <!--XRAY_NUM-->
+            ,''  <!--INS_GUBUN-->
+            ,''  <!--DOC_APPROVE-->
+            ,''  <!--RESEND_YN-->
+            ,''  <!--PREC_GUBUN-->
+            ,''  <!--FLG_BIG_YN-->
+            ,''  <!--DTM_SCAN_OUT-->
+            ,''  <!--PID-->
+            ,''  <!--FLG_6NB_RAQ-->
+            ,''  <!--UNIPASS_SEND_6NB-->
+            ,''  <!--REJECT_YN-->
+            ,''  <!--DTM_SCAN_CURRENT-->
+            ,''  <!--QUARANTINE_COMP-->
+            ,'0' <!--printSeqNo-->
+            ,''  <!--MACHINE_NUM-->
+            </if>
+        );
+    </update>
+
+    <delete id="cwhpDeleteXrayInfoBox" parameterType="HashMap">
+        DELETE FROM XRAY_INFO_BOX
+        WHERE MRN = #{MRN} AND MSN = #{MSN} AND HSN = #{HSN}
+    </delete>
+
+    <insert id="cwhpInsertXrayInfoBox" parameterType="HashMap">
+        INSERT INTO XRAY_INFO_BOX(
+            MRN
+            ,MSN
+            ,HSN
+            ,BOX_NO
+            ,BL
+        )VALUES(
+            #{MRN}
+            ,#{MSN}
+            ,#{HSN}
+            ,#{BOX_NO}
+            ,#{HBL_NO}
+        )
+    </insert>
+
+    <update id="cwhpUpdateXrayInfoSub" parameterType="HashMap">
+        UPDATE XRAY_INFO_SUB
+        SET
+            CUSTOMS_REFNO = #{SIMPLE_DOC_NO}
+        WHERE
+            MRN = #{MRN}
+            AND MSN = #{MSN}
+            AND HSN = #{HSN}
+
+        IF @@ROWCOUNT = 0
+
+        INSERT INTO XRAY_INFO_SUB(
+            MRN
+            ,MSN
+            ,HSN
+            ,BL
+            ,MBL
+            ,CUSTOMS_REFNO
+            ,OUT_CUSTOMS_STAT
+            ,INPUT_DATE
+            ,TRUCKERFIRST
+            ,CB_CODE
+        )VALUES(
+            #{MRN}
+            ,#{MSN}
+            ,#{HSN}
+            ,#{HBL_NO}
+            ,#{MBL_NO}
+            ,#{SIMPLE_DOC_NO}
+            ,''
+            ,GETDATE()
+            ,''
+            ,''
+        );
+    </update>
+
+    <select id="selectCwhpInpCheck" parameterType="HashMap" resultType="HashMap">
+        SELECT
+            MRN
+            ,MSN
+            ,HSN
+            ,BL
+          FROM INP
+        WHERE
+            MRN = #{MRN} AND MSN = #{MSN}
+            AND HSN IN (<foreach collection="subList" item="item" separator=",">#{item.HSN}</foreach>)
+    </select>
+
+    <delete id="cwhpDeleteContainer" parameterType="HashMap">
+        DELETE FROM EXPECTContainer
+        WHERE MRN = #{MRN} AND MSN = #{MSN} AND HSN = #{HSN}
+        AND CON = #{CNTR_NO}
+    </delete>
+
+    <insert id="cwhpInsertContainer" parameterType="HashMap">
+        INSERT INTO EXPECTContainer (
+            MRN
+            ,MSN
+            ,HSN
+            ,CON
+            ,SEAL1
+            ,SEAL2
+            ,SEAL3
+            ,DOC_SEL
+        )VALUES (
+            #{MRN}
+            ,#{MSN}
+            ,#{HSN}
+            ,#{CNTR_NO}
+            ,#{CNTR_SEAL_NO_1}
+            ,#{CNTR_SEAL_NO_2}
+            ,#{CNTR_SEAL_NO_3}
+            ,'0'
+        )
+    </insert>
+
+    <update id="cwhpUpdateExpect" parameterType="HashMap">
+        /** CwhpManifestMapper.cwhpUpdateExpect */
+        UPDATE EXPECT SET
+        GOODS = #{COMMODITY_ITEM}
+        ,SPCHEAD1 = #{SPCHEAD1}
+        ,SPCHEAD2 = #{SPCHEAD2}
+        ,SPCHEAD3 = #{SPCHEAD3}
+        ,CT_MRN = #{PIECES}
+        ,WT_MRN = #{GWT}
+        ,ME_MRN = #{CBM}
+        ,CTUNIT = 'CT'
+        ,VOYAGENO = #{VOYAGE}
+        ,SHIPNAME = #{VESSEL_FLIGHT}
+        ,DTM_ARRV = #{AR_DATE}
+        ,CARRCODE = #{LINE_CODE}
+        ,BL = #{HBL_NO}
+        ,SH_FIRM = #{SHIPPER_NAME}
+        ,SH_NAD1 = SUBSTRING(ISNULL(CAST(UPPER(#{SHIPPER_ADDRESS}) AS NVARCHAR(300)), ''), 1, 50)
+        ,SH_NAD2 = SUBSTRING(ISNULL(CAST(UPPER(#{SHIPPER_ADDRESS}) AS NVARCHAR(300)), ''), 50, 50)
+        ,SH_NAD3 = SUBSTRING(ISNULL(CAST(UPPER(#{SHIPPER_ADDRESS}) AS NVARCHAR(300)), ''), 100, 50)
+        ,SH_TEL = #{SHIPPER_TEL}
+        ,CN_FIRM = #{CONSIGNEE_NAME}
+        ,CN_RGST = #{CONSIGNEE_BUSINESS_ID}
+        ,CN_NAD1 = SUBSTRING(ISNULL(CAST(UPPER(#{CONSIGNEE_ADDRESS}) AS NVARCHAR(300)), ''), 1, 50)
+        ,CN_NAD2 = SUBSTRING(ISNULL(CAST(UPPER(#{CONSIGNEE_ADDRESS}) AS NVARCHAR(300)), ''), 50, 50)
+        ,CN_NAD3 = SUBSTRING(ISNULL(CAST(UPPER(#{CONSIGNEE_ADDRESS}) AS NVARCHAR(300)), ''), 100, 50)
+        ,CN_ZIP = #{CONSIGNEE_ZIP}
+        ,CN_TEL = #{CONSIGNEE_TEL}
+        ,NI_FIRM = #{CONSIGNEE_NAME}
+        ,NI_NAD1 = SUBSTRING(ISNULL(CAST(UPPER(#{CONSIGNEE_ADDRESS}) AS NVARCHAR(300)), ''), 1, 50)
+        ,NI_NAD2 = SUBSTRING(ISNULL(CAST(UPPER(#{CONSIGNEE_ADDRESS}) AS NVARCHAR(300)), ''), 50, 50)
+        ,NI_NAD3 = SUBSTRING(ISNULL(CAST(UPPER(#{CONSIGNEE_ADDRESS}) AS NVARCHAR(300)), ''), 100, 50)
+        ,NI_TEL = #{CONSIGNEE_TEL}
+        ,CON = #{CON}
+        ,CON_CNT = #{CON_CNT}
+        <if test='srchBound == "SEA"'>
+        ,DOC_BONDED = #{DOC_BONDED}
+        </if>
+    WHERE
+        MRN = #{MRN}
+        AND MSN = #{MSN}
+        AND HSN = #{HSN}
+
+        IF @@ROWCOUNT = 0
+
+        INSERT INTO EXPECT(
+            MRN
+            ,MSN
+            ,HSN
+            ,IE_STAT
+            ,DOC_BONDED
+            ,PASS_NOTI
+            ,DTM_ADVICES
+            ,DTM_PERIOD
+            ,LOC_OUT
+            ,LOC_LST
+            ,GOODs
+            ,SPCHEAD1
+            ,SPCHEAD2
+            ,SPCHEAD3
+            ,CT_MRN
+            ,WT_MRN
+            ,ME_MRN
+            ,CTUNIT
+            ,VOYAGENO
+            ,SHIPNAME
+            ,DTM_ARRV
+            ,CARRCODE
+            ,CUSTOMS
+            ,CUSTOMS_CTA
+            ,BL
+            ,SH_FIRM
+            ,SH_NAD1
+            ,SH_NAD2
+            ,SH_NAD3
+            ,SH_ZIP
+            ,SH_NAD_ROAD
+            ,SH_NAD_BUILDING
+            ,SH_NAD_DETAIL
+            ,SH_TEL
+            ,CN_FIRM
+            ,CN_RGST
+            ,CN_NAD1
+            ,CN_NAD2
+            ,CN_NAD3
+            ,CN_ZIP
+            ,CN_NAD_ROAD
+            ,CN_NAD_BUILDING
+            ,CN_NAD_DETAIL
+            ,CN_TEL
+            ,NI_FIRM
+            ,NI_NAD1
+            ,NI_NAD2
+            ,NI_NAD3
+            ,NI_ZIP
+            ,NI_NAD_ROAD
+            ,NI_NAD_BUILDING
+            ,NI_NAD_DETAIL
+            ,NI_TEL
+            ,STATUS
+            ,CT
+            ,WT
+            ,ME
+            ,INP_DOCYY
+            ,INP_DOC
+            ,DIVIDE_NO
+            ,DTM_EXTENT
+            ,FUN_EXTENT
+            ,CON
+            ,CON_CNT
+            ,TEST_YN
+            ,DOC_PERSON_TEL
+            ,OTH_DOCNO
+            ,NOTICE_INSPECT
+            ,DOC_SEL
+        )VALUES (
+            #{MRN}
+            ,#{MSN}
+            ,#{HSN}
+            ,''
+            ,#{CARRYIN_NO}
+            ,''
+            ,replace(replace(replace(convert(varchar,getdate(),120),'-',''),':',''),' ','')
+            ,''
+            ,''
+            ,''
+            ,#{COMMODITY_ITEM}
+            ,''
+            ,''
+            ,''
+            ,#{PIECES}
+            ,#{GWT}
+            ,#{CBM}
+            ,#{UNIT_PIECES}
+            ,#{VOYAGE}
+            ,#{VESSEL_FLIGHT}
+            ,#{AR_DATE}
+            ,#{LINE_CODE}
+            ,''
+            ,''
+            ,#{HBL_NO}
+            ,#{SHIPPER_NAME}
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{SHIPPER_ADDRESS}) AS NVARCHAR(300)), ''), 1, 50)
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{SHIPPER_ADDRESS}) AS NVARCHAR(300)), ''), 50, 50)
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{SHIPPER_ADDRESS}) AS NVARCHAR(300)), ''), 100, 50)
+            ,''
+            ,''
+            ,''
+            ,#{MBL_NO}
+            ,#{SHIPPER_TEL}
+            ,#{CONSIGNEE_NAME}
+            ,#{CONSIGNEE_BUSINESS_ID}
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 1, 50)
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 50, 50)
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 100, 50)
+            ,#{CONSIGNEE_ZIPCODE}
+            ,''
+            ,''
+            ,''
+            ,#{CONSIGNEE_TEL}
+            ,#{CONSIGNEE_NAME}
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 1, 50)
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 50, 50)
+            ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 100, 50)
+            ,''
+            ,''
+            ,''
+            ,''
+            ,#{CONSIGNEE_TEL}
+            ,''
+            ,'0'
+            ,'0'
+            ,'0'
+            ,''
+            ,'0'
+            ,'0'
+            ,''
+            ,''
+            ,#{CON}
+            ,#{CON_CNT}
+            ,''
+            ,''
+            ,''
+            ,''
+            ,'0'
+        );
+    </update>
+</mapper>

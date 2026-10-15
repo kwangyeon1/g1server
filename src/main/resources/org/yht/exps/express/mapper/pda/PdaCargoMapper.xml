@@ -1,0 +1,1061 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        
+<mapper namespace="org.yht.exps.express.mapper.pda.PdaCargoMapper">
+
+	<select id="selectPkgInfo" parameterType="HashMap" resultType="HashMap">
+		/* PdaCargoMapper.selectPkgInfo : 화물 조회 - 화물 기본 박스 정보 조회 */
+		SELECT
+			PACKING_NO,
+			TBI.IN_NO,
+			ISNULL(TBI.OD_JOB_NO, TBIP.OD_JOB_NO) AS OD_JOB_NO,
+			ISNULL(TBI.CARGO_REFERENCE_NO, TBIP.CARGO_REFERENCE_NO) AS CARGO_REFERENCE_NO,
+			FORMAT(CAST(TBIPP.BCR_TIME AS DATETIME), 'yy.MM.dd HH:mm:ss') AS BCR_TIME,
+			TBI.BL_NO AS BL_NO
+		FROM
+			TB_BMS_IN_PLAN TBIP WITH (NOLOCK)
+			LEFT JOIN TB_BMS_IN TBI WITH (NOLOCK) ON TBI.IN_PLAN_NO = TBIP.IN_PLAN_NO
+			LEFT JOIN TB_BMS_IN_PLAN_PKG TBIPP WITH (NOLOCK) ON TBIPP.IN_PLAN_NO = TBIP.IN_PLAN_NO
+		WHERE
+			PACKING_NO = #{packingNo}
+			<if test="srchSeq != null and srchSeq != ''">
+				AND TBIPP.SEQ = #{srchSeq}
+			</if>
+	</select>
+
+	<select id="selectCargoTracking" parameterType="carryIn" resultType="bmsCargo">
+		/* PdaCargoMapper.selectCargoTracking : 화물 조회 */
+		SELECT 
+			'반입예정' AS DATA_TYPE, 0 AS CT, EX_WT AS WT, MGN_ISSUE_YN, VESSEL_FLIGHT, MBL_NO, '' AS LAST_POD_DATE, 
+			DELIVERY_NAME, COMMODITY_ITEM_LOC, CONSIGNEE_NAME, '' AS LOCATION_PLACE, '' AS LAST_POD_5TL_STATUS,
+			'' AS AR_DATE, 
+			'' AS AR_TIME, 
+			'' AS CARRYIN_DATE, 
+			'' AS CARRYIN_TIME, 
+			'' AS CARRYOUT_DATE, 
+			'' AS CARRYOUT_TIME,
+			'' AS APPROVAL_DATE, 
+			'' AS APPROVAL_CANCEL_DATE, 
+			'' AS OUT_SCAN_DATE_TIME,
+			'' AS MOVE_CARRYIN_DATE, 
+			'' AS MOVE_CARRYOUT_DATE, 
+			CASE WHEN SE_INSPECTION_CODE = '01' THEN '마약'
+      		 		WHEN SE_INSPECTION_CODE = '02' THEN '총기'
+      		 		WHEN SE_INSPECTION_CODE = '03' THEN '검역'
+      		 		WHEN SE_INSPECTION_CODE = '04' THEN '식품,의약품'
+      		 		WHEN SE_INSPECTION_CODE = '05' THEN '협업검사'
+      		 		WHEN SE_INSPECTION_CODE = '06' THEN '수입검사(기타)'
+      		 		WHEN SE_INSPECTION_CODE = 'C' THEN '신고인 검사요청'
+      		 		ELSE ''
+			END AS SE_INSPECTION_CODE, 
+			CASE WHEN PALN5EM_INSPECTION_CODE = '01' THEN '마약'
+      		 		WHEN PALN5EM_INSPECTION_CODE = '02' THEN '총기'
+      		 		WHEN PALN5EM_INSPECTION_CODE = '03' THEN '검역'
+      		 		WHEN PALN5EM_INSPECTION_CODE = '04' THEN '식품,의약품'
+      		 		WHEN PALN5EM_INSPECTION_CODE = '05' THEN '협업검사'
+      		 		WHEN PALN5EM_INSPECTION_CODE = '06' THEN '수입검사(기타)'
+      		 		WHEN PALN5EM_INSPECTION_CODE = 'C' THEN '신고인 검사요청'
+      		 		ELSE ''
+			END AS PALN5EM_INSPECTION_CODE, 
+			CASE WHEN INSPECTION_TYPE = '5' THEN '검사(일반/간이)'
+      		 		WHEN INSPECTION_TYPE = '6' THEN '검역(사전검역)'
+      		 		WHEN INSPECTION_TYPE = '8' THEN '검역(동물검역)'
+      		 		WHEN INSPECTION_TYPE = '9' THEN '검역(식물검역)'
+      		 		WHEN INSPECTION_TYPE = '10' THEN '검역(식품검역)'
+      		 		WHEN INSPECTION_TYPE = '11' THEN '검역(서류)'
+      		 		ELSE ''
+			END AS INSPECTION_TYPE, 
+			(
+				SELECT TOP 1 
+					CASE WHEN XRAY_INSPECTION_CODE = '01' THEN '마약'
+	      		 		WHEN XRAY_INSPECTION_CODE = '02' THEN '총기'
+	      		 		WHEN XRAY_INSPECTION_CODE = '03' THEN '검역'
+	      		 		WHEN XRAY_INSPECTION_CODE = '04' THEN '식품,의약품'
+	      		 		WHEN XRAY_INSPECTION_CODE = '05' THEN '협업검사'
+	      		 		WHEN XRAY_INSPECTION_CODE = '06' THEN '수입검사(기타)'
+	      		 		WHEN XRAY_INSPECTION_CODE = 'C' THEN '신고인 검사요청'
+	      		 		ELSE ''
+					END
+				FROM TB_BMS_XRAY_RESULT
+				WHERE IN_PLAN_NO = bmsPlan.IN_PLAN_NO
+			) AS XRAY_INSPECTION_CODE, 
+			CASE WHEN CD_TYPE = 'B' THEN '배제'
+      		 		WHEN CD_TYPE = 'E' THEN '이행'
+      		 		WHEN CD_TYPE = 'N' THEN '일반'
+      		 		WHEN CD_TYPE = 'Y' THEN '목록'
+      		 		ELSE ''
+			END AS CD_TYPE, 
+			BIG_SIZE_YN, 
+			INSPECTION_CUSTOMS_YN, 
+			INTELLECTUAL_PROP_YN, 
+			CRIME_SELECTION_YN, 
+			INSPECTION_TYPE, 
+			INSPECTION_TYPE_A, 
+			INSPECTION_TYPE_B, 
+			'' AS ALL_INSPECTION_FINISH_YN, 
+			'' AS LAST_POD_STATUS,
+			(
+				SELECT TOP 1
+					CASE 
+						WHEN SUM(IN_CT) = bmsPlan.EX_CT THEN CONCAT(bmsPlan.EX_CT, '')
+						ELSE CONCAT(SUM(IN_CT), '/', bmsPlan.EX_CT)
+					END
+				FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+				WHERE IN_PLAN_NO = bmsPlan.IN_PLAN_NO
+				GROUP BY IN_PLAN_NO 
+			) AS CT_PRINT
+			, '' AS REFERENCE_NO
+		FROM 
+			TB_BMS_IN_PLAN bmsPlan WITH (NOLOCK)
+		WHERE 
+			CARGO_REFERENCE_NO = #{CARGO_REFERENCE_NO}
+		UNION ALL
+		SELECT 
+			'반입' AS DATA_TYPE, CT, WT, MGN_ISSUE_YN, VESSEL_FLIGHT, MBL_NO, LAST_POD_DATE,
+			DELIVERY_NAME, COMMODITY_ITEM_LOC, CONSIGNEE_NAME,
+			CASE WHEN LOCATION_PLACE = '999' THEN '로케이션 삭제'
+      		 		WHEN LOCATION_PLACE = 'A' THEN '일반'
+      		 		WHEN LOCATION_PLACE = 'A101' THEN 'A1-01 장기보관'
+      		 		WHEN LOCATION_PLACE = 'B' THEN '취하'
+      		 		WHEN LOCATION_PLACE = 'C' THEN '홀드'
+      		 		WHEN LOCATION_PLACE = 'C101' THEN 'C1-01'
+      		 		WHEN LOCATION_PLACE = 'D' THEN '수입신고수리완료'
+      		 		WHEN LOCATION_PLACE = 'D00101' THEN 'D0-01-01 체화'
+      		 		WHEN LOCATION_PLACE = 'D9-AA' THEN 'D9-AA 파손'
+      		 		WHEN LOCATION_PLACE = 'ETC001' THEN '기타분류위치'
+      		 		ELSE LOCATION_PLACE
+			END AS LOCATION_PLACE,
+			CASE WHEN LAST_POD_5TL_STATUS = 'BMS01' THEN '입력'
+      		 		WHEN LAST_POD_5TL_STATUS = 'BMS02' THEN '송신실패'
+      		 		WHEN LAST_POD_5TL_STATUS = 'BMS03' THEN '송신'
+      		 		WHEN LAST_POD_5TL_STATUS = 'BMS04' THEN '접수'
+      		 		WHEN LAST_POD_5TL_STATUS = 'BMS05' THEN '오류'
+      		 		WHEN LAST_POD_5TL_STATUS = 'BMS06' THEN '승인'
+      		 		WHEN LAST_POD_5TL_STATUS = 'BMS07' THEN '거부'
+      		 		WHEN LAST_POD_5TL_STATUS = 'BMS08' THEN '보류'
+      		 		WHEN LAST_POD_5TL_STATUS = 'BMS09' THEN '기각'
+      		 		WHEN LAST_POD_5TL_STATUS = 'BMSA1' THEN '타창고하기'
+      		 		WHEN LAST_POD_5TL_STATUS = 'BMSA2' THEN '세관검사장'
+      		 		WHEN LAST_POD_5TL_STATUS = 'BMSA3' THEN '통관후입고'
+      		 		WHEN LAST_POD_5TL_STATUS = 'BMSA4' THEN '수입통관이고'
+      		 		ELSE ''
+			END AS LAST_POD_5TL_STATUS,
+			CASE WHEN IN_CLASS = '10' THEN FORMAT(CAST(AR_DATE AS DATETIME), 'yy.MM.dd') 
+      		 		ELSE ''
+			END AS AR_DATE, 
+			CASE WHEN IN_CLASS = '10' THEN FORMAT(CAST(AR_TIME AS DATETIME), 'HH:mm') 
+      		 		ELSE ''
+			END AS AR_TIME, 
+			CASE WHEN IN_CLASS = '10' THEN FORMAT(CAST(CARRYIN_DATE AS DATETIME), 'yy.MM.dd') 
+      		 		ELSE ''
+			END AS CARRYIN_DATE, 
+			CASE WHEN IN_CLASS = '10' THEN FORMAT(CAST(CARRYIN_TIME AS DATETIME), 'HH:mm:ss') 
+      		 		ELSE ''
+			END AS CARRYIN_TIME, 
+			'' AS CARRYOUT_DATE, 
+			'' AS CARRYOUT_TIME, 
+			'' AS APPROVAL_DATE, 
+			'' AS APPROVAL_CANCEL_DATE, 
+			'' AS OUT_SCAN_DATE_TIME, 
+			CASE WHEN IN_CLASS = '21' THEN FORMAT(CAST(CONCAT(CARRYIN_DATE, ' ', CARRYIN_TIME) AS DATETIME), 'yy.MM.dd HH:mm:ss') 
+      		 		ELSE ''
+			END AS MOVE_CARRYIN_DATE,
+			'' AS MOVE_CARRYOUT_DATE, 
+			CASE WHEN SE_INSPECTION_CODE = '01' THEN '마약'
+      		 		WHEN SE_INSPECTION_CODE = '02' THEN '총기'
+      		 		WHEN SE_INSPECTION_CODE = '03' THEN '검역'
+      		 		WHEN SE_INSPECTION_CODE = '04' THEN '식품,의약품'
+      		 		WHEN SE_INSPECTION_CODE = '05' THEN '협업검사'
+      		 		WHEN SE_INSPECTION_CODE = '06' THEN '수입검사(기타)'
+      		 		WHEN SE_INSPECTION_CODE = 'C' THEN '신고인 검사요청'
+      		 		ELSE ''
+			END AS SE_INSPECTION_CODE, 
+			CASE WHEN PALN5EM_INSPECTION_CODE = '01' THEN '마약'
+      		 		WHEN PALN5EM_INSPECTION_CODE = '02' THEN '총기'
+      		 		WHEN PALN5EM_INSPECTION_CODE = '03' THEN '검역'
+      		 		WHEN PALN5EM_INSPECTION_CODE = '04' THEN '식품,의약품'
+      		 		WHEN PALN5EM_INSPECTION_CODE = '05' THEN '협업검사'
+      		 		WHEN PALN5EM_INSPECTION_CODE = '06' THEN '수입검사(기타)'
+      		 		WHEN PALN5EM_INSPECTION_CODE = 'C' THEN '신고인 검사요청'
+      		 		ELSE ''
+			END AS PALN5EM_INSPECTION_CODE, 
+			CASE WHEN INSPECTION_TYPE = '5' THEN '검사(일반/간이)'
+      		 		WHEN INSPECTION_TYPE = '6' THEN '검역(사전검역)'
+      		 		WHEN INSPECTION_TYPE = '8' THEN '검역(동물검역)'
+      		 		WHEN INSPECTION_TYPE = '9' THEN '검역(식물검역)'
+      		 		WHEN INSPECTION_TYPE = '10' THEN '검역(식품검역)'
+      		 		WHEN INSPECTION_TYPE = '11' THEN '검역(서류)'
+      		 		ELSE ''
+			END AS INSPECTION_TYPE, 
+			CASE WHEN XRAY_INSPECTION_CODE = '01' THEN '마약'
+      		 		WHEN XRAY_INSPECTION_CODE = '02' THEN '총기'
+      		 		WHEN XRAY_INSPECTION_CODE = '03' THEN '검역'
+      		 		WHEN XRAY_INSPECTION_CODE = '04' THEN '식품,의약품'
+      		 		WHEN XRAY_INSPECTION_CODE = '05' THEN '협업검사'
+      		 		WHEN XRAY_INSPECTION_CODE = '06' THEN '수입검사(기타)'
+      		 		WHEN XRAY_INSPECTION_CODE = 'C' THEN '신고인 검사요청'
+      		 		ELSE ''
+			END AS XRAY_INSPECTION_CODE, 
+			CASE WHEN CD_TYPE = 'B' THEN '배제'
+      		 		WHEN CD_TYPE = 'E' THEN '이행'
+      		 		WHEN CD_TYPE = 'N' THEN '일반'
+      		 		WHEN CD_TYPE = 'Y' THEN '목록'
+      		 		ELSE ''
+			END AS CD_TYPE,
+			BIG_SIZE_YN, 
+			INSPECTION_CUSTOMS_YN, 
+			INTELLECTUAL_PROP_YN, 
+			CRIME_SELECTION_YN, 
+			INSPECTION_TYPE, 
+			INSPECTION_TYPE_A, 
+			INSPECTION_TYPE_B, 
+			ALL_INSPECTION_FINISH_YN, 
+			CASE WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMS01' THEN '입력'
+      		 		WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMS02' THEN '송신실패'
+      		 		WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMS03' THEN '송신'
+      		 		WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMS04' THEN '접수'
+      		 		WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMS05' THEN '오류'
+      		 		WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMS06' THEN '승인'
+      		 		WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMS07' THEN '거부'
+      		 		WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMS08' THEN '보류'
+      		 		WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMS09' THEN '기각'
+      		 		WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMSA1' THEN '타창고하기'
+      		 		WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMSA2' THEN '세관검사장'
+      		 		WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMSA3' THEN '통관후입고'
+      		 		WHEN IN_CLASS <![CDATA[<>]]> '21' AND LAST_POD_STATUS = 'BMSA4' THEN '수입통관이고'
+      		 		ELSE ''
+			END AS LAST_POD_STATUS,
+			(
+				SELECT TOP 1
+					CASE 
+						WHEN SUM(IN_CT) = bmsIn.EX_CT THEN CONCAT(bmsIn.CT, '')
+						ELSE CONCAT(SUM(IN_CT), '/', bmsIn.CT)
+					END
+				FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+				WHERE IN_PLAN_NO = bmsIn.IN_PLAN_NO
+				GROUP BY IN_PLAN_NO 
+			) AS CT_PRINT
+			, REFERENCE_NO
+		FROM 
+			TB_BMS_IN bmsIn WITH (NOLOCK)
+		WHERE
+			CARGO_REFERENCE_NO = #{CARGO_REFERENCE_NO}
+		UNION ALL
+		SELECT 
+			'반출승인' AS DATA_TYPE, 0 AS CT, 0 AS WT, '' AS MGN_ISSUE_YN, VESSEL_FLIGHT, MBL_NO, '' AS LAST_POD_DATE,
+			'' AS DELIVERY_NAME, '' AS COMMODITY_ITEM_LOC, '' AS CONSIGNEE_NAME, '' AS LOCATION_PLACE, '' AS LAST_POD_5TL_STATUS, 
+			'' AS AR_DATE, 
+			'' AS AR_TIME, 
+			'' AS CARRYIN_DATE, 
+			'' AS CARRYIN_TIME, 
+			'' AS CARRYOUT_DATE, 
+			'' AS CARRYOUT_TIME, 
+			CASE WHEN OUT_CLASS <![CDATA[<>]]> '61' AND APPROVAL_CLASS = '31' AND ISDATE(NOTIFY_DATE_TIME) = 1 THEN FORMAT(CAST(NOTIFY_DATE_TIME AS DATETIME), 'yy.MM.dd HH:mm:ss') 
+      		 		ELSE ''
+			END AS APPROVAL_DATE, 
+			CASE WHEN OUT_CLASS <![CDATA[<>]]> '61' AND APPROVAL_CLASS = '1' AND ISDATE(NOTIFY_DATE_TIME) = 1 THEN FORMAT(CAST(NOTIFY_DATE_TIME AS DATETIME), 'yy.MM.dd HH:mm:ss') 
+      		 		ELSE ''
+			END AS APPROVAL_CANCEL_DATE, 
+			CASE WHEN OUT_CLASS <![CDATA[<>]]> '61' AND OUT_SCAN_DATE_TIME <![CDATA[<>]]> '1900-01-01 00:00:00.000' AND ISDATE(OUT_SCAN_DATE_TIME) = 1  THEN FORMAT(OUT_SCAN_DATE_TIME, 'yy.MM.dd HH:mm:ss')
+				ELSE ''
+			END AS OUT_SCAN_DATE_TIME, 
+			'' AS MOVE_CARRYIN_DATE, 
+			'' AS MOVE_CARRYOUT_DATE, 
+			'' AS SE_INSPECTION_CODE, '' AS PALN5EM_INSPECTION_CODE, '' AS INSPECTION_TYPE, '' AS XRAY_INSPECTION_CODE, 
+			'' AS CD_TYPE, 
+			'' AS BIG_SIZE_YN, 
+			'' AS INSPECTION_CUSTOMS_YN, 
+			'' AS INTELLECTUAL_PROP_YN, 
+			'' AS CRIME_SELECTION_YN, 
+			'' AS INSPECTION_TYPE, 
+			'' AS INSPECTION_TYPE_A, 
+			'' AS INSPECTION_TYPE_B, 
+			'' AS ALL_INSPECTION_FINISH_YN,
+			'' AS LAST_POD_STATUS,
+			'0' AS CT_PRINT
+			, '' AS REFERENCE_NO
+		FROM 
+			TB_BMS_OUT_PLAN WITH (NOLOCK)
+		WHERE 
+			CARGO_REFERENCE_NO = #{CARGO_REFERENCE_NO}
+		UNION ALL
+		SELECT 
+			'반출' AS DATA_TYPE, 0 AS CT, 0 AS WT, '' AS MGN_ISSUE_YN, '' AS VESSEL_FLIGHT, MBL_NO, '' AS LAST_POD_DATE,
+			'' AS DELIVERY_NAME, '' AS COMMODITY_ITEM_LOC, '' AS CONSIGNEE_NAME, '' AS LOCATION_PLACE, '' AS LAST_POD_5TL_STATUS, 
+			'' AS AR_DATE, 
+			'' AS AR_TIME, 
+			'' AS CARRYIN_DATE, 
+			'' AS CARRYIN_TIME, 
+			CASE WHEN OUT_CLASS <![CDATA[<>]]> '61' THEN FORMAT(CAST(CARRYOUT_DATE AS DATETIME), 'yy.MM.dd') 
+      		 		ELSE ''
+			END AS CARRYOUT_DATE, 
+			CASE WHEN OUT_CLASS <![CDATA[<>]]> '61' THEN FORMAT(CAST(CARRYOUT_TIME AS DATETIME), 'HH:mm:ss') 
+      		 		ELSE ''
+			END AS CARRYOUT_TIME, 
+			'' AS APPROVAL_DATE, 
+			'' AS APPROVAL_CANCEL_DATE,
+			CASE WHEN OUT_CLASS <![CDATA[<>]]> '61' AND OUT_SCAN_DATE_TIME <![CDATA[<>]]> '1900-01-01 00:00:00.000' AND ISDATE(OUT_SCAN_DATE_TIME) = 1  THEN FORMAT(OUT_SCAN_DATE_TIME, 'yy.MM.dd HH:mm:ss')
+				ELSE ''
+			END AS OUT_SCAN_DATE_TIME,
+			'' AS MOVE_CARRYIN_DATE, 
+			CASE WHEN OUT_CLASS = '61' AND OUT_SCAN_DATE_TIME <![CDATA[<>]]> '1900-01-01 00:00:00.000' AND ISDATE(OUT_SCAN_DATE_TIME) = 1  THEN FORMAT(OUT_SCAN_DATE_TIME, 'yy.MM.dd HH:mm:ss')
+      		 		ELSE ''
+			END AS MOVE_CARRYOUT_DATE, 
+			'' AS SE_INSPECTION_CODE, '' AS PALN5EM_INSPECTION_CODE, '' AS INSPECTION_TYPE, '' AS XRAY_INSPECTION_CODE, 
+			'' AS CD_TYPE, 
+			'' AS BIG_SIZE_YN, 
+			'' AS INSPECTION_CUSTOMS_YN, 
+			'' AS INTELLECTUAL_PROP_YN, 
+			'' AS CRIME_SELECTION_YN, 
+			'' AS INSPECTION_TYPE, 
+			'' AS INSPECTION_TYPE_A, 
+			'' AS INSPECTION_TYPE_B, 
+			'' AS ALL_INSPECTION_FINISH_YN, 
+			CASE WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMS01' THEN '입력'
+      		 		WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMS02' THEN '송신실패'
+      		 		WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMS03' THEN '송신'
+      		 		WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMS04' THEN '접수'
+      		 		WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMS05' THEN '오류'
+      		 		WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMS06' THEN '승인'
+      		 		WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMS07' THEN '거부'
+      		 		WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMS08' THEN '보류'
+      		 		WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMS09' THEN '기각'
+      		 		WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMSA1' THEN '타창고하기'
+      		 		WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMSA2' THEN '세관검사장'
+      		 		WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMSA3' THEN '통관후입고'
+      		 		WHEN OUT_CLASS <![CDATA[<>]]> '61' AND LAST_POD_STATUS = 'BMSA4' THEN '수입통관이고'
+      		 		ELSE ''
+			END AS LAST_POD_STATUS,
+			'0' AS CT_PRINT
+			, '' AS REFERENCE_NO
+		FROM 
+			TB_BMS_OUT WITH (NOLOCK)
+		WHERE 
+			CARGO_REFERENCE_NO = #{CARGO_REFERENCE_NO}
+		UNION ALL
+		SELECT 
+			'BOX' AS DATA_TYPE, 0 AS CT, 0 AS WT, '' AS MGN_ISSUE_YN, '' AS VESSEL_FLIGHT, '' AS MBL_NO, '' AS LAST_POD_DATE,
+			'' AS DELIVERY_NAME, '' AS COMMODITY_ITEM_LOC, '' AS CONSIGNEE_NAME, 
+			CASE WHEN LOCATION_PLACE = '999' THEN '로케이션 삭제'
+      		 		WHEN LOCATION_PLACE = 'A' THEN '일반'
+      		 		WHEN LOCATION_PLACE = 'A101' THEN 'A1-01 장기보관'
+      		 		WHEN LOCATION_PLACE = 'B' THEN '취하'
+      		 		WHEN LOCATION_PLACE = 'C' THEN '홀드'
+      		 		WHEN LOCATION_PLACE = 'C101' THEN 'C1-01'
+      		 		WHEN LOCATION_PLACE = 'D' THEN '수입신고수리완료'
+      		 		WHEN LOCATION_PLACE = 'D00101' THEN 'D0-01-01 체화'
+      		 		WHEN LOCATION_PLACE = 'D9-AA' THEN 'D9-AA 파손'
+      		 		WHEN LOCATION_PLACE = 'ETC001' THEN '기타분류위치'
+      		 		ELSE LOCATION_PLACE
+			END AS LOCATION_PLACE,
+			'' AS LAST_POD_5TL_STATUS, 
+			'' AS AR_DATE, 
+			'' AS AR_TIME, 
+			'' AS CARRYIN_DATE, 
+			'' AS CARRYIN_TIME, 
+			'' AS CARRYOUT_DATE, 
+			'' AS CARRYOUT_TIME,
+			'' AS APPROVAL_DATE, 
+			'' AS APPROVAL_CANCEL_DATE, 
+			'' AS OUT_SCAN_DATE_TIME, 
+			'' AS MOVE_CARRYIN_DATE, 
+			'' AS MOVE_CARRYOUT_DATE, 
+			'' AS SE_INSPECTION_CODE, '' AS PALN5EM_INSPECTION_CODE, '' AS INSPECTION_TYPE, '' AS XRAY_INSPECTION_CODE, 
+			'' AS CD_TYPE, 
+			'' AS BIG_SIZE_YN, 
+			'' AS INSPECTION_CUSTOMS_YN, 
+			'' AS INTELLECTUAL_PROP_YN, 
+			'' AS CRIME_SELECTION_YN, 
+			'' AS INSPECTION_TYPE, 
+			'' AS INSPECTION_TYPE_A, 
+			'' AS INSPECTION_TYPE_B, 
+			'' AS ALL_INSPECTION_FINISH_YN, 
+			'' AS LAST_POD_STATUS,
+			'0' AS CT_PRINT
+			, '' AS REFERENCE_NO
+		FROM 
+			TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+		WHERE 
+			PACKING_NO = #{PACKING_NO}
+	</select>
+	
+	<select id="selectInspectResultNotFinished" parameterType="HashMap" resultType="HashMap">
+		/* PdaCargoMapper.selectInspectResultNotFinished : 화물조회 홀드 정보 조회 */
+		SELECT
+			CASE WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'S' THEN '선별 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '') 
+			            WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'X' THEN 'XR ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y' AND UPPER(CODE) NOT IN ('C')), '')
+			            WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'P' THEN '통관 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+			            WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'I' THEN '검역 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y'), '')          
+			       		WHEN ISNULL(C.INSPECTION_TYPE,'') = 'B' THEN '거대'    
+              			<!-- WHEN ISNULL(C.INSPECTION_TYPE,'') = 'C' THEN '우범' -->
+              			WHEN ISNULL(C.INSPECTION_TYPE,'') = 'T' THEN '지재권'
+              			WHEN ISNULL(C.INSPECTION_TYPE,'') = 'A' THEN '집중'
+			       END AS BMS_INSPECTION_TYPE
+		FROM 
+			TB_BMS_INSPECT_RESULT C
+		WHERE 
+			IN_NO = #{IN_NO}
+			AND INSPECTION_FINISH_YN = 'N' 
+       	    AND INSPECTION_TYPE IN (
+       	    	  'P06','X03','X04','X05','X06','S03','S04','S05','S06','SC'
+       	    	  ,'I5','I6','I7','I8','I9','I10','I11','I12'
+       	    	  ,'J5','J6','J7','J8','J9','J10','J11','J12'
+       	    	  ,'K5','K6','K7','K8','K9','K10','K11','K12'
+       	    	  
+       	    	  ,'S01', 'S02', 'X01', 'X02', 'P01', 'P02'
+		          ,'B','A','T','C'
+       	    	)
+	</select>
+
+	<select id="selectHoldInfo" parameterType="HashMap" resultType="HashMap">
+		/* PdaCargoMapper.selectHoldInfo : 화물조회 홀드 정보 조회 */
+		SELECT
+			ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = HOLD_CODE AND ENT_CODE = #{srchEntCode} AND GROUP_CODE='HOLD_CODE' AND USE_YN='Y'), '') AS HOLD_CODE_NAME, 
+			HOLD_REASON, 
+			HOLD_RELEASE_YN
+		FROM 
+			TB_ECM_OD_HOLD
+		WHERE 
+			OD_JOB_NO = #{OD_JOB_NO}
+			AND HOLD_RELEASE_YN = 'N'
+	</select>
+	
+	<select id="selectExistDivideCount" parameterType="HashMap" resultType="Integer">
+		/* PdaCargoMapper.selectExistDivideCount : 화물조회 BL분할 등록 건수 조회 */
+		SELECT
+			COUNT(BL5HF_NO)
+		FROM
+			TB_BMS_5HF
+		WHERE
+			CARGO_REFERENCE_NO = #{CARGO_REFERENCE_NO}
+			AND DIVIDE_CLASS = '1';
+	</select>
+
+	<select id="selectCargoTrackingBox" parameterType="HashMap" resultType="HashMap">
+		/* PdaCargoMapper.selectCargoTrackingBox : 화물 조회 - 박스 조회 */
+		SELECT
+			A.BL_NO,
+			A.MBL_NO,
+			A.CARGO_REFERENCE_NO,
+			A.EX_CT,
+			PKG.PACKING_NO,
+			PKG.DELETE_YN
+		FROM
+			TB_BMS_IN_PLAN A WITH (NOLOCK)
+		LEFT JOIN TB_BMS_IN_PLAN_PKG PKG WITH (NOLOCK) 
+			ON PKG.IN_PLAN_NO = A.IN_PLAN_NO
+		WHERE
+			A.IN_PLAN_NO = #{inPlanNo}
+	</select>
+	
+	<select id="selectCargoPrintNo" parameterType="HashMap" resultType="HashMap">
+		/* PdaCargoMapper.selectCargoPrintNo : 화물 순번 조회 */
+		SELECT 
+			PRINT_NO 
+		FROM TB_BMS_INSPECT_PRINT_NO 
+		WHERE CARGO_REFERENCE_NO = #{CARGO_REFERENCE_NO}
+	</select>
+	
+	<select id="selectHoldInfoCnt" parameterType="HashMap" resultType="Integer">
+		/* PdaCargoMapper.selectHoldInfoCnt : 화물조회 홀드 정보 조회 */
+		SELECT
+			COUNT(OD_JOB_NO)
+		FROM 
+			TB_ECM_OD_HOLD
+		WHERE 
+			OD_JOB_NO = #{odJobNo}
+			AND (CARRYIN_STOP_YN = 'Y' OR CARRYOUT_STOP_YN = 'Y')
+	</select>
+	
+	<update id="updateHold" parameterType="HashMap">
+		/* PdaCargoMapper.updateHold : POD 이력 insert */
+		UPDATE TB_ECM_OD_HOLD SET
+			HOLD_RELEASE_YN = #{releaseYn}
+			, HOLD_RELEASE_REASON = #{releaseReason}
+		    , HOLD_RELEASE_ATTN = #{updateUserId}
+	        , HOLD_RELEASE_DATE = GETDATE()
+		WHERE OD_JOB_NO = #{odJobNo}
+		AND CARRYIN_STOP_YN = 'N'
+		AND CARRYOUT_STOP_YN = 'N'
+	</update>
+	
+	<insert id="insertPodHistory" parameterType="HashMap">
+		/* PdaCargoMapper.insertPodHistory : POD 이력 insert */
+			INSERT INTO ${podTableName}(
+				   ENT_CODE
+				  ,OD_JOB_NO
+				  ,POD_STATUS
+				  ,POD_NAME
+				  ,POD_DATE
+				  ,POD_TIME
+				  ,REMARKS
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{entCode}
+				  ,#{odJobNo}
+				  ,#{podStatus}
+				  ,#{podName}
+				  ,GETDATE()
+				  ,CONVERT(VARCHAR(5),GETDATE(), 108)
+				  ,#{remarks}
+				  ,#{updateUserId}
+				  ,GETDATE()
+				  ,#{updateUserId}
+				  ,GETDATE()
+			);
+	</insert>
+
+	<select id="selectInitBmsInInfo" parameterType="HashMap" resultType="carryIn">
+		/* PdaCargoMapper.selectInitBmsInInfo : 화물 조회 - 출고 후 재입고(반입) 데이터 조회 */
+		SELECT TOP 1
+			  bi.IN_NO
+			, bi.CUSTOMS_REPORT_NO
+			, CONVERT(CHAR(19), bi.LAST_POD_DATE , 20) AS LAST_POD_DATE
+			, bi.LAST_POD_STATUS
+			, bi.LAST_POD_5TL_STATUS
+			, CONVERT(CHAR(19), bi.LAST_POD_RAQ_DATE , 20) AS LAST_POD_RAQ_DATE
+			, bi.LAST_POD_R48_DATE
+			, bi.IN_CLASS
+			, bi.IN_APPROVAL_NO
+			, bi.TRANS_PERIOD_DATE
+			, bi.OD_JOB_NO
+			, bi.IN_PLAN_NO
+			, bi.CARGO_REFERENCE_NO
+			, bi.BL_NO
+			, bi.MBL_NO
+			, bi.CUSTOMS_CODE
+			, bi.CUSTOMS_DPT_CODE
+			, bi.INSPECT_YN
+			, bi.NOTICE_INSPECT_YN
+			, bi.LOCATION_PLACE
+			, bi.IMPORT_EXPORT_CLASS
+			, bi.VESSEL_FLIGHT
+			, bi.VOYAGE
+			, bi.AR_DATE
+			, bi.AR_TIME
+			, bi.COMMODITY_ITEM_LOC
+			, bi.SHIPPER_CODE
+			, bi.SHIPPER_NAME
+			, bi.SHIPPER_ADDRESS_1
+			, bi.SHIPPER_ADDRESS_2
+			, bi.CONSIGNEE_CODE
+			, bi.CONSIGNEE_NAME
+			, bi.CONSIGNEE_ADDRESS_1
+			, bi.CONSIGNEE_ADDRESS_2
+			, dbo.Cryptography(bi.OD_JOB_NO, bi.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+			, dbo.Cryptography(bi.OD_JOB_NO, bi.CONSIGNEE_TEL, 1) AS CONSIGNEE_TEL
+			, bi.NOTIFY_CODE
+			, bi.NOTIFY_NAME
+			, bi.NOTIFY_ADDRESS_1
+			, bi.NOTIFY_ADDRESS_2
+			, dbo.Cryptography(bi.OD_JOB_NO, bi.NOTIFY_TEL, 1) AS NOTIFY_TEL
+			, bi.SPECIAL_CODE_1
+			, bi.SPECIAL_CODE_2
+			, bi.SPECIAL_CODE_3
+			, bi.CARRIER_CODE
+			, bi.CNTR_NO
+			, bi.ORIG_COUNTRY
+			, bi.SE_INSPECTION_CODE
+			, bi.SIMPLE_AUTH_NAME
+			, bi.INSPECTION_TYPE
+			, bi.INSPECTION_TYPE_A
+			, bi.INSPECTION_TYPE_B
+			, bi.XRAY_INSPECTION_CODE
+			, bi.XRAY_LINE_NO
+			, bi.XRAY_CHECK
+			, bi.PALN5EM_INSPECTION_CODE
+			, bi.CD_TYPE
+			, bi.ECM_TYPE
+			, bi.CD_USE_TYPE
+			, bi.BIG_SIZE_YN
+			, bi.AMOUNT_USD
+			, bi.XRAY_SCAN_CT
+			, bi.XRAY_IMAGE_CT
+			, bi.CARRYIN_DATE
+			, CONVERT(CHAR(8), CONVERT(DATETIME,bi.CARRYIN_TIME), 24) AS CARRYIN_TIME
+			, bi.OUT_NOTICE_DATE
+			, bi.PERIOD_OVER_DATE
+			, bi.CUSTOMER_CODE
+			, bi.CUSTOMER_NAME
+			, bi.FWD_CODE
+			, bi.FWD_NAME
+			, bi.PKG_TYPE
+			, bi.EX_CT
+			, bi.EX_WT
+			, bi.EX_CBM
+			, bi.CT
+			, bi.WT
+			, bi.CBM
+			, bi.ACCIDENT_CLASS
+			, bi.ACCIDENT_CT
+			, bi.ACCIDENT_WT
+			, bi.ACCIDENT_CBM
+			, bi.STOCK_CT
+			, bi.STOCK_WT
+			, bi.STOCK_CBM
+			, bi.CARRYOUT_DATE
+			, CONVERT(CHAR(8), CONVERT(DATETIME,bi.CARRYOUT_TIME), 24) AS CARRYOUT_TIME
+			, bi.REMARKS_1 AS 'REMARKS1'
+			, bi.REMARKS_2 AS 'REMARKS2'
+			, bi.REMARKS_3 AS 'REMARKS3'
+			, bi.REFERENCE_NO
+			, bi.MGN_ISSUE_YN
+			, bi.REGISTER_USER_ID
+			, (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = bi.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			, bi.REGISTER_DATE_TIME
+			, bi.UPDATE_USER_ID
+			, (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = bi.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			, bi.UPDATE_DATE_TIME
+			, bi.DELIVERY_CODE
+			, bi.DELIVERY_NAME
+			, bi.ASSIGN_YN
+			, bi.CRIME_SELECTION_YN
+			, bi.INTELLECTUAL_PROP_YN
+			, bi.INSPECTION_CUSTOMS_YN
+			, ISNULL(oh.HOLD_YN,'N') AS HOLD_YN
+			, oh.HOLD_CODE
+			, oh.HOLD_REASON
+			, oh.HOLD_RELEASE_YN
+			, oh.HOLD_RELEASE_ATTN
+			, oh.HOLD_RELEASE_DATE
+		FROM 
+			TB_BMS_IN bi WITH (NOLOCK)
+			LEFT JOIN (
+				SELECT
+					'' AS HOLD_YN
+					,   MAX(OD_JOB_NO) AS OD_JOB_NO
+					,   MAX(HOLD_CODE) AS HOLD_CODE
+					,   MAX(HOLD_REASON) AS HOLD_REASON
+					,	MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+					,	MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+					,	MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+				FROM 
+					TB_ECM_OD_HOLD
+				GROUP BY OD_JOB_NO 
+			) oh ON oh.OD_JOB_NO = bi.OD_JOB_NO
+		WHERE 
+			1 = 1
+			AND bi.IN_PlAN_NO = #{inPlanNo}
+		ORDER BY bi.AR_DATE DESC, bi.AR_TIME DESC
+	</select>
+
+	<select id="selectInitBmsOutInfo" parameterType="HashMap" resultType="BmsOut">
+		/* PdaCargoMapper.selectInitBmsOutInfo : 화물 조회 - 출고 후 재입고(반출) 데이터 조회 */
+		SELECT TOP 1
+			OUT_NO
+			,  CUSTOMS_REPORT_NO
+			,  LAST_POD_DATE
+			,  LAST_POD_STATUS
+			,  LAST_POD_RAQ_DATE
+			,  APPROVAL_DATE
+			,  OUT_CLASS
+			,  OUT_APPROVAL_NO
+			,  OD_JOB_NO
+			,  IN_NO
+			,  OUT_PLAN_NO
+			,  CARGO_REFERENCE_NO
+			,  BL_NO
+			,  MBL_NO
+			,  DO_NO
+			,  DO_DATE
+			,  CUSTOMS_CODE
+			,  CUSTOMS_DPT_CODE
+			,  CUSTOMER_CODE
+			,  CUSTOMER_NAME
+			,  BROKER_CODE
+			,  BROKER_NAME
+			,  PKG_TYPE
+			,  APPROVAL_CT
+			,  APPROVAL_WT
+			,  APPROVAL_CBM
+			,  OUT_CT
+			,  OUT_WT
+			,  OUT_CBM
+			,  CARRYOUT_DATE
+			,  CARRYOUT_TIME
+			,  APPROVAL_DUTY
+			,  APPROVAL_APPRAISE_VALUE
+			,  INS_PAYMENT_TYPE
+			,  CURRENCY_CODE
+			,  INS_PAYMENT_YN
+			,  INSPECT_YN
+			,  HS_CODE
+			,  CRITERIA_CODE
+			,  INOUT_DATE_DIFF
+			,  REMARKS_1
+			,  REMARKS_2
+			,  REMARKS_3
+			,  REFERENCE_NO
+			,  REGISTER_USER_ID
+			,  REGISTER_DATE_TIME
+			,  UPDATE_USER_ID
+			,  UPDATE_DATE_TIME
+			, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = TBO.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = TBO.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM
+			TB_BMS_OUT TBO WITH (NOLOCK)
+		WHERE
+			1 = 1
+			AND IN_NO = (SELECT IN_NO FROM TB_BMS_IN WITH (NOLOCK) WHERE IN_PLAN_NO = #{inPlanNo})
+		ORDER BY TBO.CARRYOUT_DATE DESC, TBO.CARRYOUT_TIME DESC
+	</select>
+
+	<select id="selectEntBusOptionDate" parameterType="HashMap" resultType="HashMap">
+	/* PdaCargoMapper.selectEntBusOptionDate : 화물 조회 - 출고 후 재입고 반출통고/체화일자 조회 */
+		SELECT
+			CONVERT(VARCHAR(10),DATEADD(DAY,-30,DATEADD(MONTH, CAST( ISNULL(SET_VALUE,3) AS INT ), CONVERT(VARCHAR(10),GETDATE(),120))),120) AS OUT_NOTICE_DATE
+	     	, CONVERT(VARCHAR(10),DATEADD(MONTH, CAST( ISNULL(SET_VALUE,3) AS INT ), CONVERT(VARCHAR(10),GETDATE(),120)),120) AS PERIOD_OVER_DATE
+		FROM 
+			TB_SMS_ENT_BUS_OPTION
+		WHERE
+			ENT_CODE = #{entCode}
+			AND ENT_BUSINESS_CODE = #{entBusinessCode}
+			AND OPTION_CODE = 'A01'
+	</select>
+
+	<insert id="insertReStockInData" parameterType="CarryIn">
+		/* PdaCargoMapper.insertReStockInData : 화물 조회 - 출고 후 재입고 반입 데이터 생성 */
+		INSERT INTO TB_BMS_IN (
+		CUSTOMS_REPORT_NO
+		, LAST_POD_STATUS
+		, LAST_POD_RAQ_DATE
+		, LAST_POD_R48_DATE
+		, IN_CLASS
+		, IN_APPROVAL_NO
+		, TRANS_PERIOD_DATE
+		, OD_JOB_NO
+		, IN_PLAN_NO
+		, CARGO_REFERENCE_NO
+		, BL_NO
+		, MBL_NO
+		, CUSTOMS_CODE
+		, CUSTOMS_DPT_CODE
+		, INSPECT_YN
+		, NOTICE_INSPECT_YN
+		, LOCATION_PLACE
+		, IMPORT_EXPORT_CLASS
+		, VESSEL_FLIGHT
+		, VOYAGE
+		, AR_DATE
+		, AR_TIME
+		, COMMODITY_ITEM_LOC
+		, SHIPPER_CODE
+		, SHIPPER_NAME
+		, SHIPPER_ADDRESS_1
+		, SHIPPER_ADDRESS_2
+		, SHIPPER_TEL
+		, CONSIGNEE_CODE
+		, CONSIGNEE_NAME
+		, CONSIGNEE_ADDRESS_1
+		, CONSIGNEE_ADDRESS_2
+		, CONSIGNEE_BUSINESS_ID
+		, CONSIGNEE_TEL
+		, NOTIFY_CODE
+		, NOTIFY_NAME
+		, NOTIFY_ADDRESS_1
+		, NOTIFY_ADDRESS_2
+		, NOTIFY_TEL
+		, SPECIAL_CODE_1
+		, SPECIAL_CODE_2
+		, SPECIAL_CODE_3
+		, CARRIER_CODE
+		, CNTR_NO
+		, ORIG_COUNTRY
+		, SE_INSPECTION_CODE
+		, SIMPLE_AUTH_NAME
+		, INSPECTION_TYPE
+		, INSPECTION_TYPE_A
+		, INSPECTION_TYPE_B
+		, XRAY_INSPECTION_CODE
+		, XRAY_LINE_NO
+		, PALN5EM_INSPECTION_CODE
+		, CD_TYPE
+		, ECM_TYPE
+		, CD_USE_TYPE
+		, BIG_SIZE_YN
+		, AMOUNT_USD
+		, XRAY_SCAN_CT
+		, XRAY_IMAGE_CT
+		, CARRYIN_DATE
+		, CARRYIN_TIME
+		, OUT_NOTICE_DATE
+		, PERIOD_OVER_DATE
+		, CUSTOMER_CODE
+		, CUSTOMER_NAME
+		, FWD_CODE
+		, FWD_NAME
+		, PKG_TYPE
+		, EX_CT
+		, EX_WT
+		, EX_CBM
+		, CT
+		, WT
+		, CBM
+		, ACCIDENT_CLASS
+		, ACCIDENT_CT
+		, ACCIDENT_WT
+		, ACCIDENT_CBM
+		, STOCK_CT
+		, STOCK_WT
+		, STOCK_CBM
+		, CARRYOUT_DATE
+		, CARRYOUT_TIME
+		, REMARKS_1
+		, REMARKS_2
+		, REMARKS_3
+		, REFERENCE_NO
+		, MGN_ISSUE_YN
+		, REGISTER_USER_ID
+		, REGISTER_DATE_TIME
+		, UPDATE_USER_ID
+		, UPDATE_DATE_TIME
+		, DELIVERY_CODE
+		, DELIVERY_NAME
+		, DISPOSAL_YN
+		, CRIME_SELECTION_YN
+		, INTELLECTUAL_PROP_YN
+		, INSPECTION_CUSTOMS_YN
+		)
+		SELECT
+		#{customsReportNo} AS CUSTOMS_REPORT_NO
+		, 'BMSA3' AS LAST_POD_STATUS
+		, '' AS LAST_POD_RAQ_DATE
+		, '' AS LAST_POD_R48_DATE
+		, '' AS IN_CLASS
+		, '' AS IN_APPROVAL_NO
+		, '' AS TRANS_PERIOD_DATE
+		, #{odJobNo} AS OD_JOB_NO
+		, 0 AS IN_PLAN_NO
+		, #{cargoReferenceNo} AS CARGO_REFERENCE_NO
+		, #{blNo} AS BL_NO
+		, #{mblNo} AS MBL_NO
+		, A.CUSTOMS_CODE
+		, A.CUSTOMS_DPT_CODE
+		, 'N' AS INSPECT_YN
+		, 'N' AS NOTICE_INSPECT_YN
+		, '' AS LOCATION_PLACE
+		, #{importExportClass} AS IMPORT_EXPORT_CLASS
+		, #{vesselFlight} AS VESSEL_FLIGHT
+		, #{voyage} AS VOYAGE
+		, #{arDate} AS AR_DATE
+		, #{arTime} AS AR_TIME
+		, #{commodityItemLoc} AS COMMODITY_ITEM_LOC
+		, #{shipperCode} AS SHIPPER_CODE 
+		, #{shipperName} AS SHIPPER_NAME
+		, #{shipperAddress1} AS SHIPPER_ADDRESS_1
+		, #{shipperAddress2} AS SHIPPER_ADDRESS_2
+		, #{shipperTel} AS SHIPPER_TEL
+		, #{consigneeCode} AS CONSIGNEE_CODE
+		, #{consigneeName} AS CONSIGNEE_NAME
+		, #{consigneeAddress1} AS CONSIGNEE_ADDRESS_1
+		, #{consigneeAddress2} AS CONSIGNEE_ADDRESS_2
+		, #{consigneeBusinessId} AS CONSIGNEE_BUSINESS_ID
+		, #{consigneeTel} AS CONSIGNEE_TEL
+		, #{notifyCode} AS NOTIFY_CODE
+		, #{notifyName} AS NOTIFY_NAME
+		, #{notifyAddress1} AS NOTIFY_ADDRESS_1
+		, #{notifyAddress2} AS NOTIFY_ADDRESS_2
+		, #{notifyTel} AS NOTIFY_TEL
+		, #{specialCode1} AS SPECIAL_CODE_1
+		, #{specialCode2} AS SPECIAL_CODE_2
+		, #{specialCode3} AS SPECIAL_CODE_3
+		, #{carrierCode} AS CARRIER_CODE
+		, A.CNTR_NO
+		, #{origCountry} AS ORIG_COUNTRY
+		, #{seInspectionCode} AS SE_INSPECTION_CODE
+		, #{simpleAuthName} AS SIMPLE_AUTH_NAME
+		, #{inspectionType} AS INSPECTION_TYPE
+		, #{inspectionTypeA} AS INSPECTION_TYPE_A
+		, #{inspectionTypeB} AS INSPECTION_TYPE_B
+		, #{xrayInspectionCode} AS XRAY_INSPECTION_CODE
+		, #{xrayLineNo} AS XRAY_LINE_NO
+		, #{paln5emInspectionCode} AS PALN5EM_INSPECTION_CODE
+		, #{cdType} AS CD_TYPE
+		, #{ecmType} AS ECM_TYPE
+		, #{cdUseType} AS CD_USE_TYPE
+		, #{bigSizeYn} AS BIG_SIZE_YN
+		, #{amountUsd} AS AMOUNT_USD
+		, 0 AS XRAY_SCAN_CT
+		, 0 AS XRAY_IMAGE_CT
+		, CONVERT(DATE, GETDATE(), ${dateFormat}) AS CARRYIN_DATE
+		, CONVERT(CHAR(8), GETDATE(), 8) AS CARRYIN_TIME
+		, #{outNoticeDate} AS OUT_NOTICE_DATE
+		, #{periodOverDate} AS PERIOD_OVER_DATE
+		, #{customerCode}	AS CUSTOMER_CODE
+		, #{customerName}	AS CUSTOMER_NAME
+		, #{fwdCode}	AS FWD_CODE
+		, #{fwdName}	AS FWD_NAME
+		, #{pkgType}	AS PKG_TYPE
+		, #{exCt}		AS EX_CT
+		, #{exWt}	    AS EX_WT
+		, #{exCbm}	    AS EX_CBM
+		, #{ct}	        AS CT
+		, #{wt}	        AS WT
+		, #{cbm}	    AS CBM
+		, 'OKY' AS ACCIDENT_CLASS
+		, 0 AS ACCIDENT_CT
+		, 0 AS ACCIDENT_WT
+		, 0 AS ACCIDENT_CBM
+		, 0 AS STOCK_CT
+		, 0 AS STOCK_WT
+		, 0 AS STOCK_CBM
+		, CONVERT(DATE, GETDATE(), ${dateFormat}) AS CARRYOUT_DATE
+		, CONVERT(CHAR(8), GETDATE(), 8) AS CARRYOUT_TIME
+		, '화물조회 출고후재반입' AS REMARKS_1
+		, '' AS REMARKS_2
+		, '' AS REMARKS_3
+		, #{referenceNo} AS REFERENCE_NO
+		, #{mgnIssueYn} AS MGN_ISSUE_YN
+		, #{registerUserId} AS REGISTER_USER_ID
+		, GETDATE() AS REGISTER_DATE_TIME
+		, #{updateUserId} AS UPDATE_USER_ID
+		, GETDATE() AS UPDATE_DATE_TIME
+		, #{deliveryCode}  AS DELIVERY_CODE
+		, #{deliveryName} AS DELIVERY_NAME
+		, #{disposalYn} AS DISPOSAL_YN
+		, #{crimeSelectionYn} AS CRIME_SELECTION_YN
+		, #{intellectualPropYn} AS INTELLECTUAL_PROP_YN
+		, #{inspectionCustomsYn} AS INSPECTION_CUSTOMS_YN
+		FROM TB_BMS_IN_PLAN A WITH (NOLOCK)
+		<!-- LEFT JOIN TB_BMS_XRAY_RESULT xr
+		ON xr.IN_PLAN_NO = A.IN_PLAN_NO -->
+		WHERE 
+			1 = 1
+			AND A.IN_PLAN_NO = #{inPlanNo}
+	</insert>
+
+	<insert id="insertReStockOutData" parameterType="BmsOut" useGeneratedKeys="true" keyProperty="outNo">
+		/* PdaCargoMapper.insertReStockOutData : 화물 조회 - 출고 후 재입고 반출 데이터 생성 */
+		INSERT INTO TB_BMS_OUT (
+		CUSTOMS_REPORT_NO
+		,  LAST_POD_DATE
+		,  LAST_POD_STATUS
+		,  LAST_POD_RAQ_DATE
+		,  APPROVAL_DATE
+		,  OUT_CLASS
+		,  OUT_APPROVAL_NO
+		,  OD_JOB_NO
+		,  IN_NO
+		,  OUT_PLAN_NO
+		,  CARGO_REFERENCE_NO
+		,  BL_NO
+		,  MBL_NO
+		,  DO_NO
+		,  DO_DATE
+		,  CUSTOMS_CODE
+		,  CUSTOMS_DPT_CODE
+		,  CUSTOMER_CODE
+		,  CUSTOMER_NAME
+		,  BROKER_CODE
+		,  BROKER_NAME
+		,  PKG_TYPE
+		,  APPROVAL_CT
+		,  APPROVAL_WT
+		,  APPROVAL_CBM
+		,  OUT_CT
+		,  OUT_WT
+		,  OUT_CBM
+		,  CARRYOUT_DATE
+		,  CARRYOUT_TIME
+		,  APPROVAL_DUTY
+		,  APPROVAL_APPRAISE_VALUE
+		,  INS_PAYMENT_TYPE
+		,  CURRENCY_CODE
+		,  INS_PAYMENT_YN
+		,  INSPECT_YN
+		,  HS_CODE
+		,  CRITERIA_CODE
+		,  INOUT_DATE_DIFF
+		,  REMARKS_1
+		,  REMARKS_2
+		,  REMARKS_3
+		,  REFERENCE_NO
+		,  REGISTER_USER_ID
+		,  REGISTER_DATE_TIME
+		,  UPDATE_USER_ID
+		,  UPDATE_DATE_TIME
+		)
+		VALUES (
+		#{customsReportNo}
+		, ''
+		, 'BMSA3'
+		, ''
+		, CONVERT(DATE, GETDATE(), 23)
+		, ''
+		, ''
+		, #{odJobNo}
+		, #{inNo}
+		, ''
+		, #{cargoReferenceNo}
+		, #{blNo}
+		, #{mblNo}
+		, #{doNo}
+		, #{doDate}
+		, #{customsCode}
+		, #{customsDptCode}
+		, #{customerCode}
+		, #{customerName}
+		, #{brokerCode}
+		, #{brokerName}
+		, #{pkgType}
+		, #{approvalCt}
+		, #{approvalWt}
+		, #{approvalCbm}
+		, #{outCt}
+		, #{outWt}
+		, #{outCbm}
+		, CONVERT(DATE, GETDATE(), 23)
+		, CONVERT(CHAR(8), GETDATE(), 8)
+		, #{approvalDuty}
+		, #{approvalAppraiseValue}
+		, #{insPaymentType}
+		, #{currencyCode}
+		, #{insPaymentYn}
+		, #{inspectYn}
+		, #{hsCode}
+		, #{criteriaCode}
+		, ''
+		, '화물조회 출고후재반입'
+		, ''
+		, ''
+		, #{referenceNo}
+		, #{registerUserId}
+		,  GETDATE()
+		, #{updateUserId}
+		, GETDATE()
+		)
+	</insert>
+
+	<select id="selectSortHistoryMsg" parameterType="HashMap" resultType="String">
+	/* PdaCargoMapper.selectSortHistoryMsg : 화물 조회 - 분류 메세지 조회 */
+		SELECT TOP 1 
+			CASE 
+				WHEN OUT_RSN_CD = '1' THEN SRT_TYPE_NM
+				ELSE OUT_RSN_NM 
+			END AS SRT_TYPE_NM 
+		FROM TB_BMS_SORT_RESULT 
+		WHERE BOX_ID = #{packingNo}
+		ORDER BY REGISTER_DATE_TIME DESC
+	</select>
+
+	<select id="selectXrayPassTime" parameterType="HashMap" resultType="String">
+	/* PdaCargoMapper.selectXrayPassTime : 화물 조회 - 판독 일시 조회 */
+		SELECT TOP 1 
+			FORMAT(CAST(REGISTER_DATE_TIME AS DATETIME), 'yy.MM.dd HH:mm:ss') AS XRAY_PASS_TIME
+		FROM 
+			TB_BMS_XRAY_HISTORY
+		WHERE 
+			PACKING_NO = #{packingNo}
+		ORDER BY REGISTER_DATE_TIME DESC
+	</select>
+
+	<select id="selectAdviceWork" parameterType="HashMap" resultType="String">
+	/* PdaCargoMapper.selectAdviceWork : 화물 조회 - 업무권고 조회 */
+		SELECT dbo.FN_GET_GUIDETODO(#{packingNo})
+	</select>
+</mapper>

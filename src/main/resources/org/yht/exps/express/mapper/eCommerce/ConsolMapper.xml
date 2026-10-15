@@ -1,0 +1,1883 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.ConsolMapper">
+	
+	<select id="selectMasterOrderList" parameterType="searchConsolOrderList" resultType="consolMasterOrder">
+		/* ConsolMapper.selectMasterOrderList : Consol MasterOrder List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			A.*
+			, COUNT(A.MBL_NO) OVER() AS SUM_COUNT
+			, SUM(A.HBL_CNT) OVER() AS SUM_HBLNO
+			, SUM(A.HBL_PIECES) OVER() AS SUM_PIECES
+			, SUM(A.HBL_GWT) OVER() AS SUM_GWT
+			, SUM(A.HBL_CBM) OVER() AS SUM_CBM
+			, (SELECT obl.OBL_JOB_NO FROM TB_COM_OD cod INNER JOIN TB_COM_OBL obl ON obl.OBL_JOB_NO = cod.OBL_JOB_NO WHERE cod.OD_JOB_NO = A.OD_JOB_NO) AS OBL_JOB_NO
+		FROM
+		(
+			SELECT
+				 MAX(mod.FINISH_YN) AS FINISH_YN
+				,MAX(mod.OB_DATE) AS OB_DATE
+				,MAX(mod.AR_DATE) AS AR_DATE
+				,MAX(mod.CUST_CODE_LV1) AS CUST_CODE_LV1
+				,MAX(mod.LINE_CODE) AS LINE_CODE
+				,MAX(mod.LINE_NAME) AS LINE_NAME
+				,MAX(mod.VOYAGE) AS VOYAGE
+				,MAX(mod.VESSEL_FLIGHT) AS VESSEL_FLIGHT
+				,MAX(mod.ORIG_CODE) AS ORIG_CODE
+				,MAX(mod.ORIG_COUNTRY) AS ORIG_COUNTRY
+				,MAX(mod.DEST_COUNTRY) AS DEST_COUNTRY
+				,MAX(mod.DEST_CODE) AS DEST_CODE
+				,MAX(mod.DEST_PORT) AS DEST_PORT
+				,MAX(mod.MBL_NO) AS MBL_NO
+				,MAX(mod.CUSTOMS_CODE) AS CUSTOMS_CODE
+				,MAX(mod.CUSTOMS_DPT_CODE) AS CUSTOMS_DPT_CODE
+				,MAX(mod.ASSIGNMENT_WH_CODE) AS ASSIGNMENT_WH_CODE
+				,MAX(mod.DISC_WH_CODE) AS DISC_WH_CODE
+				,COUNT(od.OD_JOB_NO) AS HBL_CNT
+				,SUM(od.PIECES) AS HBL_PIECES
+				,SUM(od.GWT) AS HBL_GWT
+				,SUM(od.CBM) AS HBL_CBM
+				,COUNT(CASE od.CD_TYPE WHEN 'Y' THEN 1 END) AS CD_TYPE1_CNT
+				,COUNT(CASE od.CD_TYPE WHEN 'N' THEN 1 END) AS CD_TYPE2_CNT
+				,COUNT(CASE od.CD_TYPE WHEN 'B' THEN 1 END) AS CD_TYPE3_CNT
+				,COUNT(CASE od.CD_TYPE WHEN 'E' THEN 1 END) AS CD_TYPE4_CNT
+				,mod.OD_JOB_NO
+				,MAX(mod.BOUND) AS BOUND
+				,MAX(mod.BOUND_TYPE) AS BOUND_TYPE
+				,MAX(mod.OB_TIME) AS OB_TIME
+				,MAX(mod.AR_TIME) AS AR_TIME
+				,(SELECT CUSTOMER_NAME_ENG FROM TB_SMS_CUSTOMER WHERE ENT_CODE = MAX(mod.ENT_CODE) AND CUSTOMER_CODE = MAX(mod.CUST_CODE_LV1)) AS CUST_NAME_LV1
+				,(SELECT CASE ISNULL(MF_USER_ID, '') WHEN '' THEN 'N' ELSE 'Y' END FROM TB_ECM_OD_ADDITIONAL WHERE OD_JOB_NO = mod.OD_JOB_NO) AS SEND_MANIFEST_YN
+				,COUNT(CASE WHEN ISNULL(od.ECM_YN,'') = 'Y' THEN 1 END) AS ECM_Y_CNT
+				,COUNT(CASE WHEN (ISNULL(od.ECM_YN,'') = '' OR od.ECM_YN = 'N') AND od.BL_TYPE_MH IS NOT NULL THEN 1 END) AS ECM_N_CNT
+				<!-- 콘솔마스터 그리드 조회시에 해당내용있을경우 속도 느려짐     콘솔팝업화면에서만 사용해서 조건 추가함 -->
+				<if test="srchMasterOdJobNo != null and srchMasterOdJobNo != ''">
+				,MAX(CASE WHEN ISNULL(ad.SIMPLE_EDI_STATUS, '') NOT IN ('', 'ERROR') THEN 'Y' END) AS SEND_SIMPLE_DOC_YN
+				</if>
+				
+				<if test="userLanguage != null and userLanguage != ''">
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = MAX(mod.ENT_CODE) AND CODE = MAX(mod.ORIG_CODE) AND GROUP_CODE = 'CITY_PORT') AS ORIG_NAME
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = MAX(mod.ENT_CODE) AND CODE = MAX(mod.DEST_CODE) AND GROUP_CODE = 'CITY_PORT') AS DEST_NAME
+				</if>
+			FROM TB_ECM_OD mod
+				 LEFT JOIN TB_ECM_OD od
+				 		   ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+				 		   AND od.BL_TYPE_MH = 'H'
+				 LEFT JOIN TB_ECM_OD_ADDITIONAL ad
+				 		   ON ad.OD_JOB_NO = od.OD_JOB_NO
+			<!-- parameter 추가시 SearchConsolOrderList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.ConsolMapper.selectMasterOrderListWhere" />
+			AND mod.BL_TYPE_MH = 'M'
+			AND mod.HBL_NO IS NULL
+			GROUP BY mod.OD_JOB_NO
+			
+		)A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<!-- parameter 추가시 SearchConsolOrderList에 추가 -->
+	<sql id="selectMasterOrderListWhere">
+		WHERE 1 = 1
+		<if test='srchNoRecords == "Y"'>
+		AND 1 = 0
+		</if>
+		<if test="srchEcmCustomerCode != null and srchEcmCustomerCode != ''">
+		AND (mod.CUST_CODE_LV${level} = #{srchEcmCustomerCode} OR od.CUST_CODE_LV1 = #{srchEcmCustomerCode})
+		</if>
+		<if test="srchMasterOdJobNo != null and srchMasterOdJobNo != ''">
+		AND mod.OD_JOB_NO = #{srchMasterOdJobNo}
+		</if>
+		<if test="srchCuslv1 != null and srchCuslv1 != ''">
+		AND ${srchCusType} = #{srchCuslv1}
+		</if>
+		<if test="srchCuslv2 != null and srchCuslv2 != ''">
+		AND ${srchCusType} = #{srchCuslv2}
+		</if>
+		
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+			<when test='searchType == "multi"'>
+			AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			<otherwise>
+			AND ${srchNoType} LIKE CONCAT(#{srchNo},'%')
+			</otherwise>
+			</choose>
+		</if>
+		<choose>
+			<when test='srchBoundType == "AO"'>
+			AND mod.BOUND = 'AIR' AND mod.BOUND_TYPE = 'EXP'
+			</when>
+			<when test='srchBoundType == "AI"'>
+			AND mod.BOUND = 'AIR' AND mod.BOUND_TYPE = 'IMP'
+			</when>
+			<when test='srchBoundType == "SO"'>
+			AND mod.BOUND = 'SEA' AND mod.BOUND_TYPE = 'EXP'
+			</when>
+			<when test='srchBoundType == "SI"'>
+			AND mod.BOUND = 'SEA' AND mod.BOUND_TYPE = 'IMP'
+			</when>
+		</choose>
+		<choose>
+			<when test='srchDateGbn == "OB_DATE"'>
+			AND mod.OB_DATE >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND mod.OB_DATE <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</when>
+			<when test='srchDateGbn == "AR_DATE"'>
+			AND mod.AR_DATE >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND mod.AR_DATE <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</when>
+			<when test='srchDateGbn == "PO_DATE"'>
+			AND mod.PO_DATE >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND mod.PO_DATE <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</when>
+		</choose>
+		<if test="srchOrigCode != null and srchOrigCode != ''">
+		AND mod.ORIG_CODE = #{srchOrigCode}
+		</if>
+		<if test="srchDestCode != null and srchDestCode != ''">
+		AND mod.DEST_CODE = #{srchDestCode}
+		</if>
+	</sql>
+	
+	<select id="selectHouseOrderList" parameterType="searchConsolOrderList" resultType="consolHouseOrder">
+		/* ConsolMapper.selectHouseOrderList : Consol HouseOrder List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			A.*
+			,COUNT(A.OD_JOB_NO) OVER() AS SUM_COUNT
+			,SUM(ISNULL(A.PIECES,0)) OVER() AS SUM_PIECES
+			,SUM(ISNULL(A.GWT,0)) OVER() AS SUM_GWT
+			,SUM(ISNULL(A.CBM,0)) OVER() AS SUM_CBM
+		FROM(	
+			SELECT
+				 od.CONSOL_YN
+				,od.CUST_CODE_LV1
+				,od.CUST_CODE_LV2
+				,od.PO_DATE
+				,od.PO_NO
+				,od.HBL_NO
+				,od.MBL_NO
+				,od.MASTER_OD_JOB_NO
+				,od.SHIPPER_NAME
+				,od.CONSIGNEE_NAME
+				,od.CONSIGNEE_NAME_LOC
+				,od.PIECES
+				,od.GWT
+				,od.AMOUNT_LOC
+				,od.AMOUNT_CUR
+				,od.COMMODITY_ITEM
+				,od.CD_TYPE
+				,od.CD_USE_TYPE
+				,od.ECM_TYPE
+				,od.OB_DATE
+				,od.AR_DATE
+				,od.BOUND
+				,od.BOUND_TYPE
+				,od.OD_JOB_NO
+				,od.ENT_BUSINESS_CODE
+				,od.CBM
+				,od.CUSTOMS_ID_TYPE
+				,od.ECM_BUY_TYPE
+				,od.AGENT_REG_NO
+				,od.AGENT_NAME
+				,od.SELLER_REG_NO
+				,od.SELLER_NAME
+				,od.SALES_BROKER_REG_NO
+				,od.SALES_BROKER_NAME
+				,od.ECM_YN
+				,STUFF((SELECT ',' + PO_NO FROM TB_ECM_OD_PO_INFO WHERE OD_JOB_NO = od.OD_JOB_NO FOR XML PATH('')) ,1 ,1, '') AS PO_NO_LIST
+				,od.REGISTER_USER_ID AS REGISTER_USER_NAME
+<!-- 				,(SELECT USER_LOGIN_ID FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = od.REGISTER_USER_ID) AS REGISTER_USER_NAME -->
+				<choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS CONSIGNEE_HP
+				,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS CUSTOMS_ID
+				</when>
+				<otherwise>
+				,od.CONSIGNEE_HP
+				,od.CUSTOMS_ID
+				</otherwise>
+				</choose>
+			FROM TB_ECM_OD od
+			<if test="(srchEntCode == 'TPCNK' or srchEntCode == 'YHTXX') and srchDateFormat != null and srchDateFormat != ''">
+				<if test="(srchNoHouse == null or srchNoHouse == '') and (srchMasterOdJobNo == null or srchMasterOdJobNo == '')">
+					 WITH (INDEX(TB_ECM_OD_X01))
+				</if>
+			</if>
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.BL_TYPE_MH = 'H'
+			<choose>
+			<when test="srchMasterOdJobNo != null and srchMasterOdJobNo != ''">
+				AND od.MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+				<if test="srchEcmCustomerCode != null and srchEcmCustomerCode != ''">
+					AND od.CUST_CODE_LV1 = #{srchEcmCustomerCode}
+				</if>
+			</when>
+			<otherwise>
+				AND od.CONSOL_YN = 'N'
+				AND ad.LAST_POD_STATUS >= 'ECM010'
+				AND ad.LAST_POD_STATUS != 'ECM040'
+				<choose>
+					<when test='srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+					<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+					<when test='srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+					<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+				</choose>
+				<choose>
+					<when test="srchDateFormat != null and srchDateFormat != ''">
+					AND od.PO_DATE >= CONVERT(DATE, #{srchHouseStartDate}, ${srchDateFormat}) 
+					AND od.PO_DATE <![CDATA[<=]]> CONVERT(DATE, #{srchHouseEndDate}, ${srchDateFormat})
+					</when>
+					<otherwise>
+					AND  1 = 0
+					</otherwise>
+				</choose>
+				<if test="srchHouseRegistUser != null and srchHouseRegistUser != ''">
+					AND (SELECT USER_LOGIN_ID FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = od.REGISTER_USER_ID) LIKE CONCAT('%',#{srchHouseRegistUser},'%')
+				</if>
+				<if test="srchEcmCustomerCode != null and srchEcmCustomerCode != ''">
+				AND od.CUST_CODE_LV${level} = #{srchEcmCustomerCode}
+				</if>
+				<if test="srchCuslv1 != null and srchCuslv1 != ''">
+				AND ${srchCusType} = #{srchCuslv1}
+				</if>
+				<if test="srchCuslv2 != null and srchCuslv2 != ''">
+				AND ${srchCusType} = #{srchCuslv2}
+				</if>
+<!-- 				<if test="srchNo != null and srchNo != ''"> -->
+<!-- 					<choose> -->
+<!-- 					<when test='searchType == "multi"'> -->
+<!-- 					AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>) -->
+<!-- 					</when> -->
+<!-- 					<otherwise> -->
+<!-- 					AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%') -->
+<!-- 					</otherwise> -->
+<!-- 					</choose> -->
+<!-- 				</if> -->
+				
+			</otherwise>
+			</choose>
+			<if test="srchNoHouse != null and srchNoHouse != ''">
+				<choose>
+				<when test='searchTypeHouse == "multi"'>
+				AND ${srchNoTypeHouse} IN (<foreach collection="searchNoHouseList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<otherwise>
+				AND ${srchNoTypeHouse} LIKE CONCAT('%',#{srchNoHouse},'%')
+				</otherwise>
+				</choose>
+			</if>
+			
+		) A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectImpMasterList" parameterType="searchConsolOrderList" resultType="consolMasterOrder">
+		/* ConsolMapper.selectImpMasterList : Consol 수입 Master List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 mod.OD_JOB_NO
+			,ad.SIMPLE_DOC_NO
+			,MAX(mod.MBL_NO) AS MBL_NO
+			,MAX(mod.AR_DATE) AS AR_DATE
+			,MAX(mod.ORIG_CODE) AS ORIG_CODE
+			,MAX(mod.BOUND) AS BOUND
+			,MAX(mod.BOUND_TYPE) AS BOUND_TYPE
+			,MAX(mod.DEST_PORT) AS DEST_PORT
+		FROM TB_ECM_OD mod
+			 LEFT JOIN TB_ECM_OD od
+			 		   ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+			 		   AND od.BL_TYPE_MH = 'H'
+			 LEFT JOIN TB_ECM_OD_ADDITIONAL ad
+			 		   ON ad.OD_JOB_NO = od.OD_JOB_NO
+		WHERE mod.BOUND = #{srchBound}
+		AND mod.BOUND_TYPE = 'IMP'
+		AND mod.BL_TYPE_MH = 'M'
+		AND mod.HBL_NO IS NULL
+		AND mod.AR_DATE >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+		AND mod.AR_DATE <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+			<when test='searchType == "multi"'>
+			AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			<otherwise>
+			AND ${srchNoType} LIKE CONCAT(#{srchNo},'%')
+			</otherwise>
+			</choose>
+		</if>
+		GROUP BY mod.OD_JOB_NO, ad.SIMPLE_DOC_NO
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectImpHouseList" parameterType="searchConsolOrderList" resultType="consolHouseOrder">
+		/* ConsolMapper.selectImpHouseList : Consol 수입 House List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 od.OD_JOB_NO
+			,od.HBL_NO
+			,od.ALLOWED_ITEM_CODE
+			,od.COMMODITY_ITEM
+		FROM TB_ECM_OD od
+		WHERE od.BOUND = #{srchBound}
+		AND od.BOUND_TYPE = 'IMP'
+		AND od.BL_TYPE_MH = 'H'
+		AND od.MASTER_OD_JOB_NO IS NULL
+		AND od.PO_DATE >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+		AND od.PO_DATE <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+			<when test='searchType == "multi"'>
+			AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			<otherwise>
+			AND ${srchNoType} LIKE CONCAT(#{srchNo},'%')
+			</otherwise>
+			</choose>
+		</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectImpHouseConsolList" parameterType="searchConsolOrderList" resultType="consolHouseOrder">
+		/* ConsolMapper.selectImpHouseConsolList : Consol 수입 House 콘솔건 List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 od.OD_JOB_NO
+			,od.HBL_NO
+			,od.BOUND
+			,od.BOUND_TYPE
+		FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+			 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			 			<choose>
+			 			<when test="srchSimpleDocNo != null and srchSimpleDocNo != ''">
+			 			AND ad.SIMPLE_DOC_NO = #{srchSimpleDocNo}
+			 			</when>
+			 			<otherwise>
+			 			AND ad.SIMPLE_DOC_NO IS NULL
+			 			</otherwise>
+			 			</choose>
+		WHERE od.MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+		AND od.BL_TYPE_MH = 'H'
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectExpMasterList" parameterType="searchConsolOrderList" resultType="consolMasterOrder">
+		/* ConsolMapper.selectExpMasterList : Consol 수출 Master List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 mod.OD_JOB_NO
+			,MAX(mod.MBL_NO) AS MBL_NO
+			,MAX(mod.OB_DATE) AS OB_DATE
+			,MAX(mod.VESSEL_FLIGHT) AS VESSEL_FLIGHT
+			,MAX(mod.ORIG_CODE) AS ORIG_CODE
+			,MAX(mod.DEST_CODE) AS DEST_CODE
+			,MAX(mod.BOUND) AS BOUND
+			,MAX(mod.BOUND_TYPE) AS BOUND_TYPE
+			,(SELECT COUNT(OD_JOB_NO) FROM TB_ECM_OD WHERE MASTER_OD_JOB_NO = mod.OD_JOB_NO AND BL_TYPE_MH = 'H') AS HBL_CNT
+		FROM TB_ECM_OD mod
+		WHERE mod.BOUND = #{srchBound}
+		AND mod.BOUND_TYPE = 'EXP'
+		AND mod.BL_TYPE_MH = 'M'
+		AND mod.HBL_NO IS NULL
+		AND mod.OB_DATE >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+		AND mod.OB_DATE <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+			<when test='searchType == "multi"'>
+			AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			<otherwise>
+			AND ${srchNoType} LIKE CONCAT(#{srchNo},'%')
+			</otherwise>
+			</choose>
+		</if>
+		GROUP BY mod.OD_JOB_NO
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectExpHouseList" parameterType="searchConsolOrderList" resultType="consolHouseOrder">
+		/* ConsolMapper.selectExpHouseList : Consol 수출 House List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 od.OD_JOB_NO
+			,od.HBL_NO
+			,od.SHIPPER_NAME
+			,CONCAT(ISNULL(od.SHIPPER_ADDRESS, ''), ISNULL(od.SHIPPER_ADDRESS_A, ''), ISNULL(od.SHIPPER_ADDRESS_B, ''), ISNULL(od.SHIPPER_ADDRESS_C, ''), ISNULL(od.SHIPPER_ADDRESS_D, '')) AS SHIPPER_ADDRESS
+			,od.CONSIGNEE_NAME
+			,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS CONSIGNEE_ADDRESS
+			,od.COMMODITY_ITEM
+		FROM TB_ECM_OD od
+		WHERE od.BOUND = #{srchBound}
+		AND od.BOUND_TYPE = 'EXP'
+		AND od.BL_TYPE_MH = 'H'
+		AND od.MASTER_OD_JOB_NO IS NULL
+		AND od.PO_DATE >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+		AND od.PO_DATE <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+			<when test='searchType == "multi"'>
+			AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			<otherwise>
+			AND ${srchNoType} LIKE CONCAT(#{srchNo},'%')
+			</otherwise>
+			</choose>
+		</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectExpHouseConsolList" parameterType="searchConsolOrderList" resultType="consolHouseOrder">
+		/* ConsolMapper.selectExpHouseConsolList : Consol 수출 House 콘솔건 List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 od.OD_JOB_NO
+			,od.HBL_NO
+			,od.BOUND
+			,od.BOUND_TYPE
+		FROM TB_ECM_OD od
+		WHERE od.MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+		AND od.BL_TYPE_MH = 'H'
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectConsolMasterInfo" parameterType="consolOrder" resultType="consolOrder">
+		/* ConsolMapper.selectConsolMasterInfo : 콘솔 마스터정보조회 */
+			SELECT <if test='action == "addConsol"'>TOP 1</if>
+				 mod.MBL_NO
+				,mod.MASTER_OD_JOB_NO
+				,mod.CUST_CODE_LV1
+				,mod.VENDER_ID_1
+				,mod.LINE_CODE
+				,mod.VESSEL_FLIGHT
+				,mod.ORIG_CODE
+				,mod.ORIG_NAME
+				,mod.OB_DATE
+				,mod.OB_TIME
+				,mod.DEST_CODE
+				,mod.DEST_NAME
+				,mod.AR_DATE
+				,mod.AR_TIME
+				,mod.ENT_CODE
+				,mod.ENT_BUSINESS_CODE
+				,mod.OD_JOB_NO
+				,mod.BOUND
+				,mod.BOUND_TYPE
+				,mod.FINISH_YN
+				,mod.ORIG_COUNTRY
+				,mod.DEST_COUNTRY
+				,mod.CUSTOMS_CODE
+				,mod.CUSTOMS_DPT_CODE
+				,mod.DEST_PORT
+				,mod.MRN
+				,mod.MSN
+				,mod.ASSIGNMENT_WH_CODE
+				,mod.DISC_WH_CODE
+				<!-- ,mod.FINISH_YN -->
+				,ad.CARRYOUT_CODE
+				,ad.SIMPLE_DOC_NO
+				,ad.SIMPLE_REPORT_USER_ID
+				,ad.EDI_MAILBOX_SEQ_NO
+				,CASE WHEN ISNULL(ad.MF_USER_ID, '') != '' THEN 'Y' ELSE 'N' END AS SEND_MF_YN
+				,ad.SIMPLE_EDI_STATUS
+				<choose>
+				<when test='action == "consol" or action == "addConsol" or action == "closeMasterConsol"'>
+				,destCode.ETC2 AS DEST_CODE_COUNTRY
+				,destCode.ETC3 AS DEST_CODE_AREA
+				<if test='action == "closeMasterConsol"'>
+				,(
+					SELECT COUNT(hod.OD_JOB_NO)
+					FROM TB_ECM_OD hod
+						 INNER JOIN TB_ECM_OD_ADDITIONAL had
+						 			ON had.OD_JOB_NO = hod.OD_JOB_NO
+						 			AND had.SIMPLE_DOC_NO = ad.SIMPLE_DOC_NO
+					WHERE hod.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+					AND hod.BL_TYPE_MH = 'H'
+				 ) AS MASTER_SIMPLE_DOC_NO_HBL_CNT
+				</if>
+				</when>
+				<when test='action == "saveManifest"'>
+				,ISNULL((
+					SELECT CASE WHEN MAX(ISNULL(hod.DOCUMENT_YN, '')) = 'Y' AND MIN(ISNULL(hod.DOCUMENT_YN, '')) != 'Y' THEN 'YN' WHEN MAX(ISNULL(hod.DOCUMENT_YN, '')) != 'Y' THEN 'N' ELSE 'Y' END
+					FROM TB_ECM_OD hod
+						 INNER JOIN TB_ECM_OD_ADDITIONAL had
+						 			ON had.OD_JOB_NO = hod.OD_JOB_NO
+						 			<choose>
+						 			<when test="oldSimpleDocNo != null and oldSimpleDocNo != ''">
+						 			AND had.SIMPLE_DOC_NO = #{oldSimpleDocNo}
+						 			</when>
+						 			<otherwise>
+						 			AND had.SIMPLE_DOC_NO IS NULL
+						 			</otherwise>
+						 			</choose>
+					WHERE hod.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+					AND hod.BL_TYPE_MH = 'H'
+					GROUP BY hod.MASTER_OD_JOB_NO
+				 ), 'N') AS DOCUMENT_YN
+				</when>
+				</choose>
+				,(SELECT COUNT(OD_JOB_NO) FROM TB_ECM_OD WHERE MASTER_OD_JOB_NO = mod.OD_JOB_NO AND BL_TYPE_MH = 'H') AS HBL_CNT
+				,(
+					SELECT COUNT(hod.OD_JOB_NO)
+					FROM TB_ECM_OD hod
+						 INNER JOIN TB_ECM_OD_ADDITIONAL had
+						 			ON had.OD_JOB_NO = hod.OD_JOB_NO
+					WHERE hod.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+					AND hod.BL_TYPE_MH = 'H'
+					AND ISNULL(had.SIMPLE_EDI_STATUS, '') NOT IN ('', 'ERROR')
+				 ) AS SIMPLE_EDI_SEND_CNT
+				,obl.ISSUING_CARRIERS
+				,obl.OBL_JOB_NO
+			FROM TB_ECM_OD mod
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = mod.OD_JOB_NO
+				 LEFT JOIN TB_COM_OD cod
+				 		   ON cod.OD_JOB_NO = mod.OD_JOB_NO
+				 LEFT JOIN TB_COM_OBL obl
+				 		   ON obl.OBL_JOB_NO = cod.OBL_JOB_NO
+				 <if test='action == "consol" or action == "addConsol" or action == "closeMasterConsol"'>
+				 LEFT JOIN TB_SMS_CODE_DETAIL destCode
+				 		   ON destCode.ENT_CODE = mod.ENT_CODE
+				 		   AND destCode.GROUP_CODE = 'CITY_PORT'
+				 		   AND destCode.CODE = mod.DEST_CODE
+				 </if>
+			<choose>
+			<when test='action == "addConsol"'>
+			WHERE mod.MBL_NO = #{mblNo} AND mod.BL_TYPE_MH = 'M'
+				<if test="noBoundConsol != null and noBoundConsol != ''">
+				 AND mod.BOUND_TYPE = #{boundType}
+				</if>
+			ORDER BY mod.REGISTER_DATE_TIME DESC
+			</when>
+			<otherwise>
+			WHERE mod.OD_JOB_NO = #{odJobNo}
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectMinSimpleDocNo" parameterType="HashMap" resultType="HashMap">
+		/* ConsolMapper.selectMinSimpleDocNo : 전송되지 않은 건 중 가장 오래된 제출번호 조회 */
+			SELECT TOP 1
+				 ad.SIMPLE_DOC_NO AS MIN_SIMPLE_DOC_NO
+				,CASE WHEN ad.SIMPLE_DOC_NO IS NULL THEN 3 WHEN od.BL_TYPE_MH = 'H' THEN 1 ELSE 2 END AS ORDER_BY_SEQ
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+			AND (
+				(od.BL_TYPE_MH = 'H' AND CASE WHEN od.DOCUMENT_YN = 'Y' THEN 'Y' ELSE 'N' END = #{documentYn} AND ISNULL(ad.SIMPLE_EDI_STATUS, '') IN ('', 'ERROR') AND ISNULL(ad.SIMPLE_ERROR_SEND_YN, '') != 'Y')
+				<if test='chkMasterSimpleDocNo == "Y"'>
+				OR od.BL_TYPE_MH = 'M'
+				</if>
+			)
+			ORDER BY ORDER_BY_SEQ, ad.SIMPLE_DOC_NO
+	</select>
+	
+	<insert id="insertMasterOrder" parameterType="consolOrder">
+		/* ConsolMapper.insertMasterOrder : 마스터오더 insert */
+			INSERT INTO TB_ECM_OD(
+				   OD_JOB_NO
+				  ,ENT_CODE
+				  ,ENT_BUSINESS_CODE
+				  ,SOLUTION
+				  ,BOUND
+				  ,BOUND_TYPE
+				  ,PO_DATE
+				  ,BL_TYPE_MH
+				  ,CONSOL_YN
+				  ,MBL_NO
+				  ,VOYAGE
+				  ,LINE_CODE
+				  ,LINE_NAME
+				  ,MASTER_OD_JOB_NO
+				  ,CUST_CODE_LV1
+				  ,CUST_CODE_LV2
+				  ,CUST_CODE_LV3
+				  ,CUST_CODE_LV4
+				  ,CUST_CODE_LV5
+				  ,CUST_CODE_LV6
+				  ,CUST_CODE_LV7
+				  ,VESSEL_FLIGHT
+				  ,ORIG_CODE
+				  ,ORIG_NAME
+				  ,ORIG_COUNTRY
+				  ,DEST_COUNTRY
+				  ,OB_DATE
+				  ,OB_TIME
+				  ,DEST_CODE
+				  ,DEST_NAME
+				  ,AR_DATE
+				  ,AR_TIME
+				  ,CUSTOMS_CODE
+				  ,CUSTOMS_DPT_CODE
+				  ,ASSIGNMENT_WH_CODE
+				  ,DISC_WH_CODE
+				  ,VENDER_ID_1
+				  <if test='boundType == "IMP"'>
+				  ,DEST_PORT
+				  </if>
+				  ,INPUT_METHOD
+				  <if test='profileName != null and profileName != ""'>
+				  	<if test='profileName == "bms11" or profileName == "hubn1"'>
+				  		,CUST_LV1_REMARK
+				  	</if>
+				  </if>
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{odJobNo}
+				  ,#{entCode}
+				  ,#{entBusinessCode}
+				  ,#{solution}
+				  ,#{bound}
+				  ,#{boundType}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,'M'
+				  ,#{consolYn}
+				  ,LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  ,#{voyage}
+				  ,#{lineCode}
+				  ,#{lineName}
+				  ,#{odJobNo}
+				  ,#{custCodeLv1}
+				  ,#{custCodeLv2}
+				  ,#{custCodeLv3}
+				  ,#{custCodeLv4}
+				  ,#{custCodeLv5}
+				  ,#{custCodeLv6}
+				  ,#{custCodeLv7}
+				  ,#{vesselFlight}
+				  ,#{origCode}
+				  ,#{origName}
+				  ,#{origCountry}
+				  ,#{destCountry}
+				  ,CONVERT(DATE, #{obDate}, ${dateFormat})
+				  ,#{obTime}
+				  ,#{destCode}
+				  ,#{destName}
+				  ,CONVERT(DATE, #{arDate}, ${dateFormat})
+				  ,#{arTime}
+				  ,#{customsCode}
+				  ,#{customsDptCode}
+				  ,#{assignmentWhCode}
+				  ,#{discWhCode}
+				  ,#{venderId1}
+				  <if test='boundType == "IMP"'>
+				  ,#{destPort}
+				  </if>
+				  ,'WEB'
+  				  <if test='profileName != null and profileName != ""'>
+				  	<if test='profileName == "bms11" or profileName == "hubn1"'>
+				  		,#{custLv1Remark}
+				  	</if>
+				  </if>
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			);
+			INSERT INTO TB_ECM_OD_ADDITIONAL(
+				   OD_JOB_NO
+				  ,SIMPLE_DOC_NO
+				  ,EDI_MAILBOX_SEQ_NO
+				  ,MASTER_OD_JOB_NO
+				  ,MBL_NO
+				  ,BL_TYPE_MH
+				  <if test='bound == "AIR" and boundType == "EXP"'>
+				  ,CARRYOUT_CODE
+				  </if>
+			)VALUES(
+				   #{odJobNo}
+				  ,#{simpleDocNo}
+				  ,#{ediMailboxSeqNo}
+				  ,#{odJobNo}
+				  ,LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  ,'M'
+				  <if test='bound == "AIR" and boundType == "EXP"'>
+				  ,#{carryoutCode}
+				  </if>
+			);
+	</insert>
+	
+	<select id="selectConsolIncongruityOrder" parameterType="consolOrder" resultType="HashMap">
+		/* ConsolMapper.selectConsolIncongruityOrder : 콘솔불가한 오더 조회 */
+			SELECT
+				 od.HBL_NO
+				,od.MBL_NO
+				,od.CONSOL_YN
+				,od.BOUND
+				,od.BOUND_TYPE
+				,od.CUST_CODE_LV1
+				,od.OD_JOB_NO
+				,od.ASSIGNMENT_WH_CODE
+			<choose>
+			<when test="hblNoList != null">
+				,od.ECM_YN
+				,od.HBL_NO AS BL_NO
+				,ad.LAST_POD_STATUS
+				,ad.CARRYOUT_CODE
+				,od.CURRENCY_CODE
+				,od.AMOUNT_CUR
+				,od.CD_TYPE
+				<if test='boundType == "EXP"'>
+				,od.ORIG_CODE
+				</if>
+				<if test='profileName != null and profileName != ""'>
+				  	<if test='profileName == "bms11" or profileName == "hubn1"'>
+  						,STUFF((
+					        SELECT ',' + CUST_CODE_LV1
+					        FROM tb_ecm_od custOd
+					        where custOd.HBL_NO IN(<foreach collection="hblNoList" item="item" separator=",">#{item}</foreach>)
+					        AND BL_TYPE_MH = 'H'
+					        AND (custOd.MASTER_OD_JOB_NO IS NULL OR custOd.MASTER_OD_JOB_NO = '')
+					        FOR XML PATH('')
+					    ),1,1,'') AS CUST_LV1_REMARK
+				  	</if>
+				  </if>
+				,CASE WHEN od.DOCUMENT_YN = 'Y' THEN 'Y' ELSE 'N' END AS DOCUMENT_YN
+				,SHIPPER_COUNTRY_CODE
+				,CONSIGNEE_COUNTRY_CODE
+				,DEST_COUNTRY
+				,od.DEST_COUNTRY AS DEST_COUNTRY_H
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.ENT_CODE = #{entCode}
+			AND od.HBL_NO IN(<foreach collection="hblNoList" item="item" separator=",">#{item}</foreach>)
+			AND (od.MASTER_OD_JOB_NO IS NULL OR od.MASTER_OD_JOB_NO = '')
+<!-- 			AND ( -->
+<!-- 				od.CONSOL_YN = 'Y' -->
+<!-- 				OR od.BOUND != #{bound} -->
+<!-- 				OR od.BOUND_TYPE != #{boundType} -->
+<!-- 				OR od.CUST_CODE_LV1 != #{custCodeLv1} -->
+<!-- 				OR od.CUST_CODE_LV1 IS NULL -->
+<!-- 				OR od.FINISH_YN = 'Y' -->
+<!-- 				OR ad.LAST_POD_STATUS = 'ECM040' -->
+<!-- 			) -->
+			</when>
+			<otherwise>
+				,od.MBL_NO AS BL_NO
+				,od.OB_DATE
+				,od.AR_DATE
+				,od.ORIG_CODE
+				,od.DEST_CODE
+				,od.DEST_COUNTRY
+				,SHIPPER_COUNTRY_CODE
+				,CONSIGNEE_COUNTRY_CODE
+				,od.DEST_COUNTRY AS DEST_COUNTRY_H
+			FROM TB_ECM_OD od
+			WHERE od.OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>)
+			<choose>
+				<when test="profileName != null and profileName != ''">
+					<if test='profileName == "bms11" or profileName == "hubn1"'>
+						AND (od.ORIG_CODE != #{origCode} OR od.DEST_CODE != #{destCode})
+				  	</if>
+				</when>
+				<otherwise>
+					AND (od.CUST_CODE_LV1 != #{custCodeLv1} OR od.ORIG_CODE != #{origCode} OR od.DEST_CODE != #{destCode})
+				</otherwise>
+			</choose>	
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectConsolTarget" parameterType="consolOrder" resultType="HashMap">
+		/* ConsolMapper.selectConsolTarget : 콘솔대상 조회 */
+			SELECT
+				 od.HBL_NO
+				,od.CURRENCY_CODE
+				,od.AMOUNT_CUR
+				,od.OD_JOB_NO
+				,'N' AS NEW_CONSOL_YN
+				,od.CD_TYPE
+				,od.BOUND
+				,od.BOUND_TYPE
+				,od.ORIG_CODE
+				,od.CUSTOMS_CODE
+				,od.CUSTOMS_DPT_CODE
+				,od.AMOUNT_LOC
+				,od.AMOUNT_USD
+				,od.EXCHANGE_RATE
+				,CASE WHEN od.DOCUMENT_YN = 'Y' THEN 'Y' ELSE 'N' END AS DOCUMENT_YN
+				,ad.SIMPLE_DOC_NO
+				,ad.CARRYOUT_CODE
+				,od.ASSIGNMENT_WH_CODE
+				,ad.EMS_APPROVAL_NO
+				,od.DEST_COUNTRY AS DEST_COUNTRH_H
+				,od.SHIPPER_COUNTRY_CODE
+				,od.CONSIGNEE_COUNTRY_CODE
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			<choose>
+			<when test="masterOdJobNoList != null and masterOdJobNoList != ''">
+			WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			<otherwise>
+			WHERE od.MASTER_OD_JOB_NO = #{odJobNo}
+			</otherwise>
+			</choose>
+			AND od.BL_TYPE_MH = 'H'
+	</select>
+	
+	<update id="updateComObl" parameterType="consolOrder">
+		/* ConsolMapper.updateComObl : 콘솔수정시 TB_COM_OBL 수정 */
+			UPDATE TB_COM_OBL SET
+				   MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  <if test='lineCode != "noUpdate"'>
+				  ,LINE_CODE = #{lineCode}
+				  ,LINE_NAME = #{lineName}
+				  </if>
+				  ,ORIG_CODE = #{origCode}
+				  ,ORIG_NAME = #{origName}
+				  ,OB_DATE = CONVERT(DATE, #{obDate},  ${dateFormat})
+				  ,OB_TIME = #{obTime}
+				  ,DEST_CODE = #{destCode}
+				  ,DEST_NAME = #{destName}
+				  ,AR_DATE = CONVERT(DATE, #{arDate},  ${dateFormat})
+				  ,AR_TIME = #{arTime}
+				  ,ISSUE_DATE = CONVERT(DATE, #{obDate},  ${dateFormat})
+				  ,ISSUING_CARRIERS = #{issuingCarriers}
+				  <choose>
+				  <when test='bound == "SEA"'>
+				  ,VESSEL_FLIGHT = #{vesselFlight}
+				  ,VESSEL_VOYAGE = #{voyage}
+				  </when>
+				  <otherwise>
+				  ,VIA_BY_A = #{vesselFlight}
+				  ,VESSEL_FLIGHT = #{vesselFlight}
+				  ,FWRD_CODE = #{fwrdCode}
+				  ,FWRD_NAME = #{fwrdName}
+				  ,FWRD_ADDRESS = SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 1, 60)
+				  ,FWRD_ADDRESS_A = SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 61, 60)
+				  ,FWRD_ADDRESS_B = SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 121, 60)
+				  ,FWRD_ADDRESS_C = SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 181, 60)
+				  ,FWRD_ADDRESS_D = SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 241, 60)
+				  ,SIGN_ACTING_AS = #{signActingAs}
+				  <if test="signHisAgent != null and signHisAgent != ''">
+				  ,SIGN_HIS_AGENT = #{signHisAgent}
+				  </if>
+					  <if test='boundType == "EXP"'>
+					  ,ISSUE_PLACE_CODE = #{origCode}
+					  </if>
+				  </otherwise>
+				  </choose>
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE OBL_JOB_NO = #{oblJobNo}
+	</update>
+	
+	<update id="updateComOrder" parameterType="consolOrder">
+		/* ConsolMapper.updateComOrder : 콘솔수정시 TB_COM_OD 수정 */
+			UPDATE TB_COM_OD SET
+				   MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  <choose>
+				  <when test='boundType == "EXP"'>
+				  ,OBAR_DATE = CONVERT(DATE, #{obDate},  ${dateFormat})
+				  ,ORIG_DEST_CODE = #{destCode}
+				  </when>
+				  <otherwise>
+				  ,OBAR_DATE = CONVERT(DATE, #{arDate},  ${dateFormat})
+				  ,ORIG_DEST_CODE = #{origCode}
+				  </otherwise>
+				  </choose>
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updateComOrderBus" parameterType="consolOrder">
+		/* ConsolMapper.updateComOrderBus : 콘솔수정시 TB_COM_OD_BUS 수정 */
+			UPDATE TB_COM_OD_BUS SET
+				   MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  <choose>
+				  <when test='boundType == "EXP"'>
+				  ,PORT_CODE = #{destCode}
+				  </when>
+				  <otherwise>
+				  ,PORT_CODE = #{origCode}
+				  </otherwise>
+				  </choose>
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updateConsolOrder" parameterType="consolOrder">
+		/* ConsolMapper.updateConsolOrder : 오더 콘솔 */
+			UPDATE TB_ECM_OD SET
+				   MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  ,MASTER_OD_JOB_NO = #{odJobNo}
+				  ,LINE_CODE = #{lineCode}
+				  ,LINE_NAME = #{lineName}
+				  ,VOYAGE = #{voyage}
+				  ,VESSEL_FLIGHT = #{vesselFlight}
+				  ,ORIG_CODE = #{origCode}
+				  ,ORIG_NAME = #{origName}
+				  ,OB_DATE = #{obDate}
+				  ,OB_TIME = #{obTime}
+				  ,DEST_CODE = #{destCode}
+				  ,DEST_NAME = #{destName}
+				  ,AR_DATE = #{arDate}
+				  ,AR_TIME = #{arTime}
+				  ,DEST_COUNTRY = #{destCountry}
+				  ,SHIPPER_COUNTRY_CODE = #{origCountry}
+				  ,CONSIGNEE_COUNTRY_CODE = #{destCountry}
+				  <if test="consolYn != null and consolYn != ''">
+				  ,CONSOL_YN = 'Y'
+				  </if>
+				  ,CUSTOMS_CODE = #{customsCode}
+				  ,CUSTOMS_DPT_CODE = #{customsDptCode}
+				  <if test='entCode != "UPSXK"'>
+				  ,ASSIGNMENT_WH_CODE = #{assignmentWhCode}
+				  ,ORIG_COUNTRY = #{origCountry}
+				  </if>
+				  ,DISC_WH_CODE = #{discWhCode}
+				  <if test='boundType == "IMP"'>
+				  ,DEST_PORT = #{destPort}
+				  </if>
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE OD_JOB_NO = #{odJobNo};
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   EDI_MAILBOX_SEQ_NO = #{ediMailboxSeqNo}
+				  ,MASTER_OD_JOB_NO = #{odJobNo}
+				  ,MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  <choose>
+				  <when test='simpleDocNo == "null"'>
+				  ,SIMPLE_DOC_NO = NULL
+				  </when>
+				  <when test="simpleDocNo != null and simpleDocNo != ''">
+				  ,SIMPLE_DOC_NO = #{simpleDocNo}
+				  </when>
+				  </choose>
+			WHERE OD_JOB_NO = #{odJobNo};
+			UPDATE TB_ECM_POD SET
+				   BL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+			WHERE OD_JOB_NO = #{odJobNo};
+			UPDATE TB_ECM_POD_01 SET
+				   BL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+			WHERE OD_JOB_NO = #{odJobNo};
+	</update>
+	
+	<update id="updateConsolOrderBatch" parameterType="order">
+		/* ConsolMapper.updateConsolOrderBatch : 오더 콘솔 */
+			UPDATE TB_ECM_OD SET
+				   MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  ,MASTER_OD_JOB_NO = #{masterOdJobNo}
+				  ,LINE_CODE = #{lineCode}
+				  ,LINE_NAME = #{lineName}
+				  ,VOYAGE = #{voyage}
+				  ,VESSEL_FLIGHT = #{vesselFlight}
+				  ,OB_DATE = #{obDate}
+				  ,OB_TIME = #{obTime}
+				  ,DEST_CODE = #{destCode}
+				  ,DEST_NAME = #{destName}
+				  ,AR_DATE = #{arDate}
+				  ,AR_TIME = #{arTime}
+				  <choose>
+				  	<when test='entCode != "UPSXK"'>
+						,DEST_COUNTRY = #{destCountry}
+						,SHIPPER_COUNTRY_CODE = #{origCountry}
+					    ,CONSIGNEE_COUNTRY_CODE = #{destCountry}			  	
+				  	</when>
+				  	<otherwise>
+				  		<choose>
+				  			<when test='bound == "AIR" and boundType == "EXP"'>
+						  		<if test="shipperCountryCode == null or shipperCountryCode == ''">
+									,SHIPPER_COUNTRY_CODE = #{origCountry}
+								</if>				  	
+								<if test="consigneeCountryCode == null or consigneeCountryCode == ''">
+									,CONSIGNEE_COUNTRY_CODE = #{destCountry}
+								</if>
+								<if test="destCountryH == null or destCountryH == ''">
+									,DEST_COUNTRY = #{destCountry}
+								</if>		
+				  			</when>
+				  			<otherwise>
+				  				,DEST_COUNTRY = #{destCountry}
+								,SHIPPER_COUNTRY_CODE = #{origCountry}
+							    ,CONSIGNEE_COUNTRY_CODE = #{destCountry}	
+				  			</otherwise>
+				  		</choose>
+				  	</otherwise>
+				  </choose>
+				  ,CONSOL_YN = 'Y'
+				  ,AMOUNT_LOC = #{amountLoc}
+				  ,AMOUNT_USD = #{amountUsd}
+				  ,EXCHANGE_RATE = #{exchangeRate}
+				  <if test='entCode != "UPSXK"'>
+				  ,ORIG_COUNTRY = #{origCountry}
+					  <if test="assignmentWhCode != null and assignmentWhCode != ''">
+					  ,ASSIGNMENT_WH_CODE = #{assignmentWhCode}
+					  </if>
+				  </if>
+				  ,DISC_WH_CODE = #{discWhCode}
+				  <if test='boundType == "IMP"'>
+				  ,DEST_PORT = #{destPort}
+				  ,CUSTOMS_CODE = #{customsCode}
+				  ,CUSTOMS_DPT_CODE = #{customsDptCode}
+				  ,ORIG_CODE = #{origCode}
+				  ,ORIG_NAME = #{origName}
+				  </if>
+				  <if test='boundType == "EXP"'>
+				  	<if test="expOrigYn != null and expOrigYn != ''">
+				  		,ORIG_CODE = #{origCode}
+				  	</if>
+				  </if>
+				  <if test='bound == "AIR" and boundType == "EXP"'>
+				  	<if test='shipperFax != "noUpdate"'>
+				  	,SHIPPER_FAX = #{shipperFax}
+				  	,CONSIGNEE_FAX = #{consigneeFax}
+				  	</if>
+				  </if>
+				  ,MRN = #{mrn}
+				  ,MSN = #{msn}
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  <if test='finishYn == "Y"'>
+				  ,FINISH_YN = 'Y'
+				  ,HSN = (SELECT CASE WHEN MAX(od.OD_JOB_NO) IS NULL THEN '0001' ELSE CONCAT(REPLICATE('0', 4 - LEN(MAX(ISNULL(od.HSN, 0)) + 1)), MAX(ISNULL(od.HSN, 0)) + 1) END FROM TB_ECM_OD od WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo} AND od.BL_TYPE_MH = 'H')
+				  </if>
+				  <if test="consolAction != null and consolAction != ''">
+				  	<if test='consolAction == "closeMasterConsol"'>
+					  ,VENDER_ID_1 = #{venderId1}
+				  	</if>
+				  </if>
+				  <if test="profileName != null and profileName != ''">
+				  	<if test='profileName == "bms11" or profileName == "hubn1"'>
+					  ,BOUND = #{bound}	  
+				  	</if>
+				  </if>
+			WHERE OD_JOB_NO = #{odJobNo};
+<!-- 			<choose> -->
+<!-- 			<when test="simpleDocNo != null and simpleDocNo != ''"> -->
+<!-- 				<choose> -->
+<!-- 				<when test='boundType == "IMP"'> -->
+<!-- 					UPDATE TB_ECM_OD_ADDITIONAL SET -->
+<!-- 						   EDI_MAILBOX_SEQ_NO = #{ediMailboxSeqNo} -->
+<!-- 						  ,MASTER_OD_JOB_NO = #{masterOdJobNo} -->
+<!-- 						  ,MBL_NO = LTRIM(RTRIM(#{mblNo})) -->
+<!-- 						  <if test='finishYn == "Y"'> -->
+<!-- 						  ,HSN = (SELECT HSN FROM TB_ECM_OD WHERE OD_JOB_NO = #{odJobNo}) -->
+<!-- 						  </if> -->
+<!-- 					WHERE OD_JOB_NO = #{odJobNo}; -->
+					
+<!-- 					UPDATE TB_ECM_OD_ADDITIONAL SET -->
+<!-- 						   <choose> -->
+<!-- 						   <when test='simpleDocNo == "null"'> -->
+<!-- 						   SIMPLE_DOC_NO = NULL -->
+<!-- 						   </when> -->
+<!-- 						   <when test="simpleDocNo != null and simpleDocNo != ''"> -->
+<!-- 						   SIMPLE_DOC_NO = #{simpleDocNo} -->
+<!-- 						   </when> -->
+<!-- 						   </choose> -->
+<!-- 					WHERE OD_JOB_NO = #{odJobNo} -->
+<!-- 					<choose> -->
+<!-- 					<when test="oldSimpleDocNo != null and oldSimpleDocNo != ''"> -->
+<!-- 					AND SIMPLE_DOC_NO = #{oldSimpleDocNo} -->
+<!-- 					</when> -->
+<!-- 					<otherwise> -->
+<!-- 					AND SIMPLE_DOC_NO IS NULL -->
+<!-- 					</otherwise> -->
+<!-- 					</choose> -->
+<!-- 					; -->
+<!-- 				</when> -->
+<!-- 				<otherwise> -->
+<!-- 					UPDATE TB_ECM_OD_ADDITIONAL SET -->
+<!-- 						   <choose> -->
+<!-- 						   <when test='simpleDocNo == "null"'> -->
+<!-- 						   SIMPLE_DOC_NO = NULL -->
+<!-- 						   </when> -->
+<!-- 						   <when test="simpleDocNo != null and simpleDocNo != ''"> -->
+<!-- 						   SIMPLE_DOC_NO = #{simpleDocNo} -->
+<!-- 						   </when> -->
+<!-- 						   </choose> -->
+<!-- 						  ,EDI_MAILBOX_SEQ_NO = #{ediMailboxSeqNo} -->
+<!-- 						  ,MASTER_OD_JOB_NO = #{masterOdJobNo} -->
+<!-- 						  ,MBL_NO = LTRIM(RTRIM(#{mblNo})) -->
+<!-- 						  ,CARRYOUT_CODE = #{carryoutCode} -->
+<!-- 						  <if test='finishYn == "Y"'> -->
+<!-- 						  ,HSN = (SELECT HSN FROM TB_ECM_OD WHERE OD_JOB_NO = #{odJobNo}) -->
+<!-- 						  </if> -->
+<!-- 					WHERE OD_JOB_NO = #{odJobNo}; -->
+<!-- 				</otherwise> -->
+<!-- 				</choose> -->
+<!-- 			</when> -->
+<!-- 			<otherwise> -->
+				UPDATE TB_ECM_OD_ADDITIONAL SET
+					   EDI_MAILBOX_SEQ_NO = #{ediMailboxSeqNo}
+					  ,MASTER_OD_JOB_NO = #{masterOdJobNo}
+					  ,MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+					  <if test="carryoutCode != null and carryoutCode != ''">
+					  ,CARRYOUT_CODE = #{carryoutCode}
+					  </if>
+					  <if test='finishYn == "Y"'>
+					  ,HSN = (SELECT HSN FROM TB_ECM_OD WHERE OD_JOB_NO = #{odJobNo})
+					  	<if test='action == "updateSimpleDocDate"'>
+					  	,SIMPLE_DOC_DATE = #{arDate}
+					  	,SIMPLE_DOC_TIME = #{arTime}
+					  	</if>
+					  </if>
+					  <choose>
+					  <when test='simpleDocNo == "null"'>
+					  ,SIMPLE_DOC_NO = NULL
+					  </when>
+					  <when test="simpleDocNo != null and simpleDocNo != ''">
+					  ,SIMPLE_DOC_NO = #{simpleDocNo}
+					  </when>
+					  </choose>
+				WHERE OD_JOB_NO = #{odJobNo};
+<!-- 			</otherwise> -->
+<!-- 			</choose> -->
+	</update>
+	
+	
+	<select id="selectFinishYnChk" parameterType="HashMap" resultType="HashMap">
+		/* ConsolMapper.selectFinishYnChk : 마감여부체크 */
+			SELECT
+				 od.FINISH_YN
+				<if test='action == "autoConsol"'>
+				,(
+					SELECT COUNT(hod.OD_JOB_NO)
+					FROM TB_ECM_OD hod
+						 INNER JOIN TB_ECM_OD_ADDITIONAL had
+						 			ON had.OD_JOB_NO = hod.OD_JOB_NO
+						 			AND had.SIMPLE_ERROR_SEND_YN = 'Y'
+						 			<choose>
+						 			<when test="simpleDocNo != null and simpleDocNo != ''">
+						 			AND had.SIMPLE_DOC_NO = #{simpleDocNo}
+						 			</when>
+						 			<otherwise>
+						 			AND had.SIMPLE_DOC_NO IS NULL
+						 			</otherwise>
+						 			</choose>
+					WHERE hod.MASTER_OD_JOB_NO = od.OD_JOB_NO
+					AND hod.BL_TYPE_MH = 'H'
+				 ) AS SIMPLE_ERROR_SEND_CNT
+				</if>
+			FROM TB_ECM_OD od
+			WHERE od.OD_JOB_NO = #{odJobNo}
+	</select>
+	
+	<select id="selectFinishYnChkList" parameterType="HashMap" resultType="HashMap">
+		/* ConsolMapper.selectFinishYnChkList : 마감여부체크 */
+		
+			WITH TMP AS(
+				SELECT ENT_CODE
+				, (CASE BL_TYPE_MH WHEN 'H' THEN null ELSE MBL_NO END ) as MBL_NO
+				, HBL_NO
+				FROM TB_ECM_OD
+				<choose>
+				<when test="odJobNoList != null">
+				WHERE OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<when test="masterOdJobNoList != null">
+				WHERE MASTER_OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<when test="blNoList != null">
+				WHERE <foreach collection="blNoList" item="item" separator="OR">(HBL_NO = #{item.HBL_NO} AND MBL_NO = #{item.MBL_NO})</foreach>
+				</when>
+				<otherwise>
+				WHERE HBL_NO IN(<foreach collection="hblNoList" item="item" separator=",">#{item}</foreach>)
+				</otherwise>
+				</choose>
+				AND FINISH_YN = 'Y'
+			)
+			SELECT  STUFF((SELECT ',' + MBL_NO FROM TMP WHERE ENT_CODE = tmp.ENT_CODE FOR XML PATH('')), 1, 1, '') AS mblNoStr
+			   , STUFF((SELECT ',' + HBL_NO FROM TMP WHERE ENT_CODE = tmp.ENT_CODE FOR XML PATH('')), 1, 1, '') AS hblNoStr 
+			FROM TMP tmp
+			GROUP BY ENT_CODE
+		
+	</select>
+	
+	<update id="updateCloseOrderDeconsol" parameterType="HashMap">
+		/* ConsolMapper.updateCloseOrderDeconsol : 마감하우스오더 콘솔해제 */
+			UPDATE TB_ECM_OD SET
+				   MBL_NO = NULL
+				  ,MASTER_OD_JOB_NO = NULL
+				  ,CONSOL_YN = 'N'
+				  ,FINISH_YN = 'N'
+				  ,HSN = NULL
+				  ,ASSIGNMENT_WH_CODE = NULL
+			<!-- WHERE OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>); -->
+			WHERE OD_JOB_NO = #{OD_JOB_NO}
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   SIMPLE_DOC_NO = NULL
+				   ,LAST_POD_STATUS = 'ECM055'
+				   ,LAST_POD_DATE = #{LAST_POD_DATE}
+				  <if test='boundType == "IMP"'>
+				  ,SIMPLE_DOC_DATE = NULL
+				  ,SIMPLE_DOC_TIME = NULL
+				  </if>
+<!-- 			WHERE OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>); -->
+			WHERE OD_JOB_NO = #{OD_JOB_NO};
+	</update>
+	
+	<update id="updateDeConsol" parameterType="consolRelease">
+		/* ConsolMapper.updateDeConsol : 하우스오더 콘솔해제 */
+			UPDATE TB_ECM_OD SET
+				   CONSOL_YN = 'N'
+				  ,MBL_NO = NULL
+				  ,LINE_CODE = NULL
+				  ,MASTER_OD_JOB_NO = NULL
+				  ,VESSEL_FLIGHT = NULL
+				  ,OB_DATE = NULL
+				  ,OB_TIME = NULL
+				  ,DEST_CODE = NULL
+				  ,DEST_NAME = NULL
+				  ,AR_DATE = NULL
+				  ,AR_TIME = NULL
+				  <if test='entCode != "UPSXK"'>
+				  ,ORIG_COUNTRY = NULL
+				  </if>
+				  ,DEST_COUNTRY = NULL
+<!-- 				  ,AMOUNT_LOC = 0 -->
+<!-- 				  ,AMOUNT_USD = CASE CURRENCY_CODE WHEN 'USD' THEN AMOUNT_USD ELSE 0 END -->
+<!-- 				  ,EXCHANGE_RATE = 0 -->
+				  <if test='boundType == "IMP"'>
+				  ,DEST_PORT = NULL
+				  ,ORIG_CODE = NULL
+				  ,ORIG_NAME = NULL
+				  ,CUSTOMS_CODE = NULL
+				  ,CUSTOMS_DPT_CODE = NULL
+				  ,ASSIGNMENT_WH_CODE = NULL
+				  </if>
+				  ,MRN = NULL
+				  ,MSN = NULL
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE 
+			<if test="odJobNo != null and odJobNo != ''">
+			OD_JOB_NO = #{odJobNo};
+			</if>
+			<if test="odJobNoList != null">
+			OD_JOB_NO IN (<foreach collection="odJobNoList" item="item" separator=",">#{item.odJobNo}</foreach>);
+			</if>
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   MASTER_OD_JOB_NO = NULL
+				  ,MBL_NO = NULL
+			WHERE 
+			<if test="odJobNo != null and odJobNo != ''">
+			OD_JOB_NO = #{odJobNo};
+			</if>
+			<if test="odJobNoList != null">
+			OD_JOB_NO IN (<foreach collection="odJobNoList" item="item" separator=",">#{item.odJobNo}</foreach>);
+			</if>
+	</update>
+	
+	<update id="updateConsolYn" parameterType="consolOrder">
+		/* ConsolMapper.updateConsolYn : 콘솔여부 업데이트 */
+			UPDATE TB_ECM_OD SET
+				   CONSOL_YN = #{consolYn}
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updateClose" parameterType="consolClose">
+		/* ConsolMapper.updateClose : 오더 마감 */
+<!-- 			UPDATE TB_ECM_OD SET -->
+<!-- 				   FINISH_YN = #{finishYn} -->
+<!-- 				  ,FINISH_USER_ID = #{updateUserId} -->
+<!-- 				  ,FINISH_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE()) -->
+<!-- 				  ,SELECTOR_USER_ID = #{selectorUserId} -->
+<!-- 				  ,CONFIRMER_USER_ID = #{confirmerUserId} -->
+<!-- 			WHERE MASTER_OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>) -->
+			UPDATE od SET
+				   od.FINISH_YN = #{finishYn}
+				  ,od.FINISH_USER_ID = #{updateUserId}
+				  ,od.FINISH_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  <if test='finishYn == "Y"'>
+				  ,od.SELECTOR_USER_ID = edi.EDI_SELECTOR_USER_ID
+				  ,od.SELECTOR_USER_NAME = (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = edi.ENT_CODE AND USER_ID = edi.EDI_SELECTOR_USER_ID)
+				  ,od.CONFIRMER_USER_ID = edi.EDI_CONFIRMER_USER_ID
+				  ,od.CONFIRMER_USER_NAME = (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = edi.ENT_CODE AND USER_ID = edi.EDI_CONFIRMER_USER_ID)
+				 <if test='entCode == "HUBNK"'>
+				  ,od.XRAY_READER1_NAME = (CASE WHEN ISNULL(edi.XRAY_READER1_NAME, '') != '' THEN edi.XRAY_READER1_NAME ELSE od.XRAY_READER1_NAME END)
+				  ,od.XRAY_READER2_NAME = (CASE WHEN ISNULL(edi.XRAY_READER2_NAME, '') != '' THEN edi.XRAY_READER2_NAME ELSE od.XRAY_READER2_NAME END)
+				  </if>
+				  </if>
+			FROM TB_ECM_OD od
+<!-- 				 LEFT JOIN TB_SMS_ENT_BUS_EDI_CODE edi -->
+<!-- 				 		   ON edi.ENT_CODE = od.ENT_CODE -->
+<!-- 				 		   AND edi.ENT_BUSINESS_CODE = od.ENT_BUSINESS_CODE -->
+<!-- 				 		   AND edi.BOUND = od.BOUND -->
+<!-- 				 		   AND edi.EDI_CITY_PORT = CASE od.BOUND_TYPE WHEN 'EXP' THEN od.ORIG_CODE ELSE od.DEST_PORT END -->
+				 <if test='finishYn == "Y"'>
+				 LEFT JOIN (
+				 	SELECT EDI_CITY_PORT, MAX(BOUND) AS BOUND, MAX(EDI_SELECTOR_USER_ID) AS EDI_SELECTOR_USER_ID, MAX(EDI_CONFIRMER_USER_ID) AS EDI_CONFIRMER_USER_ID, MAX(ENT_CODE) AS ENT_CODE
+				 	<if test='entCode == "HUBNK"'>
+				 	, MAX(XRAY_READER1_NAME) AS XRAY_READER1_NAME
+				 	, MAX(XRAY_READER2_NAME) AS XRAY_READER2_NAME
+				 	</if>
+				 	FROM TB_SMS_ENT_BUS_EDI_CODE
+				 	GROUP BY EDI_CITY_PORT
+				 ) edi
+				 		   ON edi.BOUND = od.BOUND
+				 		   AND edi.EDI_CITY_PORT = CASE od.BOUND_TYPE WHEN 'EXP' THEN od.ORIG_CODE ELSE od.DEST_PORT END
+				 </if>
+			WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>);
+			<if test='finishYn == "N" or boundType == "IMP"'>
+			UPDATE ad SET
+				   ad.OD_JOB_NO = ad.OD_JOB_NO
+				  <if test='finishYn == "N"'>
+				  ,ad.SIMPLE_DOC_NO = NULL
+				  </if>
+				  
+				  <if test='boundType == "IMP"'>
+				  <choose>
+				  <when test='finishYn == "N"'>
+				  ,ad.SIMPLE_DOC_DATE = NULL
+				  ,ad.SIMPLE_DOC_TIME = NULL
+				  </when>
+				  <when test='action == "updateSimpleDocDate"'>
+				  ,ad.SIMPLE_DOC_DATE = od.AR_DATE
+				  ,ad.SIMPLE_DOC_TIME = od.AR_TIME
+				  </when>
+				  </choose>
+				  </if>
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>);
+			</if>
+	</update>
+	
+	<update id="updateSimpleDocNoImp" parameterType="HashMap">
+		/* ConsolMapper.updateSimpleDocNoImp : 수입마감 통관목록제출번호 업데이트 */
+			UPDATE ad SET ad.SIMPLE_DOC_NO = #{simpleDocNo}
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+			<choose>
+			<when test='masterUpdateYn == "Y"'>
+			AND (CASE WHEN od.DOCUMENT_YN = 'Y' THEN 'Y' ELSE 'N' END = #{documentYn} OR od.BL_TYPE_MH = 'M')
+			</when>
+			<otherwise>
+			AND od.BL_TYPE_MH = 'H'
+			AND CASE WHEN od.DOCUMENT_YN = 'Y' THEN 'Y' ELSE 'N' END = #{documentYn}
+			</otherwise>
+			</choose>
+			<if test='ecmYnChk != null and ecmYnChk != ""'>
+				<if test='ecmYnChk == "Y"'>
+					AND od.ECM_YN = 'Y'
+				</if>
+			</if>
+	</update>
+	
+	<update id="updateSimpleDocNoExp" parameterType="HashMap">
+		/* ConsolMapper.updateSimpleDocNoExp : 수출마감 통관목록제출번호 업데이트 */
+			<include refid="org.yht.exps.express.mapper.CommonMapper.selectNextStockMaxNo"/>
+			UPDATE TB_ECM_OD_ADDITIONAL SET SIMPLE_DOC_NO = @RES_STOCK_NO
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updateSimpleDocNo" parameterType="order">
+		/* ConsolMapper.updateSimpleDocNo : 통관목록제출번호 업데이트 */
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   SIMPLE_DOC_NO = #{simpleDocNo}
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updateHsnNull" parameterType="consolClose">
+		/* ConsolMapper.updateHsnNull : 오더 마감취소시 HSN 초기화 */
+			UPDATE TB_ECM_OD SET
+				   HSN = NULL
+			WHERE MASTER_OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>);
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   HSN = NULL
+			WHERE MASTER_OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>);
+	</update>
+	
+	<delete id="deletePod" parameterType="consolClose">
+		/* ConsolMapper.deletePod : 오더 마감취소시 ECM055(콘솔마감) POD 삭제 */
+			DELETE pod
+			FROM TB_ECM_OD od
+				 LEFT JOIN TB_ECM_POD pod
+				 		   ON pod.OD_JOB_NO = od.OD_JOB_NO
+				 		   AND pod.POD_STATUS = 'ECM055'
+			WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>);
+			DELETE pod
+			FROM TB_ECM_OD od
+				 LEFT JOIN TB_ECM_POD_01 pod
+				 		   ON pod.OD_JOB_NO = od.OD_JOB_NO
+				 		   AND pod.POD_STATUS = 'ECM055'
+			WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>);
+	</delete>
+	
+	<insert id="updateLastPodStatus" parameterType="HashMap">
+		/* ConsolMapper.updateLastPodStatus : LAST_POD_STATUS 업데이트 */
+		UPDATE ad SET
+			   LAST_POD_STATUS = pod.POD_STATUS
+			  <!-- ,LAST_POD_DATE = CASE WHEN pod.POD_DATE IS NULL THEN NULL ELSE CONCAT(pod.POD_DATE, ' ' , pod.POD_TIME) END -->
+		FROM TB_ECM_OD_ADDITIONAL ad
+			 LEFT JOIN (
+			 	SELECT TOP 1 A.OD_JOB_NO, A.POD_STATUS, A.POD_DATE, A.POD_TIME
+			 	FROM(
+			 		SELECT #{odJobNo} AS OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD WHERE OD_JOB_NO = (SELECT MASTER_OD_JOB_NO FROM TB_ECM_OD WHERE OD_JOB_NO = #{odJobNo}) AND POD_STATUS IN ('ECM060','ECM070')
+			 		UNION ALL
+			 		SELECT #{odJobNo} AS OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_01 WHERE OD_JOB_NO = (SELECT MASTER_OD_JOB_NO FROM TB_ECM_OD WHERE OD_JOB_NO = #{odJobNo}) AND POD_STATUS IN ('ECM060','ECM070')
+			 		UNION ALL
+			 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD WHERE OD_JOB_NO = #{odJobNo} AND POD_STATUS NOT IN ('ECM060','ECM070')
+			 		UNION ALL
+			 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_01 WHERE OD_JOB_NO = #{odJobNo} AND POD_STATUS NOT IN ('ECM060','ECM070')
+			 		UNION ALL
+			 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_02 WHERE OD_JOB_NO = #{odJobNo}
+			 		UNION ALL
+			 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_03 WHERE OD_JOB_NO = #{odJobNo}
+			 		UNION ALL
+			 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_04 WHERE OD_JOB_NO = #{odJobNo} AND POD_STATUS IN ('ECM400', 'ECM420')
+			 	) A
+			 	ORDER BY A.POD_STATUS DESC
+			 ) pod
+			 		   ON pod.OD_JOB_NO = ad.OD_JOB_NO
+		WHERE ad.OD_JOB_NO = #{odJobNo}
+	</insert>
+	
+	<select id="selectCloseOrderList" parameterType="HashMap" resultType="HashMap">
+		/* ConsolMapper.selectCloseOrderList : 마감대상오더조회 */
+			SELECT
+				 od.OD_JOB_NO
+				,CASE od.BL_TYPE_MH WHEN 'M' THEN od.MBL_NO ELSE od.HBL_NO END AS BL_NO
+				,od.BL_TYPE_MH
+				,od.CD_TYPE
+				,od.BOUND
+				,od.BOUND_TYPE
+				,od.MBL_NO
+				,od.HBL_NO
+				,CASE WHEN od.DOCUMENT_YN = 'Y' THEN 'Y' ELSE 'N' END AS DOCUMENT_YN
+				<if test='srchType == "close"'>
+				,CASE WHEN ISNULL(od.ORIG_CODE, '') = '' THEN 'Y' END AS UPDATE_ORIG_CODE_YN
+				,CASE WHEN ISNULL(od.CUSTOMS_CODE, '') = '' AND ISNULL(od.CUSTOMS_DPT_CODE, '') = '' THEN 'Y' END AS UPDATE_CUSTOMS_CODE_YN
+				,mod.ORIG_CODE AS ORIG_CODE_M
+				,mod.CUSTOMS_CODE AS CUSTOMS_CODE_M
+				,mod.CUSTOMS_DPT_CODE AS CUSTOMS_DPT_CODE_M
+				</if>
+			FROM TB_ECM_OD od
+				 <if test='srchType == "close"'>
+				 INNER JOIN TB_ECM_OD mod
+				 			ON mod.OD_JOB_NO = od.MASTER_OD_JOB_NO
+				 </if>
+			WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+	</select>
+	
+	<update id="updateLoadingLocation" parameterType="HashMap">
+		/* ConsolMapper.updateLoadingLocation : 적재항/세관/과 업데이트 */
+			UPDATE TB_ECM_OD SET
+				   OD_JOB_NO = OD_JOB_NO
+				  <if test='UPDATE_ORIG_CODE_YN == "Y"'>
+				  ,ORIG_CODE = #{ORIG_CODE_M}
+				  </if>
+				  <if test='UPDATE_CUSTOMS_CODE_YN == "Y"'>
+				  ,CUSTOMS_CODE = #{CUSTOMS_CODE_M}
+				  ,CUSTOMS_DPT_CODE = #{CUSTOMS_DPT_CODE_M}
+				  </if>
+			WHERE OD_JOB_NO = #{OD_JOB_NO}
+	</update>
+	
+	<select id="selectOrderListModNo" parameterType="HashMap" resultType="HashMap">
+		/* ConsolMapper.selectOrderListModNo :  */
+			SELECT
+				 OD_JOB_NO
+				,BL_TYPE_MH
+				,BOUND
+				,BOUND_TYPE
+				,MBL_NO
+				,HBL_NO
+				,PO_DATE
+				,CASE BOUND_TYPE WHEN 'EXP' THEN OB_DATE ELSE AR_DATE END AS EXRATE_DATE
+				,CURRENCY_CODE
+				,AMOUNT_CUR
+			FROM TB_ECM_OD
+			<choose>
+			<when test="masterOdJobNo != null and masterOdJobNo != ''">
+			WHERE MASTER_OD_JOB_NO = #{masterOdJobNo}
+			</when>
+			<when test="odJobNoList != null">
+			WHERE OD_JOB_NO IN (<foreach collection="odJobNoList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			</when>
+			<otherwise>
+			WHERE MASTER_OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>)
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectHsnChk" parameterType="String" resultType="String">
+		/* ConsolMapper.selectHsnChk : 마감전 입력된 HSN이 있는지 체크 */
+			SELECT COUNT(OD_JOB_NO)
+			FROM TB_ECM_OD
+			WHERE MASTER_OD_JOB_NO = #{masterOdJobNo}
+			AND BL_TYPE_MH = 'H'
+			AND HSN != ''
+			AND HSN IS NOT NULL
+	</select>
+	
+	<select id="selectUpdateHsnList" parameterType="String" resultType="HashMap">
+		/* ConsolMapper.selectUpdateHsnList : HSN 업데이트할 오더 조회 */
+			SELECT OD_JOB_NO, MASTER_OD_JOB_NO
+			FROM TB_ECM_OD
+			WHERE MASTER_OD_JOB_NO = #{masterOdJobNo}
+			AND BL_TYPE_MH = 'H'
+			AND (HSN = '' OR HSN IS NULL)
+	</select>
+	
+	<update id="updateHsnMax" parameterType="HashMap">
+		/* ConsolMapper.updateHsnMax : 오더 마감시 MAX(HSN)+1 업데이트 */
+			UPDATE TB_ECM_OD SET
+				   HSN = (SELECT CONCAT(REPLICATE('0', 4 - LEN(MAX(ISNULL(HSN, 0)) + 1 )), MAX(ISNULL(HSN, 0)) + 1) FROM TB_ECM_OD WHERE MASTER_OD_JOB_NO = #{MASTER_OD_JOB_NO} AND BL_TYPE_MH = 'H')
+			WHERE OD_JOB_NO = #{OD_JOB_NO};
+			
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   HSN = (SELECT HSN FROM TB_ECM_OD WHERE OD_JOB_NO = #{OD_JOB_NO})
+			WHERE OD_JOB_NO = #{OD_JOB_NO};
+	</update>
+	
+	<update id="updateHsnOrderClose" parameterType="String">
+		/* ConsolMapper.updateHsnOrderClose : 오더 마감시 HSN 업데이트 */
+			UPDATE od SET
+				   od.HSN = CONCAT(REPLICATE('0', 4 - LEN(od.rowNum)), od.rowNum)
+			FROM (
+				SELECT HSN, ROW_NUMBER() OVER (ORDER BY HBL_NO) AS rowNum
+				FROM TB_ECM_OD
+				WHERE MASTER_OD_JOB_NO = #{masterOdJobNo}
+				AND BL_TYPE_MH = 'H'
+			) od;
+			
+			UPDATE ad SET
+				   ad.HSN = od.HSN
+			FROM TB_ECM_OD_ADDITIONAL ad
+				 INNER JOIN TB_ECM_OD od
+				 			ON od.OD_JOB_NO = ad.OD_JOB_NO
+			WHERE ad.MASTER_OD_JOB_NO = #{masterOdJobNo};
+	</update>
+	
+	<delete id="deleteMasterOrder" parameterType="consolClose">
+		/* ConsolMapper.deleteMasterOrder : 마스터오더 삭제 */
+			DELETE FROM TB_ECM_OD
+			WHERE OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>)
+	</delete>
+	
+	<delete id="deleteMasterOrderAdditional" parameterType="consolClose">
+		/* ConsolMapper.deleteMasterOrderAdditional : 마스터오더 삭제 */
+			DELETE FROM TB_ECM_OD_ADDITIONAL WHERE OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>);
+			DELETE FROM TB_ECM_OD_SELECTION WHERE OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>);
+			DELETE FROM TB_ECM_OD_SELECTION_ITEM WHERE OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>);
+			DELETE FROM TB_ECM_OD_SELECTION_ITEM_HBL WHERE OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>);
+	</delete>
+	
+	<update id="updateDeconsolAll" parameterType="consolClose">
+		/* ConsolMapper.updateDeconsolAll : 삭제마스터오더에 콘솔되어있던 하우스 콘솔해제 */
+			UPDATE TB_ECM_OD SET
+				   CONSOL_YN = 'N'
+				  ,MBL_NO = NULL
+				  ,MASTER_OD_JOB_NO = NULL
+				  ,LINE_CODE = NULL
+				  ,VESSEL_FLIGHT = NULL
+				  ,OB_DATE = NULL
+				  ,OB_TIME = NULL
+				  ,DEST_CODE = NULL
+				  ,DEST_NAME = NULL
+				  ,AR_DATE = NULL
+				  ,AR_TIME = NULL
+				  <if test='entCode != "UPSXK"'>
+				  ,ORIG_COUNTRY = NULL
+				  </if>
+				  ,DEST_COUNTRY = NULL
+<!-- 				  ,AMOUNT_LOC = 0 -->
+<!-- 				  ,AMOUNT_USD = CASE CURRENCY_CODE WHEN 'USD' THEN AMOUNT_USD ELSE 0 END -->
+<!-- 				  ,EXCHANGE_RATE = 0 -->
+				  ,MRN = NULL
+				  ,MSN = NULL
+				  <if test='boundType == "IMP"'>
+				  ,DEST_PORT = NULL
+				  ,ORIG_CODE = NULL
+				  ,ORIG_NAME = NULL
+				  ,CUSTOMS_CODE = NULL
+				  ,CUSTOMS_DPT_CODE = NULL
+				  ,ASSIGNMENT_WH_CODE = NULL
+				  </if>
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE MASTER_OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>)
+			AND BL_TYPE_MH = 'H';
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   MASTER_OD_JOB_NO = NULL
+				  ,MBL_NO = NULL
+			WHERE MASTER_OD_JOB_NO IN(<foreach collection="masterOdJobNoList" item="item" separator=",">#{item}</foreach>)
+			AND BL_TYPE_MH = 'H';
+	</update>
+	
+	<update id="updateDeconsolExrate" parameterType="consolClose">
+		/* ConsolMapper.updateDeconsolExrate : 삭제마스터오더에 콘솔되어있던 하우스 환율처리 */
+			UPDATE TB_ECM_OD SET
+				   AMOUNT_LOC = #{AMOUNT_LOC}
+				  ,AMOUNT_USD = #{AMOUNT_USD}
+				  ,EXCHANGE_RATE = #{EXCHANGE_RATE}
+			WHERE OD_JOB_NO = #{OD_JOB_NO}
+	</update>
+	
+	
+	<select id="selectHblValidate" parameterType="HashMap" resultType="HashMap">
+		/* ConsolMapper.selectHblValidate : hbl유효성체크 */		
+		WITH TMP AS(
+			SELECT A.ENT_CODE, A.HBL_NO
+			FROM 
+			(
+				<foreach collection="dataList" item="item" separator="UNION">
+					SELECT #{item} AS HBL_NO ,#{entCode} AS ENT_CODE  
+				</foreach>
+			) A
+			LEFT JOIN TB_ECM_OD OD ON OD.ENT_CODE = #{entCode} AND A.HBL_NO = OD.HBL_NO
+			WHERE OD.OD_JOB_NO IS NULL
+		)
+		SELECT COUNT(TMP.HBL_NO) AS NOT_BL_CNT
+		, STUFF((SELECT ',' + HBL_NO FROM TMP WHERE ENT_CODE = t.ENT_CODE FOR XML PATH('')), 1, 1, '')
+ 		FROM TMP t
+		GROUP BY t.ENT_CODE
+		
+	</select>	
+	
+	<select id="selectCargoManifest" parameterType="searchConsolOrderList" resultType="consolHouseOrder">
+		SELECT A.* 
+			,COUNT(A.HBL_NO) OVER() AS SUM_COUNT
+			,SUM(ISNULL(A.PIECES,0)) OVER() AS SUM_PIECES
+			,SUM(ISNULL(A.AMOUNT_LOC,0)) OVER() AS SUM_AMOUNT
+			,SUM(ISNULL(A.GWT,0)) OVER() AS SUM_GWT
+			,SUM(ISNULL(A.CBM,0)) OVER() AS SUM_CBM
+		FROM(
+			SELECT
+			mod.MBL_NO
+			, od.HBL_NO
+			, od.SHIPPER_NAME
+			, od.CONSIGNEE_NAME
+			, CONCAT(ISNULL(od.SHIPPER_ADDRESS, ''), ISNULL(od.SHIPPER_ADDRESS_A, ''), ISNULL(od.SHIPPER_ADDRESS_B, ''), ISNULL(od.SHIPPER_ADDRESS_C, ''), ISNULL(od.SHIPPER_ADDRESS_D, '')) AS SHIPPER_ADDRESS
+			, CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS CONSIGNEE_ADDRESS
+			, od.PIECES
+			, od.AMOUNT_USD AS AMOUNT_LOC
+			, od.GWT
+			, od.CBM
+			, od.COMMODITY_ITEM
+			, 'NDR' AS CD_TYPE
+			, CONCAT(CONVERT(VARCHAR,mod.OB_DATE,23),' ', mod.OB_TIME) AS OB_DATE
+			, CONCAT(CONVERT(VARCHAR,mod.AR_DATE,23),' ', mod.AR_TIME) AS AR_DATE
+			, od.SHIPPER_COUNTRY_CODE 
+			, ISNULL(mod.VESSEL_FLIGHT,'') AS VESSEL_FLIGHT
+			, ISNULL(mod.VOYAGE,'') AS VOYAGE
+			, (SELECT TOP 1 USER_NAME_ENG FROM TB_SMS_USER WHERE ENT_CODE = #{srchEntCode} AND USER_ID = #{userId}) AS USER_NAME
+			, (SELECT TOP 1 CUSTOMER_NAME_ENG FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{srchEntCode} AND CUSTOMER_CODE =#{srchEcmCustomerCode}) AS CUSTOMER_NAME
+			, (SELECT TOP 1 USER_TEL FROM TB_SMS_USER WHERE ENT_CODE = #{srchEntCode} AND USER_ID = #{userId}) AS USER_TEL
+			, (SELECT TOP 1 USER_FAX FROM TB_SMS_USER WHERE ENT_CODE = #{srchEntCode} AND USER_ID = #{userId}) AS USER_FAX
+			, (SELECT NAME_ENG FROM TB_SMS_CODE_DETAIL Code WHERE  Code.GROUP_CODE = 'CITY_PORT' AND Code.CODE = mod.ORIG_CODE) ORIG_NAME
+			, (SELECT NAME_ENG FROM TB_SMS_CODE_DETAIL Code WHERE  Code.GROUP_CODE = 'CITY_PORT' AND Code.CODE =mod.DEST_CODE) DEST_NAME
+			, CASE WHEN ISNULL(C.CONTAINER_LIST,'') != '' THEN LEFT(C.CONTAINER_LIST,LEN(C.CONTAINER_LIST)-1) ELSE '' END AS CONTAINER_INFO
+			FROM TB_ECM_OD od
+				LEFT JOIN TB_ECM_OD mod 
+				ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+				AND mod.BL_TYPE_MH = 'M'
+				LEFT JOIN (
+					SELECT AA.OD_JOB_NO, BB.HBL_NO, AA.CBM
+					,(SELECT CASE ISNULL(A.CNTR_NO,'') WHEN '' THEN '' ELSE ISNULL(A.CNTR_NO,'')+CHAR(10) END
+						+  CASE ISNULL(A.CNTR_CODE,'') WHEN '' THEN '' ELSE '('+ISNULL(A.CNTR_CODE,'')+')'+CHAR(10) END 
+						+  CASE ISNULL(A.CNTR_SEAL_NO_1,'') WHEN '' THEN '' ELSE ISNULL(A.CNTR_SEAL_NO_1,'')+CHAR(10)END
+						+  CASE ISNULL(A.CNTR_SEAL_NO_2,'') WHEN '' THEN '' ELSE ISNULL(A.CNTR_SEAL_NO_2,'')+CHAR(10)END
+						+  CASE ISNULL(A.CNTR_SEAL_NO_3,'') WHEN '' THEN '' ELSE ISNULL(A.CNTR_SEAL_NO_3,'')+CHAR(10)END
+						FROM TB_ECM_OD_CONTAINER A 
+						WHERE A.OD_JOB_NO = AA.OD_JOB_NO
+						FOR XML PATH('')
+					)AS CONTAINER_LIST
+					FROM TB_ECM_OD_CONTAINER AA, TB_ECM_OD BB
+					WHERE BB.MASTER_OD_JOB_NO = #{srchMasterOdJobNo} AND AA.OD_JOB_NO = BB.OD_JOB_NO
+					GROUP BY AA.OD_JOB_NO,BB.HBL_NO,AA.CBM
+				) C ON od.OD_JOB_NO = c.OD_JOB_NO
+			WHERE od.BL_TYPE_MH = 'H'
+			AND od.CONSOL_YN = 'Y'
+			AND od.MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+			<if test="srchEcmCustomerCode != null and srchEcmCustomerCode != ''">
+				AND od.CUST_CODE_LV1 = #{srchEcmCustomerCode}
+			</if>
+			<choose>
+				<when test='srchBoundType == "AO"'>
+				AND mod.BOUND = 'AIR' AND mod.BOUND_TYPE = 'EXP'
+				</when>
+				<when test='srchBoundType == "AI"'>
+				AND mod.BOUND = 'AIR' AND mod.BOUND_TYPE = 'IMP'
+				</when>
+				<when test='srchBoundType == "SO"'>
+				AND mod.BOUND = 'SEA' AND mod.BOUND_TYPE = 'EXP'
+				</when>
+				<when test='srchBoundType == "SI"'>
+				AND mod.BOUND = 'SEA' AND mod.BOUND_TYPE = 'IMP'
+				</when>
+			</choose>
+		)A
+	</select>
+	
+	<delete id="deletePodInfo" parameterType="String">
+		/* ConsolMapper.deletePodInfo : POD 삭제 */
+		DELETE TB_ECM_POD_01 
+		WHERE
+		POD_STATUS > 'ECM055' 
+		AND OD_JOB_NO = #{odJobNo};
+		
+		DELETE TB_ECM_POD_02 
+		WHERE
+		OD_JOB_NO = #{odJobNo};
+		
+		DELETE TB_ECM_POD_03 
+		WHERE
+		OD_JOB_NO = #{odJobNo};
+		
+		DELETE TB_ECM_POD_04 
+		WHERE
+		OD_JOB_NO = #{odJobNo};
+	</delete>
+	
+	<select id="selectLastConsolPodInfo" parameterType="String" resultType="HashMap">
+		SELECT /* ConsolMapper."selectLastConsolPodInfo" : 콘솔마감 LAST POD조회 */
+			TOP 1
+			OD_JOB_NO
+			,POD_STATUS
+			,CONVERT(VARCHAR(19), REGISTER_DATE_TIME, 20) AS LAST_POD_DATE
+		  FROM
+		  	TB_ECM_POD_01
+		 WHERE
+		 	POD_STATUS = 'ECM055'
+		 	AND OD_JOB_NO = #{odJobNo}
+		 ORDER BY REGISTER_DATE_TIME DESC	 		
+	</select>
+	
+	<select id="selectPodInfo" parameterType="HashMap" resultType="HashMap">
+		SELECT
+			TOP 1
+			OD_JOB_NO
+			,POD_DATE as podDate
+			,POD_TIME as podTime
+			,POD_STATUS as podStatus		
+		  FROM
+		  	${podTableName}
+		 WHERE
+		 	OD_JOB_NO = #{odJobNo}
+		 	AND POD_STATUS = #{podStatus} 	
+	</select>
+	
+	<select id="selectConsolBltypeiertCheck" parameterType="consolOrder" resultType="consolOrder">
+		SELECT /* ConsolMapper."selectConsolBltypeiertCheck" : 콘솔마감 화물구분 하우스 조회 */
+			HBL_NO
+			,OD_JOB_NO
+		  FROM
+		    TB_ECM_OD
+		 WHERE
+		 	BL_TYPE_MH = 'H'
+		 	AND MASTER_OD_JOB_NO = #{odJobNo}
+		 	AND (BL_TYPE_IERT IS NULL OR BL_TYPE_IERT = '')
+	</select>
+	
+	<update id="updateMasterCustLvInfo" parameterType="consolOrder">
+		UPDATE 
+			TB_ECM_OD
+		  SET 
+		  	CUST_CODE_LV1 = #{custCodeLv1}
+		  	,CUST_LV1_REMARK = #{custLv1Remark}
+		 WHERE
+		 	OD_JOB_NO = #{odJobNo}
+		 	AND BL_TYPE_MH = 'M'
+	</update>
+	
+	<select id="selectCustCodeList" parameterType="HashMap" resultType="String">
+		SELECT
+			CUST_CODE_LV1
+		  FROM	
+		 	TB_ECM_OD
+		 WHERE
+		 	MASTER_OD_JOB_NO = #{odJobNo}
+		 	AND BL_TYPE_MH = 'H'		
+	    GROUP BY CUST_CODE_LV1 	
+	</select>
+	
+	<select id="selectEcmYnCheck" parameterType="consolOrder" resultType="String">
+		SELECT
+			CASE
+				WHEN COUNT(DISTINCT ISNULL(ECM_YN, 'N')) = 2 THEN 'Y'
+				ELSE 'N'
+			END AS ecmYnChk
+		FROM
+			TB_ECM_OD
+		WHERE
+			MASTER_OD_JOB_NO = #{odJobNo}
+			AND BL_TYPE_MH = 'H'
+	</select>
+	
+	<select id="selectEcmYnSimpleDocNo" parameterType="HashMap" resultType="HashMap">
+		/* selectEcmYnSimpleDocNo */
+		SELECT 
+		TOP 1 A.* 
+		FROM (
+			SELECT 
+			ad.SIMPLE_DOC_NO,
+			MAX(ad.SIMPLE_EDI_STATUS) AS SIMPLE_EDI_STATUS,
+	 		COUNT(od.HBL_NO) AS HBL_CNT,
+	 		MAX(od.DOCUMENT_YN) AS DOCUMENT_YN, 
+	 		CASE
+		        WHEN COUNT(DISTINCT CASE WHEN ECM_YN IN ('Y', 'N') THEN ECM_YN END) = 2 THEN 'ALL'
+		        WHEN MAX(CASE WHEN ECM_YN = 'Y' THEN 1 ELSE 0 END) = 1 THEN 'Y'
+		        WHEN MAX(CASE WHEN ECM_YN = 'N' THEN 1 ELSE 0 END) = 1 THEN 'N'
+		        ELSE 'ALL'
+		    END AS ECM_RESULT
+			FROM 
+			TB_ECM_OD od
+			INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				ON od.OD_JOB_NO = ad.OD_JOB_NO
+			WHERE od.MASTER_OD_JOB_NO = #{MASTER_OD_JOB_NO}
+			GROUP BY SIMPLE_DOC_NO
+		) A 
+		WHERE ISNULL(SIMPLE_EDI_STATUS, '') IN ('', 'ERROR')
+		AND (ECM_RESULT = #{ECM_YN} OR ECM_RESULT = 'ALL') 
+		AND DOCUMENT_YN = #{DOCUMENT_YN}
+		ORDER BY SIMPLE_DOC_NO DESC
+	
+	</select>
+	
+	<insert id="insertPickUpComplete" parameterType="HashMap">
+		/* ConsolMapper.insertPickUpComplete : 콘솔 픽업완료 POD 저장 */
+		INSERT INTO TB_ECM_POD_01(
+		POD_JOB_NO
+		,ENT_CODE
+		,OD_JOB_NO
+		,POD_STATUS
+		,POD_DATE
+		,POD_TIME
+		,BL_NO
+		,REGISTER_USER_ID
+		,REGISTER_DATE_TIME
+		,UPDATE_USER_ID
+		,UPDATE_DATE_TIME
+		)VALUES(
+		#{podJobNo}
+		,#{entCode}
+		,#{odJobNo}
+		,#{podStatus}
+		,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		,CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+		,LTRIM(RTRIM(REPLACE(#{blNo},char(9),'')))
+		,#{updateUserId}
+		,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		,#{updateUserId}
+		,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		);
+
+	</insert>
+</mapper>

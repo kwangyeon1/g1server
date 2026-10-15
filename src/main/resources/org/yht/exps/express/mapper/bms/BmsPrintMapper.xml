@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsPrintMapper">
+
+	<select id="selectBmsInPrintList" parameterType="searchBmsPrintList" resultType="bmsPrint">
+		/* BmsPrintMapper.selectBmsInPrintList : 반입신고 출력용 추가 데이터 리스트 */
+		SELECT A.IN_NO
+	         , A.CARRYIN_DATE
+	         , A.BL_NO
+	         , A.CARGO_REFERENCE_NO
+	         , A.CD_TYPE
+	         , teoa.DROP_YN
+	      FROM TB_BMS_IN A WITH (NOLOCK)
+	      LEFT JOIN (SELECT OD_JOB_NO, DROP_YN FROM TB_ECM_OD_ADDITIONAL) teoa
+		  ON teoa.OD_JOB_NO = A.OD_JOB_NO
+	     WHERE 1=1
+		<if test="srchNo != null and srchNo != ''">
+			AND ${srchNoType} = REPLACE(#{srchNo}, '-', '')
+		</if>
+		<if test="gridType != null and gridType != '' and gridType == 'STOCK'">
+			AND A.STOCK_WT > 0
+		</if>
+	</select>
+
+	<select id="selectBmsOutPrintList" parameterType="searchBmsPrintList" resultType="bmsPrint">
+		/* BmsPrintMapper.selectBmsOutPrintList : 반출신고 출력용 추가 데이터 리스트 */
+		SELECT B.IN_NO
+			 , A.OUT_NO
+	         , B.CARRYIN_DATE
+			 , A.CARRYOUT_DATE
+	         , A.BL_NO
+	         , A.CARGO_REFERENCE_NO
+	         , B.CD_TYPE
+	         , teoa.DROP_YN
+	      FROM TB_BMS_OUT A WITH (NOLOCK)
+	 LEFT JOIN TB_BMS_IN B WITH (NOLOCK) ON A.IN_NO = B.IN_NO
+	 LEFT JOIN (SELECT OD_JOB_NO, DROP_YN FROM TB_ECM_OD_ADDITIONAL) teoa 
+	 ON teoa.OD_JOB_NO = B.OD_JOB_NO
+	     WHERE 1=1
+		<if test="srchNo != null and srchNo != ''">
+			AND ${srchNoType} = REPLACE(#{srchNo}, '-', '')
+		</if>
+	</select>
+	
+	<select id="selectBmsSamplePrintList" parameterType="searchBmsPrintList" resultType="bmsOutSample">
+		/* BmsPrintMapper.selectBmsSamplePrintList : 견본반출 출력용 추가 데이터 리스트 */
+		<if test="srchNo == null or srchNo == ''">
+			<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		</if>
+		SELECT A.SAMPLE_NO
+			 , A.IN_NO
+	         , A.CARRYOUT_DATE
+			 , A.BL_NO
+	         , A.CARGO_REFERENCE_NO
+	    FROM TB_BMS_SAMPLE A
+	    LEFT JOIN TB_BMS_IN B WITH (NOLOCK)
+	    	ON B.IN_NO = A.IN_NO
+	    WHERE 1=1
+		<if test="srchNo != null and srchNo != ''">
+			AND ${srchNoType} = REPLACE(#{srchNo}, '-', '')
+		</if>
+		<if test="srchNo == null or srchNo == ''">
+			<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+		</if>
+	</select>
+
+	<select id="selectBmsInspectPrintList" parameterType="searchBmsPrintList" resultType="bmsPrint">
+		/* BmsPrintMapper.selectBmsInspectPrintList : 검사계획통보 출력용 추가 데이터 리스트 */
+		SELECT B.IN_NO
+			 , A.INSPECT_NO
+	         , B.CARRYIN_DATE
+	         , A.BL_NO
+	         , A.CARGO_REFERENCE_NO
+	         , B.CD_TYPE
+	         , teoa.DROP_YN
+	      FROM TB_BMS_INSPECT A
+	 LEFT JOIN TB_BMS_IN B WITH (NOLOCK) ON A.IN_NO = B.IN_NO
+	 LEFT JOIN (SELECT OD_JOB_NO, DROP_YN FROM TB_ECM_OD_ADDITIONAL) teoa 
+	 ON teoa.OD_JOB_NO = B.OD_JOB_NO
+	     WHERE 1=1
+		<if test="srchNo != null and srchNo != ''">
+			AND ${srchNoType} = REPLACE(#{srchNo}, '-', '')
+		</if>
+	</select>
+
+	<select id="selectBmsOutNoticePrintList" parameterType="searchBmsPrintList" resultType="bmsPrint">
+		/* BmsPrintMapper.selectBmsOutNoticePrintList : 반입통고신고 출력용 추가 데이터 리스트 */
+		SELECT B.IN_NO
+			 , A.OUT_NOTICE_NO
+	         , B.CARRYIN_DATE
+	         , A.BL_NO
+	         , A.CARGO_REFERENCE_NO
+		  FROM TB_BMS_OUT_NOTICE A
+	 LEFT JOIN TB_BMS_IN B WITH (NOLOCK) ON A.IN_NO = B.IN_NO
+	     WHERE 1=1
+		<if test="srchNo != null and srchNo != ''">
+			AND ${srchNoType} = REPLACE(#{srchNo}, '-', '')
+		</if>
+	</select>
+
+	<select id="selectBmsAbnormalPrintList" parameterType="searchBmsPrintList" resultType="bmsPrint">
+		/* BmsPrintMapper.selectBmsAbnormalPrintList : 반입물품이상신고 출력용 추가 데이터 리스트 */
+		SELECT A.ABN_NO
+	         , A.ABN_REQ_DATE
+	         , A.MBL_NO
+	         , A.CUSTOMS_REPORT_NO
+		  FROM TB_BMS_ABNORMAL A
+	     WHERE 1=1
+		<if test="srchNo != null and srchNo != ''">
+			AND ${srchNoType} = REPLACE(#{srchNo}, '-', '')
+		</if>
+	</select>
+
+	<select id="selectBmsAbnormalPrintcontactNo" parameterType="hashMap" resultType="String">
+		/* BmsPrintMapper.selectBmsAbnormalPrintcontactNo : 수입검사이고반입 연락처 조회 */
+		SELECT
+			SET_VALUE
+		FROM
+			TB_SMS_ENT_BUS_OPTION
+		WHERE
+			ENT_CODE = #{entCode}
+			AND ENT_BUSINESS_CODE = #{entBusinessCode}
+			AND OPTION_CODE = #{optionCode}
+	</select>
+
+</mapper>

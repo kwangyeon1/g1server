@@ -1,0 +1,1554 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.invoice.InvoiceMapper">
+	
+	<!-- parameter 추가시 SearchInvoiceList에 추가 -->
+	<sql id="searchInvoiceList">
+		WHERE od.ENT_CODE = #{srchEntCode}
+		<choose>
+			<when test='srchDateType == "dateTime"'>
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</when>
+			<otherwise>
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</otherwise>
+		</choose>
+		<choose>
+			<when test='srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+			<when test='srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+		</choose>
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<when test='dynamicCryptographyYn == "Y"'>
+					<choose>
+						<when test='searchType == "multi"'>
+						AND dbo.Cryptography(od.OD_JOB_NO, ${srchNoType}_ENC, 1) IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND dbo.Cryptography(od.OD_JOB_NO, ${srchNoType}_ENC, 1) = #{srchNo}
+						</otherwise>
+					</choose>
+				</when>
+				<otherwise>
+					<choose>
+						<when test='searchType == "multi"'>
+						AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND ${srchNoType} = #{srchNo}
+						</otherwise>
+					</choose>
+				</otherwise>
+			</choose>
+		</if>
+		<if test='srchChgCodeSystem != null and srchChgCodeSystem != ""'>
+		AND chg.CHG_CODE_SYSTEM LIKE CONCAT(#{srchChgCodeSystem}, '%')
+		</if>
+		<if test='srchChgCodeSystemIn != null and srchChgCodeSystemIn != ""'>
+		AND chg.CHG_CODE_SYSTEM IN ${srchChgCodeSystemIn}
+		</if>
+		<if test="srchAccountCode != null and srchAccountCode != ''">
+		AND cost.ACCOUNT_CODE = #{srchAccountCode}
+		</if>
+		<if test="srchCustomerCode != null and srchCustomerCode != ''">
+		AND cost.CUSTOMER_CODE = #{srchCustomerCode}
+		</if>
+		<if test="srchInvoiceYn != null and srchInvoiceYn != ''">
+			<choose>
+			<when test='srchInvoiceYn == "Y"'>
+			AND cost.${srchArAp}_INVOICE_JOB_NO IS NOT NULL
+			</when>
+			<otherwise>
+			AND cost.${srchArAp}_INVOICE_JOB_NO IS NULL
+			</otherwise>
+			</choose>
+		</if>
+		<if test='srchWhfChargeYn == "Y"'>
+		AND cost.OD_JOB_NO IS NOT NULL
+		</if>
+		<if test='srchWhfChargeYn == "N"'>
+		AND cost.OD_JOB_NO IS NULL
+		</if>
+		<if test="srchCurrencyCode != null and srchCurrencyCode != ''">
+		AND cost.CURRENCY_CODE = #{srchCurrencyCode}
+		</if>
+	</sql>
+	
+	<!-- parameter 추가시 SearchBatchDeleteCost/Invoice에 추가 -->
+	<sql id="searchInvoiceListSelectGrid">
+		WHERE od.ENT_CODE = #{searchInvoiceList.srchEntCode}
+		<choose>
+			<when test='searchInvoiceList.srchDateType == "dateTime"'>
+			AND ${searchInvoiceList.srchDateGbn} >= CONVERT(DATE, #{searchInvoiceList.srchStartDate}, ${searchInvoiceList.srchDateFormat}) 
+			AND ${searchInvoiceList.srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{searchInvoiceList.srchEndDate}, ${searchInvoiceList.srchDateFormat}))
+			</when>
+			<otherwise>
+			AND ${searchInvoiceList.srchDateGbn} >= CONVERT(DATE, #{searchInvoiceList.srchStartDate}, ${searchInvoiceList.srchDateFormat}) 
+			AND ${searchInvoiceList.srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{searchInvoiceList.srchEndDate}, ${searchInvoiceList.srchDateFormat})
+			</otherwise>
+		</choose>
+		<choose>
+			<when test='searchInvoiceList.srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='searchInvoiceList.srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+			<when test='searchInvoiceList.srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='searchInvoiceList.srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+		</choose>
+		<if test="searchInvoiceList.srchNo != null and searchInvoiceList.srchNo != ''">
+			<choose>
+				<when test='searchInvoiceList.dynamicCryptographyYn == "Y"'>
+					<choose>
+						<when test='searchInvoiceList.searchType == "multi"'>
+						AND dbo.Cryptography(od.OD_JOB_NO, ${searchInvoiceList.srchNoType}_ENC, 1) IN (<foreach collection="searchInvoiceList.searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND dbo.Cryptography(od.OD_JOB_NO, ${searchInvoiceList.srchNoType}_ENC, 1) = #{searchInvoiceList.srchNo}
+						</otherwise>
+					</choose>
+				</when>
+				<otherwise>
+					<choose>
+						<when test='searchInvoiceList.searchType == "multi"'>
+						AND ${searchInvoiceList.srchNoType} IN (<foreach collection="searchInvoiceList.searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND ${searchInvoiceList.srchNoType} = #{searchInvoiceList.srchNo}
+						</otherwise>
+					</choose>
+				</otherwise>
+			</choose>
+		</if>
+		<if test='searchInvoiceList.srchChgCodeSystem != null and searchInvoiceList.srchChgCodeSystem != ""'>
+		AND chg.CHG_CODE_SYSTEM LIKE CONCAT(#{searchInvoiceList.srchChgCodeSystem}, '%')
+		</if>
+		<if test='searchInvoiceList.srchChgCodeSystemIn != null and searchInvoiceList.srchChgCodeSystemIn != ""'>
+		AND chg.CHG_CODE_SYSTEM IN ${searchInvoiceList.srchChgCodeSystemIn}
+		</if>
+		<if test="searchInvoiceList.srchAccountCode != null and searchInvoiceList.srchAccountCode != ''">
+		AND cost.ACCOUNT_CODE = #{searchInvoiceList.srchAccountCode}
+		</if>
+		<if test="searchInvoiceList.srchCustomerCode != null and searchInvoiceList.srchCustomerCode != ''">
+		AND cost.CUSTOMER_CODE = #{searchInvoiceList.srchCustomerCode}
+		</if>
+		<if test="searchInvoiceList.srchInvoiceYn != null and searchInvoiceList.srchInvoiceYn != ''">
+			<choose>
+			<when test='searchInvoiceList.srchInvoiceYn == "Y"'>
+			AND cost.${searchInvoiceList.srchArAp}_INVOICE_JOB_NO IS NOT NULL
+			</when>
+			<otherwise>
+			AND cost.${searchInvoiceList.srchArAp}_INVOICE_JOB_NO IS NULL
+			</otherwise>
+			</choose>
+		</if>
+		<if test='searchInvoiceList.srchWhfChargeYn == "Y"'>
+		AND cost.OD_JOB_NO IS NOT NULL
+		</if>
+		<if test='searchInvoiceList.srchWhfChargeYn == "N"'>
+		AND cost.OD_JOB_NO IS NULL
+		</if>
+		<if test="searchInvoiceList.srchCurrencyCode != null and searchInvoiceList.srchCurrencyCode != ''">
+		AND cost.CURRENCY_CODE = #{searchInvoiceList.srchCurrencyCode}
+		</if>
+	</sql>
+	
+	<select id="selectWorkFeeChargeList" parameterType="searchInvoiceList" resultType="workFeeCharge">
+		/* InvoiceMapper.selectWorkFeeChargeList : 전자상거래 정산관리 작업료 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 A.*
+				,SUM(A.AR_AMOUNT) OVER() AS TOTAL_AR_AMOUNT
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = A.ENT_CODE AND CODE = A.CD_TYPE_A AND GROUP_CODE = 'CD_TYPE') AS CD_TYPE
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = A.ENT_CODE AND USER_ID = A.REGISTER_USER_ID_A) AS REGISTER_USER_NAME
+			FROM(
+				SELECT
+					 MAX(od.OD_JOB_NO) AS OD_JOB_NO
+					,MAX(od.BOUND) AS BOUND
+					,MAX(od.BOUND_TYPE) AS BOUND_TYPE
+					,MAX(inv.INVOICE_DATE) AS INVOICE_DATE
+					,MAX(inv.INVOICE_NO) AS INVOICE_NO
+					,MAX(od.CUST_CODE_LV1) AS CUST_CODE_LV1
+					,MAX(od.CUST_CODE_LV2) AS CUST_CODE_LV2
+					,MAX(od.AR_DATE) AS AR_DATE
+					,MAX(od.HBL_NO) AS HBL_NO
+					,MAX(od.PIECES) AS PIECES
+					,MAX(od.GWT) AS GWT
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'WHF' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS WHF_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'WHF' THEN ISNULL(cost.AR_AMOUNT_CUR, 0) END) AS WHF_COST_CUR
+					,MAX(CASE WHEN chg.CHG_CODE_SYSTEM = 'JOB_E' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS OTC_COST
+					,ISNULL(SUM(cost.AR_AMOUNT), 0) AS AR_AMOUNT
+					,MAX(cost.CURRENCY_CODE) AS CURRENCY_CODE
+					,MAX(cost.CUSTOMER_CODE) AS CUSTOMER_CODE
+					,MAX(cost.CUSTOMER_NAME) AS CUSTOMER_NAME
+					,MAX(od.ENT_CODE) AS ENT_CODE
+					,MAX(od.CD_TYPE) AS CD_TYPE_A
+					,MAX(cost.REGISTER_USER_ID) AS REGISTER_USER_ID_A
+					,MAX(cost.AR_INVOICE_JOB_NO) AS AR_INVOICE_JOB_NO
+					,MAX(cost.AP_INVOICE_JOB_NO) AS AP_INVOICE_JOB_NO
+					,CASE WHEN cost.AP_INVOICE_JOB_NO = 'CLOSE' THEN 'Y' ELSE 'N' END AS CLOSE_YN
+					,MAX(od.REMARKS) AS REMARKS
+					,MAX(od.DELIVERY_NOTE) AS DELIVERY_NOTE
+					,MAX(od.TARIFF_REMARKS) AS TARIFF_REMARKS
+				FROM TB_ECM_OD od
+					 INNER JOIN TB_ECM_OD_COST cost
+					 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+					 INNER JOIN TB_SMS_CHARGE chg
+					 			ON chg.ENT_CODE = od.ENT_CODE
+					 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+					 LEFT JOIN TB_SAS_INVOICE inv
+					 		   ON inv.INVOICE_JOB_NO = cost.AR_INVOICE_JOB_NO
+				<!-- parameter 추가시 SearchInvoiceList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceList"/>
+				GROUP BY od.OD_JOB_NO, cost.AP_INVOICE_JOB_NO<!-- 작업료마감여부체크위해사용 -->, cost.AR_INVOICE_JOB_NO, cost.CUSTOMER_CODE
+			) A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectWarehouseChargeList" parameterType="searchInvoiceList" resultType="warehouseCharge">
+		/* InvoiceMapper.selectWarehouseChargeList : 전자상거래 정산관리 창고료 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 A.*
+				,SUM(A.AP_AMOUNT) OVER() AS TOTAL_AP_AMOUNT
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = A.ENT_CODE AND CODE = A.CD_TYPE_A AND GROUP_CODE = 'CD_TYPE') AS CD_TYPE
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = A.ENT_CODE AND USER_ID = A.REGISTER_USER_ID_A) AS REGISTER_USER_NAME
+			FROM(
+				SELECT
+					 od.OD_JOB_NO
+					,MAX(od.BOUND) AS BOUND
+					,MAX(od.BOUND_TYPE) AS BOUND_TYPE
+					,MAX(od.CUST_CODE_LV1) AS CUST_CODE_LV1
+					,MAX(od.CUST_CODE_LV2) AS CUST_CODE_LV2
+					,MAX(inv.INVOICE_DATE) AS INVOICE_DATE
+					,MAX(inv.INVOICE_NO) AS INVOICE_NO
+					,MAX(cost.REGISTER_DATE_TIME) AS REGISTER_DATE_TIME
+					,MAX(cost.ACCOUNT_CODE) AS ACCOUNT_CODE
+					,MAX(cost.ACCOUNT_NAME) AS ACCOUNT_NAME
+					,MAX(cost.SEQ_NO_ID) AS SEQ_NO_ID
+					,MAX(od.OB_DATE) AS OB_DATE
+					,MAX(od.AR_DATE) AS AR_DATE
+					,MAX(od.MBL_NO) AS MBL_NO
+					,MAX(od.MRN) AS MRN
+					,MAX(od.MSN) AS MSN
+					,MAX(od.HBL_NO) AS HBL_NO
+					,MAX(od.HSN) AS HSN
+					,MAX(od.PIECES) AS PIECES
+					,MAX(od.GWT) AS GWT
+					,MAX(ad.SE_INSPECTION_YN) AS SE_INSPECTION_YN
+					,MAX(ad.DROP_YN) AS DROP_YN
+					,MAX(ad.XRAY_YN) AS XRAY_YN
+					,MAX(od.INSPECTION_YN) AS INSPECTION_YN
+					,MAX(od.CONSIGNEE_NAME) AS CONSIGNEE_NAME
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'WAHA' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS WAHA_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'INS' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS INS_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'WMAIN' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS WMAIN_COST
+					,SUM(CASE WHEN chg.CHG_CODE_SYSTEM = 'WHC_E' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS ETC_COST
+					,ISNULL(SUM(cost.AP_AMOUNT), 0) AS AP_AMOUNT
+					
+					,MAX(ad.CARRYIN_DATE) AS CARRYIN_DATE
+					,MAX(ad.CARRYOUT_DATE) AS CARRYOUT_DATE
+	<!-- 				,장치일수 -->
+					,MAX(od.ENT_CODE) AS ENT_CODE
+					,MAX(od.CD_TYPE) AS CD_TYPE_A
+					,MAX(cost.REGISTER_USER_ID) AS REGISTER_USER_ID_A
+					,MAX(cost.AR_INVOICE_JOB_NO) AS AR_INVOICE_JOB_NO
+					,MAX(cost.AP_INVOICE_JOB_NO) AS AP_INVOICE_JOB_NO
+					,MAX(od.REMARKS) AS REMARKS
+					,MAX(od.DELIVERY_NOTE) AS DELIVERY_NOTE
+					,MAX(od.TARIFF_REMARKS) AS TARIFF_REMARKS
+				FROM TB_ECM_OD od
+					 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+					 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+					 INNER JOIN TB_ECM_OD_COST cost
+					 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+					 INNER JOIN TB_SMS_CHARGE chg
+					 			ON chg.ENT_CODE = od.ENT_CODE
+					 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+					 LEFT JOIN TB_SAS_INVOICE inv
+					 		   ON inv.INVOICE_JOB_NO = cost.AP_INVOICE_JOB_NO
+				<!-- parameter 추가시 SearchInvoiceList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceList"/>
+				GROUP BY od.OD_JOB_NO, cost.AP_INVOICE_JOB_NO, cost.ACCOUNT_CODE
+			) A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectCourierChargeList" parameterType="searchInvoiceList" resultType="courierCharge">
+		/* InvoiceMapper.selectCourierChargeList : 전자상거래 정산관리 택배사 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 A.*
+				,SUM(A.AP_AMOUNT) OVER() AS TOTAL_AP_AMOUNT
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = A.ENT_CODE AND CODE = A.DELIVERY_CODE_A AND GROUP_CODE = 'ECM_DELIVERY_CODE') AS DELIVERY_NAME
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = A.ENT_CODE AND CODE = A.DELIVERY_PAYMENT_TYPE_A AND GROUP_CODE = 'ECM_PAYMENT_GUBN') AS DELIVERY_PAYMENT_TYPE
+				,(SELECT TOP 1 DELIVERY_NO_CHANGED FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = A.OD_JOB_NO) AS DELIVERY_NO_CHANGED
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = A.ENT_CODE AND USER_ID = A.REGISTER_USER_ID_A) AS REGISTER_USER_NAME
+			FROM(
+				SELECT
+					 od.OD_JOB_NO
+					,MAX(od.BOUND) AS BOUND
+					,MAX(od.BOUND_TYPE) AS BOUND_TYPE
+					,MAX(od.CUST_CODE_LV1) AS CUST_CODE_LV1
+					,MAX(od.CUST_CODE_LV2) AS CUST_CODE_LV2
+					,MAX(inv.INVOICE_DATE) AS INVOICE_DATE
+					,MAX(inv.INVOICE_NO) AS INVOICE_NO
+					,MAX(cost.REGISTER_DATE_TIME) AS REGISTER_DATE_TIME
+					,MAX(cost.ACCOUNT_CODE) AS ACCOUNT_CODE
+					,MAX(cost.ACCOUNT_NAME) AS ACCOUNT_NAME
+					,MAX(cost.SEQ_NO_ID) AS SEQ_NO_ID
+					,MAX(od.OB_DATE) AS OB_DATE
+					,MAX(od.AR_DATE) AS AR_DATE
+					,MAX(od.HBL_NO) AS HBL_NO
+	<!-- 				,운임구분 -->
+					,MAX(od.CONSIGNEE_NAME) AS CONSIGNEE_NAME
+					,MAX(od.PIECES) AS PIECES
+					,MAX(od.GWT) AS GWT
+					,MAX(od.COMMODITY_ITEM) AS COMMODITY_ITEM
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'DLC' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS DLC_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'DISLA' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS DISLA_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'DJU' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS DJU_COST
+					,MAX(CASE WHEN chg.CHG_CODE_SYSTEM = 'DLV_E' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS DTC_COST
+<!-- 					,SUM(CASE WHEN chg.CHG_CODE_SYSTEM = 'DLV_E' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS ETC_COST -->
+					,ISNULL(SUM(cost.AP_AMOUNT), 0) AS AP_AMOUNT
+					,MAX(od.ENT_CODE) AS ENT_CODE
+					,MAX(od.DELIVERY_CODE) AS DELIVERY_CODE_A
+					,MAX(od.DELIVERY_PAYMENT_TYPE) AS DELIVERY_PAYMENT_TYPE_A
+					,MAX(cost.REGISTER_USER_ID) AS REGISTER_USER_ID_A
+					,MAX(cost.AR_INVOICE_JOB_NO) AS AR_INVOICE_JOB_NO
+					,MAX(cost.AP_INVOICE_JOB_NO) AS AP_INVOICE_JOB_NO
+					,MAX(od.REMARKS) AS REMARKS
+					,MAX(od.DELIVERY_NOTE) AS DELIVERY_NOTE
+					,MAX(od.TARIFF_REMARKS) AS TARIFF_REMARKS
+				FROM TB_ECM_OD od
+					 INNER JOIN TB_ECM_OD_COST cost
+					 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+					 INNER JOIN TB_SMS_CHARGE chg
+					 			ON chg.ENT_CODE = od.ENT_CODE
+					 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+					 LEFT JOIN TB_SAS_INVOICE inv
+					 		   ON inv.INVOICE_JOB_NO = cost.AP_INVOICE_JOB_NO
+				<!-- parameter 추가시 SearchInvoiceList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceList"/>
+				GROUP BY od.OD_JOB_NO, cost.AP_INVOICE_JOB_NO, cost.ACCOUNT_CODE
+			) A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectBrokerChargeList" parameterType="searchInvoiceList" resultType="brokerCharge">
+		/* InvoiceMapper.selectBrokerChargeList : 전자상거래 정산관리 관세사 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 A.*
+				,SUM(A.AP_AMOUNT) OVER() AS TOTAL_AP_AMOUNT
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = A.ENT_CODE AND CODE = A.CD_TYPE_A AND GROUP_CODE = 'CD_TYPE') AS CD_TYPE
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = A.ENT_CODE AND CODE = A.CD_USE_TYPE_A AND GROUP_CODE = 'USE_GUBN') AS CD_USE_TYPE
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = A.ENT_CODE AND CODE = A.CLEARANCE_PAYMENT_TYPE_A AND GROUP_CODE = 'ECM_PAYMENT_GUBN') AS CLEARANCE_PAYMENT_TYPE
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = A.ENT_CODE AND USER_ID = A.REGISTER_USER_ID_A) AS REGISTER_USER_NAME
+				,(
+					SELECT TOP 1 pod.POD_DATE FROM(
+						SELECT POD_DATE FROM TB_ECM_POD WHERE OD_JOB_NO = A.OD_JOB_NO AND POD_STATUS = 'ECM250'
+						UNION ALL
+						SELECT POD_DATE FROM TB_ECM_POD_03 WHERE OD_JOB_NO = A.OD_JOB_NO AND POD_STATUS = 'ECM250'
+					) pod
+				 ) AS DECLARATION_DATE
+				,(
+					SELECT TOP 1 pod.POD_DATE FROM(
+						SELECT POD_DATE FROM TB_ECM_POD WHERE OD_JOB_NO = A.OD_JOB_NO AND POD_STATUS = 'ECM280'
+						UNION ALL
+						SELECT POD_DATE FROM TB_ECM_POD_03 WHERE OD_JOB_NO = A.OD_JOB_NO AND POD_STATUS = 'ECM280'
+					) pod
+				 ) AS ACCEPTANCE_DATE
+			FROM(
+				SELECT
+					 od.OD_JOB_NO
+					,MAX(od.BOUND) AS BOUND
+					,MAX(od.BOUND_TYPE) AS BOUND_TYPE
+					,MAX(od.CUST_CODE_LV1) AS CUST_CODE_LV1
+					,MAX(od.CUST_CODE_LV2) AS CUST_CODE_LV2
+					,MAX(inv.INVOICE_DATE) AS INVOICE_DATE
+					,MAX(inv.INVOICE_NO) AS INVOICE_NO
+					,MAX(cost.REGISTER_DATE_TIME) AS REGISTER_DATE_TIME
+					,MAX(cost.ACCOUNT_CODE) AS ACCOUNT_CODE
+					,MAX(cost.ACCOUNT_NAME) AS ACCOUNT_NAME
+					,MAX(cost.SEQ_NO_ID) AS SEQ_NO_ID
+					,MAX(od.OB_DATE) AS OB_DATE
+					,MAX(od.AR_DATE) AS AR_DATE
+					,MAX(od.MBL_NO) AS MBL_NO
+					,MAX(od.HBL_NO) AS HBL_NO
+					,MAX(od.PIECES) AS PIECES
+					,MAX(od.GWT) AS GWT
+					,MAX(od.AMOUNT_LOC) AS AMOUNT_LOC
+					,MAX(od.COMMODITY_ITEM) AS COMMODITY_ITEM
+					,MAX(ad.SE_INSPECTION_YN) AS SE_INSPECTION_YN
+					,MAX(ad.DROP_YN) AS DROP_YN
+					,MAX(ad.XRAY_YN) AS XRAY_YN
+					,MAX(od.INSPECTION_YN) AS INSPECTION_YN
+					,MAX(od.CONSIGNEE_NAME) AS CONSIGNEE_NAME
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'DTY' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS DTY_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'TAX' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS TAX_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'CFC' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS CFC_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'QUA' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS QUA_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'EXEC' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS EXEC_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'MAINT' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS MAINT_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'AGRE' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS AGRE_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'EXP' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS EXP_COST
+					,MAX(CASE WHEN chg.CHG_CODE_SYSTEM = 'BRK_E' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS BOT_COST
+<!-- 					,SUM(CASE WHEN chg.CHG_CODE_SYSTEM = 'BRK_E' THEN ISNULL(cost.AP_AMOUNT, 0) END) AS ETC_COST -->
+					,ISNULL(SUM(cost.AP_AMOUNT), 0) AS AP_AMOUNT
+	<!-- 				,신고일 -->
+	<!-- 				,수리일 -->
+					,MAX(od.ENT_CODE) AS ENT_CODE
+					,MAX(od.CD_TYPE) AS CD_TYPE_A
+					,MAX(od.CD_USE_TYPE) AS CD_USE_TYPE_A
+					,MAX(od.CLEARANCE_PAYMENT_TYPE) AS CLEARANCE_PAYMENT_TYPE_A
+					,MAX(cost.REGISTER_USER_ID) AS REGISTER_USER_ID_A
+					,MAX(cost.AR_INVOICE_JOB_NO) AS AR_INVOICE_JOB_NO
+					,MAX(cost.AP_INVOICE_JOB_NO) AS AP_INVOICE_JOB_NO
+					,MAX(od.REMARKS) AS REMARKS
+					,MAX(od.DELIVERY_NOTE) AS DELIVERY_NOTE
+					,MAX(od.TARIFF_REMARKS) AS TARIFF_REMARKS
+				FROM TB_ECM_OD od
+					 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+					 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+					 INNER JOIN TB_ECM_OD_COST cost
+					 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+					 INNER JOIN TB_SMS_CHARGE chg
+					 			ON chg.ENT_CODE = od.ENT_CODE
+					 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+					 LEFT JOIN TB_SAS_INVOICE inv
+					 		   ON inv.INVOICE_JOB_NO = cost.AP_INVOICE_JOB_NO
+				<!-- parameter 추가시 SearchInvoiceList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceList"/>
+				GROUP BY od.OD_JOB_NO, cost.AP_INVOICE_JOB_NO, cost.ACCOUNT_CODE
+			) A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectPartnerDetailChargeList" parameterType="searchInvoiceList" resultType="partnerDetailCharge">
+		/* InvoiceMapper.selectPartnerDetailChargeList : 전자상거래 정산관리 파트너세부 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 A.*
+				,SUM(A.AR_AMOUNT) OVER() AS TOTAL_AR_AMOUNT
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = A.ENT_CODE AND CODE = A.CD_TYPE_A AND GROUP_CODE = 'CD_TYPE') AS CD_TYPE
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = A.ENT_CODE AND USER_ID = A.REGISTER_USER_ID_A) AS REGISTER_USER_NAME
+			FROM(
+				SELECT
+					 od.OD_JOB_NO
+					,cost.CUSTOMER_CODE
+					,MAX(inv.INVOICE_NO) AS INVOICE_NO
+					,MAX(cost.CURRENCY_CODE) AS CURRENCY_CODE
+					,MAX(cost.CUSTOMER_NAME) AS CUSTOMER_NAME
+					,MAX(od.CUST_CODE_LV1) AS CUST_CODE_LV1
+					,MAX(od.CUST_CODE_LV2) AS CUST_CODE_LV2
+					,MAX(od.BOUND) AS BOUND
+					,MAX(od.BOUND_TYPE) AS BOUND_TYPE
+					,CASE WHEN inv.INVOICE_JOB_NO IS NULL THEN 'N' ELSE 'Y' END AS INVOICE_YN
+	<!-- 				,AI -->
+	<!-- 				,정산CUR -->
+					,MAX(od.AR_DATE) AS AR_DATE
+					,MAX(od.OB_DATE) AS OB_DATE
+					,MAX(od.MBL_NO) AS MBL_NO
+					,MAX(od.VESSEL_FLIGHT) AS VESSEL_FLIGHT
+					,MAX(od.ORIG_CODE) AS ORIG_CODE
+					,MAX(od.HBL_NO) AS HBL_NO
+					,MAX(od.PIECES) AS PIECES
+					,MAX(od.GWT) AS GWT
+					,MAX(ad.SE_INSPECTION_YN) AS SE_INSPECTION_YN
+					,MAX(ad.DROP_YN) AS DROP_YN
+					,MAX(ad.XRAY_YN) AS XRAY_YN
+					,MAX(od.INSPECTION_YN) AS INSPECTION_YN
+					,MAX(od.CONSIGNEE_NAME) AS CONSIGNEE_NAME
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'WHF' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS WHF_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'WHF' THEN ISNULL(cost.AR_AMOUNT_CUR, 0) END) AS WHF_COST_CUR
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'WAHA' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS WAHA_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'INS' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS INS_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'WMAIN' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS WMAIN_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'DLC' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS DLC_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'DISLA' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS DISLA_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'DJU' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS DJU_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'DTY' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS DTY_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'TAX' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS TAX_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'CFC' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS CFC_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'QUA' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS QUA_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'EXEC' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS EXEC_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'MAINT' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS MAINT_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'AGRE' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS AGRE_COST
+					,MAX(CASE WHEN cost.CHARGE_CODE = 'EXP' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS EXP_COST
+					,SUM(CASE WHEN chg.CHG_CODE_SYSTEM IN('JOB_E','WHC_E','DLV_E','BRK_E') THEN ISNULL(cost.AR_AMOUNT, 0) END) AS ETC_COST
+					,ISNULL(SUM(cost.AR_AMOUNT), 0) AS AR_AMOUNT
+					,MAX(od.ENT_CODE) AS ENT_CODE
+					,MAX(od.CD_TYPE) AS CD_TYPE_A
+					,MAX(cost.REGISTER_USER_ID) AS REGISTER_USER_ID_A
+					,MAX(od.REMARKS) AS REMARKS
+					,MAX(od.DELIVERY_NOTE) AS DELIVERY_NOTE
+					,MAX(od.TARIFF_REMARKS) AS TARIFF_REMARKS
+				FROM TB_ECM_OD od
+					 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+					 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+					 INNER JOIN TB_ECM_OD_COST cost
+					 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+					 INNER JOIN TB_SMS_CHARGE chg
+					 			ON chg.ENT_CODE = od.ENT_CODE
+					 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+					 LEFT JOIN TB_SAS_INVOICE inv
+					 		   ON inv.INVOICE_JOB_NO = cost.AR_INVOICE_JOB_NO
+				<!-- parameter 추가시 SearchInvoiceList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceList"/>
+				AND cost.AP_INVOICE_JOB_NO IS NOT NULL
+				GROUP BY od.OD_JOB_NO, inv.INVOICE_JOB_NO, cost.CUSTOMER_CODE
+			) A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectPartnerSummaryChargeList" parameterType="searchInvoiceList" resultType="partnerSummaryCharge">
+		/* InvoiceMapper.selectPartnerSummaryChargeList : 전자상거래 정산관리 파트너집계 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 A.*
+				,SUM(A.AR_AMOUNT) OVER() AS TOTAL_AR_AMOUNT
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = A.ENT_CODE AND USER_ID = A.REGISTER_USER_ID_A) AS REGISTER_USER_NAME
+			FROM(
+				SELECT
+					 MAX(A.CUST_CODE_LV1) AS CUST_CODE_LV1
+					,MAX(A.INVOICE_DATE) AS INVOICE_DATE
+					,MAX(A.CURRENCY_CODE) AS CURRENCY_CODE
+					,MAX(A.MBL_NO) AS MBL_NO
+					,MAX(A.BOUND) AS BOUND
+					,MAX(A.VESSEL_FLIGHT) AS VESSEL_FLIGHT
+					,MAX(A.ORIG_CODE) AS ORIG_CODE
+					,MAX(A.CUSTOMER_CODE) AS CUSTOMER_CODE
+					,MAX(A.AR_DATE) AS AR_DATE
+					,MAX(A.ENT_CODE) AS ENT_CODE
+					,MAX(A.REGISTER_USER_ID_A) AS REGISTER_USER_ID_A
+					,COUNT(A.OD_JOB_NO) AS HBL_CNT
+					,COUNT(CASE A.CD_TYPE WHEN 'Y' THEN 1 END) AS SIMPLE_CNT
+					,COUNT(CASE A.CD_TYPE WHEN 'N' THEN 1 END) AS GENERAL_CNT
+					,COUNT(CASE A.CD_TYPE WHEN 'B' THEN 1 END) AS EXCLUDE_CNT
+					,COUNT(CASE A.INSPECTION_YN WHEN 'Y' THEN 1 END) AS INSPECTION_CNT
+					,COUNT(CASE A.SE_INSPECTION_YN WHEN 'Y' THEN 1 END) AS SE_INSPECTION_CNT
+					,COUNT(CASE A.XRAY_YN WHEN 'Y' THEN 1 END) AS XRAY_CNT
+					,COUNT(CASE A.DROP_YN WHEN 'Y' THEN 1 END) AS DROP_CNT
+					,SUM(A.PIECES) AS PIECES
+					,SUM(A.GWT) AS GWT
+					,SUM(A.WHF_COST) AS WHF_COST
+					,SUM(A.WHF_COST_CUR) AS WHF_COST_CUR
+					,SUM(A.WAHA_COST) AS WAHA_COST
+					,SUM(A.INS_COST) AS INS_COST
+					,SUM(A.WMAIN_COST) AS WMAIN_COST
+					,SUM(A.DLC_COST) AS DLC_COST
+					,SUM(A.DISLA_COST) AS DISLA_COST
+					,SUM(A.DJU_COST) AS DJU_COST
+					,SUM(A.DTY_COST) AS DTY_COST
+					,SUM(A.TAX_COST) AS TAX_COST
+					,SUM(A.CFC_COST) AS CFC_COST
+					,SUM(A.QUA_COST) AS QUA_COST
+					,SUM(A.EXEC_COST) AS EXEC_COST
+					,SUM(A.MAINT_COST) AS MAINT_COST
+					,SUM(A.AGRE_COST) AS AGRE_COST
+					,SUM(A.EXP_COST) AS EXP_COST
+					,SUM(A.ETC_COST) AS ETC_COST
+					,SUM(A.AR_AMOUNT) AS AR_AMOUNT
+				FROM(
+					SELECT
+						 od.OD_JOB_NO
+						,inv.INVOICE_JOB_NO
+						,MAX(cost.CURRENCY_CODE) AS CURRENCY_CODE
+						,MAX(od.CD_TYPE) AS CD_TYPE
+						,MAX(od.BOUND) AS BOUND
+						,MAX(od.CUST_CODE_LV1) AS CUST_CODE_LV1
+						,MAX(inv.INVOICE_DATE) AS INVOICE_DATE
+						,MAX(od.AR_DATE) AS AR_DATE
+		<!-- 				,AI -->
+		<!-- 				,입출항일자 -->
+						,MAX(od.MBL_NO) AS MBL_NO
+						,MAX(od.VESSEL_FLIGHT) AS VESSEL_FLIGHT
+						,MAX(od.ORIG_CODE) AS ORIG_CODE
+						,MAX(od.INSPECTION_YN) AS INSPECTION_YN
+						,MAX(ad.SE_INSPECTION_YN) AS SE_INSPECTION_YN
+						,MAX(ad.XRAY_YN) AS XRAY_YN
+						,MAX(ad.DROP_YN) AS DROP_YN
+						,MAX(od.PIECES) AS PIECES
+						,MAX(od.GWT) AS GWT
+						,MAX(cost.CUSTOMER_CODE) AS CUSTOMER_CODE
+						,MAX(od.ENT_CODE) AS ENT_CODE
+						,MAX(cost.REGISTER_USER_ID) AS REGISTER_USER_ID_A
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'WHF' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS WHF_COST
+						,MAX(CASE WHEN cost.CHARGE_CODE = 'WHF' THEN ISNULL(cost.AR_AMOUNT_CUR, 0) END) AS WHF_COST_CUR
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'WAHA' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS WAHA_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'INS' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS INS_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'WMAIN' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS WMAIN_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'DLC' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS DLC_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'DISLA' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS DISLA_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'DJU' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS DJU_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'DTY' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS DTY_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'TAX' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS TAX_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'CFC' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS CFC_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'QUA' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS QUA_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'EXEC' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS EXEC_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'MAINT' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS MAINT_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'AGRE' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS AGRE_COST
+						,SUM(CASE WHEN cost.CHARGE_CODE = 'EXP' THEN ISNULL(cost.AR_AMOUNT, 0) END) AS EXP_COST
+						,SUM(CASE WHEN chg.CHG_CODE_SYSTEM IN('JOB_E','WHC_E','DLV_E','BRK_E') THEN ISNULL(cost.AR_AMOUNT, 0) END) AS ETC_COST
+						,ISNULL(SUM(cost.AR_AMOUNT), 0) AS AR_AMOUNT
+		<!-- 				,담당자 -->
+					FROM TB_ECM_OD od
+						 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+						 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+						 INNER JOIN TB_ECM_OD_COST cost
+						 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+						 INNER JOIN TB_SMS_CHARGE chg
+						 			ON chg.ENT_CODE = od.ENT_CODE
+						 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+						 LEFT JOIN TB_SAS_INVOICE inv
+						 		   ON inv.INVOICE_JOB_NO = cost.AR_INVOICE_JOB_NO
+					<!-- parameter 추가시 SearchInvoiceList에 추가 -->
+					<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceList"/>
+					AND cost.AP_INVOICE_JOB_NO IS NOT NULL
+					GROUP BY inv.INVOICE_JOB_NO, od.OD_JOB_NO, cost.CUSTOMER_CODE
+				) A
+				GROUP BY A.INVOICE_JOB_NO, A.MBL_NO, A.CUSTOMER_CODE
+			) A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectOdCostSum" parameterType="searchInvoiceList" resultType="HashMap">
+		/* InvoiceMapper.selectOdCostSum : 전자상거래 정산서생성 OD_COST 조회 */
+			SELECT
+				 cost.CHARGE_CODE
+				,MAX(cost.CURRENCY_CODE) AS CURRENCY_CODE
+				,MAX(cost.CHARGE_NAME) AS CHARGE_NAME
+				,ISNULL(SUM(cost.${srchArAp}_AMOUNT), 0) AS TOTAL_AMOUNT
+				,MAX(od.OD_JOB_NO) AS OD_JOB_NO
+				,CASE WHEN MAX(od.BOUND_TYPE) = 'EXP' THEN MAX(od.OB_DATE) ELSE MAX(od.AR_DATE) END AS OBAR_DATE
+				,MAX(od.MBL_NO) AS MBL_NO
+				,MAX(od.HBL_NO) AS HBL_NO
+				<if test='invoiceType == "PTN"'>
+				,ISNULL(SUM(cost.AR_AMOUNT_CUR), 0) AS TOTAL_AMOUNT_CUR
+				</if>
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_COST cost
+				 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+				 INNER JOIN TB_SMS_CHARGE chg
+				 			ON chg.ENT_CODE = od.ENT_CODE
+				 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+			<!-- parameter 추가시 SearchInvoiceList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceList"/>
+			<choose>
+			<when test='invoiceType == "PTN"'>
+			GROUP BY cost.CURRENCY_CODE, cost.CHARGE_CODE
+			ORDER BY CURRENCY_CODE
+			</when>
+			<otherwise>
+			GROUP BY cost.CHARGE_CODE
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectCostBatchDelete" parameterType="searchBatchDeleteCost" resultType="HashMap">
+		/* InvoiceMapper.selectCostBatchDelete : 전자상거래 COST 삭제대상 조회 */
+			SELECT
+				 od.OD_JOB_NO
+				,${invoiceAccountType} AS INVOICE_ACCOUNT_CODE
+				,MAX(od.MBL_NO) AS MBL_NO
+				,MAX(od.HBL_NO) AS HBL_NO
+				,MAX(cost.AR_INVOICE_JOB_NO) AS AR_INVOICE_JOB_NO
+				,MAX(cost.AP_INVOICE_JOB_NO) AS AP_INVOICE_JOB_NO
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_COST cost
+				 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+				 INNER JOIN TB_SMS_CHARGE chg
+				 			ON chg.ENT_CODE = od.ENT_CODE
+				 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+			<choose>
+			<when test="checkDataList == null">
+			<!-- parameter 추가시 SearchBatchDeleteCost/Invoice에 추가 -->
+			<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceListSelectGrid"/>
+			</when>
+			<otherwise>
+			WHERE od.ENT_CODE = #{entCode}
+			AND(
+			<foreach collection="checkDataList" item="item" separator="OR">
+			(od.OD_JOB_NO = #{item.odJobNo} AND ${invoiceAccountType} = #{item.invoiceAccountCode})
+			</foreach>
+			)
+			AND cost.AR_INVOICE_JOB_NO IS NULL
+			AND cost.AP_INVOICE_JOB_NO IS NULL
+			AND chg.CHG_CODE_SYSTEM LIKE CONCAT(#{invoiceType}, '%')
+			</otherwise>
+			</choose>
+			GROUP BY od.OD_JOB_NO, ${invoiceAccountType}
+			ORDER BY od.OD_JOB_NO
+	</select>
+	
+	<delete id="deleteCostBatch" parameterType="HashMap">
+		/* InvoiceMapper.deleteCostBatch : 전자상거래 COST 삭제 */
+			DELETE cost
+			FROM TB_ECM_OD_COST cost
+				 INNER JOIN TB_SMS_CHARGE chg
+				 			ON chg.ENT_CODE = #{entCode}
+				 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+			WHERE cost.OD_JOB_NO = #{OD_JOB_NO}
+			AND cost.AR_INVOICE_JOB_NO IS NULL
+			AND cost.AP_INVOICE_JOB_NO IS NULL
+			AND ${invoiceAccountType} = #{INVOICE_ACCOUNT_CODE}
+			AND chg.CHG_CODE_SYSTEM LIKE CONCAT(#{invoiceType}, '%')
+	</delete>
+	
+	<select id="selectOdCostSumSelectGrid" parameterType="invoice" resultType="HashMap">
+		/* InvoiceMapper.selectOdCostSumSelectGrid : 전자상거래 정산서생성 OD_COST 조회 */
+			SELECT
+				 cost.CHARGE_CODE
+				,MAX(cost.CURRENCY_CODE) AS CURRENCY_CODE
+				,MAX(cost.CHARGE_NAME) AS CHARGE_NAME
+				,ISNULL(SUM(cost.${arAp}_AMOUNT), 0) AS TOTAL_AMOUNT
+				,MAX(od.OD_JOB_NO) AS OD_JOB_NO
+				,CASE WHEN MAX(od.BOUND_TYPE) = 'EXP' THEN MAX(od.OB_DATE) ELSE MAX(od.AR_DATE) END AS OBAR_DATE
+				,MAX(od.MBL_NO) AS MBL_NO
+				,MAX(od.HBL_NO) AS HBL_NO
+				<if test='invoiceType == "PTN"'>
+				,ISNULL(SUM(cost.AR_AMOUNT_CUR), 0) AS TOTAL_AMOUNT_CUR
+				</if>
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_COST cost
+				 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+				 INNER JOIN TB_SMS_CHARGE chg
+				 			ON chg.ENT_CODE = od.ENT_CODE
+				 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+			<!-- parameter 추가시 SearchBatchDeleteCost/Invoice에 추가 -->
+			<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceListSelectGrid"/>
+			AND od.OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+			<choose>
+			<when test='invoiceType == "PTN"'>
+			GROUP BY cost.CURRENCY_CODE, cost.CHARGE_CODE
+			ORDER BY CURRENCY_CODE
+			</when>
+			<otherwise>
+			GROUP BY cost.CHARGE_CODE
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectInvoiceNoCheck" parameterType="HashMap" resultType="int">
+		/* InvoiceMapper.selectInvoiceNoCheck : 전자상거래 정산서생성 그룹정산번호체크 */
+			SELECT COUNT(INVOICE_JOB_NO) AS CNT
+			FROM TB_SAS_INVOICE
+			WHERE ENT_CODE = #{entCode}
+			AND ENT_BUSINESS_CODE = #{entBusinessCode}
+			AND INVOICE_NO_GROUP = #{invoiceNoGroup}
+	</select>
+	
+	<insert id="insertComOd" parameterType="HashMap">
+		/* InvoiceMapper.insertComOd : 전자상거래 정산서생성 TB_COM_OD insert */
+			INSERT INTO TB_COM_OD(
+				   OD_JOB_NO
+				  ,OBL_JOB_NO
+				  ,ENT_CODE
+				  ,ENT_BUSINESS_CODE
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+				  ,SOLUTION
+				  ,BOUND
+				  ,BOUND_TYPE
+				  <if test="obarDate != null and obarDate != ''">
+				  ,OBAR_DATE
+				  </if>
+				  ,MBL_NO
+				  ,HBL_NO
+			)VALUES(
+				   #{comOdJobNo}
+				  ,#{oblJobNo}
+				  ,#{entCode}
+				  ,#{entBusinessCode}
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,'ECM'
+				  ,#{bound}
+				  ,#{boundType}
+				  <if test="obarDate != null and obarDate != ''">
+				  ,#{obarDate}
+				  </if>
+				  ,LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  ,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+			)
+	</insert>
+	
+	<insert id="insertComOdForStorage" parameterType="HashMap">
+		/* InvoiceMapper.insertComOdForStorage : 보세구역관리 창고료정산 > 세금계산서 TB_COM_OD insert */
+			INSERT INTO TB_COM_OD(
+				   OD_JOB_NO
+				  ,OBL_JOB_NO
+				  ,ENT_CODE
+				  ,ENT_BUSINESS_CODE
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+				  ,SOLUTION
+				  ,BOUND
+				  ,BOUND_TYPE
+				  <if test="obarDate != null and obarDate != ''">
+				  ,OBAR_DATE
+				  </if>
+				  ,MBL_NO
+				  ,HBL_NO
+				  <if test="customerCode != null and customerCode != ''">
+				  ,CUSTOMER_CODE
+				  </if>
+				  <if test="customerName != null and customerName != ''">
+				  ,CUSTOMER_NAME
+				  </if>
+				  <if test="attn != null and attn != ''">
+				  ,CUSTOMER_ATTN
+				  </if>
+				  <if test="tel != null and tel != ''">
+				  ,CUSTOMER_TEL
+				  </if>
+			)VALUES(
+				   #{comOdJobNo}
+				  ,#{oblJobNo}
+				  ,#{entCode}
+				  ,#{entBusinessCode}
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{solution}
+				  ,#{bound}
+				  ,#{boundType}
+				  <if test="obarDate != null and obarDate != ''">
+				  ,#{obarDate}
+				  </if>
+				  ,LTRIM(RTRIM(#{mblNo}))
+				  ,LTRIM(RTRIM(#{hblNo}))
+				  <if test="customerCode != null and customerCode != ''">
+				  ,#{customerCode}
+				  </if>
+				  <if test="customerName != null and customerName != ''">
+				  ,#{customerName}
+				  </if>
+				  <if test="attn != null and attn != ''">
+				  ,#{attn}
+				  </if>
+				  <if test="tel != null and tel != ''">
+				  ,#{tel}
+				  </if>
+			)
+	</insert>
+	
+	<insert id="insertComOdChg" parameterType="java.util.List">
+		/* InvoiceMapper.insertComOdChg : 전자상거래 정산서생성 TB_COM_OD_CHG_INVOICE insert */
+			INSERT INTO TB_COM_OD_CHG_INVOICE(
+				   OD_JOB_NO
+				  ,CHARGE_SEQ_NO
+				  ,SOLUTION
+				  ,INVOICE_BUS_CODE
+				  ,LOCAL_OVERSEA
+				  ,AR_AP
+				  ,CHARGE_CODE
+				  ,CHARGE_NAME
+				  ,VAT_YNX
+				  ,VAT_PERCENT
+				  ,CURRENCY_CODE_CUR
+				  ,CURRENCY_CODE_LOC
+				  ,EXCHANGE_RATE
+				  ,AMOUNT_CUR
+				  ,AMOUNT_VAT_CUR
+				  ,AMOUNT_TOTAL_CUR
+				  ,AMOUNT_LOC
+				  ,AMOUNT_VAT_LOC
+				  ,AMOUNT_TOTAL_LOC
+				  ,EXRATE_USD
+				  ,AMOUNT_USD
+				  ,AMOUNT_VAT_USD
+				  ,AMOUNT_TOTAL_USD
+				  ,ACCOUNT_CODE
+				  ,INVOICE_TARGET_YN
+				  ,INVOICE_JOB_NO
+				  ,INVOICE_NO
+				  ,INVOICE_DATE
+				  ,INVOICE_CONFIRM_YN
+				  <if test='list[0].ecmOdChgYn == "Y"'>
+				  ,RATE_MULTIPLY
+				  ,RATE_QTY_WT
+				  ,RATE_CUR
+				  ,RATE_LOC
+				  ,ETC_ACCOUNT_NAME
+				  </if>
+			)VALUES
+			<foreach collection="list" item="item" separator=",">
+			(
+				   #{item.comOdJobNo}
+				  ,#{item.chargeSeqNo}
+				  ,'ECM'
+				  ,#{item.entBusinessCode}
+				  ,#{item.localOversea}
+				  ,#{item.arAp}
+				  ,#{item.chargeCode}
+				  ,#{item.chargeName}
+				  ,#{item.vatYnx}
+				  ,#{item.vatPercent}
+				  ,#{item.currencyCodeCur}
+				  ,'KRW'
+				  ,#{item.exchangeRate}
+				  ,#{item.amountCur}
+				  ,#{item.amountVatCur}
+				  ,#{item.amountTotalCur}
+				  ,#{item.amountLoc}
+				  ,#{item.amountVatLoc}
+				  ,#{item.amountTotalLoc}
+				  ,#{item.exrateUsd}
+				  ,#{item.amountUsd}
+				  ,#{item.amountVatUsd}
+				  ,#{item.amountTotalUsd}
+				  ,#{item.accountCode}
+				  ,'Y'
+				  ,#{item.invoiceJobNo}
+				  ,#{item.invoiceNo}
+				  ,CONVERT(DATE, #{item.invoiceDate}, ${item.dateFormat})
+				  ,'Y'
+				  <if test='item.ecmOdChgYn == "Y"'>
+				  ,#{item.RATE_MULTIPLY}
+				  ,#{item.RATE_QTY_WT}
+				  ,#{item.RATE_CUR}
+				  ,#{item.RATE_LOC}
+				  ,#{item.accountName}
+				  </if>
+			)
+			</foreach>
+	</insert>
+	
+	<insert id="insertComOdChgForStorage" parameterType="java.util.List">
+		/* InvoiceMapper.insertComOdChgForStorage : 보세구역관리 창고료정산 > 세금계산서 TB_COM_OD_CHG_INVOICE insert */
+			INSERT INTO TB_COM_OD_CHG_INVOICE(
+				   OD_JOB_NO
+				  ,CHARGE_SEQ_NO
+				  ,SOLUTION
+				  ,INVOICE_BUS_CODE
+				  ,LOCAL_OVERSEA
+				  ,AR_AP
+				  ,AMOUNT_LOC
+				  ,AMOUNT_VAT_LOC
+				  ,AMOUNT_TOTAL_LOC
+				  ,AMOUNT_USD
+				  ,ACCOUNT_CODE
+				  ,INVOICE_TARGET_YN
+				  ,INVOICE_JOB_NO
+				  ,INVOICE_NO
+				  ,INVOICE_DATE
+				  ,INVOICE_CONFIRM_YN
+			)VALUES
+			(
+				   #{comOdJobNo}
+				  ,#{chargeSeqNo}
+				  ,#{solution}
+				  ,#{entBusinessCode} <!-- INVOICE_BUS_CODE는 사업장코드가 기본  -->
+				  ,#{localOversea}
+				  ,#{arAp}
+				  ,#{amountLoc}	
+				  ,#{amountVatLoc}
+				  ,#{amountTotalLoc}
+				  ,#{amountUsd}
+				  ,#{accountCode}
+				  ,'Y'
+				  ,#{invoiceJobNo}
+				  ,#{invoiceNo}
+				  ,CONVERT(DATE, #{invoiceDate}, ${dateFormat})
+				  ,'Y'
+			)
+	</insert>
+	
+	<update id="updateEcmOdChg" parameterType="invoice">
+		/* InvoiceMapper.updateEcmOdChg : 전자상거래 정산서생성 TB_ECM_OD_CHG_INVOICE update */
+			UPDATE TB_ECM_OD_CHG_INVOICE
+			   SET INVOICE_JOB_NO = #{invoiceJobNo}
+			     , INVOICE_NO = #{invoiceNo}
+			     , INVOICE_DATE = #{invoiceDate}
+			     , INVOICE_CONFIRM_YN = 'Y'
+			WHERE OD_JOB_NO = #{odJobNoList[0]}
+			AND INVOICE_JOB_NO IS NULL
+			AND INVOICE_BUS_CODE = #{entBusinessCode}
+		    AND INVOICE_CONFIRM_YN = 'N'
+	</update>
+	
+	<insert id="insertInvoice" parameterType="HashMap">
+		/* InvoiceMapper.insertInvoice : 전자상거래 정산서생성 TB_SAS_INVOICE insert */
+			INSERT INTO TB_SAS_INVOICE(
+				   INVOICE_JOB_NO
+				  ,ENT_CODE
+				  ,ENT_BUSINESS_CODE
+				  ,INVOICE_NO
+				  ,INVOICE_NO_CUSTOMER
+				  ,SOLUTION
+				  ,BOUND
+				  ,BOUND_TYPE
+				  ,LOCAL_OVERSEA
+				  ,AR_AP
+				  ,DOC_ISSUE_TYPE
+				  ,HBL_INV_YN
+				  ,OD_JOB_NO
+				  ,INVOICE_DATE
+				  ,ACCOUNT_CODE
+				  ,ACCOUNT_NAME
+				  ,ACCOUNT_ATTN_ID
+				  ,ACCOUNT_ATTN
+				  ,ACCOUNT_TEL
+				  ,ACCOUNT_FAX
+				  ,PAYMENT_ACCOUNT_CODE
+				  ,CURRENCY_CODE_CUR
+				  ,EXRATE_TYPE
+				  ,EXRATE_DATE
+				  ,EXCHANGE_RATE
+				  ,AMOUNT_CUR
+				  ,AMOUNT_VAT_CUR
+				  ,AMOUNT_TOTAL_CUR
+				  ,DR_AMOUNT_TOTAL_CUR
+				  ,CR_AMOUNT_TOTAL_CUR
+				  ,CURRENCY_CODE_LOC
+				  ,AMOUNT_LOC
+				  ,AMOUNT_VAT_LOC
+				  ,AMOUNT_TOTAL_LOC
+				  ,DR_AMOUNT_TOTAL_LOC
+				  ,CR_AMOUNT_TOTAL_LOC
+				  ,CURRENCY_TOTAL
+				  ,EXRATE_USD
+				  ,AMOUNT_TOTAL_USD
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+				  ,ACCOUNT_ATTN_ID_EBILL_YN
+				  ,REMARKS
+				  ,PREPAID_YN
+			)VALUES(
+				   #{invoiceJobNo}
+				  ,#{entCode}
+				  ,#{entBusinessCode}
+				  ,#{invoiceNo}
+				  ,#{invoiceNoCustomer}
+				  ,'ECM'
+				  ,#{bound}
+				  ,#{boundType}
+				  ,#{localOversea}
+				  ,#{arAp}
+				  ,'OP-GENERAL'
+				  ,'Y'
+				  ,#{comOdJobNo}
+				  ,CONVERT(DATE, #{invoiceDate}, ${dateFormat})
+				  ,#{accountCode}
+				  ,#{accountName}
+				  ,#{accountAttnId}
+				  ,#{accountAttn}
+				  ,#{accountTel}
+				  ,#{accountFax}
+				  ,#{accountCode}
+				  ,#{currencyCodeCur}
+				  ,#{exrateType}
+				  ,#{exrateDate}
+				  ,#{exchangeRate}
+				  ,#{amountCur}
+				  ,#{amountVatCur}
+				  ,#{amountTotalCur}
+				  ,#{drAmountTotalCur}
+				  ,#{crAmountTotalCur}
+				  ,'KRW'
+				  ,#{amountLoc}
+				  ,#{amountVatLoc}
+				  ,#{amountTotalLoc}
+				  ,#{drAmountTotalLoc}
+				  ,#{crAmountTotalLoc}
+				  ,#{currencyTotal}
+				  ,#{exrateUsd}
+				  ,#{amountTotalUsd}
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{accountAttnEbillYn}
+				  ,#{remarks}
+				  ,'N'
+			)
+	</insert>
+	
+	<insert id="insertInvoiceItem" parameterType="HashMap">
+		/* InvoiceMapper.insertInvoiceItem : 전자상거래 정산서생성 TB_SAS_INVOICE_ITEM insert */
+			INSERT INTO TB_SAS_INVOICE_ITEM(
+				   INVOICE_JOB_NO
+				  ,CHARGE_SEQ_NO
+				  ,OD_JOB_NO
+				  ,AR_AP
+				  ,CHARGE_CODE
+				  ,CHARGE_NAME
+				  ,VAT_YNX
+				  ,VAT_PERCENT
+				  ,CURRENCY_CODE_CUR
+				  ,EXCHANGE_RATE
+				  ,AMOUNT_CUR
+				  ,AMOUNT_VAT_CUR
+				  ,AMOUNT_TOTAL_CUR
+				  ,CURRENCY_CODE_LOC
+				  ,AMOUNT_LOC
+				  ,AMOUNT_VAT_LOC
+				  ,AMOUNT_TOTAL_LOC
+				  ,EXRATE_USD
+				  ,AMOUNT_USD
+				  ,AMOUNT_VAT_USD
+				  ,AMOUNT_TOTAL_USD
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			<if test='ecmOdChgYn == "Y"'>
+				  ,RATE_MULTIPLY
+				  ,RATE_QTY_WT
+				  ,RATE_CUR
+				  ,RATE_LOC
+			</if>
+			)
+			SELECT
+				 INVOICE_JOB_NO
+				,CHARGE_SEQ_NO
+				,OD_JOB_NO
+				,AR_AP
+				,CHARGE_CODE
+				,CHARGE_NAME
+				,VAT_YNX
+				,VAT_PERCENT
+				,CURRENCY_CODE_CUR
+				,EXCHANGE_RATE
+				,AMOUNT_CUR
+				,AMOUNT_VAT_CUR
+				,AMOUNT_TOTAL_CUR
+				,CURRENCY_CODE_LOC
+				,AMOUNT_LOC
+				,AMOUNT_VAT_LOC
+				,AMOUNT_TOTAL_LOC
+				,EXRATE_USD
+				,AMOUNT_USD
+				,AMOUNT_VAT_USD
+				,AMOUNT_TOTAL_USD
+				,#{userId}
+				,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			<if test='ecmOdChgYn == "Y"'>
+				,RATE_MULTIPLY
+				,RATE_QTY_WT
+				,RATE_CUR
+				,RATE_LOC
+			</if>
+			FROM TB_COM_OD_CHG_INVOICE
+			WHERE OD_JOB_NO = #{comOdJobNo}
+			<if test='invoiceType == "PTN"'>
+			ANd CURRENCY_CODE_CUR = #{currencyCodeCur}
+			</if>
+	</insert>
+	
+	<update id="updateOdCost" parameterType="searchInvoiceList">
+		/* InvoiceMapper.updateOdCost : 전자상거래 정산서생성 TB_ECM_OD_COST update */
+			UPDATE cost SET
+				   cost.${srchArAp}_INVOICE_JOB_NO = #{invoiceJobNo}
+				  ,cost.${srchArAp}_INVOICE_DATE = CONVERT(DATE, #{invoiceDate}, ${srchDateFormat})
+				  <if test='srchArAp == "AP"'>
+				  ,cost.AR_AMOUNT = CASE WHEN ISNULL(cost.AR_AMOUNT, 0) = 0 AND cost.AR_INVOICE_JOB_NO IS NULL THEN cost.AP_AMOUNT ELSE cost.AR_AMOUNT END
+				  </if>
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_COST cost
+				 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+				 INNER JOIN TB_SMS_CHARGE chg
+				 			ON chg.ENT_CODE = od.ENT_CODE
+				 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+			<!-- parameter 추가시 SearchInvoiceList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceList"/>
+	</update>
+	
+	<update id="updateOdCostSelectGrid" parameterType="invoice">
+		/* InvoiceMapper.updateOdCostSelectGrid : 전자상거래 정산서생성 TB_ECM_OD_COST update */
+			UPDATE cost SET
+				   ${arAp}_INVOICE_JOB_NO = #{invoiceJobNo}
+				  ,${arAp}_INVOICE_DATE = CONVERT(DATE, #{invoiceDate}, ${dateFormat})
+				  <if test='arAp == "AP"'>
+				  ,cost.AR_AMOUNT = CASE WHEN ISNULL(cost.AR_AMOUNT, 0) = 0 AND cost.AR_INVOICE_JOB_NO IS NULL THEN cost.AP_AMOUNT ELSE cost.AR_AMOUNT END
+				  </if>
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_COST cost
+				 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+				 INNER JOIN TB_SMS_CHARGE chg
+				 			ON chg.ENT_CODE = od.ENT_CODE
+				 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+			<!-- parameter 추가시 SearchBatchDeleteCost/Invoice에 추가 -->
+			<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceListSelectGrid"/>
+			AND od.OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+	</update>
+	
+	<insert id="insertObl" parameterType="HashMap">
+	 /* InvoiceMapper.insertObl : 전자상거래 일반정산 정산서생성 TB_COM_OBL insert */
+	 		INSERT INTO TB_COM_OBL (
+	 			   OBL_JOB_NO
+	 		      ,ENT_CODE
+	 		      ,SOLUTION
+	 		      ,BOUND
+	 		      ,BL_TYPE_MH
+	 		      ,MBL_NO
+	 		      ,HBL_NO
+	 		      ,SHIPPER_NAME
+	 		      ,SHIPPER_ADDRESS
+	 		      ,SHIPPER_ADDRESS_A
+	 		      ,SHIPPER_ADDRESS_B
+	 		      ,SHIPPER_ADDRESS_C
+	 		      ,SHIPPER_ADDRESS_D
+	 		      ,CONSIGNEE_NAME
+	 		      ,CONSIGNEE_ADDRESS
+	 		      ,CONSIGNEE_ADDRESS_A
+	 		      ,CONSIGNEE_ADDRESS_B
+	 		      ,CONSIGNEE_ADDRESS_C
+	 		      ,CONSIGNEE_ADDRESS_D
+	 		      ,ITEM_NAME
+	 		      ,LINE_CODE
+	 		      ,LINE_NAME
+	 		      ,VESSEL_FLIGHT
+	 		      ,VESSEL_VOYAGE
+	 		      ,ORIG_CODE
+	 		      ,ORIG_NAME
+	 		      ,DEST_CODE
+	 		      ,DEST_NAME
+	 		      ,OB_DATE
+			      ,OB_TIME
+	 		      ,AR_DATE
+	 		      ,AR_TIME
+	 		      ,INCOTERMS
+	 		      ,PIECES
+	 		      ,UNIT_PIECES
+	 		      ,GWT
+	 		      ,LBS_GWT
+	 		      ,REGISTER_USER_ID
+	 		      ,REGISTER_DATE_TIME
+	 		      ,UPDATE_USER_ID
+	 		      ,UPDATE_DATE_TIME
+	 		)
+			SELECT
+				   #{oblJobNo} AS OBL_JOB_NO
+				  ,ENT_CODE
+				  ,SOLUTION
+	 		      ,BOUND
+	 		      ,BL_TYPE_MH
+	 		      ,MBL_NO
+	 		      ,HBL_NO
+	 		      ,SHIPPER_NAME
+	 		      ,SHIPPER_ADDRESS
+	 		      ,SHIPPER_ADDRESS_A
+	 		      ,SHIPPER_ADDRESS_B
+	 		      ,SHIPPER_ADDRESS_C
+	 		      ,SHIPPER_ADDRESS_D
+	 		      ,CONSIGNEE_NAME
+	 		      ,CONSIGNEE_ADDRESS
+	 		      ,CONSIGNEE_ADDRESS_A
+	 		      ,CONSIGNEE_ADDRESS_B
+	 		      ,CONSIGNEE_ADDRESS_C
+	 		      ,CONSIGNEE_ADDRESS_D
+	 		      ,SUBSTRING(COMMODITY_ITEM, 1, 100)
+	 		      ,LINE_CODE
+	 		      ,LINE_NAME
+	 		      ,VESSEL_FLIGHT
+	 		      ,VOYAGE AS VESSEL_VOYAGE
+	 		      ,ORIG_CODE
+	 		      ,ORIG_NAME
+	 		      ,DEST_CODE
+	 		      ,DEST_NAME
+	 		      ,OB_DATE
+			      ,OB_TIME
+	 		      ,AR_DATE
+	 		      ,AR_TIME
+	 		      ,INCOTERMS
+	 		      ,PIECES
+	 		      ,UNIT_PIECES
+	 		      ,GWT
+	 		      ,GWT_LBS AS LBS_GWT
+	 		      ,#{userId} AS REGISTER_USER_ID
+	 		      ,DATEADD(HOUR, ${gmtTime}, GETDATE()) AS REGISTER_DATE_TIME
+	 		      ,#{updateUserId} AS UPDATE_USER_ID
+	 		      ,DATEADD(HOUR, ${gmtTime}, GETDATE()) AS UPDATE_DATE_TIME
+	 		FROM TB_ECM_OD
+			WHERE OD_JOB_NO = #{ecmOdJobNo}
+	</insert>
+	
+	<insert id="insertOblForStorage" parameterType="HashMap">
+	 /* InvoiceMapper.insertOblForStorage :  보세구역관리 창고료정산 > 세금계산서 TB_COM_OBL insert */
+	 		INSERT INTO TB_COM_OBL (
+	 			   OBL_JOB_NO
+	 		      ,ENT_CODE
+	 		      ,SOLUTION
+	 		      ,BOUND
+	 		      ,BL_TYPE_MH
+	 		      ,MBL_NO
+	 		      ,HBL_NO
+	 		      ,SHIPPER_NAME
+	 		      ,SHIPPER_ADDRESS
+	 		      ,SHIPPER_ADDRESS_A
+	 		      ,SHIPPER_ADDRESS_B
+	 		      ,SHIPPER_ADDRESS_C
+	 		      ,SHIPPER_ADDRESS_D
+	 		      ,CONSIGNEE_NAME
+	 		      ,CONSIGNEE_ADDRESS
+	 		      ,CONSIGNEE_ADDRESS_A
+	 		      ,CONSIGNEE_ADDRESS_B
+	 		      ,CONSIGNEE_ADDRESS_C
+	 		      ,CONSIGNEE_ADDRESS_D
+	 		      ,VESSEL_FLIGHT
+	 		      ,VESSEL_VOYAGE
+	 		      <if test="arDate != null and arDate != ''">
+	 		      ,AR_DATE
+	 		      </if>
+	 		      <if test="arTime != null and arTime != ''">
+	 		      ,AR_TIME
+	 		      </if>
+	 		      ,REGISTER_USER_ID
+	 		      ,REGISTER_DATE_TIME
+	 		      ,UPDATE_USER_ID
+	 		      ,UPDATE_DATE_TIME
+	 		)VALUES(
+				   #{oblJobNo}
+				  ,#{entCode}
+				  ,#{solution}
+	 		      ,#{bound}
+	 		      ,#{blTypeMh}
+	 		      ,#{mblNo}
+	 		      ,<choose>
+	 		      	<when test="hblNo != null and hblNo != ''">#{hblNo}</when><when test="blNo != null and blNo != ''">#{blNo}</when>
+	 		      </choose>
+	 		      ,''
+	 		      ,''
+	 		      ,''
+	 		      ,''
+	 		      ,''
+	 		      ,''
+	 		      ,''
+	 		      ,''
+	 		      ,''
+	 		      ,''
+	 		      ,''
+	 		      ,''
+	 		      <!-- 2025.09.28 주소길이오류로 김현숙부장 요청 공백으로 입력 -->
+	 		      <!-- ,#{shipperName}
+	 		      ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress1}) AS NVARCHAR(300)), ''), 1, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress1}) AS NVARCHAR(300)), ''), 61, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress1}) AS NVARCHAR(300)), ''), 121, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress2}) AS NVARCHAR(300)), ''), 181, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress2}) AS NVARCHAR(300)), ''), 241, 60)
+	 		      ,#{consigneeName}
+	 		      ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAdress1}) AS NVARCHAR(300)), ''), 1, 60)
+	 		      ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAdress1}) AS NVARCHAR(300)), ''), 61, 60)
+	 		      ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAdress1}) AS NVARCHAR(300)), ''), 121, 60) -->
+	 		      ,#{vesselFlight}
+	 		      ,#{voyage}
+	 		      <if test="arDate != null and arDate != ''">
+	 		      ,#{arDate}
+	 		      </if>
+	 		       <if test="arTime != null and arTime != ''">
+	 		      ,#{arTime}
+	 		      </if>
+	 		      ,#{userId}
+	 		      ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+	 		      ,#{updateUserId}
+	 		      ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+	 		);
+	</insert>
+	
+	<update id="updateWorkFeeClose" parameterType="searchInvoiceList">
+		/* InvoiceMapper.updateWorkFeeClose : 전자상거래 작업료마감 */
+			UPDATE cost SET
+				   cost.AP_INVOICE_JOB_NO = #{invoiceJobNo}
+				  ,cost.AP_INVOICE_DATE = CASE WHEN #{invoiceJobNo} IS NOT NULL THEN GETDATE() ELSE NULL END
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_COST cost
+				 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+				 INNER JOIN TB_SMS_CHARGE chg
+				 			ON chg.ENT_CODE = od.ENT_CODE
+				 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+			<!-- parameter 추가시 SearchInvoiceList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceList"/>
+			<choose>
+			<when test="invoiceJobNo == null">
+			AND cost.AP_INVOICE_JOB_NO IS NOT NULL
+			</when>
+			<otherwise>
+			AND cost.AP_INVOICE_JOB_NO IS NULL
+			</otherwise>
+			</choose>
+	</update>
+	
+	<update id="updateWorkFeeCloseSelectGrid" parameterType="invoice">
+		/* InvoiceMapper.updateWorkFeeCloseSelectGrid : 전자상거래 작업료마감 */
+			UPDATE cost SET
+				   cost.AP_INVOICE_JOB_NO = #{invoiceJobNo}
+				  ,cost.AP_INVOICE_DATE = CASE WHEN #{invoiceJobNo} IS NOT NULL THEN GETDATE() ELSE NULL END
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_COST cost
+				 			ON cost.OD_JOB_NO = od.OD_JOB_NO
+				 INNER JOIN TB_SMS_CHARGE chg
+				 			ON chg.ENT_CODE = od.ENT_CODE
+				 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+			<!-- parameter 추가시 SearchBatchDeleteCost/Invoice에 추가 -->
+			<include refid="org.yht.exps.express.mapper.invoice.InvoiceMapper.searchInvoiceListSelectGrid"/>
+			AND od.OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+			<choose>
+			<when test="invoiceJobNo == null">
+			AND cost.AP_INVOICE_JOB_NO IS NOT NULL
+			</when>
+			<otherwise>
+			AND cost.AP_INVOICE_JOB_NO IS NULL
+			</otherwise>
+			</choose>
+	</update>
+	
+	<update id="updateOdChgInvoiceNoNull" parameterType="HashMap">
+		/* InvoiceMapper.updateOdChgInvoiceNoNull : Invoice No를 null로 업데이트 */
+			UPDATE TB_COM_OD_CHG_INVOICE SET
+				   INVOICE_NO = null
+			WHERE INVOICE_NO = #{invoiceNo}
+			AND INVOICE_JOB_NO IS NULL
+			AND INVOICE_BUS_CODE = #{entBusinessCode}
+			AND INVOICE_CONFIRM_YN = 'N'
+	</update>
+	
+	<update id="deleteOrderCost" parameterType="invoice">
+		/* InvoiceMapper.deleteOrderCost : 추가비용 삭제 */
+			DELETE FROM cost
+			FROM TB_ECM_OD_COST cost
+				 INNER JOIN TB_SMS_CHARGE chg
+				 			ON chg.ENT_CODE = #{entCode}
+				 			AND chg.CHARGE_CODE = cost.CHARGE_CODE
+			WHERE OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+			AND AR_INVOICE_JOB_NO IS NULL
+			AND AP_INVOICE_JOB_NO IS NULL
+			AND chg.CHG_CODE_SYSTEM LIKE CONCAT(#{invoiceType}, '%')
+	</update>
+	
+	<select id="selectCustomerTreeList" parameterType="workFeeRate" resultType="workFeeRate">
+		/* InvoiceMapper.selectCustomerTreeList : 하위업체 조회 */
+			WITH tree_query 
+			AS 
+			( 
+				SELECT 
+					cus.CUSTOMER_CODE
+				  , cus.CUSTOMER_LEVEL AS CUSTOMER_LV
+				FROM TB_SMS_CUSTOMER cus
+				WHERE cus.ENT_CODE = #{entCode}
+				  	AND cus.PARENT_CUSTOMER_CODE = #{customerCode}
+				UNION ALL 	
+				SELECT 
+					B.CUSTOMER_CODE
+				  , B.CUSTOMER_LEVEL AS CUSTOMER_LV
+				FROM TB_SMS_CUSTOMER B, tree_query C 
+				WHERE B.PARENT_CUSTOMER_CODE = C.CUSTOMER_CODE
+			) 
+			
+			SELECT A.* FROM tree_query	A
+	</select>
+
+	<select id="selectWorkFeeRate" parameterType="workFeeRate" resultType="HashMap">
+		/* InvoiceMapper.selectWorkFeeRate : 작업료 요율 조회 */
+			SELECT
+				 od.OD_JOB_NO
+				,od.BOUND
+				,od.BOUND_TYPE
+				,od.CUST_CODE_LV${customerLv}
+				,tar.WEIGHT_BASE
+				,tar.RATE_BASE
+				,tar.WEIGHT_INC
+				,tar.RATE_INC
+				,tar.CURRENCY_CODE
+				,tar.RATE_TYPE_APPLY
+				,tar.CHARGE_CODE
+				,(SELECT CHG_NM_KOR FROM TB_SMS_CHARGE WHERE ENT_CODE = tar.ENT_CODE AND CHARGE_CODE = tar.CHARGE_CODE) AS CHARGE_NAME 
+				,CASE tar.RATE_TYPE_APPLY WHEN 'LBS' THEN od.GWT_LBS WHEN 'CBM' THEN od.CBM ELSE od.GWT END AS WORK_WEIGHT
+				,(SELECT 1 FROM TB_ECM_OD_COST WHERE OD_JOB_NO = od.OD_JOB_NO AND CHARGE_CODE = tar.CHARGE_CODE AND (AR_INVOICE_JOB_NO IS NOT NULL OR AP_INVOICE_JOB_NO IS NOT NULL)) AS INVOICE_JOB_NO
+				,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV${customerLv}) AS CUST_NAME_LV${customerLv}
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+				 INNER JOIN TB_SMS_TARIFF tar
+				 			ON tar.ENT_CODE = od.ENT_CODE
+				 			AND tar.ENT_BUSINESS_CODE = #{entBusinessCode}
+				 			AND tar.CHARGE_CODE IS NOT NULL
+				 			AND tar.CHARGE_CODE != ''
+				 			AND tar.BOUND IN(od.BOUND, 'COM')
+				 			AND tar.BOUND_TYPE = 'IMP'
+				 			AND tar.RATE_TABLE_TYPE = 'JOB'
+				 			AND tar.ACCOUNT_CODE = od.CUST_CODE_LV${customerLv}
+				 			AND ISNULL(tar.SHIPMENT_GUBN, '') IN('', od.CD_TYPE)
+				 			AND ISNULL(tar.ITEM_GUBN, '') IN('', od.ECM_TYPE)
+<!-- 				 			AND tar.CURRENCY_CODE = od.CURRENCY_CODE -->
+				 			<![CDATA[
+				 			AND tar.START_DATE <= od.AR_DATE
+				 			AND tar.END_DATE >= od.AR_DATE
+				 			AND (
+				 				tar.RATE_TYPE_APPLY = 'BL'
+				 				OR
+			 					(tar.WEIGHT_BASE < CASE tar.RATE_TYPE_APPLY WHEN 'LBS' THEN od.GWT_LBS WHEN 'CBM' THEN od.CBM ELSE od.GWT END
+			 					 AND tar.END_WEIGHT >= CASE tar.RATE_TYPE_APPLY WHEN 'LBS' THEN od.GWT_LBS WHEN 'CBM' THEN od.CBM ELSE od.GWT END)
+				 			)
+				 			
+				 			]]>
+<!-- 				 			<![CDATA[ -->
+<!-- 				 			AND( -->
+<!-- 				 				(tar.RATE_TYPE_APPLY = 'LBS' AND tar.WEIGHT_BASE < od.GWT_LBS AND AND tar.END_WEIGHT >= od.GWT_LBS) OR -->
+<!-- 				 				(tar.RATE_TYPE_APPLY = 'CBM' AND tar.WEIGHT_BASE < od.CBM AND AND tar.END_WEIGHT >= od.CBM) OR -->
+<!-- 				 				(tar.RATE_TYPE_APPLY = 'KG' AND tar.WEIGHT_BASE < od.GWT AND AND tar.END_WEIGHT >= od.GWT) -->
+<!-- 				 			) -->
+<!-- 				 			]]> -->
+			WHERE od.ENT_CODE = #{entCode}
+			AND od.BOUND_TYPE = 'IMP'
+			<if test="customerCode != null and customerCode != ''">
+			AND od.CUST_CODE_LV${customerLv} = #{customerCode}
+			</if>
+			<if test="ecmInvoiceYn != null and ecmInvoiceYn != ''">
+			AND ISNULL(od.CUST_CODE_LV${customerLowLv}, '') = ''
+			</if>
+			AND od.BL_TYPE_MH = 'H'
+			AND od.AR_DATE >= CONVERT(DATE, #{startDate}, ${dateFormat}) 
+			AND od.AR_DATE <![CDATA[<=]]> CONVERT(DATE, #{endDate}, ${dateFormat})
+<!-- 			DELIVERY_YN조건 일단 제거 -->
+<!-- 			AND ad.DELIVERY_YN = 'Y' -->
+	</select>
+	
+	<insert id="insertWorkFee" parameterType="HashMap">
+		/* InvoiceMapper.insertWorkFee : 작업료 insert */
+			DELETE FROM TB_ECM_OD_COST
+			WHERE OD_JOB_NO = #{OD_JOB_NO}
+			AND CHARGE_CODE = #{CHARGE_CODE};
+			INSERT INTO TB_ECM_OD_COST(
+				   OD_JOB_NO
+				  ,SEQ_NO_ID
+				  ,CHARGE_CODE
+				  ,CHARGE_NAME
+				  ,AR_AMOUNT
+				  ,AR_AMOUNT_CUR
+				  ,CURRENCY_CODE
+				  ,PAYMENT_GUBN
+				  ,CUSTOMER_CODE
+				  ,CUSTOMER_NAME
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+			)VALUES(
+				   #{OD_JOB_NO}
+				  ,(SELECT ISNULL(MAX(SEQ_NO_ID), 0) + 1 FROM TB_ECM_OD_COST dim WHERE OD_JOB_NO = #{OD_JOB_NO})
+				  ,#{CHARGE_CODE}
+				  ,#{CHARGE_NAME}
+				  ,#{amount}
+				  ,#{amountCur}
+				  ,#{CURRENCY_CODE}
+				  ,'07'
+				  ,#{CUST_CODE_LV${customerLv}}
+				  ,#{CUST_NAME_LV${customerLv}}
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			);
+	</insert>
+	
+</mapper>

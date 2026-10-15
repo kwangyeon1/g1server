@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.MultiWgMapper">
+	
+	<select id="selectMultiWgList" parameterType="searchMultiWgOrderList" resultType="multiWgOrder">
+		/* MultiWgMapper.selectMultiWgList : Multi 멀티중량 List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT * 
+			FROM
+			(
+			SELECT
+				 od.OD_JOB_NO
+				<!-- ,ROW_NUMBER() OVER(PARTITION BY od.OD_JOB_NO
+                                 ORDER BY od.OD_JOB_NO,multi.SEQ_NO_ID ASC) AS M_NUM -->
+                ,od.BOUND  
+                ,od.BOUND_TYPE 
+                ,od.CD_TYPE
+                ,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = od.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				,od.REGISTER_DATE_TIME 
+				,od.HBL_NO
+				,od.AR_DATE
+				,od.DELIVERY_NAME
+				,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = multi.CUSTOMER_CODE) AS ACCOUNT_NAME
+				,od.CONSIGNEE_NAME_LOC
+				,od.GWT 
+				,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV1) AS CUST_CODE_LV1_NAME
+				,od.SHIPPER_NAME       
+				,od.AMOUNT_LOC
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = multi.DELIVERER_USER_ID) AS DELIVERER_USER_NAME
+				,od.OB_DATE
+				,multi.DELIVERY_NAME_CHANGED
+				,multi.PAYMENT_GUBN
+				,multi.RECIPIENT_NAME
+				,multi.DELIVERY_DATE
+				,multi.PIECES
+				,multi.RECEIPT_DATE 
+				,multi.VWT
+				,multi.DELIVERY_FEE
+				,multi.DELIVERY_NO_CHANGED
+				,od.ENT_BUSINESS_CODE
+				,CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE ENT_CODE = od.ENT_CODE AND FUNC_JOB_NO = od.OD_JOB_NO ) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+				
+				,od.CUST_CODE_LV1
+				,od.CUST_CODE_LV2
+				
+			FROM TB_ECM_OD od
+			INNER JOIN (
+				SELECT 
+				OD_JOB_NO
+				, MAX(DELIVERY_CODE) AS DELIVERY_NAME_CHANGED
+				, MAX(PAYMENT_GUBN) AS PAYMENT_GUBN
+				, MAX(RECIPIENT_NAME) AS RECIPIENT_NAME
+				, MAX(DELIVERY_DATE) AS DELIVERY_DATE
+				, MAX(RECEIPT_DATE) AS RECEIPT_DATE
+				, MAX(DELIVERY_NO_CHANGED) AS DELIVERY_NO_CHANGED
+				, MAX(CUSTOMER_CODE) AS CUSTOMER_CODE
+				, MAX(DELIVERER_USER_ID) AS DELIVERER_USER_ID
+				, SUM(VWT) AS VWT
+				, SUM(DELIVERY_FEE) AS DELIVERY_FEE
+				, SUM(PIECES) AS PIECES
+				FROM TB_ECM_OD_MULTI
+				GROUP BY OD_JOB_NO
+			)multi ON od.OD_JOB_NO = multi.OD_JOB_NO
+			WHERE od.BL_TYPE_MH = 'H'
+			AND od.ENT_CODE = #{srchEntCode}
+			
+			<if test="srchBound != null and srchBound != ''">
+			AND od.BOUND = #{srchBound}
+			</if>
+			<if test="srchBoundType != null and srchBoundType != ''">
+			AND od.BOUND_TYPE = #{srchBoundType}
+			</if>
+			<!-- <if test="srchHblNo != null and srchHblNo != ''">
+			AND od.HBL_NO LIKE CONCAT('%',#{srchHblNo},'%')
+			</if> -->
+			<if test="srchCustomerCode != null and srchCustomerCode != ''">
+				AND ${srchCusType} = #{srchCustomerCode}
+			</if>
+			
+			<if test="srchHblNo != null and srchHblNo != ''">
+				<choose>
+					<when test='searchType == "multi"'>
+					AND od.HBL_NO IN (<foreach collection="srchHblNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<otherwise>
+					AND od.HBL_NO LIKE CONCAT('%',#{srchHblNo},'%')
+					</otherwise>
+				</choose>
+			</if>
+			
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+				
+			) INFO
+			WHERE<!--  M_NUM = 1  -->
+			1 = 1
+			
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectSubMultiWgList" parameterType="searchMultiWgOrderList" resultType="multiWgOrder">
+		/* MultiWgMapper.selectSubMultiWgList : Multi 멀티중량  sub List */
+			SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+			SELECT
+				ROW_NUMBER() OVER(ORDER BY SEQ_NO_ID ASC) AS NUM
+				,multi.OD_JOB_NO
+				,multi.SEQ_NO_ID
+				,multi.DELIVERY_NO
+				,multi.DELIVERY_CODE
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = multi.DELIVERY_CODE) AS DELIVERY_NAME
+				,multi.CUSTOMER_CODE
+				,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = multi.CUSTOMER_CODE) AS CUSTOMER_NAME
+				,multi.DELIVERY_NO_CHANGED
+				,multi.PIECES
+				,multi.PAYMENT_GUBN
+				,multi.DELIVERY_FEE
+				,multi.DIM_WIDTH
+				,multi.DIM_LENGTH
+				,multi.DIM_HEIGHT
+				,multi.VWT
+				,multi.REMARKS
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = multi.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				,multi.REGISTER_DATE_TIME 
+				,multi.RECIPIENT_NAME AS RECIPIENT_USER_NAME
+				,multi.RECEIPT_DATE 
+				,od.HBL_NO
+				,od.BOUND
+				,od.BOUND_TYPE
+			FROM TB_ECM_OD od
+			INNER JOIN TB_ECM_OD_MULTI multi ON od.OD_JOB_NO = multi.OD_JOB_NO
+			WHERE od.OD_JOB_NO = #{odJobNo}
+			ORDER BY multi.SEQ_NO_ID
+	</select>
+	
+	<select id="selectOrder" parameterType="searchMultiWg" resultType="multiWgOrder">
+		/* MultiWgMapper.selectOrder : 오더 상세조회 */
+		SELECT
+			 od.OD_JOB_NO
+			,od.HBL_NO
+			,od.BOUND
+			,od.BOUND_TYPE
+			,od.DELIVERY_NAME
+			,od.PIECES
+			,od.GWT
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV1) AS CUST_CODE_LV1_NAME
+			,od.SHIPPER_NAME 
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = od.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			,od.REGISTER_DATE_TIME   
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = od.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			,od.UPDATE_DATE_TIME   
+		FROM TB_ECM_OD od
+		WHERE od.ENT_CODE = #{entCode}
+		AND od.OD_JOB_NO = #{odJobNo}
+	</select>
+	
+	<delete id="deleteMultiWgSeq" parameterType="multiWgOrder">
+		/* MultiWgMapper.deleteMultiWgSeq : 멀티(중량) Delete */
+		DELETE FROM TB_ECM_OD_MULTI
+		WHERE OD_JOB_NO = #{odJobNo}		
+		AND SEQ_NO_ID = #{seqNoId}	
+	</delete>
+	
+	<delete id="deleteMultiWgOrder" parameterType="multiWgOrder">
+		/* MultiWgMapper.deleteMultiWgOrder : 멀티(중량) Delete */
+		DELETE FROM TB_ECM_OD_MULTI
+		WHERE OD_JOB_NO = #{odJobNo}	
+	</delete>
+	
+	<insert id="insertMulti" parameterType="multiWgOrder">
+		/* MultiWgMapper.insertMulti : Order 멀티(중량)화물 insert */
+		INSERT INTO TB_ECM_OD_MULTI(
+			OD_JOB_NO
+			,SEQ_NO_ID
+			,DELIVERY_NO
+			,DELIVERY_CODE
+			,CUSTOMER_CODE
+			,DELIVERY_NO_CHANGED
+			,PAYMENT_GUBN
+			,DELIVERY_FEE
+			,PIECES
+			,DIM_WIDTH
+			,DIM_LENGTH
+			,DIM_HEIGHT
+			,VWT
+			,REMARKS
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+		)
+		SELECT
+		    #{odJobNo}
+		    ,(SELECT ISNULL(MAX(SEQ_NO_ID), 0) + 1 FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = #{odJobNo})
+			,#{deliveryNo}
+			,#{deliveryCode}
+			,#{customerCode}
+		    ,#{deliveryNoChanged}
+		    ,#{paymentGubn}
+		    ,#{deliveryFee}
+		    ,#{pieces}
+		    ,#{dimWidth}
+		    ,#{dimLength}
+		    ,#{dimHeight}
+		    ,#{vwt}
+		    ,#{remarks}
+		    ,#{registerUserId}
+		    ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+	</insert>
+	
+	<update id="updateMulti" parameterType="multiWgOrder">
+		/* MultiWgMapper.updateMulti : 멀티(중량)화물 확정 */
+		<if test='gubun == "ORDER_F" or gubun == "MULTI_F"'>
+		UPDATE TB_ECM_OD_MULTI
+		SET RECIPIENT_NAME = #{recipientName}
+		,RECEIPT_DATE = CONVERT(DATE, #{receiptDate},  ${dateFormat})
+		WHERE OD_JOB_NO = #{odJobNo}
+			<if test='gubun == "MULTI_F"'>
+			AND SEQ_NO_ID = #{seqNoId}
+			</if>
+		</if>
+		
+		<if test='gubun == "ORDER_C" or gubun == "MULTI_C"'>
+		UPDATE TB_ECM_OD_MULTI
+		SET RECIPIENT_NAME = NULL
+		,RECEIPT_DATE = NULL
+		WHERE OD_JOB_NO = #{odJobNo}
+			<if test='gubun == "MULTI_C"'>
+			AND SEQ_NO_ID = #{seqNoId}
+			</if>
+		</if>
+	</update>		
+	
+	
+</mapper>

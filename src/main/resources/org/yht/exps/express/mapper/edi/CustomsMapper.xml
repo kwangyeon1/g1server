@@ -1,0 +1,467 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.edi.CustomsMapper">
+
+	
+	<select id="selectSendDelivery" parameterType="HashMap" resultType="HashMap">
+		/* CustomsMapper.selectSendDelivery : 배송지변경신고 대상 조회 */
+			SELECT
+				 ad.DELIVERY_DOC_NO
+				,edi.EDI_JOB_NO
+				,edi.EDI_DOC_NO
+				,edi.EDI_PORTAL_MAILBOX_ID
+<!-- 				,CONVERT(VARCHAR(8), edi.ISSUE_DATE, 112) AS ISSUE_DATE -->
+<!-- 				,CONVERT(VARCHAR(6), DATEADD(MONTH, -1, edi.ISSUE_DATE), 112) AS LIMIT_DATE -->
+				,CONVERT(VARCHAR(8), GETDATE(), 112) AS ISSUE_DATE
+				,CONVERT(VARCHAR(6), DATEADD(MONTH, -1, GETDATE()), 112) AS LIMIT_DATE
+				,CONVERT(VARCHAR(8), ad.SIMPLE_REPORT_DATE, 112) AS SIMPLE_REPORT_DATE
+				,CONVERT(VARCHAR(8), ad.CLEARANCE_DATE, 112) AS CLEARANCE_DATE
+				,CONVERT(VARCHAR(8), ad.DELIVERY_DATE, 112) AS DELIVERY_DATE
+				,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS CONSIGNEE_ADDRESS
+				,mod.VESSEL_FLIGHT
+				,mod.LINE_CODE
+				,mod.VOYAGE
+				,od.DELIVERY_NAME_CHANGED
+				,od.ORIG_CODE
+				,od.HBL_NO
+				,od.DELIVERY_ADDRESS_CHANGED
+				,od.COMMODITY_ITEM
+				,od.CD_TYPE
+				,(SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') AS HOLD_CODE
+				,ad.DROP_YN
+				,od.DELIVERY_REASON_CHANGED
+				,od.MRN
+				,od.MSN
+				,od.HSN
+				,od.BOUND
+				,od.MASTER_OD_JOB_NO
+				,od.ENT_CODE
+				,od.ENT_BUSINESS_CODE
+				,od.BOUND_TYPE
+				,od.DEST_PORT
+				,od.OD_JOB_NO
+				,bus.EDI_EXPRESS_SIGN
+			FROM TB_EDI_LINKED edi
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON edi.EDI_DOC_NO = ad.DELIVERY_DOC_NO
+				 INNER JOIN TB_ECM_OD od
+				 			ON od.OD_JOB_NO = ad.OD_JOB_NO
+				 INNER JOIN TB_ECM_OD mod
+				 			ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO AND mod.BL_TYPE_MH ='M'
+				 INNER JOIN TB_SMS_ENT_BUS_EDI_ECM bus
+				 			ON bus.ENT_CODE = od.ENT_CODE
+				 			AND bus.BOUND = od.BOUND
+				 			AND bus.BOUND_TYPE = od.BOUND_TYPE
+							AND bus.EDI_CITY_PORT = od.DEST_PORT
+			WHERE ad.DELIVERY_DOC_NO = #{ediDocNo}
+			AND edi.EDI_STATUS IN('EDI','ERROR')
+	</select>
+	
+	<update id="updateDeliveryChangedSeqNo" parameterType="HashMap">
+		/* CustomsMapper.updateDeliveryChangedSeqNo : 배송지변경신고순번 업데이트 */
+		UPDATE TB_ECM_OD_ADDITIONAL SET DELIVERY_CHANGED_SEQ_NO = #{deliveryChangedSeqNo} WHERE OD_JOB_NO = #{OD_JOB_NO}
+	</update>
+	
+	<update id="updateEidLinked" parameterType="HashMap">
+		/* CustomsMapper.updateEidLinked : TB_EDI_LINKED 수정 */
+			UPDATE TB_EDI_LINKED SET
+				   <choose>
+				   <when test='customsErrCode != null and customsErrCode != "" and customsErrCode != "C200"'>
+				   EDI_STATUS = 'ERROR'
+				   </when>
+				   <otherwise>
+				   EDI_STATUS = 'READY'
+				   </otherwise>
+				   </choose>
+				  ,EDI_SEND_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE EDI_JOB_NO = #{EDI_JOB_NO}
+	</update>
+	
+	<update id="updateUnmanagementDate" parameterType="HashMap">
+		/* CustomsMapper.updateUnmanagementDate : 별도관리해제신고 일자 수정 */
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   UNMANAGEMENT_DATE = #{issueDate}
+			WHERE SPECIAL_ITEM_DOC_NO = #{ediDocNo}
+	</update>
+	
+	<select id="selectSendUnmanagementHouse" parameterType="HashMap" resultType="HashMap">
+		/* CustomsMapper.selectSendUnmanagementHouse : 별도관리물품해제 대상 조회 */
+			SELECT
+				 CONVERT(VARCHAR(8), masterOd.AR_DATE, 112) AS AR_DATE
+				,masterOd.VESSEL_FLIGHT
+				,masterOd.DEST_PORT
+				,masterOd.MBL_NO
+				,masterOd.MRN
+				,masterOd.MSN
+				,masterOd.ENT_BUSINESS_CODE
+				,masterOd.BOUND
+				,masterOd.BOUND_TYPE
+				,masterOd.DEST_PORT
+				,od.HBL_NO
+				,od.HSN
+				,od.OD_JOB_NO
+				,od.ENT_CODE
+				,od.COMMODITY_ITEM
+				,od.GWT
+				,od.PIECES
+				,od.CUSTOMS_CODE
+				,ad.SPECIAL_ITEM_DOC_NO
+<!-- 				,CONVERT(VARCHAR(8), edi.ISSUE_DATE, 112) AS ISSUE_DATE -->
+				,CONVERT(VARCHAR(8), GETDATE(), 112) AS ISSUE_DATE
+				,edi.EDI_JOB_NO
+				,edi.EDI_PORTAL_MAILBOX_ID
+				,edi.EDI_DOC_NO
+				,(SELECT ETC2 FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = masterOd.ENT_CODE AND GROUP_CODE = 'CITY_PORT' AND CODE = masterOd.DEST_PORT) AS DEST_COUNTRY
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+				 INNER JOIN TB_ECM_OD masterOd
+				 			ON masterOd.OD_JOB_NO = od.MASTER_OD_JOB_NO
+				 			AND masterOd.BL_TYPE_MH = 'M'
+				 INNER JOIN TB_EDI_LINKED edi
+				 			ON edi.EDI_DOC_NO = ad.SPECIAL_ITEM_DOC_NO
+			WHERE od.MASTER_OD_JOB_NO = #{odJobNo}
+			AND od.BL_TYPE_MH = 'H'
+			AND ad.SPECIAL_ITEM_DOC_NO = #{ediDocNo}
+			AND (edi.EDI_STATUS IS NULL OR edi.EDI_STATUS IN('', '2', '4'))
+	</select>
+	
+	<select id="selectSendUnmanagementItem" parameterType="HashMap" resultType="HashMap">
+		/* CustomsMapper.selectSendUnmanagementItem : 별도관리물품해제 대상 조회 */
+			SELECT
+				 item.MANAGE_TYPE
+				,CONVERT(VARCHAR(8), item.AR_DATE, 112) AS AR_DATE
+				,item.FLIGHT_NO
+				,item.ITEM_DESC
+				,item.GWT
+				,item.DEST_PORT
+				,item.PIECES
+				,(SELECT ETC2 FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND GROUP_CODE = 'CITY_PORT' AND CODE = item.DEST_PORT) AS DEST_COUNTRY
+			FROM TB_ECM_OD_SPECIAL_ITEM item
+			WHERE item.OD_JOB_NO = #{odJobNo}
+	</select>
+	
+	<select id="selectSendFulfillment" parameterType="sendDelivery" resultType="HashMap">
+		/* CustomsMapper.selectSendFulfillment : 수출이행신고 대상 조회 */
+			SELECT
+				 CONVERT(VARCHAR(8), od.OB_DATE, 112) AS OB_DATE
+				,REPLACE(od.OB_TIME, ':', '') AS OB_TIME
+				,od.VESSEL_FLIGHT
+				,od.HBL_NO
+				,od.CONSIGNEE_COUNTRY_CODE
+				,od.BOUND
+				,od.OD_JOB_NO
+				,od.ENT_CODE
+				,od.ENT_BUSINESS_CODE
+				,od.BOUND_TYPE
+				,od.ORIG_CODE
+				,od.DEST_PORT
+				,od.MASTER_OD_JOB_NO
+				,od.MBL_NO
+				,ad.SIMPLE_DOC_NO
+				,lic.EFN_PO_NO
+				,lic.EFN_SENDER_CODE
+				,lic.GWT
+				,lic.PIECES
+				,lic.LICENSE_NO
+				,lic.EFN_DELIVERY_NO
+				,lic.EFN_DOC_NO
+				,lic.EFN_TYPE
+				,lic.COMBINE_YN
+				<if test='bound == "AIR"'>
+				,(SELECT ETC2 FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'SIGN_AIRLINE' AND ETC2 = od.LINE_CODE) AS LINE_CODE
+				</if>
+				,(SELECT TOP 1 EDI_PORTAL_MAILBOX_ID FROM TB_SMS_ENT_BUS_EDI_ECM WHERE ENT_CODE = od.ENT_CODE AND ENT_BUSINESS_CODE = od.ENT_BUSINESS_CODE AND BOUND = od.BOUND AND EDI_CITY_PORT = od.ORIG_CODE ORDER BY SEQ_NO) AS EDI_PORTAL_MAILBOX_ID
+<!-- 				,(SELECT TOP 1 EDI_PORTAL_MAILBOX_ID FROM TB_SMS_ENT_BUS_EDI_ECM WHERE ENT_CODE = od.ENT_CODE AND ENT_BUSINESS_CODE = od.ENT_BUSINESS_CODE AND BOUND = od.BOUND AND EDI_CITY_PORT = od.ORIG_CODE ORDER BY SEQ_NO) AS EDI_PORTAL_MAILBOX_ID -->
+				,(SELECT TOP 1 EDI_EXPRESS_SIGN FROM TB_SMS_ENT_BUS_EDI_CODE WHERE ENT_CODE = od.ENT_CODE AND ENT_BUSINESS_CODE = od.ENT_BUSINESS_CODE AND BOUND = od.BOUND AND EDI_CITY_PORT = od.ORIG_CODE) AS EDI_EXPRESS_SIGN
+				,(SELECT TOP 1 POD_JOB_NO FROM TB_ECM_POD_02 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = <choose><when test='sendType == "01"'>'ECM121'</when><when test='sendType == "02"'>'ECM127'</when><when test='sendType == "03"'>'ECM125'</when></choose>) AS SEND_POD_JOB_NO
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+				 INNER JOIN TB_ECM_OD_LICENSE lic
+				 			ON lic.OD_JOB_NO = od.OD_JOB_NO
+				 			AND lic.EFN_SENDER_CODE != ''
+			<choose>
+			<when test="odJobNo != null and odJobNo != ''">
+			WHERE od.MASTER_OD_JOB_NO = #{odJobNo}
+			</when>
+			<otherwise>
+			WHERE od.OD_JOB_NO IN(<foreach collection="ediList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			</otherwise>
+			</choose>
+			AND od.BL_TYPE_MH = 'H'
+			AND od.CD_TYPE = 'E'
+			AND ad.SIMPLE_DOC_NO != ''
+			AND ad.SIMPLE_DOC_NO IS NOT NULL
+			<choose>
+			<when test='sendType == "01"'>
+			AND ISNULL(ad.SIMPLE_EDI_STATUS, '') IN('', 'ERROR', 'RECV03')
+			</when>
+			<otherwise>
+			AND ad.SIMPLE_EDI_STATUS IN('RECV01', 'RECV02')
+			</otherwise>
+			</choose>
+	</select>
+	
+	<update id="updateEdiStatus" parameterType="HashMap">
+		/* CustomsMapper.updateEdiStatus : 수출이행신고 송수신상태업데이트 */
+			<choose>
+			<when test="houseOdJobNoList == null">
+				UPDATE ad SET
+					   ad.SIMPLE_EDI_STATUS = CONCAT('SEND', #{sendType})
+					  ,ad.SIMPLE_REPORT_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+					  ,ad.SIMPLE_DOC_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+					  ,ad.SIMPLE_DOC_TIME = CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+					  ,ad.LAST_POD_STATUS = CASE WHEN ISNULL(LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM128' THEN #{podStatus} ELSE LAST_POD_STATUS END
+					  ,ad.LOAD_CMPL_YN = 'N'
+				FROM TB_ECM_OD od
+					 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+					 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+					 INNER JOIN TB_ECM_OD_LICENSE lic
+					 			ON lic.OD_JOB_NO = od.OD_JOB_NO
+					 			AND lic.EFN_SENDER_CODE != ''
+				<choose>
+				<when test="odJobNo != null and odJobNo != ''">
+				WHERE od.MASTER_OD_JOB_NO = #{odJobNo}
+				</when>
+				<otherwise>
+				WHERE od.OD_JOB_NO IN(<foreach collection="ediList" item="item" separator=",">#{item.odJobNo}</foreach>)
+				</otherwise>
+				</choose>
+				AND od.BL_TYPE_MH = 'H'
+				AND od.CD_TYPE = 'E'
+				AND ad.SIMPLE_DOC_NO != ''
+				AND ad.SIMPLE_DOC_NO IS NOT NULL
+				<choose>
+				<when test='sendType == "01"'>
+				AND ISNULL(ad.SIMPLE_EDI_STATUS, '') IN('', 'ERROR', 'RECV03')
+				</when>
+				<otherwise>
+				AND ad.SIMPLE_EDI_STATUS IN('RECV01', 'RECV02')
+				</otherwise>
+				</choose>
+				
+				DELETE FROM cmpl
+				FROM TB_ECM_OD od
+					 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+					 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+					 INNER JOIN TB_ECM_OD_LOAD_CMPL cmpl
+					 			ON cmpl.OD_JOB_NO = od.OD_JOB_NO
+				<choose>
+				<when test="odJobNo != null and odJobNo != ''">
+				WHERE od.MASTER_OD_JOB_NO = #{odJobNo}
+				</when>
+				<otherwise>
+				WHERE od.OD_JOB_NO IN(<foreach collection="ediList" item="item" separator=",">#{item.odJobNo}</foreach>)
+				</otherwise>
+				</choose>
+				AND od.BL_TYPE_MH = 'H'
+				AND od.CD_TYPE = 'E'
+				AND ad.SIMPLE_DOC_NO != ''
+				AND ad.SIMPLE_DOC_NO IS NOT NULL
+				AND ad.SIMPLE_EDI_STATUS = CONCAT('SEND', #{sendType})
+			</when>
+			<otherwise>
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   <choose>
+				   <when test='customsErrCode != null and customsErrCode != "" and customsErrCode != "C200"'>
+				   SIMPLE_EDI_STATUS = 'ERROR'
+				   </when>
+				   <otherwise>
+				   SIMPLE_EDI_STATUS = CONCAT('SEND', #{sendType})
+				   </otherwise>
+				   </choose>
+				  ,SIMPLE_REPORT_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,SIMPLE_DOC_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,SIMPLE_DOC_TIME = CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+				  <!-- 업데이트전 LAST_POD_STATUS값이 이행관련값일경우에는 전송으로 업데이트  -->
+				  ,LAST_POD_STATUS = CASE WHEN ISNULL(LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM128' THEN #{podStatus} ELSE LAST_POD_STATUS END
+			WHERE OD_JOB_NO IN(<foreach collection="houseOdJobNoList" item="item" separator=",">#{item}</foreach>)
+			</otherwise>
+			</choose>
+	</update>
+	
+	<select id="selectSendAbnormalities" parameterType="HashMap" resultType="HashMap">
+		/* CustomsMapper.selectSendAbnormalities : 하기결과이상보고 대상 조회 */
+			SELECT
+				 od.OD_JOB_NO
+				,MAX(od.MBL_NO) AS MBL_NO
+				,MAX(od.MRN) AS MRN
+				,MAX(od.MSN) AS MSN
+				,CONVERT(VARCHAR(8), MAX(od.AR_DATE), 112) AS AR_DATE
+				,MAX(od.VESSEL_FLIGHT) AS VESSEL_FLIGHT
+				,MAX(od.DEST_CODE) AS DEST_CODE
+				,MAX(od.CUSTOMS_CODE) AS CUSTOMS_CODE
+				,MAX(od.CUSTOMS_DPT_CODE) AS CUSTOMS_DPT_CODE
+				,MAX(abnormal.ABNORMAL_CODE) AS ABNORMAL_CODE
+				,MAX(abnormal.MRN) AS MRN_ABNORMAL
+				,CONVERT(VARCHAR(8), MAX(abnormal.AR_DATE), 112) AS AR_DATE_ABNORMAL
+				,CONVERT(VARCHAR(8), GETDATE(), 112) AS ISSUE_DATE
+				,MAX(od.LINE_CODE) AS LINE_CODE
+				,MAX(od.VENDER_ID_1) AS EDI_VENDER
+			FROM TB_ECM_OD houseOd
+				 INNER JOIN TB_ECM_OD_ABNORMAL abnormal
+				 			ON abnormal.OD_JOB_NO = houseOd.OD_JOB_NO
+				 			AND abnormal.SEND_DATE IS NULL
+				 INNER JOIN TB_ECM_OD od
+				 			ON houseOd.MASTER_OD_JOB_NO = od.OD_JOB_NO
+			WHERE houseOd.OD_JOB_NO IN(<foreach collection="ediList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			GROUP BY od.OD_JOB_NO
+	</select>
+	
+	<select id="selectSendBmsInPlanAbnormalities" parameterType="HashMap" resultType="HashMap">
+		/* CustomsMapper.selectSendBmsInPlanAbnormalities : 하기결과이상보고 대상 조회(반입예정데이터) */
+			SELECT
+				 bip.MBL_NO
+				,SUBSTRING(MAX(bip.CARGO_REFERENCE_NO), 1, 11) AS MRN
+				,SUBSTRING(MAX(bip.CARGO_REFERENCE_NO), 12, 4) AS MSN
+				,REPLACE(MAX(bip.AR_DATE), '-', '') AS AR_DATE
+				,MAX(bip.VESSEL_FLIGHT) AS VESSEL_FLIGHT
+				,MAX(bip.CUSTOMS_CODE) AS CUSTOMS_CODE
+				,MAX(bip.CUSTOMS_DPT_CODE) AS CUSTOMS_DPT_CODE
+				,MAX(abnormal.ABNORMAL_CODE) AS ABNORMAL_CODE
+				,MAX(abnormal.MRN) AS MRN_ABNORMAL
+				,CONVERT(VARCHAR(8), MAX(abnormal.AR_DATE), 112) AS AR_DATE_ABNORMAL
+				,CONVERT(VARCHAR(8), GETDATE(), 112) AS ISSUE_DATE
+				,'QQ' AS LINE_CODE
+				,'KTNET' AS EDI_VENDER
+			FROM TB_BMS_IN_PLAN bip WITH (NOLOCK)
+				 INNER JOIN TB_ECM_OD_ABNORMAL abnormal
+				 			ON abnormal.OD_JOB_NO = CONVERT(VARCHAR(20), bip.IN_PLAN_NO)
+				 			AND abnormal.SEND_DATE IS NULL
+			WHERE bip.IN_PLAN_NO IN(<foreach collection="ediList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			GROUP BY bip.MBL_NO
+	</select>
+	
+	<select id="selectSendAbnormalitiesAbnormal" parameterType="HashMap" resultType="HashMap">
+		/* CustomsMapper.selectSendAbnormalitiesAbnormal : 하기결과이상보고 대상 조회 */
+			SELECT
+				 od.HBL_NO
+				,od.PIECES
+				,od.GWT
+				,od.HSN
+				,od.MRN
+				,od.LINE_CODE
+				,abnormal.VESSEL_FLIGHT
+				,od.MBL_NO
+				,od.MSN
+				,od.DEST_CODE
+				,od.OD_JOB_NO
+				,CONVERT(VARCHAR(8), od.AR_DATE, 112) AS AR_DATE
+				,abnormal.ABNORMAL_CODE
+				,abnormal.PIECES AS PIECES_ABNORMAL
+				,abnormal.GWT AS GWT_ABNORMAL
+				,abnormal.DISC_WH_CODE
+				,abnormal.MRN AS MRN_ABNORMAL
+				,abnormal.MSN AS MSN_ABNORMAL
+				,abnormal.SEQ_NO_ID
+				,CONVERT(VARCHAR(8), abnormal.AR_DATE, 112) AS AR_DATE_ABNORMAL
+				,CASE abnormal.ABNORMAL_CODE WHEN 'MFN' THEN 2 ELSE 1 END AS SORT_SEQ_NO
+				,(SELECT OD_JOB_NO FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = od.OD_JOB_NO AND SEQ_NO_ID = 1 AND SEND_DATE IS NULL) AS UPDATE_OD_JOB_NO
+				,(
+					SELECT TOP 1 A.POD_JOB_NO FROM(
+						SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM160'
+						UNION ALL
+						SELECT POD_JOB_NO FROM TB_ECM_POD_02 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM160'
+					) A
+				 ) AS ECM160_POD_JOB_NO
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ABNORMAL abnormal
+				 			ON abnormal.OD_JOB_NO = od.OD_JOB_NO
+				 			AND abnormal.SEND_DATE IS NULL
+			WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+			AND(
+			<foreach collection="ediList" item="item" separator="OR">
+			(abnormal.OD_JOB_NO = #{item.odJobNo} AND abnormal.SEQ_NO_ID = #{item.seqNoId})
+			</foreach>
+			)
+			ORDER BY od.OD_JOB_NO, SORT_SEQ_NO
+	</select>
+	
+	<select id="selectSendBmsInPlanAbnormalitiesAbnormal" parameterType="HashMap" resultType="HashMap">
+		/* CustomsMapper.selectSendBmsInPlanAbnormalitiesAbnormal : 하기결과이상보고 대상 조회(반입예정데이터) */
+			SELECT
+				 bip.BL_NO AS HBL_NO
+				,bip.EX_CT AS PIECES
+				,bip.EX_WT AS GWT
+				,SUBSTRING(bip.CARGO_REFERENCE_NO, 16, 4) AS HSN
+				,SUBSTRING(bip.CARGO_REFERENCE_NO, 1, 11) AS MRN
+				,'QQ' AS LINE_CODE
+				,abnormal.VESSEL_FLIGHT
+				,bip.MBL_NO
+				,SUBSTRING(bip.CARGO_REFERENCE_NO, 12, 4) AS MSN
+				,bip.IN_PLAN_NO AS OD_JOB_NO
+				,REPLACE(bip.AR_DATE, '-', '') AS AR_DATE
+				,abnormal.ABNORMAL_CODE
+				,abnormal.PIECES AS PIECES_ABNORMAL
+				,abnormal.GWT AS GWT_ABNORMAL
+				,abnormal.DISC_WH_CODE
+				,abnormal.MRN AS MRN_ABNORMAL
+				,abnormal.MSN AS MSN_ABNORMAL
+				,abnormal.SEQ_NO_ID
+				,CONVERT(VARCHAR(8), abnormal.AR_DATE, 112) AS AR_DATE_ABNORMAL
+				,CASE abnormal.ABNORMAL_CODE WHEN 'MFN' THEN 2 ELSE 1 END AS SORT_SEQ_NO
+				,(SELECT OD_JOB_NO FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = CONVERT(VARCHAR(20), bip.IN_PLAN_NO) AND SEQ_NO_ID = 1 AND SEND_DATE IS NULL) AS UPDATE_OD_JOB_NO
+			FROM TB_BMS_IN_PLAN bip WITH (NOLOCK)
+				 INNER JOIN TB_ECM_OD_ABNORMAL abnormal
+				 			ON abnormal.OD_JOB_NO = CONVERT(VARCHAR(20), bip.IN_PLAN_NO)
+				 			AND abnormal.SEND_DATE IS NULL
+			WHERE (
+				<foreach collection="ediList" item="item" separator="OR">
+				(abnormal.OD_JOB_NO = #{item.odJobNo} AND abnormal.SEQ_NO_ID = #{item.seqNoId})
+				</foreach>
+			)
+			ORDER BY bip.IN_PLAN_NO, SORT_SEQ_NO
+	</select>
+	
+	<update id="updateSendAbnormalitiesReportd" parameterType="HashMap">
+		/* CustomsMapper.updateSendAbnormalitiesReportd : 하기결과이상보고 신고 업데이트 */
+			UPDATE ad SET
+				   ad.ABNORMAL_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,ad.ABNORMAL_MFN_DATE = CASE WHEN abnormal.ABNORMAL_CODE IN('MGN', 'SHT') THEN DATEADD(DAY, 15, abnormal.AR_DATE) ELSE NULL END
+<!-- 				  ,ad.ABNORMAL_MFN_YN = CASE WHEN abnormal.ABNORMAL_CODE = 'MFN' AND ad.ABNORMAL_MFN_DATE >= CONVERT(VARCHAR(10), DATEADD(HOUR, ${gmtTime}, GETDATE()), 23) THEN 'Y' ELSE NULL END -->
+				  ,ad.LAST_POD_STATUS = CASE WHEN ISNULL(ad.LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM160' THEN 'ECM160' ELSE ad.LAST_POD_STATUS END
+				  <!-- ,ad.LAST_POD_DATE = CASE WHEN ISNULL(ad.LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM160' THEN DATEADD(HOUR, ${gmtTime}, GETDATE()) ELSE ad.LAST_POD_DATE END -->
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ABNORMAL abnormal
+				 			ON abnormal.OD_JOB_NO = od.OD_JOB_NO
+				 			AND abnormal.SEND_DATE IS NULL
+				 			AND(
+							<foreach collection="ediList" item="item" separator="OR">
+							(abnormal.OD_JOB_NO = #{item.odJobNo} AND abnormal.SEQ_NO_ID = #{item.seqNoId})
+							</foreach>
+							)
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="tempDataList" item="item" separator=",">#{item.OD_JOB_NO}</foreach>);
+			
+			UPDATE abnormal SET
+				   abnormal.SEND_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ABNORMAL abnormal
+				 			ON abnormal.OD_JOB_NO = od.OD_JOB_NO
+				 			AND abnormal.SEND_DATE IS NULL
+				 			AND(
+							<foreach collection="ediList" item="item" separator="OR">
+							(abnormal.OD_JOB_NO = #{item.odJobNo} AND abnormal.SEQ_NO_ID = #{item.seqNoId})
+							</foreach>
+							)
+			WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="tempDataList" item="item" separator=",">#{item.OD_JOB_NO}</foreach>);
+	</update>
+	
+	<update id="updateSendBmsInPlanAbnormalitiesReportd" parameterType="HashMap">
+		/* CustomsMapper.updateSendBmsInPlanAbnormalitiesReportd : 하기결과이상보고 신고 업데이트(반입예정데이터) */
+			UPDATE TB_ECM_OD_ABNORMAL SET
+				   SEND_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE SEND_DATE IS NULL
+			AND(
+			<foreach collection="ediList" item="item" separator="OR">
+			(OD_JOB_NO = #{item.odJobNo} AND SEQ_NO_ID = #{item.seqNoId})
+			</foreach>
+			)
+	</update>
+	
+</mapper>

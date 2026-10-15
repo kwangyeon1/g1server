@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.PrintMapper">
+	<select id ="selectPrintInfoLabel" parameterType="SearchPrintInfo" resultType="PrintInfo">
+		/* printMapper.selectEmsOtbl011PrintInfoLabel : B/L 라벨 출력정보 조회 */
+		SELECT 
+			  PRINT_FORM_CODE 
+			 ,PRINT_FORM_NAME
+			 ,RPT_FILE_NAME AS RPT_FILE_NAME
+		FROM TB_SMS_PRINT_FORM
+		WHERE SOLUTION = #{solution}
+		AND ENT_CODE = #{entCode}
+		AND ENT_BUSINESS_CODE = #{userEntBusinessCode}
+		<if test="srchRptFileName != null">
+		AND RPT_FILE_NAME IN <foreach collection="srchRptFileName" item="item" separator="," open="(" close=")">#{item}</foreach>
+		</if>
+		<if test="srchPrintFormCode != null and srchPrintFormCode != ''">
+		AND PRINT_FORM_CODE = #{srchPrintFormCode}
+		</if>
+		AND USE_YN = 'Y'
+		
+		ORDER BY PRINT_FORM_NAME
+	</select>
+	
+	<delete id="deletePrintFormUbi" parameterType="SearchPrintInfo">
+		/* printMapper.deletePrintFormUbi : PrintFormUbi Delete */
+		DELETE FROM TB_SMS_PRINT_FORM_UBI
+		WHERE REGISTER_USER_ID =  #{userId} 
+		AND ENT_CODE = #{entCode}
+		AND ENT_BUSINESS_CODE = #{userEntBusinessCode}
+		AND PRINT_FORM_CODE =  #{printFormCode} 
+	</delete>
+	
+	<select id="getPrintFormItemList" parameterType="SearchPrintInfo" resultType="HashMap">
+		/* printMapper.getPrintFormItemList : 인쇄정보 항목 가져오기 */
+		SELECT 
+			pf.DOC_SIZE_WIDTH
+			, pf.DOC_SIZE_HEIGHT
+			, pf.MARGIN_TOP
+			, pf.MARGIN_LEFT
+			, pf.REMARKS
+			, pf.DISPLAY_INDEX
+			, pfi.PRINT_FORM_CODE
+			, pfi.CONTROL_ID
+			, pfi.RPT_CONTROL_ID
+			, pfi.CONTROL_NAME  
+	 		, pfi.MAX_LENGTH
+	 		, pfi.MAX_LINE
+	 		, pfi.FIXED_VALUE
+	 		, pfi.LOCATION_TOP
+	 		, pfi.LOCATION_LEFT
+	 		, pfi.LOCATION_WIDTH
+	 		, pfi.LOCATION_HEIGHT
+	 		, pfi.TEXT_FONT
+	 		, pfi.TEXT_FONT_SIZE
+	 		, pfi.TEXT_FONT_COLOR
+	 		, pfi.TEXT_BG_COLOR
+	 		, pfi.TEXT_BG_COLOR_YN
+	 		, pfi.TEXT_UNDERLINE
+	 		, pfi.TEST_EDIT_YN
+	 		, pfi.TEXT_H_ALIGNMENT
+	 		, pfi.TEXT_V_ALIGNMENT
+	 		, pfi.TEXT_LINK_URL
+	 		, pfi.USE_YN
+	 		, pfi.SEQ_NO
+	 		, ISNULL(BL_MARK1_MAX_LENGTH, 0) AS BL_MARK1_MAX_LENGTH
+	 		, BL_MARK1_MAX_LINE
+	 		, ISNULL(BL_MARK2_MAX_LENGTH, 0) AS BL_MARK2_MAX_LENGTH
+	 		, BL_MARK2_MAX_LINE
+	 		
+	 		,CASE pfi.CONTROL_ID WHEN 'BARCODE' THEN '1' ELSE '2' END AS PRINT_INDEX
+				
+		FROM TB_SMS_PRINT_FORM pf
+		INNER JOIN TB_SMS_PRINT_FORM_ITEM pfi
+			ON  pf.PRINT_FORM_CODE = pfi.PRINT_FORM_CODE
+			AND pfi.USE_YN = 'Y'
+			
+		WHERE pf.PRINT_FORM_CODE = #{printFormCode}
+		<if test="bound != null and bound != ''">
+		AND pf.BOUND = #{bound}
+		</if>
+		<if test="boundType != null and boundType != ''">
+		AND pf.BOUND_TYPE = #{boundType}
+		</if>
+			
+		ORDER BY SEQ_NO
+	</select>
+	
+	<select id="selectManualBarcodeList" parameterType="HashMap" resultType="HashMap">
+		/* printMapper.selectManualBarcodeList : Label Barcode print list */
+		SELECT
+			 ISNULL(od.SHIPPER_NAME, '') AS SHIPPER_NAME
+			,CONCAT(REPLACE(ISNULL(od.SHIPPER_ADDRESS, ''), '\r\n', ''), REPLACE(ISNULL(od.SHIPPER_ADDRESS_A,''), '\r\n', ''), REPLACE(ISNULL(od.SHIPPER_ADDRESS_B,''), '\r\n', ''), REPLACE(ISNULL(od.SHIPPER_ADDRESS_C,''), '\r\n', ''), REPLACE(ISNULL(od.SHIPPER_ADDRESS_D,''), '\r\n', '')) AS SHIPPER_ADDRESS
+			,ISNULL(od.CONSIGNEE_NAME, '') AS CONSIGNEE_NAME
+			,CONCAT(REPLACE(ISNULL(od.CONSIGNEE_ADDRESS, ''), '\r\n', ''), REPLACE(ISNULL(od.CONSIGNEE_ADDRESS_A,''), '\r\n', ''), REPLACE(ISNULL(od.CONSIGNEE_ADDRESS_B,''), '\r\n', ''), REPLACE(ISNULL(od.CONSIGNEE_ADDRESS_C,''), '\r\n', ''), REPLACE(ISNULL(od.CONSIGNEE_ADDRESS_D,''), '\r\n', '')) AS CONSIGNEE_ADDRESS
+			,od.HBL_NO
+			,od.ORIG_CODE
+            ,od.DEST_CODE
+            ,od.SHIPPER_TEL
+            ,od.SHIPPER_ATTN
+            ,od.CONSIGNEE_ATTN
+	                
+            ,od.CONSIGNEE_CODE
+            ,od.SHIPPER_CODE
+            ,od.BOUND
+            
+            ,od.COMMODITY_ITEM AS ITEM_NAME
+	                
+            ,(SELECT ENT_BUSINESS_NAME_ENG FROM TB_SMS_ENT_BUSINESS WHERE ENT_CODE = od.ENT_CODE AND ENT_BUSINESS_CODE = #{entBusinessCode}) AS ENT_BUSINESS_NAME
+            ,ISNULL(od.ORIG_NAME, '') AS ORIG_NAME
+            ,ISNULL(od.DEST_NAME, '') AS DEST_NAME
+            ,ISNULL(od.PIECES, 0) AS PIECES
+            ,ISNULL(od.GWT, 0.0) AS GWT
+            ,ISNULL(CONVERT(VARCHAR(10), od.OB_DATE, 23), '') AS OB_DATE
+            ,od.DELIVERY_PAYMENT_TYPE
+            ,ISNULL((SELECT NAME_ENG FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE='PAYMENT_GUBN' AND CODE = od.DELIVERY_PAYMENT_TYPE), '') AS PAYMENT
+            <choose>
+			<when test='cryptographyYn == "Y"'>
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS CONSIGNEE_HP
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+			</when>
+			<otherwise>
+			,od.CONSIGNEE_HP
+			,od.CONSIGNEE_TEL
+			</otherwise>
+			</choose>
+		FROM TB_ECM_OD od
+		WHERE 1=1
+		AND od.OD_JOB_NO = #{odJobNo}
+		<if test="BL_TYPE_MH != null and BL_TYPE_MH != ''">
+		AND od.BL_TYPE_MH = #{BL_TYPE_MH}
+		</if>
+			
+	</select>
+	
+	<insert id="insertPrintFormUbi" parameterType="HashMap">
+		/* fms.awbPrint.insertPrintFormUbi */
+			INSERT INTO TB_SMS_PRINT_FORM_UBI (
+				  ENT_CODE
+				, ENT_BUSINESS_CODE
+				, REGISTER_USER_ID
+   		 		, REGISTER_DATE_TIME
+   		 		, SEQ_NO
+				, PRINT_FORM_CODE
+				, REFERENCE_NO
+				, CONTROL_ID
+				, CONTROL_VALUE
+				, MBL_NO_BARCODE_VAL
+   		 		, MBL_GWT_BARCODE_VAL
+   		 		, HBL_NO_BARCODE_VAL
+   		 		, HBL_GWT_BARCODE_VAL
+				, RPT_CONTROL_ID
+				, CONTROL_NAME   
+				, DOC_SIZE_WIDTH
+				, DOC_SIZE_HEIGHT 
+				, MARGIN_TOP 
+				, MARGIN_LEFT     
+				, MAX_LENGTH 
+				, MAX_LINE 
+				, FIXED_VALUE 
+				, LOCATION_TOP 
+				, LOCATION_LEFT 
+				, LOCATION_WIDTH 
+				, LOCATION_HEIGHT 
+				, TEXT_FONT
+				, TEXT_FONT_SIZE 
+				, TEXT_FONT_COLOR
+				, TEXT_BG_COLOR
+				, TEXT_BG_COLOR_YN 
+				, TEXT_UNDERLINE 
+				, TEST_EDIT_YN  
+   		 		, TEXT_H_ALIGNMENT
+				, TEXT_V_ALIGNMENT
+				, TEXT_LINK_URL
+				, REMARKS
+				, DISPLAY_INDEX  
+				, USE_YN
+    	 		, UPDATE_USER_ID
+    	 		, UPDATE_DATE_TIME
+    	 		, PRINT_NO_FROM
+    	 		, PRINT_NO_TO
+			) VALUES
+			<foreach collection="list" item="item" separator=",">
+			(
+				#{item.ENT_CODE}
+				, #{item.ENT_BUSINESS_CODE}
+				, #{item.USER_ID}
+				, DATEADD(hh, ${item.GMT_TIME}, GETDATE())
+				, #{item.SEQ_NO}
+				, #{item.PRINT_FORM_CODE}
+				, #{item.REFERENCE_NO}
+				, #{item.CONTROL_ID}
+				, #{item.CONTROL_VALUE}
+				, #{item.MBL_NO_BARCODE_VAL}
+				, #{item.MBL_GWT_BARCODE_VAL}
+				, #{item.HBL_NO_BARCODE_VAL}
+				, #{item.HBL_GWT_BARCODE_VAL}
+				, #{item.RPT_CONTROL_ID}
+				, #{item.CONTROL_NAME}
+				, #{item.DOC_SIZE_WIDTH}
+				, #{item.DOC_SIZE_HEIGHT}
+				, #{item.MARGIN_TOP}
+				, #{item.MARGIN_LEFT}
+				, #{item.MAX_LENGTH}
+				, #{item.MAX_LINE}
+				, #{item.FIXED_VALUE}
+				, #{item.LOCATION_TOP}
+				, #{item.LOCATION_LEFT}
+				, #{item.LOCATION_WIDTH}
+				, #{item.LOCATION_HEIGHT}
+				, #{item.TEXT_FONT}
+				, #{item.TEXT_FONT_SIZE}
+				, #{item.TEXT_FONT_COLOR}
+				, #{item.TEXT_BG_COLOR}
+				, #{item.TEXT_BG_COLOR_YN}
+				, #{item.TEXT_UNDERLINE}
+				, #{item.TEST_EDIT_YN}
+				, #{item.TEXT_H_ALIGNMENT}
+				, #{item.TEXT_V_ALIGNMENT}
+				, #{item.TEXT_LINK_URL}
+				, #{item.REMARKS}
+				, #{item.DISPLAY_INDEX}
+				, #{item.USE_YN}
+				, #{item.USER_ID}
+				, DATEADD(hh, ${item.GMT_TIME}, GETDATE())
+				, #{item.PRINT_NO_FROM}
+				, #{item.PRINT_NO_TO}
+			)
+			</foreach>
+	</insert>
+	
+	<insert id="insertHanjinPrintData" parameterType="Map">
+		/* interfaceMapper.insertHanjinPrintData : 한진 운송장 출력정보 저장 */
+			INSERT INTO TB_ECM_OD_DELIVERY_INFO_HANJIN(
+					OD_JOB_NO
+				   ,HANJIN_HUB_COD
+				   ,HANJIN_TML_COD
+				   ,HANJIN_DOM_MID
+				   ,HANJIN_CEN_COD
+				   ,HANJIN_CEN_NAM
+				   ,HANJIN_S_TML_COD
+				   ,HANJIN_S_TML_NAM
+				   ,HANJIN_GRP_RNK
+				   ,HANJIN_ES_NAM
+				   ,HANJIN_PRT_ADD
+				   ,HANJIN_ES_COD
+				   ,HANJIN_DOM_RGN
+				   ,REGISTER_USER_ID
+				   ,REGISTER_DATE
+			)VALUES(
+				    #{OD_JOB_NO}
+				   ,#{HANJIN_HUB_COD}
+				   ,#{HANJIN_TML_COD}
+				   ,#{HANJIN_DOM_MID}
+				   ,#{HANJIN_CEN_COD}
+				   ,#{HANJIN_CEN_NAM}
+				   ,#{HANJIN_S_TML_COD}
+				   ,#{HANJIN_S_TML_NAM}
+				   ,#{HANJIN_GRP_RNK}
+				   ,#{HANJIN_ES_NAM}
+				   ,#{HANJIN_PRT_ADD}
+				   ,#{HANJIN_ES_COD}
+				   ,#{HANJIN_DOM_RGN}
+				   ,#{registerUserId}
+				   ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)	
+	</insert>
+		
+</mapper>

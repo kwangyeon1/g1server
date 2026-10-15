@@ -1,0 +1,1178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.LicenseMapper">
+
+	<sql id="searchLicense">
+		<if test="srchDateGbn != null and srchDateGbn != ''">
+        	<if test="srchStartDate != null and srchStartDate != ''">
+				AND T1.${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+        	</if>
+        	<if test="srchEndDate != null and srchEndDate != ''">
+				AND T1.${srchDateGbn} <![CDATA[<=]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</if>
+		</if>	
+		<if test="srchLicenseText != null and srchLicenseText != ''">
+			<choose>
+				<when test='searchType == "multi"'>
+				AND T1.${srchLicenseType} IN (<foreach collection="srchLicenseList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<otherwise>
+				AND T1.${srchLicenseType} = #{srchLicenseText}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="licenseType != null and licenseType != ''">
+			AND T1.LICENSE_TYPE = #{licenseType}
+		</if>
+		<if test="srchCustCodeLv1 != null and srchCustCodeLv1 != ''">
+			AND T1.CUST_CODE_LV1 = #{srchCustCodeLv1}
+		</if>	
+		<if test="srchResultStatus != null and srchResultStatus != ''">
+			AND T1.RESULT_STATUS = #{srchResultStatus}
+		</if>	
+		<if test="srchSendResultCode != null and srchSendResultCode != ''">
+			<choose>
+				<when test="srchSendResultCode == 'NO'">
+				AND T1.SEND_RESULT_CODE IS NULL OR T1.SEND_RESULT_CODE = ''
+				</when>
+				<otherwise>
+				AND T1.SEND_RESULT_CODE = #{srchSendResultCode}
+				</otherwise>
+			</choose>
+		</if>	
+	</sql>
+
+	<select id="selectLicenseEList" parameterType="searchLicenseList" resultType="License">
+		/* LicenseMapper.selectLicenseEList : E-면장 List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT 
+				T1.LICENSE_JOB_NO
+				, T1.ENT_CODE
+				, T1.LICENSE_TYPE
+				, T1.OD_JOB_NO
+				, T1.DECLARATION_NAME
+				, T1.DECLARATION_REG_NO
+				, T1.DECLARATION_PRESIDENT
+				, T1.LICENSE_SEND_DATE_TIME
+				, T1.LICENSE_RECV_DATE_TIME
+				, T1.RO_DATE
+				, T1.PO_NO
+				, T1.HBL_NO
+				, T1.EFN_PO_NO
+				, T1.LICENSE_CUSTOMS_CODE
+				, T1.LICENSE_CUSTOMS_DPT_CODE
+				, T1.LICENSE_REMARK
+				, T1.LICENSE_SEND_NAME
+				, T1.LICENSE_SEND_BUSINESS_ID
+				, T1.AGENT_NAME
+				, T1.AGENT_CUSTOMS_ID
+				, T1.AGENT_TYPE
+				, T1.AGENT_CUSTOMS_ID_TYPE
+				, T1.AGENT_BUSINESS_ID
+				, T1.ITEM_URL
+				, T1.CONSIGNEE_NAME
+				, T1.CONSIGNEE_ZIPCODE
+				, T1.CONSIGNEE_TEL
+				, T1.CONSIGNEE_ADDRESS
+				, T1.GOODS_LOC_ZIPCODE
+				, T1.GOODS_LOC_ADDRESS
+				, T1.BWH_NAME
+				, T1.DEST_COUNTRY
+				, T1.DELIVERY_TYPE_CODE
+				, T1.DEST_PORT
+				, T1.DEST_DELIVERY_NO
+				, T1.EXPRESS_SIGN
+				, T1.SHIPPER_BUSINESS_NAME
+				, T1.SHIPPER_BUSINESS_CUSTOMS_ID
+				, T1.SHIPPER_BUSINESS_PRESIDENT
+				, T1.SHIPPER_BUSINESS_ID
+				, T1.SHIPPER_BUSINESS_ZIPCODE
+				, T1.SHIPPER_BUSINESS_ADDRESS
+				, T1.SHIPPER_BUSINESS_ADDRESSA
+				, T1.SHIPPER_OFFICE_MNG_NO
+				, T1.MAKER_NAME
+				, T1.MAKER_CUSTOMS_ID
+				, T1.MAKER_COMPLEX_CODE
+				, T1.MAKER_ZIPCODE
+				, T1.INCOTERMS
+				, T1.CURRENCY_CODE
+				, T1.EXCHANGE_RATE
+				, T1.LICENSE_PAY_AMOUNT_CUR 
+				, T1.DELIVERY_FEE_CUR
+				, T1.DELIVERY_FEE_CUR_CODE
+				, T1.DELIVERY_FEE_LOC
+				, T1.ADJUST_AMOUNT_CUR_CODE
+				, T1.ADJUST_AMOUNT_LOC
+				, T1.ADJUST_AMOUNT_CUR
+				, T1.DECLARATION_AMOUNT_LOC
+				, T1.DECLARATION_AMOUNT_USD
+				, T1.PIECES
+				, T1.UNIT_PIECES
+				, T1.UNIT_WEIGHT
+				, T1.LICENSE_PAY_METHOD
+				, T1.GOODS_ITEM_TOT
+				, T1.GWT
+				, T1.REGISTER_USER_ID
+				, T1.REGISTER_DATE_TIME
+				, T1.UPDATE_USER_ID
+				, T1.UPDATE_DATE_TIME
+				, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T1.ENT_CODE AND USER_ID = T1.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T1.ENT_CODE AND USER_ID = T1.UPDATE_USER_ID) AS UPDATE_USER_NAME
+				, (SELECT SUM(NWT) FROM TB_ECM_LICENSE_GOODS_ITEM telgi WHERE telgi.LICENSE_JOB_NO = T1.LICENSE_JOB_NO GROUP BY telgi.LICENSE_JOB_NO) NWT
+				, T1.CUST_CODE_LV1
+				, T1.DELIVERY_ID
+				, T1.FREE_TRANS_YN
+				, T1.SEND_RESULT_CODE
+				, T1.SEND_RESULT_ERROR_DESC
+				, T1.RESULT_STATUS
+				, T1.RESULT_ERROR_REASON
+				, CONVERT(VARCHAR(16), T1.RESULT_DATE_TIME, 120) AS RESULT_DATE_TIME
+				, CONVERT(VARCHAR(10), T1.SEND_DATE_TIME, 23) AS SEND_DATE
+				, CONVERT(VARCHAR(8), T1.SEND_DATE_TIME, 108) AS SEND_TIME 
+		FROM TB_ECM_LICENSE T1
+		WHERE T1.ENT_CODE = #{entCode}
+		<include refid="org.yht.exps.express.mapper.eCommerce.LicenseMapper.searchLicense"/>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectLicense" parameterType="searchLicenseList" resultType="License">
+		/* LicenseMapper.selectLicense : E-면장 List */
+		SELECT TOP 1
+				T1.LICENSE_JOB_NO
+				, T1.ENT_CODE
+				, T1.LICENSE_TYPE
+				, T1.OD_JOB_NO
+				, T1.DECLARATION_NAME
+				, T1.DECLARATION_REG_NO
+				, T1.DECLARATION_PRESIDENT
+				, T1.LICENSE_SEND_DATE_TIME
+				, FORMAT(T1.LICENSE_SEND_DATE_TIME, 'yyyy-MM-dd') LICENSE_SEND_DATE
+				, FORMAT(T1.LICENSE_SEND_DATE_TIME, 'HH:mm') LICENSE_SEND_TIME
+				, FORMAT(T1.SEND_DATE_TIME, 'yyyy-MM-dd') SEND_DATE
+				, FORMAT(T1.SEND_DATE_TIME, 'HH:mm') SEND_TIME
+				, FORMAT(T1.RESULT_DATE_TIME, 'yyyy-MM-dd') RESULT_DATE
+				, FORMAT(T1.RESULT_DATE_TIME, 'HH:mm') RESULT_TIME
+				, T1.LICENSE_RECV_DATE_TIME
+				, FORMAT(T1.LICENSE_RECV_DATE_TIME, 'yyyy-MM-dd') LICENSE_RECV_DATE
+				, FORMAT(T1.LICENSE_RECV_DATE_TIME, 'HH:mm') LICENSE_RECV_TIME
+				, T1.RO_DATE
+				, T1.PO_NO
+				, T1.PO_DATE
+				, T1.HBL_NO
+				, T1.EFN_PO_NO
+				, T1.LICENSE_CUSTOMS_CODE
+				, T1.LICENSE_CUSTOMS_DPT_CODE
+				, T1.LICENSE_REMARK
+				, T1.LICENSE_SEND_NAME
+				, T1.LICENSE_SEND_BUSINESS_ID
+				, T1.AGENT_NAME
+				, T1.AGENT_CUSTOMS_ID
+				, T1.AGENT_TYPE
+				, T1.AGENT_CUSTOMS_ID_TYPE
+				, T1.AGENT_BUSINESS_ID
+				, T1.ITEM_URL
+				, T1.CONSIGNEE_NAME
+				, T1.CONSIGNEE_ZIPCODE
+				, T1.CONSIGNEE_TEL
+				, T1.CONSIGNEE_ADDRESS
+				, T1.GOODS_LOC_ZIPCODE
+				, T1.GOODS_LOC_ADDRESS
+				, T1.BWH_NAME
+				, T1.DEST_COUNTRY
+				, T1.DELIVERY_TYPE_CODE
+				, T1.DEST_PORT
+				, T1.DEST_DELIVERY_NO
+				, T1.EXPRESS_SIGN
+				, T1.SHIPPER_BUSINESS_NAME
+				, T1.SHIPPER_BUSINESS_CUSTOMS_ID
+				, T1.SHIPPER_BUSINESS_PRESIDENT
+				, T1.SHIPPER_BUSINESS_ID
+				, T1.SHIPPER_BUSINESS_ZIPCODE
+				, T1.SHIPPER_BUSINESS_ADDRESS
+				, T1.SHIPPER_BUSINESS_ADDRESSA
+				, T1.SHIPPER_OFFICE_MNG_NO
+				, T1.MAKER_NAME
+				, T1.MAKER_CUSTOMS_ID
+				, T1.MAKER_COMPLEX_CODE
+				, T1.MAKER_ZIPCODE
+				, T1.INCOTERMS
+				, T1.CURRENCY_CODE
+				, T1.EXCHANGE_RATE
+				, T1.LICENSE_PAY_AMOUNT_CUR 
+				, T1.DELIVERY_FEE_CUR
+				, T1.INSURANCE_LOC
+				, T1.DELIVERY_FEE_CUR_CODE
+				, T1.DELIVERY_FEE_LOC
+				, T1.ADJUST_AMOUNT_CUR_CODE
+				, T1.ADJUST_AMOUNT_LOC
+				, T1.ADJUST_AMOUNT_CUR
+				, T1.DECLARATION_AMOUNT_LOC
+				, T1.DECLARATION_AMOUNT_USD
+				, T1.PIECES
+				, T1.UNIT_PIECES
+				, T1.UNIT_WEIGHT
+				, T1.LICENSE_PAY_METHOD
+				, T1.GOODS_ITEM_TOT
+				, T1.GWT
+				, T1.REGISTER_USER_ID
+				, T1.REGISTER_DATE_TIME
+				, T1.UPDATE_USER_ID
+				, T1.UPDATE_DATE_TIME
+				, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T1.ENT_CODE AND USER_ID = T1.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T1.ENT_CODE AND USER_ID = T1.UPDATE_USER_ID) AS UPDATE_USER_NAME
+				, T1.CUST_CODE_LV1
+				, T1.DELIVERY_ID
+				, T1.FREE_TRANS_YN
+				, T1.INSURANCE_CUR
+		FROM TB_ECM_LICENSE T1
+		WHERE T1.ENT_CODE = #{entCode}
+			<if test="licenseJobNo != null and licenseJobNo != ''">
+				AND T1.LICENSE_JOB_NO = #{licenseJobNo}
+			</if>
+			<if test="poNo != null and poNo != ''">
+				AND T1.PO_NO = #{poNo}
+			</if>
+	</select>
+	
+	<select id="selectLicenseGoodsItemOdList" parameterType="searchLicenseList" resultType="LicenseGoodsItem">
+		/* LicenseMapper.selectLicenseGoodsItemOdList : 면장 란 - 오더아이템 List */
+			SELECT
+					ODITEM.HS_CODE
+					, MAX(ODITEM.HBL_NO) HBL_NO
+					, MAX(ODITEM.ITEM_ORGIN_COUNTRY) ORIGIN_COUNTRY
+					, SUM(ODITEM.AMOUNT) DECLARATION_AMOUNT_CUR
+					, MAX(ODITEM.BRAND) BRAND
+					, MAX(ODITEM.DETAIL_ITEM_NAME) DETAIL_ITEM_NAME
+					, SUM(ODITEM.PIECES) PIECES
+					, MAX(ODITEM.UNIT_PIECES) UNIT_PIECES
+					, 'KG' UNIT_WEIGHT
+					, SUM(ODITEM.NWT) NWT
+					, MAX(ODITEM.CURRENCY_CODE) CURRENCY_CODE
+					, SUM(ODITEM.UNIT_PRICE) UNIT_PRICE
+					, MAX(ODITEM.ITEM_URL) ITEM_URL
+					, MAX(ODITEM.ITEM_CODE) ITEM_CODE
+			FROM TB_ECM_OD_ITEM ODITEM
+			WHERE 1=1
+			<if test="srchOdJobNo != null and srchOdJobNo != ''">
+				AND ODITEM.OD_JOB_NO = #{srchOdJobNo}
+			</if>
+			GROUP BY ODITEM.HS_CODE
+	</select>
+	
+	<select id="selectLicenseCommodityItemOdList" parameterType="searchLicenseList" resultType="LicenseCommodityItem">
+		/* LicenseMapper.selectLicenseCommodityItemOdList : 면장 규격 - 오더아이템 List */
+			SELECT
+					ODITEM.HS_CODE
+					, SUM(ODITEM.AMOUNT) DECLARATION_AMOUNT_CUR
+					, MAX(ODITEM.DETAIL_ITEM_NAME) DETAIL_ITEM_NAME
+					, SUM(ODITEM.PIECES) PIECES
+					, MAX(ODITEM.UNIT_PIECES) UNIT_PIECES
+					, 'KG' UNIT_WEIGHT
+					, SUM(ODITEM.NWT) NWT
+					, MAX(ODITEM.CURRENCY_CODE) CURRENCY_CODE
+					, SUM(ODITEM.UNIT_PRICE) UNIT_PRICE
+					, ODITEM.ITEM_CODE
+					, MAX(ODITEM.ITEM_URL) ITEM_URL
+					, MAX(ODITEM.ITEM_SIZE) ITEM_SIZE
+			FROM TB_ECM_OD_ITEM ODITEM
+			WHERE 1=1
+			<if test="srchOdJobNo != null and srchOdJobNo != ''">
+				AND ODITEM.OD_JOB_NO = #{srchOdJobNo}
+			</if>
+			GROUP BY ODITEM.HS_CODE, ODITEM.ITEM_CODE
+	</select>
+	
+	<select id="selectLicenseGoodsItemList" parameterType="searchLicenseList" resultType="LicenseGoodsItem">
+		/* LicenseMapper.selectLicenseGoodsItemList : 면장 란 List */
+			SELECT 
+				LICENSE_JOB_NO
+				, SEQ_NO_ID
+				, HS_CODE
+				, BRAND
+				, DETAIL_ITEM_NAME
+				, PIECES
+				, UNIT_PIECES
+				, NWT
+				, UNIT_WEIGHT
+				, PACKING_PIECES
+				, UNIT_PACKING
+				, DECLARATION_AMOUNT_LOC
+				, DECLARATION_AMOUNT_CUR
+				, DECLARATION_AMOUNT_USD
+				, LICENSE_PAY_AMOUNT_LOC
+				, HBL_NO
+				, ORIGIN_COUNTRY
+				, ADJUST_AMOUNT_LOC
+				, MAKER_TYPE
+				, AUTO_REFUND_TYPE
+				, CURRENCY_CODE
+			FROM TB_ECM_LICENSE_GOODS_ITEM
+			WHERE 1=1
+			<if test="licenseJobNo != null and licenseJobNo != ''">
+				AND LICENSE_JOB_NO = #{licenseJobNo}
+			</if>
+			<if test="seqNoId != null and seqNoId != ''">
+				AND SEQ_NO_ID = #{seqNoId}
+			</if>
+			<if test="hsCode != null and hsCode != ''">
+				AND HS_CODE = #{hsCode}
+			</if>
+	</select>
+	
+	<select id="selectLicenseCommodityItemList" parameterType="searchLicenseList" resultType="LicenseCommodityItem">
+		/* LicenseMapper.selectLicenseCommodityItemList : 면장 규격 List */
+			SELECT 
+				LICENSE_JOB_NO
+				, SEQ_NO_ID
+				, CMDITY_SEQ_NO_ID
+				, BRAND
+				, DETAIL_ITEM_NAME
+				, PIECES
+				, UNIT_PIECES
+				, ITEM_CODE
+				, UNIT_PRICE_CUR
+				, UNIT_PRICE_LOC
+				, AMOUNT_CUR
+				, AMOUNT_LOC
+				, NWT
+				, UNIT_WEIGHT
+				, ITEM_URL
+				, ITEM_SIZE 
+				, HS_CODE
+				, ADJUST_AMOUNT_LOC
+			FROM TB_ECM_LICENSE_COMMODITY_ITEM
+			WHERE 1=1
+			<if test="licenseJobNo != null and licenseJobNo != ''">
+				AND LICENSE_JOB_NO = #{licenseJobNo}
+			</if>
+			<if test="seqNoId != null and seqNoId != ''">
+				AND SEQ_NO_ID = #{seqNoId}
+			</if>
+			<if test="cmditySeqNoId != null and cmditySeqNoId != ''">
+				AND CMDITY_SEQ_NO_ID = #{cmditySeqNoId}
+			</if>
+	</select>
+	
+	<select id="selectLicenseCustomer" parameterType="searchLicenseList" resultType="license">
+		/* LicenseMapper.selectLicenseCustomer : 면장 거래처 정보 */
+			SELECT 
+				CUS.CUSTOMER_NAME AS DECLARATION_NAME
+				, CUS.CUSTOMS_CODE AS LICENSE_CUSTOMS_CODE
+				, CUS.CUSTOMS_DPT_CODE AS LICENSE_CUSTOMS_DPT_CODE
+				, CUS.CUSTOMS_ID AS AGENT_CUSTOMS_ID
+				, CUS.GOODS_LOC_CODE AS GOODS_LOC_ZIPCODE
+				, CUS.GOODS_LOC_ADDR AS GOODS_LOC_ADDRESS
+				, CUS.BWH_NAME 
+				, CUS.CUSTOMER_BUSINESS_ID AS SHIPPER_BUSINESS_ID
+				, BUS.ZIPCODE AS SHIPPER_BUSINESS_ZIPCODE
+				, BUS.ADDRESS AS SHIPPER_BUSINESS_ADDRESS
+				, CONCAT(BUS.ADDRESS_A, ' ', BUS.ADDRESS_B) AS SHIPPER_BUSINESS_ADDRESSA
+				, CUSTOMER_BUSINESS_ID AS LICENSE_SEND_BUSINESS_ID
+				, CUSTOMER_BUSINESS_NAME AS LICENSE_SEND_NAME
+				, CUSTOMER_BUSINESS_PRESIDENT AS DECLARATION_PRESIDENT
+				, DECLARATION_REG_NO 
+			FROM TB_SMS_CUSTOMER CUS
+			LEFT JOIN VTB_SMS_BUSINESS_REG_INFO BUS ON BUS.ENT_CODE = CUS.ENT_CODE AND BUS.REGISTRATION_CODE = CUS.REGISTRATION_CODE
+			WHERE CUS.ENT_CODE = #{entCode}
+			<if test="srchCustomerCode != null and srchCustomerCode != ''">
+				AND CUS.CUSTOMER_CODE = #{srchCustomerCode}
+			</if>
+	</select>
+	
+	<insert id="insertLicense" parameterType="license">
+		/* LicenseMapper.insertlicense : ECM 면장 Insert */
+		INSERT INTO TB_ECM_LICENSE(
+			LICENSE_JOB_NO
+			, ENT_CODE
+			, LICENSE_TYPE
+			, OD_JOB_NO
+			, DECLARATION_NAME
+			, DECLARATION_REG_NO
+			, DECLARATION_PRESIDENT
+			, LICENSE_SEND_DATE_TIME
+			, LICENSE_RECV_DATE_TIME
+			, RO_DATE
+			, PO_NO
+			, PO_DATE
+			, HBL_NO
+			, EFN_PO_NO
+			, LICENSE_CUSTOMS_CODE
+			, LICENSE_CUSTOMS_DPT_CODE
+			, LICENSE_REMARK
+			, LICENSE_SEND_NAME
+			, LICENSE_SEND_BUSINESS_ID
+			, AGENT_NAME
+			, AGENT_CUSTOMS_ID
+			, AGENT_TYPE
+			, AGENT_CUSTOMS_ID_TYPE
+			, AGENT_BUSINESS_ID
+			, ITEM_URL
+			, CONSIGNEE_NAME
+			, CONSIGNEE_ZIPCODE
+			, CONSIGNEE_TEL
+			, CONSIGNEE_ADDRESS
+			, GOODS_LOC_ZIPCODE
+			, GOODS_LOC_ADDRESS
+			, BWH_NAME
+			, DEST_COUNTRY
+			, DELIVERY_TYPE_CODE
+			, DEST_PORT
+			, DEST_DELIVERY_NO
+			, EXPRESS_SIGN
+			, SHIPPER_BUSINESS_NAME
+			, SHIPPER_BUSINESS_CUSTOMS_ID
+			, SHIPPER_BUSINESS_PRESIDENT
+			, SHIPPER_BUSINESS_ID
+			, SHIPPER_BUSINESS_ZIPCODE
+			, SHIPPER_BUSINESS_ADDRESS
+			, SHIPPER_BUSINESS_ADDRESSA
+			, SHIPPER_OFFICE_MNG_NO
+			, MAKER_NAME
+			, REFUND_TYPE
+			, MAKER_CUSTOMS_ID
+			, MAKER_COMPLEX_CODE
+			, MAKER_ZIPCODE
+			, INCOTERMS
+			, CURRENCY_CODE
+			, EXCHANGE_RATE
+			, LICENSE_PAY_AMOUNT_CUR
+			, DELIVERY_FEE_CUR
+			, INSURANCE_LOC
+			, INSURANCE_CUR
+			, DELIVERY_FEE_CUR_CODE
+			, DELIVERY_FEE_LOC
+			, ADJUST_AMOUNT_CUR_CODE
+			, ADJUST_AMOUNT_LOC
+			, ADJUST_AMOUNT_CUR
+			, DECLARATION_AMOUNT_LOC
+			, DECLARATION_AMOUNT_USD
+			, PIECES
+			, UNIT_PIECES
+			, GWT
+			, UNIT_WEIGHT
+			, LICENSE_PAY_METHOD
+			, GOODS_ITEM_TOT
+			, CUST_CODE_LV1
+			, DELIVERY_ID
+			, FREE_TRANS_YN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME
+		)
+		VALUES(
+			#{licenseJobNo}
+			, #{entCode}
+			, #{licenseType}
+			, #{odJobNo}
+			, #{declarationName}
+			, #{declarationRegNo}
+			, #{declarationPresident}
+			<if test="licenseSendDate != null and licenseSendDate != ''">
+			, CONVERT(datetime, #{licenseSendDate} + ' ' + #{licenseSendTime}
+			</if>
+			<if test="licenseSendDate == null or licenseSendDate == ''">
+			, #{licenseSendDate}
+			</if>
+			<if test="licenseRecvDate != null and licenseRecvDate != ''">
+			, CONVERT(datetime, #{licenseRecvDate} + ' ' + #{licenseRecvTime}
+			</if>
+			<if test="licenseRecvDate == null or licenseRecvDate == ''">
+			, #{licenseRecvDate}
+			</if>
+			, CONVERT(DATE, #{roDate},  ${dateFormat})
+			, #{poNo}
+			, CONVERT(DATE, #{poDate},  ${dateFormat})
+			, #{hblNo}
+			, #{efnPoNo}
+			, #{licenseCustomsCode}
+			, #{licenseCustomsDptCode}
+			, #{licenseRemark}
+			, #{licenseSendName}
+			, #{licenseSendBusinessId}
+			, #{agentName}
+			, #{agentCustomsId}
+			, #{agentType}
+			, #{agentCustomsIdType}
+			, #{agentBusinessId}
+			, #{itemUrl}
+			, #{consigneeName}
+			, #{consigneeZipcode}
+			, #{consigneeTel}
+			, #{consigneeAddress}
+			, #{goodsLocZipcode}
+			, #{goodsLocAddress}
+			, #{bwhName}
+			, #{destCountry}
+			, #{deliveryTypeCode}
+			, #{destPort}
+			, #{destDeliveryNo}
+			, #{expressSign}
+			, #{shipperBusinessName}
+			, #{shipperBusinessCustomsId}
+			, #{shipperBusinessPresident}
+			, #{shipperBusinessId}
+			, #{shipperBusinessZipcode}
+			, #{shipperBusinessAddress}
+			, #{shipperBusinessAddressa}
+			, #{shipperOfficeMngNo}
+			, #{makerName}
+			, #{refundType}
+			, #{makerCustomsId}
+			, #{makerComplexCode}
+			, #{makerZipcode}
+			, #{incoterms}
+			, #{currencyCode}
+			, #{exchangeRate}
+			, #{licensePayAmountCur}
+			, #{deliveryFeeCur}
+			, #{insuranceLoc}
+			, #{insuranceCur}
+			, #{deliveryFeeCurCode}
+			, #{deliveryFeeLoc}
+			, #{adjustAmountCurCode}
+			, #{adjustAmountLoc}
+			, #{adjustAmountCur}
+			, #{declarationAmountLoc}
+			, #{declarationAmountUsd}
+			, #{pieces}
+			, #{unitPieces}
+			, #{gwt}
+			, #{unitWeight}
+			, #{licensePayMethod}
+			, #{goodsItemTot}
+			, #{custCodeLv1}
+			, #{deliveryId }
+			, #{freeTransYn}
+			, #{updateUserId}
+			, CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			, #{updateUserId}
+			, CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		)
+	</insert>
+	
+	<insert id="insertLicenseGoodsItem" parameterType="licenseGoodsItem">
+		/* LicenseMapper.insertlicenseGoodsItem : ECM 면장-란 Insert */
+		INSERT INTO TB_ECM_LICENSE_GOODS_ITEM (
+			LICENSE_JOB_NO
+			, SEQ_NO_ID
+			, HS_CODE
+			, BRAND
+			, DETAIL_ITEM_NAME
+			, PIECES
+			, UNIT_PIECES
+			, NWT
+			, UNIT_WEIGHT
+			, PACKING_PIECES
+			, UNIT_PACKING
+			, DECLARATION_AMOUNT_LOC
+			, DECLARATION_AMOUNT_CUR
+			, DECLARATION_AMOUNT_USD
+			, LICENSE_PAY_AMOUNT_LOC
+			, HBL_NO
+			, ORIGIN_COUNTRY
+			, ADJUST_AMOUNT_LOC
+			, MAKER_TYPE
+			, AUTO_REFUND_TYPE
+			, CURRENCY_CODE
+		)
+		VALUES(
+			#{licenseJobNo}
+			, (SELECT ISNULL(MAX(SEQ_NO_ID), 0) + 1 FROM TB_ECM_LICENSE_GOODS_ITEM WHERE LICENSE_JOB_NO = #{licenseJobNo})
+			, #{hsCode}
+			, #{brand}
+			, #{detailItemName}
+			, #{pieces}
+			, #{unitPieces}
+			, #{nwt}
+			, #{unitWeight}
+			, #{packingPieces}
+			, #{unitPacking}
+			, #{declarationAmountLoc}
+			, #{declarationAmountCur}
+			, #{declarationAmountUsd}
+			, #{licensePayAmountLoc}
+			, #{hblNo}
+			, #{originCountry}
+			, #{adjustAmountLoc}
+			, #{makerType}
+			, #{autoRefundType}
+			, #{currencyCode}
+		)
+	</insert>
+	
+	<insert id="insertLicenseCommodityItem" parameterType="licenseCommodityItem">
+		/* LicenseMapper.insertlicenseCommodityItem : ECM 면장-란 Insert */
+		INSERT INTO TB_ECM_LICENSE_COMMODITY_ITEM(
+			LICENSE_JOB_NO
+			, SEQ_NO_ID
+			, HS_CODE
+			, CMDITY_SEQ_NO_ID
+			, BRAND
+			, DETAIL_ITEM_NAME
+			, PIECES
+			, UNIT_PIECES
+			, ITEM_CODE
+			, UNIT_PRICE_CUR
+			, UNIT_PRICE_LOC
+			, AMOUNT_CUR
+			, AMOUNT_LOC
+			, NWT
+			, UNIT_WEIGHT
+			, ITEM_URL
+			, ITEM_SIZE
+			, ADJUST_AMOUNT_LOC
+		)
+		VALUES(
+			#{licenseJobNo}
+			, #{seqNoId}
+			, #{hsCode}
+			, (SELECT ISNULL(MAX(CMDITY_SEQ_NO_ID), 0) + 1 FROM TB_ECM_LICENSE_COMMODITY_ITEM WHERE LICENSE_JOB_NO = #{licenseJobNo} AND SEQ_NO_ID = #{seqNoId})
+			, #{brand}
+			, #{detailItemName}
+			, #{pieces}
+			, #{unitPieces}
+			, #{itemCode}
+			, #{unitPriceCur}
+			, #{unitPriceLoc}
+			, #{amountCur}
+			, #{amountLoc}
+			, #{nwt}
+			, #{unitWeight}
+			, #{itemUrl}
+			, #{itemSize}
+			, #{adjustAmountLoc}
+		)
+				
+	</insert>
+	
+	<update id="updateLicense" parameterType="license">
+		/* LicenseMapper.updateLicense : ECM 면장 Update */
+		UPDATE TB_ECM_LICENSE SET 
+				LICENSE_TYPE						 = #{licenseType}
+				, OD_JOB_NO					         = #{odJobNo}
+				, DECLARATION_NAME			         = #{declarationName}
+				, DECLARATION_REG_NO                 = #{declarationRegNo}
+				, DECLARATION_PRESIDENT		         = #{declarationPresident}
+				<if test="licenseSendDate != null and licenseSendDate != ''">
+				, LICENSE_SEND_DATE_TIME             = CONVERT(datetime, #{licenseSendDate} + ' ' + #{licenseSendTime},  120)
+				</if>
+				<if test="licenseSendDate == null or licenseSendDate == ''">
+				, LICENSE_SEND_DATE_TIME			 = #{licenseSendDate}
+				</if>
+				<if test="licenseRecvDate != null and licenseRecvDate != ''">
+				, LICENSE_RECV_DATE_TIME             = CONVERT(datetime, #{licenseRecvDate} + ' ' + #{licenseRecvTime},  120)
+				</if>
+				<if test="licenseRecvDate == null or licenseRecvDate == ''">
+				, LICENSE_RECV_DATE_TIME			 = #{licenseRecvDate}
+				</if>
+				, RO_DATE                            = CONVERT(DATE, #{roDate},  ${dateFormat})
+				, PO_NO                              = #{poNo}
+				, PO_DATE                            = CONVERT(DATE, #{poDate},  ${dateFormat})
+				, HBL_NO                             = #{hblNo}
+				, EFN_PO_NO                          = #{efnPoNo}
+				, LICENSE_CUSTOMS_CODE               = #{licenseCustomsCode}
+				, LICENSE_CUSTOMS_DPT_CODE           = #{licenseCustomsDptCode}
+				, LICENSE_REMARK                     = #{licenseRemark}
+				, LICENSE_SEND_NAME                  = #{licenseSendName}
+				, LICENSE_SEND_BUSINESS_ID           = #{licenseSendBusinessId}
+				, AGENT_NAME                         = #{agentName}
+				, AGENT_CUSTOMS_ID                   = #{agentCustomsId}
+				, AGENT_TYPE                         = #{agentType}
+				, AGENT_CUSTOMS_ID_TYPE              = #{agentCustomsIdType}
+				, AGENT_BUSINESS_ID                  = #{agentBusinessId}
+				, ITEM_URL                           = #{itemUrl}
+				, CONSIGNEE_NAME                     = #{consigneeName}
+				, CONSIGNEE_ZIPCODE                  = #{consigneeZipcode}
+				, CONSIGNEE_TEL                      = #{consigneeTel}
+				, CONSIGNEE_ADDRESS                  = #{consigneeAddress}
+				, GOODS_LOC_ZIPCODE                  = #{goodsLocZipcode}
+				, GOODS_LOC_ADDRESS                  = #{goodsLocAddress}
+				, BWH_NAME                           = #{bwhName}
+				, DEST_COUNTRY                       = #{destCountry}
+				, DELIVERY_TYPE_CODE                 = #{deliveryTypeCode}
+				, DEST_PORT                          = #{destPort}
+				, DEST_DELIVERY_NO                   = #{destDeliveryNo}
+				, EXPRESS_SIGN                       = #{expressSign}
+				, SHIPPER_BUSINESS_NAME              = #{shipperBusinessName}
+				, SHIPPER_BUSINESS_CUSTOMS_ID        = #{shipperBusinessCustomsId}
+				, SHIPPER_BUSINESS_PRESIDENT         = #{shipperBusinessPresident}
+				, SHIPPER_BUSINESS_ID                = #{shipperBusinessId}
+				, SHIPPER_BUSINESS_ZIPCODE           = #{shipperBusinessZipcode}
+				, SHIPPER_BUSINESS_ADDRESS           = #{shipperBusinessAddress}
+				, SHIPPER_BUSINESS_ADDRESSA          = #{shipperBusinessAddressa}
+				, SHIPPER_OFFICE_MNG_NO              = #{shipperOfficeMngNo}
+				, MAKER_NAME						 = #{makerName}
+				, REFUND_TYPE            			 = #{refundType}
+				, MAKER_CUSTOMS_ID                   = #{makerCustomsId}
+				, MAKER_COMPLEX_CODE                 = #{makerComplexCode}
+				, MAKER_ZIPCODE                      = #{makerZipcode}
+				, INCOTERMS                          = #{incoterms}
+				, CURRENCY_CODE                      = #{currencyCode}
+				, EXCHANGE_RATE                      = #{exchangeRate}
+				, LICENSE_PAY_AMOUNT_CUR             = #{licensePayAmountCur}
+				, DELIVERY_FEE_CUR                   = #{deliveryFeeCur}
+				, INSURANCE_LOC                      = #{insuranceLoc}
+				, INSURANCE_CUR                      = #{insuranceCur}
+				, DELIVERY_FEE_CUR_CODE              = #{deliveryFeeCurCode}
+				, DELIVERY_FEE_LOC                   = #{deliveryFeeLoc}
+				, ADJUST_AMOUNT_CUR_CODE             = #{adjustAmountCurCode}
+				, ADJUST_AMOUNT_LOC                  = #{adjustAmountLoc}
+				, ADJUST_AMOUNT_CUR                  = #{adjustAmountCur}
+				, DECLARATION_AMOUNT_LOC             = #{declarationAmountLoc}
+				, DECLARATION_AMOUNT_USD             = #{declarationAmountUsd}
+				, PIECES                             = #{pieces}
+				, UNIT_PIECES                        = #{unitPieces}
+				, GWT								 = #{gwt}
+				, UNIT_WEIGHT                   	 = #{unitWeight}
+				, LICENSE_PAY_METHOD                 = #{licensePayMethod}
+				, GOODS_ITEM_TOT                     = #{goodsItemTot}
+				, CUST_CODE_LV1                      = #{custCodeLv1}
+				, DELIVERY_ID						 = #{deliveryId}
+				, FREE_TRANS_YN						 = #{freeTransYn}
+				, UPDATE_USER_ID                     = #{updateUserId}
+				, UPDATE_DATE_TIME 					 =  CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		WHERE ENT_CODE = #{entCode} 
+		AND LICENSE_JOB_NO = #{licenseJobNo}
+	</update>
+	
+	<update id="updateLicenseGoodsItem" parameterType="licenseGoodsItem">
+		/* LicenseMapper.updateLicenseGoodsItem : ECM 면장-란 Update */
+		UPDATE TB_ECM_LICENSE_GOODS_ITEM SET
+			HS_CODE					= #{hsCode}
+			, BRAND 				= #{brand}
+			, DETAIL_ITEM_NAME 		= #{detailItemName}
+			, PIECES				= #{pieces}
+			, UNIT_PIECES			= #{unitPieces}
+			, NWT					= #{nwt}
+			, UNIT_WEIGHT			= #{unitWeight}
+			, PACKING_PIECES		= #{packingPieces}
+			, UNIT_PACKING			= #{unitPacking}
+			, DECLARATION_AMOUNT_LOC= #{declarationAmountLoc}
+			, DECLARATION_AMOUNT_CUR= #{declarationAmountCur}
+			, DECLARATION_AMOUNT_USD= #{declarationAmountUsd}
+			, LICENSE_PAY_AMOUNT_LOC= #{licensePayAmountLoc}
+			, HBL_NO				= #{hblNo}
+			, ORIGIN_COUNTRY		= #{originCountry}
+			, ADJUST_AMOUNT_LOC		= #{adjustAmountLoc}
+			, MAKER_TYPE			= #{makerType}
+			, AUTO_REFUND_TYPE		= #{autoRefundType}
+			, CURRENCY_CODE			= #{currencyCode}
+		WHERE LICENSE_JOB_NO = #{licenseJobNo} 
+		AND SEQ_NO_ID = #{seqNoId}
+
+	</update>
+	
+	<update id="updateLicenseCommodityItem" parameterType="licenseCommodityItem">
+		/* LicenseMapper.updateLicenseCommodityItem : ECM 면장-규격 Update */
+		UPDATE TB_ECM_LICENSE_COMMODITY_ITEM SET
+			BRAND				= #{brand}
+			, DETAIL_ITEM_NAME	= #{detailItemName}
+			, PIECES			= #{pieces}
+			, UNIT_PIECES		= #{unitPieces}
+			, ITEM_CODE			= #{itemCode}
+			, UNIT_PRICE_CUR	= #{unitPriceCur}
+			, UNIT_PRICE_LOC	= #{unitPriceLoc}
+			, AMOUNT_CUR		= #{amountCur}
+			, AMOUNT_LOC		= #{amountLoc}
+			, NWT				= #{nwt}
+			, UNIT_WEIGHT		= #{unitWeight}
+			, ITEM_URL			= #{itemUrl}
+			, ITEM_SIZE			= #{itemSize}
+		WHERE LICENSE_JOB_NO = #{licenseJobNo} 
+		AND SEQ_NO_ID = #{seqNoId} 
+		AND CMDITY_SEQ_NO_ID = #{cmditySeqNoId} 
+	</update>
+	
+	<delete id="deleteLicense" parameterType="licenseDelete">
+		/* LicenseMapper.deleteLicense : ECM 면장 delete */
+	        DELETE FROM  TB_ECM_LICENSE
+			WHERE ENT_CODE = #{entCode}  
+			AND LICENSE_JOB_NO = #{licenseJobNo}
+	</delete>
+	
+	<delete id="deleteLicenseGoodsItem" parameterType="licenseDelete">
+		/* LicenseMapper.deleteLicense : ECM 면장 delete */
+	        DELETE FROM  TB_ECM_LICENSE_GOODS_ITEM
+			WHERE LICENSE_JOB_NO = #{licenseJobNo} 
+			<if test="seqNoId != null and seqNoId != ''">
+				AND SEQ_NO_ID = #{seqNoId}
+			</if>
+	</delete>
+	
+	<delete id="deleteLicenseCommodityItem" parameterType="licenseDelete">
+		/* LicenseMapper.deleteLicense : ECM 면장 delete */
+	        DELETE FROM  TB_ECM_LICENSE_COMMODITY_ITEM
+			WHERE LICENSE_JOB_NO = #{licenseJobNo} 
+			<if test="seqNoId != null and seqNoId != ''">
+				AND SEQ_NO_ID = #{seqNoId}
+			</if>
+			<if test="cmditySeqNoId != null and cmditySeqNoId != ''">
+				AND CMDITY_SEQ_NO_ID = #{cmditySeqNoId}
+			</if>
+	</delete>
+	
+	<update id="updateOdLicenseType" parameterType="license">
+		/* LicenseMapper.updateOdLicenseType : ECM 면장 변경 시 Order-License Type Update */
+		UPDATE TB_ECM_OD SET
+			LICENSE_TYPE = #{licenseType}
+		WHERE OD_JOB_NO = #{odJobNo} 
+	</update>
+	
+	<select id="selectLicenseExcelList" parameterType="searchLicenseList" resultType="License">
+		/* LicenseMapper.selectLicenseExcelList : 면장 엑셀 List */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			LC.PO_NO
+			,LCCMDT.LICENSE_JOB_NO                 
+			,LCCMDT.ITEM_CODE             
+			,LCCMDT.DETAIL_ITEM_NAME      
+			,CONVERT(NUMERIC (5,2), LCCMDT.NWT) AS NWT  	  
+ 			,CONVERT(VARCHAR, CAST(LC.LICENSE_PAY_AMOUNT_CUR AS NUMERIC(9,2))) AS LICENSE_PAY_AMOUNT_CUR
+ 			,CONVERT(VARCHAR, CAST(LC.UNIT_PRICE_CUR AS NUMERIC(9,2))) AS UNIT_PRICE_CUR
+			<!-- ,CONVERT(NUMERIC (9,2), LCCMDT.UNIT_PRICE_CUR) AS UNIT_PRICE_CUR   -->
+			<!-- ,CONVERT(NUMERIC (9,2), LC.LICENSE_PAY_AMOUNT_CUR) AS LICENSE_PAY_AMOUNT_CUR -->
+			,LCCMDT.PIECES
+			,LC.CURRENCY_CODE         
+			,LC.CONSIGNEE_NAME        
+			,LC.DEST_COUNTRY          
+			,LCGOODS.HS_CODE               
+			,LCGOODS.ORIGIN_COUNTRY        
+			,LC.DELIVERY_TYPE_CODE    
+			,LC.DEST_PORT             
+			,LC.CONSIGNEE_ZIPCODE
+			,LC.CONSIGNEE_ADDRESS     
+			,LC.CONSIGNEE_TEL         
+			,LC.MAKER_NAME            
+			,LC.MAKER_BUSINESS_ID    
+			,LC.MAKER_CUSTOMS_ID      
+			,LC.MAKER_ZIPCODE         
+			,LC.INCOTERMS             
+			,LC.DELIVERY_FEE_LOC      
+			,LC.INSURANCE_LOC         
+			,LC.LICENSE_PAY_METHOD    
+			,LC.LICENSE_REMARK
+			,LC.LICENSE_CUSTOMS_CODE
+			,LC.LICENSE_CUSTOMS_DPT_CODE
+			,LC.GOODS_LOC_ZIPCODE
+			,LC.GOODS_LOC_ADDRESS
+			,LC.BWH_NAME
+			,LCCMDT.CMDITY_SEQ_NO_ID
+			,LC.FREE_TRANS_YN
+			,LC.DELIVERY_ID
+			,LC.HBL_NO
+			,LC.EXPRESS_SIGN
+			,LCCMDT.BRAND
+			,LC.ADJUST_AMOUNT_LOC
+			,LCCMDT.ITEM_URL
+			,LCCMDT.ITEM_SIZE
+			,DENSE_RANK() OVER (ORDER BY LC.PO_NO) AS SEQ
+			,LC.DECLARATION_NAME
+			,LC.PO_DATE
+			,LC.AGENT_NAME
+			,LC.AGENT_CUSTOMS_ID
+			,LC.SHIPPER_BUSINESS_NAME
+			,LC.SHIPPER_BUSINESS_PRESIDENT
+			,LC.SHIPPER_BUSINESS_ADDRESS
+			,LC.SHIPPER_BUSINESS_ZIPCODE
+			,LC.SHIPPER_BUSINESS_ID
+			,LC.SHIPPER_BUSINESS_CUSTOMS_ID
+			,LCGOODS.PACKING_PIECES
+			, LCCMDT.UNIT_PRICE_LOC * LCCMDT.PIECES AMOUNT_TOTAL
+			, (LCCMDT.UNIT_PRICE_LOC * LCCMDT.PIECES) - LC.ADJUST_AMOUNT_LOC + LC.DELIVERY_FEE_LOC LICENSE_PAY_AMOUNT
+			, '제조사 미상' MAKER_NAME_NONE
+		FROM TB_ECM_LICENSE_COMMODITY_ITEM LCCMDT
+		INNER JOIN TB_ECM_LICENSE_GOODS_ITEM LCGOODS ON LCCMDT.LICENSE_JOB_NO = LCGOODS.LICENSE_JOB_NO AND LCCMDT.SEQ_NO_ID = LCGOODS.SEQ_NO_ID 
+		INNER JOIN TB_ECM_LICENSE LC ON LCGOODS.LICENSE_JOB_NO = LC.LICENSE_JOB_NO
+		WHERE LC.ENT_CODE = #{entCode}
+			<if test="srchDateGbn != null and srchDateGbn != ''">
+	        	<if test="srchStartDate != null and srchStartDate != ''">
+					AND LC.${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+	        	</if>
+	        	<if test="srchEndDate != null and srchEndDate != ''">
+					AND LC.${srchDateGbn} <![CDATA[<=]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+				</if>
+			</if>
+			<if test="srchLicenseText != null and srchLicenseText != ''">
+				AND LC.${srchLicenseType} LIKE CONCAT('%',#{srchLicenseText},'%') 
+			</if>
+			<if test="licenseType != null and licenseType != ''">
+				AND LC.LICENSE_TYPE = #{licenseType}
+			</if>
+			<if test="srchLicenseJobNoList != null and srchLicenseJobNoList != '' and srchLicenseJobNoList.size > 0">
+				AND LCCMDT.LICENSE_JOB_NO   IN (<foreach collection="srchLicenseJobNoList" item="item" separator=",">#{item}</foreach>)
+			</if>
+			<if test="srchResultStatus != null and srchResultStatus != ''">
+				AND LC.RESULT_STATUS = #{srchResultStatus}
+			</if>	
+			<if test="srchSendResultCode != null and srchSendResultCode != ''">
+				AND LC.SEND_RESULT_CODE = #{srchSendResultCode}
+			</if>	
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	
+	<select id="selectLicenseInfoList" parameterType="searchLicenseBatchUpdate" resultType="HashMap">
+			/* LicenseMapper.SearchLicenseBatchUpdate : 면장 List 조회*/
+			SELECT
+				T1.LICENSE_JOB_NO
+				, T1.ENT_CODE
+				, T1.LICENSE_TYPE
+				, T1.OD_JOB_NO
+				, T1.DECLARATION_NAME
+				, T1.DECLARATION_REG_NO
+				, T1.DECLARATION_PRESIDENT
+				, T1.LICENSE_SEND_DATE_TIME
+				, T1.LICENSE_RECV_DATE_TIME
+				, T1.RO_DATE
+				, T1.PO_NO
+				, T1.HBL_NO
+				, T1.EFN_PO_NO
+				, T1.LICENSE_CUSTOMS_CODE
+				, T1.LICENSE_CUSTOMS_DPT_CODE
+				, T1.LICENSE_REMARK
+				, T1.LICENSE_SEND_NAME
+				, T1.LICENSE_SEND_BUSINESS_ID
+				, T1.AGENT_NAME
+				, T1.AGENT_CUSTOMS_ID
+				, T1.AGENT_TYPE
+				, T1.AGENT_CUSTOMS_ID_TYPE
+				, T1.AGENT_BUSINESS_ID
+				, T1.ITEM_URL
+				, T1.CONSIGNEE_NAME
+				, T1.CONSIGNEE_ZIPCODE
+				, T1.CONSIGNEE_TEL
+				, T1.CONSIGNEE_ADDRESS
+				, T1.GOODS_LOC_ZIPCODE
+				, T1.GOODS_LOC_ADDRESS
+				, T1.BWH_NAME
+				, T1.DEST_COUNTRY
+				, T1.DELIVERY_TYPE_CODE
+				, T1.DEST_PORT
+				, T1.DEST_DELIVERY_NO
+				, T1.EXPRESS_SIGN
+				, T1.SHIPPER_BUSINESS_NAME
+				, T1.SHIPPER_BUSINESS_CUSTOMS_ID
+				, T1.SHIPPER_BUSINESS_PRESIDENT
+				, T1.SHIPPER_BUSINESS_ID
+				, T1.SHIPPER_BUSINESS_ZIPCODE
+				, T1.SHIPPER_BUSINESS_ADDRESS
+				, T1.SHIPPER_BUSINESS_ADDRESSA
+				, T1.SHIPPER_OFFICE_MNG_NO
+				, T1.MAKER_NAME
+				, T1.MAKER_CUSTOMS_ID
+				, T1.MAKER_COMPLEX_CODE
+				, T1.MAKER_ZIPCODE
+				, T1.INCOTERMS
+				, T1.CURRENCY_CODE
+				, T1.EXCHANGE_RATE
+				, T1.LICENSE_PAY_AMOUNT_CUR 
+				, T1.INSURANCE_LOC
+				, T1.DELIVERY_FEE_CUR
+				, T1.DELIVERY_FEE_CUR_CODE
+				, T1.DELIVERY_FEE_LOC
+				, T1.ADJUST_AMOUNT_CUR_CODE
+				, T1.ADJUST_AMOUNT_LOC
+				, T1.ADJUST_AMOUNT_CUR
+				, T1.DECLARATION_AMOUNT_LOC
+				, T1.DECLARATION_AMOUNT_USD
+				, T1.PIECES
+				, T1.UNIT_PIECES
+				, T1.UNIT_WEIGHT
+				, T1.LICENSE_PAY_METHOD
+				, T1.GOODS_ITEM_TOT
+				, T1.GWT
+				, T1.REGISTER_USER_ID
+				, T1.REGISTER_DATE_TIME
+				, T1.UPDATE_USER_ID
+				, T1.UPDATE_DATE_TIME
+				, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T1.ENT_CODE AND USER_ID = T1.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T1.ENT_CODE AND USER_ID = T1.UPDATE_USER_ID) AS UPDATE_USER_NAME
+				, (SELECT SUM(NWT) FROM TB_ECM_LICENSE_GOODS_ITEM telgi WHERE telgi.LICENSE_JOB_NO = T1.LICENSE_JOB_NO GROUP BY telgi.LICENSE_JOB_NO) NWT
+				, T1.CUST_CODE_LV1
+				, T1.DELIVERY_ID
+				, T1.FREE_TRANS_YN
+				, T2.BOUND
+				, (SELECT CUSTOMS_CODE FROM TB_SMS_CUSTOMER TSC WHERE TSC.CUSTOMER_CODE = T1.CUST_CODE_LV1) AS CUSTOMS_CODE
+				, (SELECT CUSTOMS_DPT_CODE FROM TB_SMS_CUSTOMER TSC WHERE TSC.CUSTOMER_CODE = T1.CUST_CODE_LV1) AS CUSTOMS_DPT_CODE
+		FROM TB_ECM_LICENSE T1
+		LEFT JOIN TB_ECM_OD T2
+			ON T1.OD_JOB_NO = T2.OD_JOB_NO
+		WHERE T1.ENT_CODE = #{entCode}
+		<choose>
+			<when test="checkDataList != null and checkDataList != '' and checkDataList.size > 0">
+				AND T1.LICENSE_JOB_NO IN (<foreach collection="checkDataList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			<otherwise>
+				<include refid="org.yht.exps.express.mapper.eCommerce.LicenseMapper.searchLicense"/>
+			</otherwise>
+		</choose>
+	</select>
+	
+	<update id="updateLicenseSendResult" parameterType="HashMap">
+		/* LicenseMapper.updateLicenseSendResult : 면장 전송API 결과 UPDATE */
+		UPDATE
+				TB_ECM_LICENSE
+			SET 
+				SEND_RESULT_CODE = #{sendResultCode}
+				<if test="efnPoNo != null and efnPoNo != ''">
+				,EFN_PO_NO = #{efnPoNo}
+				</if>
+				,SEND_RESULT_ERROR_DESC = #{sendResultErrorDesc}
+				,SEND_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				,UPDATE_USER_ID = #{updateUserId}
+				,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		  WHERE
+		  		PO_NO = #{poNo}	
+		  		AND LICENSE_TYPE = #{licenseType}	
+	</update>
+	
+	<select id="selectLienseCount" parameterType="searchLicenseBatchUpdate" resultType="string">
+		/* LicenseMapper.selectLienseCount : 면장 검색 건수조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+			SELECT COUNT(*) CNT
+				FROM TB_ECM_LICENSE T1
+			WHERE T1.ENT_CODE = #{entCode}
+			<include refid="org.yht.exps.express.mapper.eCommerce.LicenseMapper.searchLicense"/>
+	</select>
+	
+	<select id="selectBusinessApiKeyInfo" parameterType="HashMap" resultType="HashMap">
+		/** LicenseMapper.selectBusinessApiKeyInfo : 사업장 API 키 조회  */
+		SELECT
+			IF_SVR_ID
+			,IF_SVR_PW
+			,IF_WEB_ID
+			,IF_WEB_PWD
+		  FROM
+		  	TB_SMS_ENT_BUSINESS_INTERFACE
+		 WHERE
+		 	ENT_CODE = #{entCode}
+		 	AND ENT_BUSINESS_CODE = #{entBusinessCode}
+		 	AND IF_SERVICE_CODE = #{ifServiceCode} 		
+	</select>
+	
+	<select id="selectCustomerApiKeyInfo" parameterType="HashMap" resultType="HashMap">
+		/** LicenseMapper.selectCustomerApiKeyInfo : 거래처 API 키 조회  */
+		SELECT
+			IF_LOGIN_ID
+			,IF_LOGIN_PW
+		  FROM
+		  	TB_SMS_CUSTOMER_INTERFACE
+		 WHERE
+		 	ENT_CODE = #{entCode}
+		 	AND IF_SERVICE_CODE = #{ifServiceCode} 		
+		 	AND CUSTOMER_CODE = #{customerCode}
+	</select>
+	
+	<insert id="insertLicenseOd" parameterType="HashMap">
+		/** LicenseMapper.insertLicenseOd : 오더 License 테이블에 면장정보 INSERT */
+		INSERT INTO TB_ECM_OD_LICENSE
+		(
+			OD_JOB_NO
+			,LICENSE_NO
+			,PIECES
+			,UNIT_PIECES
+			,GWT
+			,EFN_PO_NO
+			,EFN_SENDER_CODE
+			,EFN_DELIVERY_NO
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME 
+		)
+		VALUES
+		(	
+			#{odJobNo}
+			,#{licenseNo}
+			,#{pieces}
+			,#{unitPieces}
+			,#{gwt}
+			,#{poNo}
+			,#{efnSenderCode}
+			,#{hblNo}
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())	
+		)
+	</insert>
+	
+	<delete id="deleteLicenseOd" parameterType="HashMap">
+		/** LicenseMapper.deleteLicenseOd : TB_ECM_OD_LICENSE 면장정보 삭제 */
+		DELETE FROM TB_ECM_OD_LICENSE 
+		WHERE OD_JOB_NO  = #{odJobNo}
+	</delete>
+	
+	<select id="selectLicenseSendList" parameterType="HashMap" resultType="HashMap">
+		/** LicenseMapper.selectLicenseSendList : E면장 전송할 면장 List 조회 */
+		SELECT
+				EFN_PO_NO
+				,PO_NO
+		  FROM
+		  		TB_ECM_LICENSE
+		 WHERE	
+		 		SEND_RESULT_CODE = #{sendResultCode}
+		 		AND EFN_PO_NO IS NOT NULL 
+		 		AND LICENSE_TYPE = #{licenseType}	
+	</select>
+	
+	<update id="updateLicenseResultStatus" parameterType="HashMap">
+		/* LicenseMapper.updateLicenseResultStatus : 면장 수신결과 UPDATE */
+		UPDATE
+				TB_ECM_LICENSE
+			SET 
+				RESULT_STATUS = #{resultStatus}
+				,RESULT_ERROR_REASON = #{resultErrorReason}
+				,SEND_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				,UPDATE_USER_ID = #{updateUserId}
+				,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		  WHERE LICENSE_TYPE = #{licenseType}	
+		  	<choose>
+		  		<when test="checkDataList != null">
+		  		AND LICENSE_JOB_NO IN(<foreach collection="checkDataList" item="item" separator=",">#{item}</foreach>)
+		  		</when>
+		  		<otherwise>
+			  		<if test="srchDateGbn != null and srchDateGbn != ''">
+			        	<if test="srchStartDate != null and srchStartDate != ''">
+							AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+			        	</if>
+			        	<if test="srchEndDate != null and srchEndDate != ''">
+							AND ${srchDateGbn} <![CDATA[<=]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+						</if>
+					</if>	
+					<if test="srchLicenseText != null and srchLicenseText != ''">
+						<choose>
+							<when test='searchType == "multi"'>
+							AND ${srchLicenseType} IN (<foreach collection="srchLicenseList" item="item" separator=",">#{item}</foreach>)
+							</when>
+							<otherwise>
+							AND ${srchLicenseType} = #{srchLicenseText}
+							</otherwise>
+						</choose>
+					</if>
+					<if test="srchCustCodeLv1 != null and srchCustCodeLv1 != ''">
+						AND CUST_CODE_LV1 = #{srchCustCodeLv1}
+					</if>	
+					<if test="srchResultStatus != null and srchResultStatus != ''">
+						AND RESULT_STATUS = #{srchResultStatus}
+					</if>	
+					<if test="srchSendResultCode != null and srchSendResultCode != ''">
+						<choose>
+							<when test="srchSendResultCode == 'NO'">
+							AND SEND_RESULT_CODE IS NULL OR SEND_RESULT_CODE = ''
+							</when>
+							<otherwise>
+							AND SEND_RESULT_CODE = #{srchSendResultCode}
+							</otherwise>
+						</choose>
+					</if>	
+		  		</otherwise>
+		  	</choose>
+	</update>
+	
+</mapper>

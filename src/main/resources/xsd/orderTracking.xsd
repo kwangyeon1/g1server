@@ -1,0 +1,76 @@
+<!-- edited with XMLSpy v2009 sp1 (http://www.altova.com) by 김권희 (Yuhantechnos) -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:annotation>
+		<xs:appinfo>OrderTracking</xs:appinfo>
+		<xs:documentation>OrderTracking Interface</xs:documentation>
+	</xs:annotation>
+	<xs:element name="root">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="AccessIdentifier">
+					<xs:complexType>
+						<xs:all>
+							<xs:element name="SenderIdentifier">
+								<xs:simpleType>
+									<xs:restriction base="xs:string">
+										<xs:minLength value="1"/>
+										<xs:maxLength value="20"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+							<xs:element name="ReceiverIdentifier">
+								<xs:simpleType>
+									<xs:restriction base="xs:string">
+										<xs:minLength value="1"/>
+										<xs:maxLength value="5"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+							<xs:element name="AccessKey">
+								<xs:simpleType>
+									<xs:restriction base="xs:string">
+										<xs:minLength value="1"/>
+										<xs:maxLength value="64"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+						</xs:all>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="OrderTracking" maxOccurs="1000">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="Language" minOccurs="0">
+								<xs:simpleType>
+									<xs:restriction base="xs:string">
+										<xs:enumeration value="KOR"/>
+										<xs:enumeration value="ENG"/>
+										<xs:enumeration value="CHI"/>
+										<xs:enumeration value="JPN"/>
+										<xs:enumeration value="SPA"/>
+										<xs:enumeration value="VIE"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+							<xs:element name="OrdId">
+								<xs:simpleType>
+									<xs:restriction base="xs:string">
+										<xs:minLength value="1"/>
+										<xs:maxLength value="60"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+							<xs:element name="HBLNo" minOccurs="0">
+								<xs:simpleType>
+									<xs:restriction base="xs:string">
+										<xs:maxLength value="20"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

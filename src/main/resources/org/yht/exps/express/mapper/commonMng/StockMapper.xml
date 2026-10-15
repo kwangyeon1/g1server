@@ -1,0 +1,617 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.commonMng.StockMapper">
+
+	<select id="selectStockList" parameterType="searchStockList" resultType="stock">
+		/* StockMapper.selectStockList : Stock List 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT st.TR_CODE
+				, (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = st.ENT_CODE AND CODE = st.TR_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE') AS TR_NAME
+				, st.BOUND
+				, st.BOUND_TYPE
+				, st.AGENT_CODE
+				, (SELECT CASE WHEN st.AGENT_CODE = #{srchEntCode} THEN #{srchEntCode} ELSE CUSTOMER_NAME END
+				   FROM TB_SMS_CUSTOMER
+				   WHERE ENT_CODE = st.ENT_CODE
+				   AND CUSTOMER_CODE = st.AGENT_CODE) AS CUSTOMER_NAME
+				
+				, CASE WHEN ISNULL(cus.CUSTOMER_LEVEL, 1) = 1 THEN st.AGENT_CODE ELSE cus.PARENT_CUSTOMER_CODE END PARENT_AGENT_CODE
+				, (SELECT CASE WHEN st.AGENT_CODE = #{srchEntCode} THEN #{srchEntCode} ELSE CUSTOMER_NAME END
+				   FROM TB_SMS_CUSTOMER
+				   WHERE ENT_CODE = st.ENT_CODE
+				   AND CUSTOMER_CODE = (CASE WHEN ISNULL(cus.CUSTOMER_LEVEL, 1) = 1 THEN st.AGENT_CODE ELSE cus.PARENT_CUSTOMER_CODE END)) AS PARENT_CUSTOMER_NAME
+				
+				, st.SEQ_NO
+				, st.ENT_CODE
+				, st.ENT_BUSINESS_CODE
+				, st.STOCK_DATE
+				, st.RE_STOCK_DATE
+				, st.START_NO
+				, st.END_NO
+				, st.CURRENT_NO
+				, st.STOCK_TYPE
+				, st.STOCK_METHOD
+				, st.STOCK_USE_YN
+				, st.REGISTER_USER_ID
+				, (SELECT USER_LOGIN_ID FROM TB_SMS_USER WHERE ENT_CODE = st.ENT_CODE AND USER_ID = st.REGISTER_USER_ID) AS USER_LOGIN_ID
+				, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = st.ENT_CODE AND USER_ID = st.REGISTER_USER_ID) AS USER_NAME
+				, CONVERT(VARCHAR,st.REGISTER_DATE_TIME,23) AS REGISTER_DATE_TIME
+				, st.UPDATE_USER_ID
+				, CONVERT(VARCHAR,st.UPDATE_DATE_TIME,23) AS UPDATE_DATE_TIME
+				
+				, (CASE WHEN st.TR_CODE IN('KOREX','KOREXMUL','HANJIN','JP-AIR','JP-SEA','LOTTE')
+				THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN 0
+				ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,11)) -  CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,11)) + 1 END)
+				WHEN st.TR_CODE IN ('EMS-KP','EMS-TS')
+				THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN 0 
+				ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,8)) -  CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,8)) + 1 END)
+				ELSE (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN 0            
+				ELSE st.CURRENT_NO - st.START_NO + 1 END) END        ) AS USED_COUNT  
+				
+				, (CASE WHEN st.TR_CODE IN('KOREX','KOREXMUL','HANJIN','JP-AIR','JP-SEA','LOTTE')
+				THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11))
+				- CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,11)) + 1            
+				ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11)) 
+				- CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,11)) END)
+				WHEN st.TR_CODE IN ('EMS-KP','EMS-TS')
+				THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8))
+				- CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,8)) + 1            
+				ELSE CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8)) 
+				- CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,8)) END)
+				ELSE (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN st.END_NO - st.START_NO + 1          
+				ELSE st.END_NO - st.CURRENT_NO END) END        ) AS UNUSED_COUNT 
+				
+				, (CASE WHEN st.TR_CODE IN('KOREX','KOREXMUL','HANJIN','JP-AIR','JP-SEA','LOTTE')
+				THEN (CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11)) -  CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,11)) + 1)
+				WHEN st.TR_CODE IN ('EMS-KP', 'EMS-TS')
+				THEN (CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8)) -  CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,8)) + 1)
+				ELSE (st.END_NO - st.START_NO + 1) END ) AS TOTAL_COUNT				
+				
+			FROM TB_ECM_STOCK st
+			LEFT OUTER JOIN TB_SMS_CUSTOMER cus
+			ON cus.CUSTOMER_CODE = st.AGENT_CODE
+			
+			WHERE st.ENT_CODE = #{srchEntCode}
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND st.REGISTER_DATE_TIME >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			</if>
+			<if test="srchEndDate != null and srchEndDate != ''"> 
+			AND st.REGISTER_DATE_TIME <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</if>
+			<if test="srchTrCode != null and srchTrCode != ''">
+				AND st.TR_CODE = #{srchTrCode}
+			</if>
+			<if test="srchStatus != null and srchStatus != ''">
+				<!-- AND st. = #{srchStatus} 보류 -->
+			</if>			
+			<if test="srchStockBalanceYn != null and srchStockBalanceYn != ''">
+					<if test='srchStockBalanceYn == "Y"'> <!--  Balance<>0 -->
+					 AND ISNULL((CASE WHEN st.TR_CODE IN('KOREX','KOREXMUL','HANJIN','LOTTE','JP-AIR','JP-SEA')
+						THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11))
+							- CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,11)) + 1            
+						ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11)) - CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,11)) END)
+						WHEN st.TR_CODE IN('EMS-KP','EMS-TS')
+						THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8))
+							- CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,8)) + 1            
+						ELSE CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8)) - CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,8)) END)
+						ELSE (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN st.END_NO - st.START_NO + 1          
+						ELSE st.END_NO - st.CURRENT_NO END) END ),0) > 0
+					</if>
+	 				<if test='srchStockBalanceYn == "N"'> <!-- Balance=0 -->
+					 AND ISNULL((CASE WHEN st.TR_CODE IN('KOREX','KOREXMUL','HANJIN','LOTTE','JP-AIR','JP-SEA')
+						THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11))
+							- CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,11)) + 1            
+						ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11)) - CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,11)) END)    
+						WHEN st.TR_CODE IN ('EMS-KP','EMS-TS')
+						THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8))
+							- CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,8)) + 1            
+						ELSE CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8)) - CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,8)) END)
+						ELSE (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN st.END_NO - st.START_NO + 1          
+						ELSE st.END_NO - st.CURRENT_NO END) END ),0) = 0						 
+					</if>
+			</if>			
+			<if test="srchAgentCode != null and srchAgentCode != ''">
+				 AND st.AGENT_CODE = #{srchAgentCode}
+			</if>
+			<if test="srchStockNo != null and srchStockNo != ''">
+				AND st.START_NO = #{srchStockNo}
+			</if>	
+			
+			<if test="srchBound != null and srchBound != ''">
+				 AND st.BOUND = #{srchBound}
+			</if>
+			<if test="srchBoundType != null and srchBoundType != ''">
+				AND st.BOUND_TYPE = #{srchBoundType}
+			</if>	
+			<if test="srchStockUseYn != null and srchStockUseYn != ''">
+				AND st.STOCK_USE_YN = #{srchStockUseYn}
+			</if>		
+
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+		
+	</select>
+	
+
+	<insert id="insertStock" parameterType="insertStock">
+	/* StockMapper.insertStock : Stock 데이터 등록 */
+		<choose>
+			<when test="agentCode != null and agentCode != ''"> 
+					INSERT INTO TB_ECM_STOCK(
+					
+						TR_CODE
+						, BOUND
+						, BOUND_TYPE
+						, AGENT_CODE
+						, SEQ_NO
+						, ENT_CODE
+						, ENT_BUSINESS_CODE
+						, STOCK_DATE
+						, START_NO
+						, END_NO
+			 			, STOCK_TYPE
+			 			, STOCK_METHOD
+			 			, STOCK_USE_YN
+						, REGISTER_USER_ID
+						, REGISTER_DATE_TIME
+						, UPDATE_USER_ID
+						, UPDATE_DATE_TIME	
+					
+						)VALUES(
+					
+						#{trCode}
+						, #{bound}
+						, #{boundType}
+						, #{agentCode}
+						, (SELECT ISNULL(MAX(SEQ_NO),0) + 1 FROM TB_ECM_STOCK WHERE TR_CODE = #{trCode} AND BOUND = #{bound} AND BOUND_TYPE = #{boundType} AND AGENT_CODE = #{agentCode} )
+						, #{entCode}
+						, #{entBusinessCode}
+						, #{registerDateTime}
+						, #{startNo}
+						, #{endNo}
+						, '' <!--#{STOCK_TYPE}  보류-->
+						, '' <!--#{STOCK_METHOD} 보류-->
+						, #{stockUseYn}
+						, #{inputUserId}
+						, #{registerDateTime}
+						, #{inputUserId}
+						, GETDATE()
+						
+						)					 
+			</when>
+			<otherwise>
+					MERGE TB_ECM_STOCK AS A 
+						USING (SELECT #{bound} AS BOUND, #{boundType} AS BOUND_TYPE, #{trCode} AS TR_CODE
+									, #{startNo} AS START_NO, #{endNo} AS END_NO) AS B 
+						ON (A.BOUND = B.BOUND AND A.BOUND_TYPE = B.BOUND_TYPE AND A.TR_CODE = B.TR_CODE
+							AND A.START_NO = B.START_NO AND A.END_NO = B.END_NO)  
+						WHEN NOT MATCHED BY TARGET THEN
+						INSERT(
+					
+							TR_CODE
+							, BOUND
+							, BOUND_TYPE
+							, AGENT_CODE
+							, SEQ_NO
+							, ENT_CODE
+							, ENT_BUSINESS_CODE
+							, STOCK_DATE
+							, START_NO
+							, END_NO
+				 			, STOCK_TYPE
+				 			, STOCK_METHOD
+				 			, STOCK_USE_YN
+							, REGISTER_USER_ID
+							, REGISTER_DATE_TIME
+							, UPDATE_USER_ID
+							, UPDATE_DATE_TIME	
+						
+							)VALUES(
+							
+							#{trCode}
+							, #{bound}
+							, #{boundType}
+							, #{entCode}
+							, (SELECT ISNULL(MAX(SEQ_NO),0) + 1 FROM TB_ECM_STOCK WHERE TR_CODE = #{trCode} AND BOUND = #{bound} AND BOUND_TYPE = #{boundType})
+							, #{entCode}
+							, #{entBusinessCode}
+							, #{registerDateTime}
+							<choose>
+							<when test="startNo != null and startNo != ''">
+							, #{startNo}
+							, #{endNo}
+							</when>
+							<otherwise>
+								<choose>
+								<when test="trCode == 'KOREX' or trCode == 'KOREXMUL'">
+								,CAST((CAST(CAST(SUBSTRING(CAST(#{endNo} AS VARCHAR),1,11) AS decimal)+1 AS VARCHAR) + CAST((CAST(SUBSTRING(CAST(#{endNo} AS VARCHAR),3,9) AS decimal)+1)% 7 AS VARCHAR)) AS decimal)
+								</when>
+								<when test="trCode == 'HANJIN'">
+								,CAST((CAST(CAST(SUBSTRING(CAST(#{endNo} AS VARCHAR),1,11) AS decimal)+1 AS VARCHAR) + CAST((CAST(SUBSTRING(CAST(#{endNo} AS VARCHAR),1,11) AS decimal)+1)% 7 AS VARCHAR)) AS decimal)
+								</when>
+								<when test="trCode == 'LOTTE' or trCode == 'JP-AIR' or trCode == 'JP-SEA'">
+								,CAST((CAST(CAST(SUBSTRING(CAST(#{endNo} AS VARCHAR),1,11) AS decimal)+1 AS VARCHAR) + CAST((CAST(SUBSTRING(CAST(#{endNo} AS VARCHAR),1,11) AS decimal)+1)% 7 AS VARCHAR)) AS decimal)
+								</when>
+								<when test="trCode == 'EMS-KP' or trCode == 'EMS-TS'">
+								, #{endNo}
+								</when>
+								<otherwise>
+								,CAST(#{endNo} AS decimal) + 1	
+								</otherwise>
+								</choose>
+								, #{origEndNo} 
+							</otherwise>
+							</choose>
+							, '' <!--#{STOCK_TYPE}  보류-->
+							, '' <!--#{STOCK_METHOD} 보류-->
+							, #{stockUseYn}
+							, #{inputUserId}
+							, #{registerDateTime}
+							, #{inputUserId}
+							, GETDATE()
+							
+							);					
+				
+			</otherwise>
+		</choose> 	
+	
+	</insert>	
+	
+	<delete id="deleteStock" parameterType="deleteStock">
+	/* StockMapper.deleteStock : Stock Delete */
+			DELETE FROM TB_ECM_STOCK
+			WHERE ENT_CODE = #{entCode} 
+			AND BOUND = #{bound} 
+			AND BOUND_TYPE = #{boundType} 
+			AND TR_CODE = #{trCode}
+			AND AGENT_CODE = #{agentCode}
+			AND SEQ_NO = #{seqNo}
+			<!-- AND START_NO = #{startNo} 
+			AND END_NO = #{endNo} -->
+	</delete>	
+	
+	<select id="selectStockDetail" parameterType="SearchStockDetail" resultType="Stock">
+		/* StockMapper.selectStockDetail : Stock Detail 화면 */		
+			SELECT st.TR_CODE
+				, st.BOUND
+				, st.BOUND_TYPE
+				, st.AGENT_CODE
+				, st.SEQ_NO
+				, st.ENT_CODE
+				, st.ENT_BUSINESS_CODE
+				, st.START_NO
+				, st.END_NO
+				, st.CURRENT_NO
+				, st.STOCK_TYPE
+				, st.STOCK_METHOD
+				, st.STOCK_USE_YN
+				, st.REGISTER_USER_ID
+				, CONVERT(VARCHAR,st.REGISTER_DATE_TIME,23) AS REGISTER_DATE_TIME
+				, st.UPDATE_USER_ID
+				, CONVERT(VARCHAR,st.UPDATE_DATE_TIME,23) AS UPDATE_DATE_TIME
+				, (CASE WHEN st.TR_CODE IN('KOREX','KOREXMUL','HANJIN')
+				THEN (CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11)) -  CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,11)) + 1)        
+				WHEN st.TR_CODE IN('EMS-KP','EMS-TS')
+				THEN (CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8)) -  CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,8)) + 1)
+				ELSE (st.END_NO - st.START_NO + 1) END ) AS TOTAL_COUNT	
+					
+			FROM TB_ECM_STOCK st
+			WHERE 1=1
+			<if test="entCode != null and entCode != ''">
+				AND st.ENT_CODE = #{entCode}
+			</if>				
+			<if test="srchTrCode != null and srchTrCode != ''">
+				AND st.TR_CODE = #{srchTrCode}
+			</if>		
+			<if test="srchBound != null and srchBound != ''">
+				AND st.BOUND = #{srchBound}
+			</if>		
+			<if test="srchBoundType != null and srchBoundType != ''">
+				AND st.BOUND_TYPE = #{srchBoundType}
+			</if>
+			<if test="srchAgentCode != null and srchAgentCode != ''">
+				AND st.AGENT_CODE = #{srchAgentCode}
+			</if>						
+			<if test="srchStartNo != null and srchStartNo != ''">
+				AND st.START_NO = #{srchStartNo}			
+			</if>		
+			<if test="srchEndNo != null and srchEndNo != ''">
+				AND st.END_NO = #{srchEndNo} 
+			</if>
+			<if test="srchSeqNo != null and srchSeqNo != ''">
+				AND st.SEQ_NO = #{srchSeqNo} 
+			</if>			
+			
+	</select>	
+	
+	<select id="selectVoidStockList" parameterType="searchVoidStockList" resultType="voidStock">
+		/* StockMapper.selectVoidStockList : Stock List 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT TR_CODE
+					, BOUND 
+					, BOUND_TYPE
+					, AGENT_CODE 
+					, SEQ_NO 
+					, VOID_STOCK_NO 
+					, VOID_TYPE 
+					, REGISTER_USER_ID 
+					, REGISTER_DATE_TIME 
+					, UPDATE_USER_ID 
+					, UPDATE_DATE_TIME 
+			FROM TB_ECM_STOCK_VOID tesv 
+			WHERE 1=1
+			<if test="srchTrCode != null and srchTrCode != ''">
+				AND tesv.TR_CODE = #{srchTrCode}
+			</if>		
+			<if test="srchBound != null and srchBound != ''">
+				AND tesv.BOUND = #{srchBound}
+			</if>		
+			<if test="srchBoundType != null and srchBoundType != ''">
+				AND tesv.BOUND_TYPE = #{srchBoundType}
+			</if>
+			<if test="srchAgentCode != null and srchAgentCode != ''">
+				AND tesv.AGENT_CODE = #{srchAgentCode}
+			</if>						
+			<if test="srchStartNo != null and srchStartNo != ''">
+				<if test="srchEndNo != null and srchEndNo != ''">
+				AND tesv.VOID_STOCK_NO BETWEEN #{srchStartNo} AND #{srchEndNo}
+				</if>
+			</if>					
+		
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+		
+	</select>
+			
+	<update id="updateStockUseYn" parameterType="insertStock">
+		/* StockMapper.updateStockUseYn */
+		UPDATE TB_ECM_STOCK SET STOCK_USE_YN = #{stockUseYn}
+		WHERE
+		<foreach collection="dataList" item="item" separator="OR">
+		(
+			TR_CODE = #{item.trCode}
+			AND BOUND = #{item.bound}
+			AND BOUND_TYPE = #{item.boundType}
+			AND AGENT_CODE = #{item.agentCode}
+			AND SEQ_NO = #{item.seqNo}
+		)
+		</foreach>
+	</update>
+	
+ 	<update id="updateStock" parameterType="insertStock">
+	/* StockMapper.updateStock : xxxxxxx Stock 데이터 대리점에 부여 후 시작번호 업데이트   */
+		UPDATE TB_ECM_STOCK
+		SET 
+		<choose>
+			<when test="trCode == 'KOREX' or trCode == 'KOREXMUL'">
+				 START_NO = CAST((CAST(CAST(SUBSTRING(CAST(#{endNo} AS VARCHAR),1,11) AS decimal)+1 AS VARCHAR) + CAST((CAST(SUBSTRING(CAST(#{endNo} AS VARCHAR),3,9) AS decimal)+1)% 7 AS VARCHAR)) AS decimal)
+			</when>
+			<when test="trCode == 'HANJIN'">
+				 START_NO = CAST((CAST(CAST(SUBSTRING(CAST(#{endNo} AS VARCHAR),1,11) AS decimal)+1 AS VARCHAR) + CAST((CAST(SUBSTRING(CAST(#{endNo} AS VARCHAR),1,11) AS decimal)+1)% 7 AS VARCHAR)) AS decimal)
+			</when>
+			<otherwise>
+				 START_NO = CAST(#{endNo} AS decimal) + 1	
+			</otherwise>
+		</choose> 
+		WHERE BOUND = #{bound} AND BOUND_TYPE = #{boundType} AND TR_CODE = #{trCode}
+		AND START_NO = #{origStartNo} AND END_NO = #{origEndNo}
+	</update> 
+	
+	<insert id="regrantStock" parameterType="regrantStock">
+	/* StockMapper.regrantStock : Stock 재부여 */
+	
+		BEGIN TRAN
+		
+		INSERT INTO TB_ECM_STOCK(
+		
+			TR_CODE
+			, BOUND
+			, BOUND_TYPE
+			, AGENT_CODE
+			, SEQ_NO
+			, ENT_CODE
+			, ENT_BUSINESS_CODE
+			, STOCK_DATE
+			, RE_STOCK_DATE
+			, START_NO
+			, END_NO
+ 			, STOCK_TYPE
+ 			, STOCK_METHOD
+ 			, STOCK_USE_YN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME	
+		
+			)VALUES(
+		
+			#{trCode}
+			, #{bound}
+			, #{boundType}
+			, #{agentCode}
+			, (SELECT ISNULL(MAX(SEQ_NO),0) + 1 FROM TB_ECM_STOCK WHERE TR_CODE = #{trCode} AND BOUND = #{bound} AND BOUND_TYPE = #{boundType} AND AGENT_CODE = #{agentCode} )
+			, #{entCode}
+			, #{entBusinessCode}
+			, #{stockDate}
+			, #{reStockDate}
+			, #{startNo}
+			, #{endNo}
+			, '' <!--#{STOCK_TYPE}  보류-->
+			, '' <!--#{STOCK_METHOD} 보류-->
+			, #{stockUseYn}
+			, #{inputUserId}
+			, #{stockDate}
+			, #{inputUserId}
+			, GETDATE()
+			
+			)			
+			
+		UPDATE TB_ECM_STOCK
+		SET 
+		<choose>
+			<when test="trCode == 'KOREX' or trCode == 'KOREXMUL'">
+				END_NO = CAST((CAST(CAST(SUBSTRING(CAST(#{startNo} AS VARCHAR),1,11) AS decimal)-1 AS VARCHAR) + CAST((CAST(SUBSTRING(CAST(#{startNo} AS VARCHAR),3,9) AS decimal)-1)% 7 AS VARCHAR)) AS decimal)
+			</when>
+			<when test="trCode == 'HANJIN'">
+				END_NO = CAST((CAST(CAST(SUBSTRING(CAST(#{startNo} AS VARCHAR),1,11) AS decimal)-1 AS VARCHAR) + CAST((CAST(SUBSTRING(CAST(#{startNo} AS VARCHAR),1,11) AS decimal)-1)% 7 AS VARCHAR)) AS decimal)
+			</when>
+			<when test="trCode == 'LOTTE' or trCode == 'JP-AIR' or trCode == 'JP-SEA'">
+				END_NO = CAST((CAST(CAST(SUBSTRING(CAST(#{startNo} AS VARCHAR),1,11) AS decimal)-1 AS VARCHAR) + CAST((CAST(SUBSTRING(CAST(#{startNo} AS VARCHAR),1,11) AS decimal)-1)% 7 AS VARCHAR)) AS decimal)
+			</when>
+			<when test="trCode == 'EMS-KP' or trCode == 'EMS-TS'">
+				END_NO = #{emsStockNo}
+			</when>
+			<otherwise>
+				 END_NO = CAST(#{startNo} AS decimal) - 1	
+			</otherwise>
+		</choose> 
+		WHERE BOUND = #{bound} AND BOUND_TYPE = #{boundType} AND TR_CODE = #{trCode}
+		<!-- AND START_NO = #{origStartNo} AND END_NO = #{origEndNo}	 -->
+		AND SEQ_NO = #{seqNo}	
+		AND AGENT_CODE = #{srchAgentCode}					 
+		
+		COMMIT TRAN					
+	
+	</insert>		
+	
+	<select id="checkStockDuplication" parameterType="regrantStock" resultType="int">
+		/* StockMapper.checkStockDuplication : Stock 중복체크 */
+
+			SELECT COUNT(*)
+			FROM TB_ECM_STOCK
+			WHERE (START_NO BETWEEN #{startNo} AND #{endNo} OR END_NO BETWEEN #{startNo} AND #{endNo} )
+			AND TR_CODE = #{trCode}
+			AND BOUND = #{bound}
+			AND BOUND_TYPE = #{boundType}
+			AND ENT_CODE = #{entCode}
+			
+	</select>
+	
+	
+	<select id="checkReStockDuplication" parameterType="regrantStock" resultType="int">
+		/* StockMapper.checkReStockDuplication : reStock 중복체크 */
+		SELECT
+			(CASE WHEN st.TR_CODE IN('KOREX','KOREXMUL','HANJIN','LOTTE','JP-AIR','JP-SEA')
+				THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11))
+				- CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,11)) + 1            
+				ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11)) 
+				- CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,11)) END)
+				WHEN st.TR_CODE IN ('EMS-KP','EMS-TS')
+				THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8))
+				- CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,8)) + 1            
+				ELSE CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8)) 
+				- CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,8)) END)    
+				ELSE (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN st.END_NO - st.START_NO + 1          
+				ELSE st.END_NO - st.CURRENT_NO END) END        ) AS UNUSED_COUNT 
+		FROM TB_ECM_STOCK st
+		WHERE st.ENT_CODE = #{entCode}
+		AND st.BOUND = #{bound}
+		AND st.BOUND_TYPE = #{boundType}
+		AND st.TR_CODE = #{trCode}
+		AND st.AGENT_CODE = #{srchAgentCode}
+		AND st.SEQ_NO = #{seqNo}
+	</select>
+	
+	<select id="selectStockListV2" parameterType="searchStockList" resultType="stock">
+		/* StockMapper.selectStockListV2 : Stock List 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT 
+				st.ENT_CODE
+				, st.TR_CODE
+				, (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = st.ENT_CODE AND CODE = st.TR_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE') AS TR_NAME
+				, st.BOUND
+				, st.BOUND_TYPE
+				, MIN(st.STOCK_DATE) AS STOCK_DATE
+				, MIN(st.START_NO) AS START_NO
+				, MAX(st.END_NO) AS END_NO
+				, SUM(CASE WHEN st.TR_CODE IN('KOREX','KOREXMUL','HANJIN','JP-AIR','JP-SEA','LOTTE')
+					THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN 0
+					ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,11)) -  CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,11)) + 1 END)
+					WHEN st.TR_CODE IN ('EMS-KP','EMS-TS')
+					THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN 0 
+					ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,8)) -  CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,8)) + 1 END)
+					ELSE (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN 0            
+					ELSE st.CURRENT_NO - st.START_NO + 1 END) END ) AS USED_COUNT  
+				, SUM(CASE WHEN st.TR_CODE IN('KOREX','KOREXMUL','HANJIN','JP-AIR','JP-SEA','LOTTE')
+					THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11))
+					- CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,11)) + 1            
+					ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11)) 
+					- CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,11)) END)
+					WHEN st.TR_CODE IN ('EMS-KP','EMS-TS')
+					THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8))
+					- CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,8)) + 1            
+					ELSE CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8)) 
+					- CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,8)) END)
+					ELSE (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN st.END_NO - st.START_NO + 1          
+					ELSE st.END_NO - st.CURRENT_NO END) END ) AS UNUSED_COUNT 
+				, SUM(CASE WHEN st.TR_CODE IN('KOREX','KOREXMUL','HANJIN','JP-AIR','JP-SEA','LOTTE')
+					THEN (CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11)) -  CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,11)) + 1)
+					WHEN st.TR_CODE IN ('EMS-KP', 'EMS-TS')
+					THEN (CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8)) -  CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,8)) + 1)
+					ELSE (st.END_NO - st.START_NO + 1) END ) AS TOTAL_COUNT	
+				, MIN(st.REGISTER_DATE_TIME) AS REGISTER_DATE_TIME
+				, MAX(st.REGISTER_USER_ID) AS REGISTER_USER_ID
+				, COUNT(*) AS SPLIT_COUNT
+			FROM TB_ECM_STOCK st
+			
+			WHERE st.ENT_CODE = #{srchEntCode}
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND st.REGISTER_DATE_TIME >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			</if>
+			<if test="srchEndDate != null and srchEndDate != ''"> 
+			AND st.REGISTER_DATE_TIME <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</if>
+			<if test="srchTrCode != null and srchTrCode != ''">
+				AND st.TR_CODE = #{srchTrCode}
+			</if>
+			<if test="srchStatus != null and srchStatus != ''">
+				<!-- AND st. = #{srchStatus} 보류 -->
+			</if>			
+			<if test="srchStockBalanceYn != null and srchStockBalanceYn != ''">
+				<if test='srchStockBalanceYn == "Y"'> <!--  Balance<>0 -->
+				 AND ISNULL((CASE WHEN st.TR_CODE IN('KOREX','KOREXMUL','HANJIN','LOTTE','JP-AIR','JP-SEA')
+					THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11))
+						- CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,11)) + 1            
+					ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11)) - CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,11)) END)
+					WHEN st.TR_CODE IN('EMS-KP','EMS-TS')
+					THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8))
+						- CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,8)) + 1            
+					ELSE CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8)) - CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,8)) END)
+					ELSE (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN st.END_NO - st.START_NO + 1          
+					ELSE st.END_NO - st.CURRENT_NO END) END ),0) > 0
+				</if>
+ 				<if test='srchStockBalanceYn == "N"'> <!-- Balance=0 -->
+				 AND ISNULL((CASE WHEN st.TR_CODE IN('KOREX','KOREXMUL','HANJIN','LOTTE','JP-AIR','JP-SEA')
+					THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11))
+						- CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,11)) + 1            
+					ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,11)) - CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,11)) END)    
+					WHEN st.TR_CODE IN ('EMS-KP','EMS-TS')
+					THEN (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8))
+						- CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.START_NO),1,8)) + 1            
+					ELSE CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.END_NO),1,8)) - CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),st.CURRENT_NO),1,8)) END)
+					ELSE (CASE WHEN ISNULL(st.CURRENT_NO, 0) = 0 THEN st.END_NO - st.START_NO + 1          
+					ELSE st.END_NO - st.CURRENT_NO END) END ),0) = 0						 
+				</if>
+			</if>			
+			<if test="srchAgentCode != null and srchAgentCode != ''">
+				 AND st.AGENT_CODE = #{srchAgentCode}
+			</if>
+			<if test="srchStockNo != null and srchStockNo != ''">
+				AND st.START_NO = #{srchStockNo}
+			</if>	
+			
+			<if test="srchBound != null and srchBound != ''">
+				 AND st.BOUND = #{srchBound}
+			</if>
+			<if test="srchBoundType != null and srchBoundType != ''">
+				AND st.BOUND_TYPE = #{srchBoundType}
+			</if>	
+			<if test="srchStockUseYn != null and srchStockUseYn != ''">
+				AND st.STOCK_USE_YN = #{srchStockUseYn}
+			</if>
+			
+			GROUP BY st.ENT_CODE, st.TR_CODE, st.BOUND, st.BOUND_TYPE
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+</mapper>

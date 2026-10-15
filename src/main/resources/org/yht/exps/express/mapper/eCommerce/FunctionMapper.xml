@@ -1,0 +1,677 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.FunctionMapper">
+		
+	<select id="selectOrderList" parameterType="HashMap" resultType="HashMap">
+		/* FunctionMapper.selectOrderList : Order function List(Detail) */	
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<choose>
+		<when test='screen == "ORDER_CUSTOMER"'>
+		/* ORDER_CUSTOMER */	
+			SELECT
+				od.HBL_NO AS hblNo
+				,od.MBL_NO AS mblNo
+				,od.MASTER_OD_JOB_NO AS masterOdJobNo
+				,od.CONSOL_YN AS consolYn
+				,ad.LAST_POD_STATUS AS lastPodStatus
+				,det.NAME_${userLanguage} AS lastPodStatusNm
+				<if test='func != null and func != "" and func == "carryin" '>
+				,CASE WHEN ISNULL(od.CONSOL_YN,'N') = 'Y' AND ad.LAST_POD_STATUS >= 'ECM030' THEN 'Y' END AS chk1
+				,CASE WHEN ISNULL(od.CONSOL_YN,'N') = 'N' AND ad.LAST_POD_STATUS >= 'ECM030' THEN 'Y' END AS chk2
+				</if>
+				<if test='func != null and func != "" and func == "sendHold" '>
+				,CASE WHEN ISNULL(od.CONSOL_YN,'N') = 'Y' THEN 'Y' END AS chk1
+				</if>
+				,od.OD_JOB_NO AS odJobNo
+				,ISNULL(pod.POD_JOB_NO, nPod.POD_JOB_NO) AS podCarryIn
+				,ISNULL(pod1.POD_JOB_NO, nPod1.POD_JOB_NO) AS podRpt
+				,ISNULL(pod2.POD_JOB_NO, nPod2.POD_JOB_NO) AS podSendHold
+			    ,od.CUSTOMS_ID_TYPE AS customsIdType
+			    ,od.CONSIGNEE_NAME_LOC AS consigneeNameLoc
+			    ,od.CONSIGNEE_NAME AS consigneeName
+<!-- 			    ,od.CONSIGNEE_ADDRESS AS consigneeAddress -->
+			    ,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS consigneeAddress
+			    ,od.CONSIGNEE_ADDRESS_LOC AS consigneeAddressLoc
+			    ,od.COMMODITY_ITEM AS commodityItem
+			    ,od.BOUND as bound
+			    ,od.BOUND_TYPE as boundType
+			    <choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS consigneeHp
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS consigneeTel
+				,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS customsId
+				</when>
+				<otherwise>
+				,od.CONSIGNEE_HP AS consigneeHp
+				,od.CONSIGNEE_TEL AS consigneeTel
+				,od.CUSTOMS_ID AS customsId
+				</otherwise>
+				</choose>
+				,od.ECM_BUY_TYPE AS ecmBuyType
+				,od.AGENT_REG_NO AS agentRegNo
+			    ,od.FORWARD_AGENT_CODE AS forwardAgentCode
+			    ,od.SALES_BROKER_REG_NO AS salesBrokerRegNo
+			    ,od.CONSIGNEE_ZIPCODE as consigneeZipcode
+			    ,od.ORDER_NAME as orderName
+			    ,od.ECM_YN as ecmYn
+			FROM TB_ECM_OD od
+			LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL ad ON od.OD_JOB_NO = ad.OD_JOB_NO
+			LEFT JOIN TB_SMS_CODE_DETAIL det ON 
+					od.ENT_CODE = det.ENT_CODE AND det.GROUP_CODE = 'STATUS_ORDER_CARGO' AND ad.LAST_POD_STATUS = det.CODE 
+			LEFT JOIN TB_ECM_POD pod ON 
+					od.OD_JOB_NO = pod.OD_JOB_NO AND pod.POD_STATUS = 'ECM030'
+			LEFT JOIN TB_ECM_POD pod1 ON 
+					od.OD_JOB_NO = pod1.OD_JOB_NO AND pod1.POD_STATUS = 'ECM010'
+			LEFT JOIN TB_ECM_POD pod2 ON 
+					od.OD_JOB_NO = pod2.OD_JOB_NO AND pod2.POD_STATUS = 'ECM040'
+			LEFT JOIN TB_ECM_POD_01 nPod ON od.OD_JOB_NO = nPod.OD_JOB_NO AND nPod.POD_STATUS = 'ECM030'
+			LEFT JOIN TB_ECM_POD_01 nPod1 ON od.OD_JOB_NO = nPod1.OD_JOB_NO AND nPod1.POD_STATUS = 'ECM010'
+			LEFT JOIN TB_ECM_POD_01 nPod2 ON od.OD_JOB_NO = nPod2.OD_JOB_NO AND nPod2.POD_STATUS = 'ECM040'
+			<if test='srchNo != null and srchNo != "" and srchNoType == "multi.DELIVERY_NO"'>
+			LEFT JOIN TB_ECM_OD_MULTI multi ON multi.OD_JOB_NO = od.OD_JOB_NO
+			</if>
+			<!-- parameter 추가시 SearchOrderCustomerList/SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.consumerService.OrderCustomerMapper.selectOrderListWhere"/>
+			<if test='functionConsoleChkYn == "Y"'>
+			AND od.CONSOL_YN = 'Y'
+			</if>
+			<!-- UPS 2026.03.16 전체건 조회되게 수정  -->
+			<!-- <if test='func == "penaltyVali"'>
+			AND od.CD_TYPE = 'Y'
+			</if> -->
+		</when>
+		<when test='screen == "FHL"'>
+		/* FHL */	
+			SELECT
+				od.HBL_NO AS hblNo
+				,od.MBL_NO AS mblNo
+				,od.MASTER_OD_JOB_NO AS masterOdJobNo
+				,od.CONSOL_YN AS consolYn
+				,det.NAME_${userLanguage} AS lastPodStatusNm
+				<if test='func != null and func != "" and func == "carryin" '>
+				,CASE WHEN ISNULL(od.CONSOL_YN,'N') = 'Y' AND odAdd.LAST_POD_STATUS >= 'ECM030' THEN 'Y' END AS chk1
+				,CASE WHEN ISNULL(od.CONSOL_YN,'N') = 'N' AND odAdd.LAST_POD_STATUS >= 'ECM030' THEN 'Y' END AS chk2
+				</if>
+				<if test='func != null and func != "" and func == "sendHold" '>
+				,CASE WHEN ISNULL(od.CONSOL_YN,'N') = 'Y' THEN 'Y' END AS chk1
+				</if>
+				,od.OD_JOB_NO AS odJobNo
+				,ISNULL(pod.POD_JOB_NO, nPod.POD_JOB_NO) AS podCarryIn
+				,ISNULL(pod1.POD_JOB_NO, nPod1.POD_JOB_NO) AS podRpt
+			    ,od.CONSIGNEE_NAME_LOC AS consigneeNameLoc
+			    ,od.CONSIGNEE_NAME AS consigneeName
+<!-- 			    ,od.CONSIGNEE_ADDRESS AS consigneeAddress -->
+			    ,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS consigneeAddress
+			    ,od.CONSIGNEE_ADDRESS_LOC AS consigneeAddressLoc
+			    ,od.COMMODITY_ITEM AS commodityItem
+			    ,od.CUSTOMS_ID_TYPE AS customsIdType
+			    <choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS consigneeHp
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS consigneeTel
+				,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS customsId
+				</when>
+				<otherwise>
+				,od.CONSIGNEE_HP AS consigneeHp
+				,od.CONSIGNEE_TEL AS consigneeTel
+				,od.CUSTOMS_ID AS customsId
+				</otherwise>
+				</choose>
+				,od.ECM_BUY_TYPE AS ecmBuyType
+				,od.AGENT_REG_NO AS agentRegNo
+			    ,od.FORWARD_AGENT_CODE AS forwardAgentCode
+			    ,od.SALES_BROKER_REG_NO AS salesBrokerRegNo
+			    ,od.CONSIGNEE_ZIPCODE as consigneeZipcode
+			    ,od.ORDER_NAME as orderName
+			    ,od.ECM_YN as ecmYn
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			LEFT JOIN TB_ECM_OD master ON master.OD_JOB_NO = od.MASTER_OD_JOB_NO 		
+			LEFT JOIN TB_ECM_OD_ADDITIONAL odAdd ON master.OD_JOB_NO = odAdd.OD_JOB_NO
+			LEFT JOIN TB_SMS_CODE_DETAIL det ON 
+					od.ENT_CODE = det.ENT_CODE AND det.GROUP_CODE = 'STATUS_ORDER_CARGO' AND odAdd.LAST_POD_STATUS = det.CODE 
+			LEFT JOIN TB_ECM_POD pod ON 
+					od.OD_JOB_NO = pod.OD_JOB_NO AND pod.POD_STATUS = 'ECM030'
+			LEFT JOIN TB_ECM_POD pod1 ON 
+					od.OD_JOB_NO = pod1.OD_JOB_NO AND pod1.POD_STATUS = 'ECM010'
+			LEFT JOIN TB_ECM_POD_01 nPod ON od.OD_JOB_NO = nPod.OD_JOB_NO AND nPod.POD_STATUS = 'ECM030'
+			LEFT JOIN TB_ECM_POD_01 nPod1 ON od.OD_JOB_NO = nPod1.OD_JOB_NO AND nPod1.POD_STATUS = 'ECM010'
+			
+			<choose>
+			<when test='chkMode == "A"'>
+				<choose>
+				<when test='checkMfSubGridYn == "Y"'>
+				WHERE (
+					<foreach collection="masterList" item="item" separator="OR">
+					(od.MASTER_OD_JOB_NO = #{item.odJobNo} AND ISNULL(ad.SIMPLE_DOC_NO, '') = ISNULL(CAST(#{item.simpleDocNo} AS VARCHAR(20)), ''))
+					</foreach>
+				)
+				</when>
+				<otherwise>
+				WHERE od.MASTER_OD_JOB_NO IN (
+					<foreach collection="masterList" item="item" separator=",">
+					#{item.odJobNo}
+					</foreach>
+				)
+				</otherwise>
+				</choose>
+				AND od.ENT_CODE = #{srchEntCode}
+				AND od.BL_TYPE_MH = 'H'
+			</when>
+			<otherwise>
+				<!-- parameter 추가시 SearchOrderList/SearchManifestInList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.edi.ManifestMapper.searchOrderInList"/>
+			</otherwise>
+			</choose>
+			<!-- UPS 2026.03.16 전체건 조회되게 수정  -->
+			<!-- <if test='func == "penaltyVali"'>
+			AND od.CD_TYPE = 'Y'
+			</if> -->
+			
+		</when>
+		<when test='screen == "CONSOL"'>
+		/* CONSOL > 개통부 검증때만 사용*/	
+			SELECT
+				od.HBL_NO AS hblNo
+				,od.MBL_NO AS mblNo
+				,od.MASTER_OD_JOB_NO AS masterOdJobNo
+				,od.OD_JOB_NO AS odJobNo
+			    ,od.CONSIGNEE_NAME_LOC AS consigneeNameLoc
+			    ,od.CONSIGNEE_NAME AS consigneeName
+			    ,od.CUSTOMS_ID_TYPE AS customsIdType
+			    <choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS consigneeHp
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS consigneeTel
+				,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS customsId
+				</when>
+				<otherwise>
+				,od.CONSIGNEE_HP AS consigneeHp
+				,od.CONSIGNEE_TEL AS consigneeTel
+				,od.CUSTOMS_ID AS customsId
+				</otherwise>
+				</choose>
+			FROM TB_ECM_OD od
+			LEFT JOIN TB_ECM_OD mod ON mod.OD_JOB_NO = od.MASTER_OD_JOB_NO 		
+			INNER JOIN TB_ECM_OD_ADDITIONAL ad
+					 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			<choose>
+			<when test='chkMode == "A"'>
+				WHERE od.MASTER_OD_JOB_NO IN (<foreach collection="masterList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			</when>
+			<otherwise>
+				<!-- parameter 추가시 SearchConsolOrderList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.eCommerce.ConsolMapper.selectMasterOrderListWhere" />
+				AND od.CONSOL_YN = 'Y'
+			</otherwise>
+			</choose>
+			AND od.BL_TYPE_MH = 'H' 
+			AND (ad.LAST_POD_STATUS != 'ECM040' OR ad.LAST_POD_STATUS IS NULL)
+		</when>
+		</choose>
+	</select>
+	
+	<insert id="updateCarryin" parameterType="functionOrder">
+		/* FunctionMapper.updateCarryin : 오더 반입적용 */
+		UPDATE TB_ECM_OD_ADDITIONAL
+		SET
+		    LAST_POD_STATUS = #{insStatus}
+		   <!-- ,LAST_POD_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE()) -->
+		WHERE OD_JOB_NO IN (<foreach collection="odNoList" item="item" separator=",">#{item.odJobNo}</foreach>)
+		AND ISNULL(LAST_POD_STATUS,'') <![CDATA[<>]]> 'ECM040'
+		AND ISNULL(LAST_POD_STATUS,'') <![CDATA[<]]> #{insStatus}
+	</insert>
+	
+	<insert id="updateSendHold" parameterType="functionOrder">
+		/* FunctionMapper.updateSendHold : 오더 발송보류적용 */
+		UPDATE TB_ECM_OD_ADDITIONAL
+		SET
+		    LAST_POD_STATUS = 'ECM040'
+		   <!-- ,LAST_POD_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE()) -->
+		WHERE OD_JOB_NO IN (<foreach collection="odNoList" item="item" separator=",">#{item.odJobNo}</foreach>)
+		AND ISNULL(LAST_POD_STATUS,'') <![CDATA[<]]> 'ECM040'
+	</insert>
+	
+	<insert id="updatePodInfo" parameterType="HashMap">
+		/* FunctionMapper.updatePodInfo : POD 업데이트 */
+		UPDATE TB_ECM_POD SET
+			UPDATE_USER_ID	= #{updateUserId}
+			,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())	
+			,POD_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,POD_TIME = CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+		WHERE POD_JOB_NO = #{POD_JOB_NO}
+		AND POD_STATUS = #{POD_STATUS};
+		
+		<!-- 해당쿼리 호출시 POD_STATUS를 ECM099이하만 사용해서 TB_ECM_POD_01만 추가로 저장함 -->
+		UPDATE TB_ECM_POD_01 SET
+			UPDATE_USER_ID	= #{updateUserId}
+			,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())	
+			,POD_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,POD_TIME = CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+		WHERE POD_JOB_NO = #{POD_JOB_NO}
+		AND POD_STATUS = #{POD_STATUS};
+	</insert>
+	
+	<insert id="insertPodInfo" parameterType="HashMap">
+		/* FunctionMapper.insertPodInfo : POD 인서트 */
+		<!-- 해당쿼리 호출시 POD_STATUS를 ECM099이하만 사용해서 TB_ECM_POD_01만 저장함 -->
+		INSERT INTO TB_ECM_POD_01 (
+		 	 POD_JOB_NO
+		 	,ENT_CODE
+		 	,OD_JOB_NO
+		 	,POD_STATUS
+		 	,POD_DATE
+		 	,POD_TIME
+		 	,BL_NO
+		 	,REGISTER_USER_ID
+		 	,REGISTER_DATE_TIME
+		 	,UPDATE_USER_ID
+		 	,UPDATE_DATE_TIME
+		) VALUES (
+			 #{POD_JOB_NO}
+		    ,#{entCode}
+			,#{odJobNo}
+		    ,#{POD_STATUS}
+		    ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		    ,SUBSTRING(CONVERT(VARCHAR(10), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108), 1, 5)
+		    ,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))		
+		    ,#{updateUserId}
+		    ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		    ,#{updateUserId}
+		    ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		);
+	</insert>		
+	
+	<insert id="deletePodInfo" parameterType="functionOrder">
+		/* FunctionMapper.deletePodInfo : POD 삭제 */
+		DELETE TB_ECM_POD
+		WHERE ENT_CODE = #{entCode}
+		AND OD_JOB_NO IN (<foreach collection="odNoList" item="item" separator=",">#{item.odJobNo}</foreach>)
+		AND POD_STATUS = #{delStatus};
+		<!-- 해당쿼리 호출시 POD_STATUS를 ECM099이하만 사용해서 TB_ECM_POD_01만 추가로 삭제함 -->
+		DELETE TB_ECM_POD_01
+		WHERE ENT_CODE = #{entCode}
+		AND OD_JOB_NO IN (<foreach collection="odNoList" item="item" separator=",">#{item.odJobNo}</foreach>)
+		AND POD_STATUS = #{delStatus};
+	</insert>
+	
+	<insert id="updateLastPodStatus" parameterType="functionOrder">
+		/* FunctionMapper.updateLastPodStatus : LAST_POD_STATUS 업데이트 */
+		UPDATE TB_ECM_OD_ADDITIONAL
+		SET LAST_POD_STATUS = #{insStatus}
+			<!-- ,LAST_POD_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE()) -->
+		WHERE OD_JOB_NO IN (<foreach collection="odNoList" item="item" separator=",">#{item.odJobNo}</foreach>)
+		AND ISNULL(LAST_POD_STATUS,'') <![CDATA[<]]> #{insStatus}
+	</insert>
+	
+	<insert id="updateLastPodStatus2" parameterType="functionOrder">
+		/* FunctionMapper.updateLastPodStatus2 : LAST_POD_STATUS 업데이트 */
+		UPDATE ad SET
+			   LAST_POD_STATUS = pod.POD_STATUS
+			  <!-- ,LAST_POD_DATE = CASE WHEN pod.POD_DATE IS NULL THEN NULL ELSE CONCAT(pod.POD_DATE, ' ' , pod.POD_TIME) END -->
+		FROM TB_ECM_OD_ADDITIONAL ad
+			 LEFT JOIN (
+			 	SELECT TOP 1 A.OD_JOB_NO, A.POD_STATUS, A.POD_DATE, A.POD_TIME
+			 	FROM(
+			 		SELECT #{odJobNo} AS OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD WHERE OD_JOB_NO = (SELECT MASTER_OD_JOB_NO FROM TB_ECM_OD WHERE OD_JOB_NO = #{odJobNo}) AND POD_STATUS IN ('ECM060','ECM070')
+			 		UNION ALL
+			 		SELECT #{odJobNo} AS OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_01 WHERE OD_JOB_NO = (SELECT MASTER_OD_JOB_NO FROM TB_ECM_OD WHERE OD_JOB_NO = #{odJobNo}) AND POD_STATUS IN ('ECM060','ECM070')
+			 		UNION ALL
+			 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD WHERE OD_JOB_NO = #{odJobNo} AND POD_STATUS NOT IN ('ECM060','ECM070')
+			 		UNION ALL
+			 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_01 WHERE OD_JOB_NO = #{odJobNo} AND POD_STATUS NOT IN ('ECM060','ECM070')
+			 		UNION ALL
+			 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_02 WHERE OD_JOB_NO = #{odJobNo}
+			 		UNION ALL
+			 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_03 WHERE OD_JOB_NO = #{odJobNo}
+			 		UNION ALL
+			 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_04 WHERE OD_JOB_NO = #{odJobNo} AND POD_STATUS IN ('ECM400', 'ECM420')
+			 	) A
+			 	ORDER BY A.POD_STATUS DESC
+			 ) pod
+			 		   ON pod.OD_JOB_NO = ad.OD_JOB_NO
+		WHERE ad.OD_JOB_NO = #{odJobNo}
+	</insert>
+	
+	<insert id="updateObDate" parameterType="functionOrder">
+		/* FunctionMapper.updateObDate : 오더 입항일자 적용 */
+		UPDATE TB_ECM_OD
+		SET OB_DATE = #{obDate}	
+		WHERE ENT_CODE = #{entCode}
+		AND OD_JOB_NO IN (<foreach collection="odNoList" item="item" separator=",">#{item.odJobNo}</foreach>)
+	</insert>
+	
+	<select id="selectOrderFunctionChk" parameterType="HashMap" resultType="HashMap">
+		/* FunctionMapper.selectOrderFunctionChk : 오더 수정전체크 */
+		SELECT
+			 od.HBL_NO AS hblNo
+		FROM TB_ECM_OD od
+		WHERE od.OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item.odJobNo}</foreach>)
+		<if test='functionConsoleChkYn == "Y"'>
+		AND od.CONSOL_YN = 'Y'
+		</if>
+	</select>
+	
+	<select id="selectOrderListEnt" parameterType="HashMap" resultType="HashMap">
+		/* FunctionMapper.selectOrderListEnt : 오더 입항일자 적용대상조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		SELECT A.*
+		FROM(
+			SELECT
+				 od.OD_JOB_NO AS odJobNo
+				,od.HBL_NO AS hblNo
+				,od.MBL_NO AS mblNo
+				,od.MASTER_OD_JOB_NO AS masterOdJobNo
+				,od.BOUND AS bound
+				,od.BOUND_TYPE AS boundType
+				,od.CONSIGNEE_NAME_LOC AS consigneeNameLoc
+			    ,od.CONSIGNEE_NAME AS consigneeName
+			    ,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS consigneeAddress
+			    ,od.CONSIGNEE_ADDRESS_LOC AS consigneeAddressLoc
+			    ,od.COMMODITY_ITEM AS commodityItem
+			    ,od.HSN AS hsn
+			    ,od.CUSTOMS_ID_TYPE AS customsIdType
+				<if test='func == "sendHold"'>
+				,CASE WHEN ISNULL(od.CONSOL_YN,'N') = 'Y' THEN 'Y' END AS chk1
+				,(
+					SELECT TOP 1 A.POD_JOB_NO FROM(
+						SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM040'
+						UNION ALL
+						SELECT POD_JOB_NO FROM TB_ECM_POD_01 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM040'
+					) A
+				 ) AS podSendHold
+				</if>
+				<if test='func == "carryin"'>
+				,CASE WHEN ISNULL(od.CONSOL_YN,'N') = 'Y' AND ad.LAST_POD_STATUS >= 'ECM030' THEN 'Y' END AS chk1
+				,CASE WHEN ISNULL(od.CONSOL_YN,'N') = 'N' AND ad.LAST_POD_STATUS >= 'ECM030' THEN 'Y' END AS chk2
+				,(
+					SELECT TOP 1 A.POD_JOB_NO FROM(
+						<if test="parentMenu == null or parentMenu == '' or parentMenu != 'regist'">
+						SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM030'
+						</if>
+						<if test="parentMenu != null and parentMenu != '' and parentMenu == 'regist'">
+						SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM005'
+						</if>
+						UNION ALL
+						<if test="parentMenu == null or parentMenu == '' or parentMenu != 'regist'">
+						SELECT POD_JOB_NO FROM TB_ECM_POD_01 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM030'
+						</if>
+						<if test="parentMenu != null and parentMenu != '' and parentMenu == 'regist'">
+						SELECT POD_JOB_NO FROM TB_ECM_POD_01 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM005'
+						</if>
+					) A
+				 ) AS podCarryIn
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = ad.LAST_POD_STATUS) AS lastPodStatusNm
+				</if>
+				<if test='func == "carryout"'>
+				,(
+					SELECT TOP 1 A.POD_JOB_NO FROM(
+						<if test="parentMenu == null or parentMenu == '' or parentMenu != 'regist'">
+						SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM050'
+						</if>
+						<if test="parentMenu != null and parentMenu != '' and parentMenu == 'regist'">
+						SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM007'
+						</if>
+						UNION ALL
+						<if test="parentMenu == null or parentMenu == '' or parentMenu != 'regist'">
+						SELECT POD_JOB_NO FROM TB_ECM_POD_01 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM050'
+						</if>
+						<if test="parentMenu != null and parentMenu != '' and parentMenu == 'regist'">
+						SELECT POD_JOB_NO FROM TB_ECM_POD_01 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM007'
+						</if>
+					) A
+				) AS podCarryout
+				</if>
+				<if test='func == "sendHold" or func == "send" or func == "carryin"'>
+				,(
+					SELECT TOP 1 A.POD_JOB_NO FROM(
+						<if test="parentMenu == null or parentMenu == '' or parentMenu != 'regist'">
+						SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM010'
+						</if>
+						<if test="parentMenu != null and parentMenu != '' and parentMenu == 'regist'">
+						SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM003'
+						</if>
+						UNION ALL
+						<if test="parentMenu == null or parentMenu == '' or parentMenu != 'regist'">
+						SELECT POD_JOB_NO FROM TB_ECM_POD_01 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM010'
+						</if>
+						<if test="parentMenu != null and parentMenu != '' and parentMenu == 'regist'">
+						SELECT POD_JOB_NO FROM TB_ECM_POD_01 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM003'
+						</if>
+					) A
+				) AS podRpt
+				</if>
+				,(SELECT TOP 1 ABNORMAL_CODE FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = od.OD_JOB_NO ORDER BY REGISTER_DATE_TIME DESC) AS ABNORMAL_CODE
+				<choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS consigneeHp
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS consigneeTel
+				,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS customsId
+				</when>
+				<otherwise>
+				,od.CONSIGNEE_HP AS consigneeHp
+				,od.CONSIGNEE_TEL AS consigneeTel
+				,od.CUSTOMS_ID AS customsId
+				</otherwise>
+				</choose>
+				,od.ECM_BUY_TYPE AS ecmBuyType
+				,AGENT_REG_NO AS agentRegNo
+			    ,FORWARD_AGENT_CODE AS forwardAgentCode
+			    ,SALES_BROKER_REG_NO AS salesBrokerName
+			    ,CONSIGNEE_ZIPCODE as consigneeZipcode
+			    ,ORDER_NAME as orderName
+			    ,ECM_YN as ecmYn
+			FROM TB_ECM_OD od
+				 LEFT JOIN TB_ECM_OD_ADDITIONAL ad
+				 		   ON ad.OD_JOB_NO = od.OD_JOB_NO
+			<choose>
+			<when test='chkMode == "A"'>
+				<choose>
+				<when test="odNoList != null and !odNoList.isEmpty">
+				WHERE od.OD_JOB_NO IN (<foreach collection="odNoList" item="item" separator=",">#{item.odJobNo}</foreach>)
+				</when>
+				<when test="hblNo != null and hblNo!= ''">
+				WHERE od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+				</when>
+				<when test="modJobNo != null and modJobNo != ''">
+				WHERE od.MASTER_OD_JOB_NO = #{modJobNo}
+				</when>
+				<otherwise>
+				WHERE 1 = 0
+				</otherwise>
+				</choose>
+				<if test="ecmCustomerLevel != null and ecmCustomerLevel != ''">
+				AND od.CUST_CODE_LV${ecmCustomerLevel} = #{ecmCustomerCode}
+				</if>
+				<if test="blTypeMh != null and blTypeMh != ''">
+				AND od.BL_TYPE_MH = #{blTypeMh}
+				</if>
+			</when>
+			
+			<when test='srchQueryType == "ORDER"'>
+				<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.eCommerce.OrderMapper.searchOrderList"/>
+			</when>
+			<when test='srchQueryType == "MANIFEST_IMP"'>
+				<!-- parameter 추가시 SearchOrderList/SearchManifestInList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.edi.ManifestMapper.searchOrderInList"/>
+			</when>
+			<when test='srchQueryType == "MANIFEST_EXP"'>
+				<!-- parameter 추가시 SearchOrderList/SearchManifestOutList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.edi.ManifestMapper.selectMasterOutListWhere"/>
+			</when>
+			<when test='srchQueryType == "MANIFEST_IMP_031"'>
+				<!-- parameter 추가시 SearchOrderList/SearchManifestInList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.edi.ManifestMapper.selectHouseIn031ListWhere"/>
+			</when>
+			<otherwise>
+				WHERE 1 = 0
+			</otherwise>
+			</choose>
+			<if test='functionConsoleChkYn == "Y"'>
+			AND od.CONSOL_YN = 'Y'
+			</if>
+		) A
+		<if test='srchAbnormalYn == "Y"'>
+		WHERE ABNORMAL_CODE IS NOT NULL
+		</if>
+	</select>
+	
+	
+	<select id="selectPenaltyOrderList" parameterType="HashMap" resultType="penaltyOrder">
+		/* FunctionMapper.selectPenaltyOrderList : Order List(Detail) */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT 
+			  A.*
+			,COUNT(A.OD_JOB_NO) OVER() AS SUM_COUNT
+		FROM 	
+		(	
+		SELECT
+			 ad.LAST_POD_STATUS
+			,od.CUST_CODE_LV1 AS AGENT_CODE
+			,od.OD_JOB_NO		
+			,od.PO_DATE
+			,od.PO_NO
+			,od.HBL_NO
+			,od.MBL_NO
+			,od.HSN 
+			,od.SHIPPER_CODE
+			,od.SHIPPER_NAME
+			,od.SHIPPER_ADDRESS
+			,od.SHIPPER_TEL
+			,od.CONSIGNEE_CODE
+			,od.CONSIGNEE_NAME
+			,od.CONSIGNEE_ADDRESS
+			,od.CONSIGNEE_ZIPCODE
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+			,od.CD_TYPE
+			,od.ECM_TYPE
+			,od.CURRENCY_CODE
+			,od.EXCHANGE_RATE
+			,od.AMOUNT_CUR
+			,od.AMOUNT_LOC
+			,od.AMOUNT_USD
+			,od.PIECES_REAL
+			,od.PIECES
+			,od.GWT
+			,od.CBM
+			,od.GWT_LBS
+			,od.VWT AS DIM_VOLUMN
+			,ad.PRINT_YN
+			,ad.PRINT_DATE
+			,od.ORIG_CODE
+			,od.ORIG_COUNTRY
+			,od.OB_DATE
+			,od.AR_DATE
+			,od.VESSEL_FLIGHT
+			,od.FTA_YN
+			,od.FTA_REMARKS
+			,ad.CUSTOMS_ID_VERIFY
+			,ad.CUSTOMS_ID_ERROR			
+			,od.INSPECTION_YN
+			,ad.SE_INSPECTION_YN
+			,ad.DROP_YN
+			,ad.XRAY_YN
+			,od.COMMODITY_ITEM
+			,od.BOUND
+			,od.BOUND_TYPE
+			,od.CONSOL_YN			
+		    ,od.CONSIGNEE_NAME_LOC
+		    ,od.CONSIGNEE_ADDRESS_LOC
+		    , CASE PENALTY_YN WHEN 'A' THEN '상호' 
+		    					WHEN 'B' THEN '영문주소'
+		    					WHEN 'C' THEN '한글주소'
+		    					WHEN 'D' THEN '품명'
+		    					WHEN 'AD' THEN '영문상호, 품명' 
+		    					WHEN 'BD' THEN '영문주소, 품명' 
+		    					WHEN 'CD' THEN '한글주소, 품명' 
+		    END + '이(가) 세관기준에 맞지 않아 과태료 대상입니다.' AS PENALTY_REASON
+		    <choose>
+			<when test='cryptographyYn == "Y"'>
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+			,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS CUSTOMS_ID
+			</when>
+			<otherwise>
+			,od.CONSIGNEE_TEL
+			,od.CUSTOMS_ID
+			</otherwise>
+			</choose>
+		FROM TB_ECM_OD od
+		LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL ad ON od.OD_JOB_NO = ad.OD_JOB_NO
+		LEFT JOIN TB_SMS_CODE_DETAIL det ON 
+				od.ENT_CODE = det.ENT_CODE AND det.GROUP_CODE = 'STATUS_ORDER_CARGO' AND ad.LAST_POD_STATUS = det.CODE 
+		<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+		<include refid="org.yht.exps.express.mapper.eCommerce.OrderMapper.searchOrderList"/>
+		AND od.BL_TYPE_MH = 'H'	
+		AND PENALTY_YN != 'N'
+		)A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>	
+	
+	<insert id="updatePenalty" parameterType="HashMap">
+		/* FunctionMapper.updatePenalty : 오더 패널티 업데이트 */
+		UPDATE TB_ECM_OD
+		SET PENALTY_YN = #{penaltyYn}	
+		WHERE ENT_CODE = #{entCode}
+		AND OD_JOB_NO = #{odJobNo}
+		AND BL_TYPE_MH = 'H'
+	</insert>
+
+	<select id="selectOrderRegistrationList" parameterType="HashMap" resultType="HashMap">
+		/* FunctionMapper.selectOrderRegistrationList : 거래정보 등록항목 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		SELECT
+			od.HBL_NO AS hblNo
+			,od.MBL_NO AS mblNo
+			,od.MASTER_OD_JOB_NO AS masterOdJobNo
+			,od.CONSOL_YN AS consolYn
+			,ad.LAST_POD_STATUS AS lastPodStatus
+			,det.NAME_${userLanguage} AS lastPodStatusNm
+			,od.OD_JOB_NO AS odJobNo
+		    ,od.CUSTOMS_ID_TYPE AS customsIdType
+		    ,od.CONSIGNEE_NAME_LOC AS consigneeNameLoc
+		    ,od.CONSIGNEE_NAME AS consigneeName
+		    ,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS consigneeAddress
+		    ,od.CONSIGNEE_ADDRESS_LOC AS consigneeAddressLoc
+		    ,od.COMMODITY_ITEM AS commodityItem
+		    ,od.BOUND as bound
+		    ,od.BOUND_TYPE as boundType
+			,od.CONSIGNEE_HP AS consigneeHp
+			,od.CONSIGNEE_TEL AS consigneeTel
+			,od.CUSTOMS_ID AS customsId
+			,od.ECM_GOV_SEND_YN AS ecmGovSendYn
+		FROM TB_ECM_OD od
+		LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL ad ON od.OD_JOB_NO = ad.OD_JOB_NO
+		LEFT JOIN TB_EDI_GOV_ECOMMERCE gov ON ad.EC_IF_SBMT_NO = gov.EC_IF_SBMT_NO 
+		LEFT JOIN TB_SMS_CODE_DETAIL det ON od.ENT_CODE = det.ENT_CODE AND det.GROUP_CODE = 'STATUS_ORDER_CARGO' AND ad.LAST_POD_STATUS = det.CODE
+		<include refid="org.yht.exps.express.mapper.consumerService.OrderCustomerMapper.selectOrderListWhere"/>
+	</select>
+
+	<insert id="updateOdLastStatus" parameterType="functionOrder">
+		/* FunctionMapper.updateOdLastStatus : 오더 등록 취소 */
+		UPDATE ad SET
+			ad.LAST_POD_STATUS = 'ECM002' 
+			, ad.LAST_POD_DATE = od.REGISTER_DATE_TIME
+		FROM TB_ECM_OD_ADDITIONAL ad
+			INNER JOIN TB_ECM_OD od ON ad.OD_JOB_NO = od.OD_JOB_NO
+		WHERE 
+			ad.OD_JOB_NO IN (<foreach collection="odNoList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			AND ISNULL(LAST_POD_STATUS,'') = 'ECM003'
+	</insert>
+	
+	<select id="selectCustomsRessiuItemList" parameterType="HashMap" resultType="HashMap">
+		/* FunctionMapper.selectCustomsRessiuItemList : 개인통관부호 인증번호 재발급 오더 아이템 조회 */
+		SELECT
+			MAX(OD_JOB_NO) AS odJobNo,
+			MAX(ORDER_NO) AS orderNo
+			FROM TB_ECM_OD_ITEM
+			WHERE
+			OD_JOB_NO = #{odJobNo}
+			GROUP BY ISNULL(ORDER_NO,'')
+	</select>
+	
+</mapper>

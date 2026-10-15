@@ -1,0 +1,631 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        
+<mapper namespace="org.yht.exps.express.mapper.pda.PdaOutReleasePaotMapper">
+	<select id="selectExistBlDivideByBms5HF" parameterType="HashMap" resultType="bmsOutReleaseResult">
+		/* PdaOutReleasePaotMapper.selectExistBlDivideByBms5HF : 박스스캔시 BL분할 존재하는지 조회 */
+		SELECT I.CARGO_REFERENCE_NO
+			 , I.OD_JOB_NO
+		FROM TB_BMS_5HF H
+		INNER JOIN TB_BMS_IN I WITH (NOLOCK)
+		ON H.NEW_IN_NO = I.IN_NO
+		WHERE H.DIVIDE_CLASS = '1' 
+		AND H.CARGO_REFERENCE_NO = #{srchCargoReferenceNo}
+	</select>
+	
+	<select id="selectAllResultForOutRelease" parameterType="HashMap" resultType="bmsOutReleaseResult">
+		/* PdaOutReleasePaotMapper.selectAllResultForOutRelease : 박스스캔시 반입,반출승인,반출,홀드,박스 조회하여 결과 처리 */
+		SELECT '반입' AS dGbn
+			 , BL_NO
+			 , MBL_NO
+			 , DELIVERY_NAME
+			 , LAST_POD_STATUS AS IN_LAST_POD_STATUS
+			 , IN_CLASS
+			 , ALL_INSPECTION_FINISH_YN
+			 , XRAY_INSPECTION_CODE
+			 , CASE WHEN XRAY_INSPECTION_CODE = '01' THEN '마약'
+      		 		WHEN XRAY_INSPECTION_CODE = '02' THEN '총기'
+      		 		WHEN XRAY_INSPECTION_CODE = '03' THEN '검역'
+      		 		WHEN XRAY_INSPECTION_CODE = '04' THEN '식품,의약품'
+      		 		WHEN XRAY_INSPECTION_CODE = '05' THEN '협업검사'
+      		 		WHEN XRAY_INSPECTION_CODE = '06' THEN '수입검사(기타)'
+      		 		WHEN XRAY_INSPECTION_CODE = 'C' THEN '신고인 검사요청'
+      		 		ELSE ''
+			   END AS XRAY_INSPECTION_CODE_NAME
+			 , PALN5EM_INSPECTION_CODE
+			 , INSPECTION_TYPE
+			 , INSPECTION_TYPE_A
+			 , INSPECTION_TYPE_B
+			 , '' AS NOTIFY_DATE_TIME
+			 , SE_INSPECTION_CODE
+			 , CRIME_SELECTION_YN
+			 , INTELLECTUAL_PROP_YN
+			 , INSPECTION_CUSTOMS_YN
+			 , BIG_SIZE_YN
+			 , '' AS OUT_CLASS
+			 , '' AS OUT_APPROVAL_NO
+			 , '' AS OUT_SCAN_DATE_TIME
+			 , '' AS OUT_LAST_POD_STATUS
+			 , CT
+			 , WT
+			 , '' AS HOLD_REASON
+			 , '' AS APPROVAL_CLASS
+			 , 0 AS OUT_CT
+			 , OD_JOB_NO
+			 , CARGO_REFERENCE_NO
+			 , IN_PLAN_NO
+			 , IN_NO AS KEY_NO
+			 , 1 AS SORT_SEQ
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO IN (<foreach collection="cargoReferenceNoList" item="item" separator=",">#{item}</foreach>)
+		UNION ALL
+		SELECT '반출승인' AS dGbn, BL_NO, MBL_NO, '' AS DELIVERY_NAME
+			 , '' AS IN_LAST_POD_STATUS, '' AS IN_CLASS, '' AS ALL_INSPECTION_FINISH_YN
+			 , '' AS XRAY_INSPECTION_CODE
+			 , '' AS XRAY_INSPECTION_CODE_NAME
+			 , '' AS PALN5EM_INSPECTION_CODE
+			 , '' AS INSPECTION_TYPE
+			 , '' AS INSPECTION_TYPE_A
+			 , '' AS INSPECTION_TYPE_B
+			 , NOTIFY_DATE_TIME AS NOTIFY_DATE_TIME
+			 , '' AS SE_INSPECTION_CODE, '' AS CRIME_SELECTION_YN, '' AS INTELLECTUAL_PROP_YN, '' AS INSPECTION_CUSTOMS_YN, '' AS BIG_SIZE_YN
+			 , OUT_CLASS, '' AS OUT_APPROVAL_NO, OUT_SCAN_DATE_TIME, '' AS OUT_LAST_POD_STATUS
+			 , APPROVAL_CT AS CT, APPROVAL_WT AS WT, '' AS HOLD_REASON, APPROVAL_CLASS, 0 AS OUT_CT
+			 , '' AS OD_JOB_NO, CARGO_REFERENCE_NO, 0 AS IN_PLAN_NO
+			 , OUT_PLAN_NO  AS KEY_NO, 2 AS SORT_SEQ
+		FROM TB_BMS_OUT_PLAN WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO IN (<foreach collection="cargoReferenceNoList" item="item" separator=",">#{item}</foreach>)
+		UNION ALL
+		SELECT '반출' AS dGbn, BL_NO, MBL_NO, '' AS DELIVERY_NAME
+			 , '' AS IN_LAST_POD_STATUS, '' AS IN_CLASS, '' AS ALL_INSPECTION_FINISH_YN
+			 , '' AS XRAY_INSPECTION_CODE
+			 , '' AS XRAY_INSPECTION_CODE_NAME
+			 , '' AS PALN5EM_INSPECTION_CODE
+			 , '' AS INSPECTION_TYPE
+			 , '' AS INSPECTION_TYPE_A
+			 , '' AS INSPECTION_TYPE_B
+			 , '' AS NOTIFY_DATE_TIME
+			 , '' AS SE_INSPECTION_CODE, '' AS CRIME_SELECTION_YN, '' AS INTELLECTUAL_PROP_YN, '' AS INSPECTION_CUSTOMS_YN, '' AS BIG_SIZE_YN
+			 , OUT_CLASS, OUT_APPROVAL_NO, OUT_SCAN_DATE_TIME, LAST_POD_STATUS AS OUT_LAST_POD_STATUS
+			 , OUT_CT AS CT, OUT_WT AS WT, '' AS HOLD_REASON, '' AS APPROVAL_CLASS, 0 AS OUT_CT
+			 , OD_JOB_NO, CARGO_REFERENCE_NO, 0 AS IN_PLAN_NO
+			 , OUT_NO AS KEY_NO, 3 AS SORT_SEQ
+		FROM TB_BMS_OUT WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO IN (<foreach collection="cargoReferenceNoList" item="item" separator=",">#{item}</foreach>)
+		UNION ALL
+		SELECT 'HOLD' AS dGbn, '' AS BL_NO, '' AS MBL_NO, '' AS DELIVERY_NAME
+			 , '' AS IN_LAST_POD_STATUS, '' AS IN_CLASS, '' AS ALL_INSPECTION_FINISH_YN
+			 , '' AS XRAY_INSPECTION_CODE
+			 , '' AS XRAY_INSPECTION_CODE_NAME
+			 , '' AS PALN5EM_INSPECTION_CODE
+			 , '' AS INSPECTION_TYPE
+			 , '' AS INSPECTION_TYPE_A
+			 , '' AS INSPECTION_TYPE_B
+			 , '' AS NOTIFY_DATE_TIME
+			 , '' AS SE_INSPECTION_CODE, '' AS CRIME_SELECTION_YN, '' AS INTELLECTUAL_PROP_YN, '' AS INSPECTION_CUSTOMS_YN, '' AS BIG_SIZE_YN
+			 , '' AS OUT_CLASS, '' AS OUT_APPROVAL_NO, '' AS OUT_SCAN_DATE_TIME, '' AS OUT_LAST_POD_STATUS
+			 , 0 AS CT, 0 AS WT, HOLD_REASON, '' AS APPROVAL_CLASS, 0 AS OUT_CT
+			 , OD_JOB_NO, '' AS CARGO_REFERENCE_NO, 0 AS IN_PLAN_NO
+			 , 0 AS KEY_NO, 4 AS SORT_SEQ
+		FROM TB_ECM_OD_HOLD
+		WHERE OD_JOB_NO IN (<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+		AND HOLD_RELEASE_YN <![CDATA[<>]]> 'Y'
+		UNION ALL
+		SELECT 'BOX' AS dGbn, P.BL_NO, '' AS MBL_NO, '' AS DELIVERY_NAME
+			 , '' AS IN_LAST_POD_STATUS, '' AS IN_CLASS, '' AS ALL_INSPECTION_FINISH_YN
+			 , '' AS XRAY_INSPECTION_CODE
+			 , '' AS XRAY_INSPECTION_CODE_NAME
+			 , '' AS PALN5EM_INSPECTION_CODE
+			 , '' AS INSPECTION_TYPE
+			 , '' AS INSPECTION_TYPE_A
+			 , '' AS INSPECTION_TYPE_B
+			 , '' AS NOTIFY_DATE_TIME
+			 , '' AS SE_INSPECTION_CODE, '' AS CRIME_SELECTION_YN, '' AS INTELLECTUAL_PROP_YN, '' AS INSPECTION_CUSTOMS_YN, '' AS BIG_SIZE_YN
+			 , '' AS OUT_CLASS, '' AS OUT_APPROVAL_NO, '' AS OUT_SCAN_DATE_TIME, '' AS OUT_LAST_POD_STATUS
+			 , 0 AS CT, 0 AS WT, '' AS HOLD_REASON, '' AS APPROVAL_CLASS, PP.OUT_CT
+			 , P.OD_JOB_NO, P.CARGO_REFERENCE_NO, PP.IN_PLAN_NO
+			 , PP.SEQ AS KEY_NO, 5 AS SORT_SEQ
+		FROM TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+		JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		ON PP.IN_PLAN_NO = P.IN_PLAN_NO 
+		WHERE PP.PACKING_NO = #{srchPackingNo}
+		AND PP.DELETE_YN = 'N'
+		<if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+		AND P.BL_NO = #{srchBlNo}
+		</if>
+		ORDER BY SORT_SEQ, KEY_NO
+	</select>
+	<update id="updateOutScanCtFromOutPlan" parameterType="HashMap">
+		/* PdaOutReleasePaotMapper.updateOutScanCtFromOutPlan : 반출승인 SCAN수량 업데이트 */
+		UPDATE TB_BMS_OUT_PLAN
+			SET
+				<choose>
+					<when test='isCancleYn != null and isCancleYn != "" and isCancleYn == "Y"'>
+						OUT_SCAN_CT =
+			                CASE
+			                    WHEN ISNULL(OUT_SCAN_CT, 0) - 1 <![CDATA[<]]> 0 THEN 0
+			                    ELSE ISNULL(OUT_SCAN_CT, 0) - 1
+			                END
+					</when>
+					<otherwise>
+						OUT_SCAN_CT = ISNULL(OUT_SCAN_CT, 0) + 1
+					</otherwise>
+				</choose>
+				, UPDATE_USER_ID = #{updateUserId}
+		     	, UPDATE_DATE_TIME = GETDATE()
+		WHERE 
+			OUT_PLAN_NO = #{outPlanNo}
+			AND EXISTS (
+					SELECT 1
+					FROM TB_BMS_IN_PLAN_PKG
+					WHERE PACKING_NO = #{srchPackingNo}
+						<choose>
+							<when test='isCancleYn != null and isCancleYn != "" and isCancleYn == "Y"'>
+								AND OUT_CT = 1
+							</when>
+							<otherwise>
+								AND OUT_CT = 0
+							</otherwise>
+						</choose>
+						<if test="srchBlNo != null and srchBlNo != ''">
+						AND BL_NO = #{srchBlNo}
+						</if>
+				)
+			;
+			
+		UPDATE PP
+		   SET OUT_CT = #{outCt}
+		     , UPDATE_USER_ID = #{updateUserId}
+		     , UPDATE_DATE_TIME = GETDATE()
+		  FROM TB_BMS_IN_PLAN_PKG PP
+		  JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		    ON PP.IN_PLAN_NO = P.IN_PLAN_NO 
+		 WHERE PP.PACKING_NO = #{srchPackingNo}
+		 <if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		   AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		 </if>
+		 <if test="srchBlNo != null and srchBlNo != ''">
+		   AND P.BL_NO = #{srchBlNo}
+		 </if>
+		 ;
+	</update>
+	<update id="updateOutScanDtFromBmsOutAndOutPlan2" parameterType="HashMap">
+		/* PdaOutReleasePaotMapper.updateOutScanDtFromBmsOutAndOutPlan2 : 반출승인,반출 반출출고일시 업데이트 */
+		<if test="outPlanNo != null and outPlanNo > 0">
+		UPDATE TB_BMS_OUT_PLAN
+		SET 
+			 <choose>
+				<when test='isCancleYn != null and isCancleYn != "" and isCancleYn == "Y"'>
+					OUT_SCAN_DATE_TIME = ''
+				</when>
+				<otherwise>
+					OUT_SCAN_DATE_TIME = GETDATE()
+				</otherwise>
+			 </choose>
+		     , UPDATE_USER_ID = #{updateUserId}
+		     , UPDATE_DATE_TIME = GETDATE()
+		WHERE 
+			OUT_PLAN_NO = #{outPlanNo}
+			<choose>
+				<when test='isCancleYn != null and isCancleYn != "" and isCancleYn == "Y"'>
+					AND (OUT_SCAN_DATE_TIME <![CDATA[<>]]> '' OR OUT_SCAN_DATE_TIME <![CDATA[<>]]> '1900-01-01 00:00:00.000');
+				</when>
+				<otherwise>
+					AND (OUT_SCAN_DATE_TIME = '' OR OUT_SCAN_DATE_TIME = '1900-01-01 00:00:00.000');
+				</otherwise>
+			</choose>
+		</if>
+		<if test="outNoList != null and outNoList.size != 0">
+		UPDATE TB_BMS_OUT
+		SET
+			<choose>
+				<when test='isCancleYn != null and isCancleYn != "" and isCancleYn == "Y"'>
+					OUT_SCAN_DATE_TIME = ''
+				</when>
+				<otherwise>
+					OUT_SCAN_DATE_TIME = GETDATE()
+				</otherwise>
+			</choose>
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE
+			<choose>
+				<when test="outPlanNo != null and outPlanNo > 0">
+					OUT_PLAN_NO = #{outPlanNo}
+				</when>
+				<otherwise>
+					OUT_NO IN (<foreach collection="outNoList" item="item" separator=",">#{item}</foreach>)
+				</otherwise>
+			</choose>
+			<choose>
+				<when test='isCancleYn != null and isCancleYn != "" and isCancleYn == "Y"'>
+					AND (OUT_SCAN_DATE_TIME <![CDATA[<>]]> '' OR OUT_SCAN_DATE_TIME <![CDATA[<>]]> '1900-01-01 00:00:00.000');
+				</when>
+				<otherwise>
+					AND (OUT_SCAN_DATE_TIME = '' OR OUT_SCAN_DATE_TIME = '1900-01-01 00:00:00.000');
+				</otherwise>
+			</choose>
+		</if>
+	</update>
+	
+	<update id="updateOutScanDtFromBmsOutAndOutPlan" parameterType="HashMap">
+		/* PdaOutReleasePaotMapper.updateOutScanDtFromBmsOutAndOutPlan : 반출승인,반출 반출출고일시 업데이트 */
+		<if test="outPlanNoList != null and outPlanNoList.size != 0">
+		UPDATE TB_BMS_OUT_PLAN
+		SET 
+			<choose>
+				<when test="outScanDateTime != null and outScanDateTime != ''">
+					OUT_SCAN_DATE_TIME = #{outScanDateTime}
+				</when>
+				<otherwise>
+					OUT_SCAN_DATE_TIME = GETDATE()
+				</otherwise>
+			</choose>
+		     , UPDATE_USER_ID = #{updateUserId}
+		     , UPDATE_DATE_TIME = GETDATE()
+		WHERE 
+			OUT_PLAN_NO IN (<foreach collection="outPlanNoList" item="item" separator=",">#{item}</foreach>)
+			<choose>
+				<when test='isCancleYn != null and isCancleYn != "" and isCancleYn == "Y"'>
+					AND (OUT_SCAN_DATE_TIME <![CDATA[<>]]> '' OR OUT_SCAN_DATE_TIME <![CDATA[<>]]> '1900-01-01 00:00:00.000');
+				</when>
+				<otherwise>
+					AND (OUT_SCAN_DATE_TIME = '' OR OUT_SCAN_DATE_TIME = '1900-01-01 00:00:00.000');
+				</otherwise>
+			</choose>
+		</if>
+		<if test="outNoList != null and outNoList.size != 0">
+		UPDATE TB_BMS_OUT
+		SET
+			<choose>
+				<when test="outScanDateTime != null and outScanDateTime != ''">
+					OUT_SCAN_DATE_TIME = #{outScanDateTime}
+				</when>
+				<otherwise>
+					OUT_SCAN_DATE_TIME = GETDATE()
+				</otherwise>
+			</choose>
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE 
+			OUT_NO IN (<foreach collection="outNoList" item="item" separator=",">#{item}</foreach>)
+			<choose>
+				<when test='isCancleYn != null and isCancleYn != "" and isCancleYn == "Y"'>
+					AND (OUT_SCAN_DATE_TIME <![CDATA[<>]]> '' OR OUT_SCAN_DATE_TIME <![CDATA[<>]]> '1900-01-01 00:00:00.000');
+				</when>
+				<otherwise>
+					AND (OUT_SCAN_DATE_TIME = '' OR OUT_SCAN_DATE_TIME = '1900-01-01 00:00:00.000');
+				</otherwise>
+			</choose>
+		</if>
+	</update>
+	
+	<update id="updateOutCtFromBmsInPlanPkg" parameterType="HashMap">
+		/* PdaOutReleasePaotMapper.updateOutCtFromBmsInPlanPkg : 박스 반출출고수량 업데이트 */
+		UPDATE PP
+		   SET OUT_CT = #{outCt}
+		     , UPDATE_USER_ID = #{updateUserId}
+		     , UPDATE_DATE_TIME = GETDATE()
+		  FROM TB_BMS_IN_PLAN_PKG PP
+		  JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		    ON PP.IN_PLAN_NO = P.IN_PLAN_NO 
+		 WHERE PP.PACKING_NO = #{srchPackingNo}
+		 <if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		   AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		 </if>
+		 <if test="srchBlNo != null and srchBlNo != ''">
+		   AND P.BL_NO = #{srchBlNo}
+		 </if>
+	</update>
+	
+	<insert id="insertBmsOutScanLog" parameterType="HashMap">
+		/* PdaOutReleasePaotMapper.insertBmsOutScanLog : 출고 스캔로그 저장 */
+		INSERT INTO TB_BMS_OUT_SCAN (
+			  SCAN_NO
+			, BL_NO
+			, CARGO_REFERENCE_NO
+			, SCAN_DATE
+			, SCAN_RESULT
+			<if test="outNo != null and outNo != ''">
+			, OUT_NO
+			</if>
+			<if test="outStatus != null and outStatus != ''">
+			, OUT_STATUS
+			</if>
+			<if test="outLineNo != null and outLineNo != ''">
+			, OUT_LINE_NO
+			</if>
+			<if test="outFinishYn != null and outFinishYn != ''">
+			, OUT_FINISH_YN
+			</if>
+			<if test="apiCheckYn != null and apiCheckYn != ''">
+			, API_CHECK_YN
+			</if>
+			<if test="apiDateTime != null and apiDateTime != ''">
+			, API_DATE_TIME
+			</if>
+			<if test="outClass != null and outClass != ''">
+			, OUT_CLASS
+			</if>
+			, SCAN_TYPE
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+		)
+		VALUES(
+			  #{scanNo}
+			, #{blNo}
+			, #{cargoReferenceNo}
+			, CONVERT(VARCHAR(10),GETDATE(),23)
+			, #{result}
+			<if test="outNo != null and outNo != ''">
+			, #{outNo}
+			</if>
+			<if test="outStatus != null and outStatus != ''">
+			, #{outStatus}
+			</if>
+			<if test="outLineNo != null and outLineNo != ''">
+			, #{outLineNo}
+			</if>
+			<if test="outFinishYn != null and outFinishYn != ''">
+			, #{outFinishYn}
+			</if>
+			<if test="apiCheckYn != null and apiCheckYn != ''">
+			, #{apiCheckYn}
+			</if>
+			<if test="apiDateTime != null and apiDateTime != ''">
+			, #{apiDateTime}
+			</if>
+			<if test="outClass != null and outClass != ''">
+			, #{outClass}
+			</if>
+			,'PDA'
+			, #{registerUserId}
+			, GETDATE()
+		)
+	</insert>
+	
+	<insert id="insertBmsOutScanLogSelectPkg" parameterType="HashMap">
+		/* PdaOutReleasePaotMapper.insertBmsOutScanLogSelectPkg : 출고 스캔로그 저장 */
+		   IF NOT EXISTS(
+               SELECT
+                   BL_NO
+	            FROM TB_BMS_OUT_SCAN
+	            WHERE  BL_NO = #{blNo}
+					AND SCAN_NO = #{scanNo}
+					AND SCAN_RESULT = '완료'
+            )
+            BEGIN
+               INSERT INTO TB_BMS_OUT_SCAN (
+         		  SCAN_NO
+				, BL_NO
+				, CARGO_REFERENCE_NO
+				, SCAN_DATE
+				, SCAN_RESULT
+				<if test="outNo != null and outNo != ''">
+				, OUT_NO
+				</if>
+				<if test="outStatus != null and outStatus != ''">
+				, OUT_STATUS
+				</if>
+				<if test="outLineNo != null and outLineNo != ''">
+				, OUT_LINE_NO
+				</if>
+				<if test="outFinishYn != null and outFinishYn != ''">
+				, OUT_FINISH_YN
+				</if>
+				<if test="apiCheckYn != null and apiCheckYn != ''">
+				, API_CHECK_YN
+				</if>
+				<if test="apiDateTime != null and apiDateTime != ''">
+				, API_DATE_TIME
+				</if>
+				<if test="outClass != null and outClass != ''">
+				, OUT_CLASS
+				</if>
+				, SCAN_TYPE
+				, REGISTER_USER_ID
+				, REGISTER_DATE_TIME
+	     ) VALUES ( 
+	         #{scanNo}
+			, #{blNo}
+			, #{cargoReferenceNo}
+			, CONVERT(VARCHAR(10),GETDATE(),23)
+			, #{result}
+			<if test="outNo != null and outNo != ''">
+			, #{outNo}
+			</if>
+			<if test="outStatus != null and outStatus != ''">
+			, #{outStatus}
+			</if>
+			<if test="outLineNo != null and outLineNo != ''">
+			, #{outLineNo}
+			</if>
+			<if test="outFinishYn != null and outFinishYn != ''">
+			, #{outFinishYn}
+			</if>
+			<if test="apiCheckYn != null and apiCheckYn != ''">
+			, #{apiCheckYn}
+			</if>
+			<if test="apiDateTime != null and apiDateTime != ''">
+			, #{apiDateTime}
+			</if>
+			<if test="outClass != null and outClass != ''">
+			, #{outClass}
+			</if>
+			,'PDA'
+			, #{registerUserId}
+			, GETDATE()
+	               );
+	        END             
+	        ELSE
+	          BEGIN 
+	               UPDATE 
+	                  TB_BMS_OUT_SCAN
+	               SET
+	                  UPDATE_DATE_TIME = GETDATE()
+	               WHERE BL_NO = #{blNo}
+		               AND SCAN_NO = #{scanNo}
+		               AND SCAN_RESULT  = '완료';
+	           END
+		<!-- INSERT INTO TB_BMS_OUT_SCAN (
+			  SCAN_NO
+			, BL_NO
+			, CARGO_REFERENCE_NO
+			, SCAN_DATE
+			, SCAN_RESULT
+			<if test="outNo != null and outNo != ''">
+			, OUT_NO
+			</if>
+			<if test="outStatus != null and outStatus != ''">
+			, OUT_STATUS
+			</if>
+			<if test="outLineNo != null and outLineNo != ''">
+			, OUT_LINE_NO
+			</if>
+			<if test="outFinishYn != null and outFinishYn != ''">
+			, OUT_FINISH_YN
+			</if>
+			<if test="apiCheckYn != null and apiCheckYn != ''">
+			, API_CHECK_YN
+			</if>
+			<if test="apiDateTime != null and apiDateTime != ''">
+			, API_DATE_TIME
+			</if>
+			<if test="outClass != null and outClass != ''">
+			, OUT_CLASS
+			</if>
+			, SCAN_TYPE
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+		)
+		SELECT TOP 1
+			  #{scanNo}
+			, CASE WHEN BL_NO = '' THEN #{blNo}
+				ELSE BL_NO
+			  END
+			, #{cargoReferenceNo}
+			, CONVERT(VARCHAR(10),GETDATE(),23)
+			, #{result}
+			<if test="outNo != null and outNo != ''">
+			, #{outNo}
+			</if>
+			<if test="outStatus != null and outStatus != ''">
+			, #{outStatus}
+			</if>
+			<if test="outLineNo != null and outLineNo != ''">
+			, #{outLineNo}
+			</if>
+			<if test="outFinishYn != null and outFinishYn != ''">
+			, #{outFinishYn}
+			</if>
+			<if test="apiCheckYn != null and apiCheckYn != ''">
+			, #{apiCheckYn}
+			</if>
+			<if test="apiDateTime != null and apiDateTime != ''">
+			, #{apiDateTime}
+			</if>
+			<if test="outClass != null and outClass != ''">
+			, #{outClass}
+			</if>
+			,'PDA'
+			, #{registerUserId}
+			, GETDATE()
+		FROM TB_BMS_OUT_SCAN
+		WHERE SCAN_NO = #{scanNo}
+			AND BL_NO = #{blNo}
+			AND SCAN_RESULT <![CDATA[<>]]> '완료' -->
+	</insert>
+
+	<delete id="deleteStockPkgScan" parameterType="HashMap">
+		/* PdaOutReleasePaotMapper.deleteStockPkgScan : 재고실사 스캔 정보 삭제 */
+		DELETE FROM TB_BMS_STOCK_PKG_SCAN WHERE SCAN_NO = #{scanNo} AND SCAN_RESULT = '완료'
+	</delete>
+	
+	<select id="selectScanLogInfo" parameterType="HashMap" resultType="HashMap">
+		/* PdaOutReleasePaotMapper.selectScanLogInfo : 출고 스캔 로그 조회 */
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+			SELECT 
+				SCAN_NO
+				, BL_NO
+				, SCAN_DATE
+				, SCAN_RESULT
+				, OUT_STATUS
+				, REGISTER_USER_ID
+				, ISNULL((SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = tbos.REGISTER_USER_ID),'') AS REGISTER_USER_NAME
+				, REGISTER_DATE_TIME
+			FROM 
+				TB_BMS_OUT_SCAN tbos
+			WHERE 
+				SCAN_DATE BETWEEN CONVERT(VARCHAR(10), ISNULL(#{srchScanDate},''), 120) AND CONVERT(VARCHAR(10), GETDATE(), 120)
+				<if test="outBackStatus != null and outBackStatus != ''">
+					AND OUT_STATUS = #{outStatus}
+				</if>
+		    ORDER BY REGISTER_DATE_TIME DESC
+	 	<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />  -->
+	</select>
+
+	<select id="selectExistsScanOutCount" parameterType="HashMap" resultType="Integer">
+		/* PdaOutReleasePaotMapper.selectExistsScanOutCount */
+		SELECT
+			COUNT(*)
+		FROM
+			TB_BMS_OUT_SCAN
+		WHERE 
+			CARGO_REFERENCE_NO = #{cargoReferenceNo}
+			AND SCAN_NO = #{srchPackingNo}
+			AND SCAN_RESULT = '완료'
+	</select>
+	
+	<select id="selectOutPlanListCtByCargoNoAndOutClass" parameterType="HashMap" resultType="HashMap">
+		/* PdaOutReleasePaotMapper.selectOutPlanListCtByCargoNoAndOutClass : 반출구분에 따른 반출승인의 승인수량 */
+		SELECT
+			ISNULL(APPROVAL_CT, 0) AS APPROVAL_CT
+			, ISNULL(OUT_SCAN_CT, 0) AS OUT_SCAN_CT
+			, OUT_PLAN_NO
+			, OUT_APPROVAL_NO
+			, OUT_CLASS
+		FROM
+			TB_BMS_OUT_PLAN
+		WHERE 
+			CARGO_REFERENCE_NO = #{cargoReferenceNo}
+			AND OUT_CLASS IN (<foreach collection="outClassList" item="item" separator=",">#{item}</foreach>)
+			AND APPROVAL_CLASS = '31'
+	</select>
+	
+	<select id="selectNewCargoReferenceNoFromPkg" parameterType="HashMap" resultType="String">
+		/* PdaOutReleasePaotMapper.selectNewCargoReferenceNoFromPkg */
+		SELECT
+			NEW_CARGO_REFERENCE_NO
+		FROM
+			TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+		WHERE PACKING_NO = #{srchPackingNo}
+			AND DELETE_YN = 'N'
+			<if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+			AND IN_PLAN_NO = #{srchInPlanNo}
+			</if>
+			<if test="srchBlNo != null and srchBlNo != ''">
+			AND BL_NO = #{srchBlNo}
+			</if>
+	</select>
+	
+	<delete id="deleteBmsOutScanLog" parameterType="HashMap">
+		/* PdaOutReleasePaotMapper.deleteBmsOutScanLog : 출고 스캔로그 삭제 */
+		DELETE FROM TB_BMS_OUT_SCAN WHERE SCAN_NO = #{srchPackingNo} AND SCAN_RESULT = '완료'
+	</delete>
+	
+	<select id="selectXrayPassTime" parameterType="HashMap" resultType="String">
+	/* PdaOutReleasePaotMapper.selectXrayPassTime : 화물 조회 - 판독 일시 조회 */
+		SELECT TOP 1 
+			FORMAT(CAST(REGISTER_DATE_TIME AS DATETIME), 'yy.MM.dd HH:mm:ss') AS XRAY_PASS_TIME
+		FROM 
+			TB_BMS_XRAY_HISTORY
+		WHERE 
+			PACKING_NO = #{srchPackingNo}
+		ORDER BY REGISTER_DATE_TIME DESC
+	</select>
+</mapper>

@@ -1,0 +1,6 @@
+package org.yht.constant;
+
+public enum BranchEnum {
+	/** 현재 인터페이스 수신시 도입사코드 검증용으로만 사용     다른용도로 사용하기위해 MASTER/KOREX/HANJIN등 추가하려면 기존 사용부분 수정해야함 */
+	YHTXX, BROSK
+}

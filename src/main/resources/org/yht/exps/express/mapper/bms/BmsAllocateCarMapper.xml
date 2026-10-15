@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsAllocateCarMapper">
+
+	<select id="selectBmsAllocateCarList" parameterType="searchBmsAllocateCarList" resultType="bmsAllocateCar">
+		/* BmsAllocateCarMapper.selectBmsAllocateCarList : 배차예정정보 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+			 , COUNT(*) OVER() AS TOTAL_CNT
+			 <!-- , SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+			 , SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT -->
+		  FROM (
+					<if test='srchInoutClass != "O"'>
+					SELECT	'반입' AS INOUT_CLASS_NAME
+							, CASE WHEN (SELECT TOP 1 tcfs.REFERENCE_NO_ID FROM TB_COM_FILE_SHARE tcfs WHERE tcfs.FUNC_JOB_NO = B.OD_JOB_NO ) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+					 	 	<if test='excelDownYn != null and excelDownYn != "" and excelDownYn == "Y"'>
+					 		 	, '통보' AS lastPodStatus
+					 		 	, '조회' AS blStatus
+					 	    </if>
+							,A.NOTIFY_DATE_TIME 
+							,A.INOUT_CLASS 
+							,A.CHANGE_CLASS
+							, CASE A.CHANGE_CLASS WHEN '1' THEN '1.신규'
+									 		      WHEN '2' THEN '2.정정'
+											      WHEN '3' THEN '3.취하'
+						    END AS CHANGE_CLASS_NAME /* 정정구분 '코드.코드명' 형식 */ 
+							,B.BL_NO 
+							,B.AR_DATE
+							,B.MBL_NO
+							,ISNULL(B.OD_JOB_NO, '') AS OD_JOB_NO
+							,A.CARGO_REFERENCE_NO 
+							,A.APPROVAL_NO 
+							,A.COMPANY_TRUCK_NO 
+							,A.REAL_TRUCK_NO 
+							,A.COMPANY_TRUCK_DRIVER
+							,dbo.Cryptography(A.CARGO_REFERENCE_NO, A.COMPANY_TRUCK_TEL, 1) AS COMPANY_TRUCK_TEL
+							,A.CUSTOMS_REPORT_NO 
+							,A.DEPARTURE_LOC_CODE 
+							,A.LAST_LOC_CODE 
+							,A.OUT_EST_DATE 
+							,A.CNTR_NO 
+							,A.ALLOCATE_YN 
+							,A.ACCEPTOR
+							,A.ALLOCATE_CAR_NOTI_NO 
+							,A.REGISTER_USER_ID 
+							, ISNULL((SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.REGISTER_USER_ID), A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+							,A.REGISTER_DATE_TIME 
+							,A.UPDATE_USER_ID 
+							, ISNULL((SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.UPDATE_USER_ID), A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+							,A.UPDATE_DATE_TIME 
+					FROM TB_BMS_ALLOCATE_CAR_NOTI A
+					LEFT JOIN TB_BMS_IN_PLAN B WITH (NOLOCK)
+					ON	A.APPROVAL_NO = B.IN_APPROVAL_NO
+					AND A.CARGO_REFERENCE_NO = B.CARGO_REFERENCE_NO 
+					WHERE A.INOUT_CLASS = 'I'
+					<if test="srchNo != null and srchNo != ''">
+						<!-- AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%') -->
+						<choose>
+							<when test='searchType == "multi"'>
+							AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+							</when>
+							<otherwise>
+							AND ${srchNoType} = #{srchNo}
+							</otherwise>
+						</choose>
+					</if>
+					<if test='srchDateGbn != "noDateChk"'>
+						<choose>
+							<when test='srchDateType == "dateTime"'>
+								AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+								AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+							</when>
+							<otherwise>
+								AND ${srchDateGbn} >= #{srchStartDate}
+								AND ${srchDateGbn} <![CDATA[<=]]> #{srchEndDate}
+							</otherwise>
+						</choose>
+					</if>
+					<if test="srchChangeClass != null and srchChangeClass != ''">
+					   AND A.CHANGE_CLASS = #{srchChangeClass}
+					</if>
+					<if test="srchAllocateYn != null and srchAllocateYn != ''">
+					   AND A.ALLOCATE_YN = #{srchAllocateYn}
+					</if>
+					<if test="srchTruckGuBun != null and srchTruckGuBun != '' and srchTruckGuBun == 'REAL_TRUCK_NO'">
+					   AND A.REAL_TRUCK_NO LIKE CONCAT('%', #{srchRealTruckNo}, '%')
+					</if>
+					<if test="srchTruckGuBun != null and srchTruckGuBun != '' and srchTruckGuBun == 'COMPANY_TRUCK_NO'">
+					   AND A.COMPANY_TRUCK_NO LIKE CONCAT('%', #{srchCompanyTruckNo}, '%')
+					</if>
+					<if test="srchTruckGuBun != null and srchTruckGuBun != '' and srchTruckGuBun == 'COMPANY_TRUCK_DRIVER'">
+					   AND A.COMPANY_TRUCK_DRIVER LIKE CONCAT('%', #{srchCompanyTruckDriver}, '%')
+					</if>
+					<if test="srchTruckGuBun != null and srchTruckGuBun != '' and srchTruckGuBun == 'COMPANY_TRUCK_TEL'">
+					   AND A.COMPANY_TRUCK_TEL LIKE CONCAT('%', dbo.Cryptography(A.CARGO_REFERENCE_NO, #{srchCompanyTruckTel}, 0), '%')
+					   <!-- AND A.COMPANY_TRUCK_TEL LIKE CONCAT('%', #{srchCompanyTruckTel}, '%') -->
+					</if>
+					</if>
+					<if test='srchInoutClass != "I" and srchInoutClass != "O"'>
+					UNION
+					</if>
+					<if test='srchInoutClass != "I"'>
+					SELECT	'반출' AS INOUT_CLASS_NAME
+							, CASE WHEN (SELECT TOP 1 tcfs.REFERENCE_NO_ID FROM TB_COM_FILE_SHARE tcfs WHERE tcfs.FUNC_JOB_NO = C.OD_JOB_NO ) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+					 	 	<if test='excelDownYn != null and excelDownYn != "" and excelDownYn == "Y"'>
+					 		 	, '통보' AS lastPodStatus
+					 		 	, '조회' AS blStatus
+					 	    </if>
+							,A.NOTIFY_DATE_TIME 
+							,A.INOUT_CLASS 
+							,A.CHANGE_CLASS
+							, CASE A.CHANGE_CLASS WHEN '1' THEN '1.신규'
+									 		      WHEN '2' THEN '2.정정'
+											      WHEN '3' THEN '3.취하'
+						    END AS CHANGE_CLASS_NAME /* 정정구분 '코드.코드명' 형식 */  
+							,B.BL_NO 
+							,B.AR_DATE
+							,B.MBL_NO
+							,ISNULL(C.OD_JOB_NO, '') AS OD_JOB_NO
+							,A.CARGO_REFERENCE_NO 
+							,A.APPROVAL_NO 
+							,A.COMPANY_TRUCK_NO 
+							,A.REAL_TRUCK_NO 
+							,A.COMPANY_TRUCK_DRIVER
+							,dbo.Cryptography(A.CARGO_REFERENCE_NO, A.COMPANY_TRUCK_TEL, 1) AS COMPANY_TRUCK_TEL
+							,A.CUSTOMS_REPORT_NO 
+							,A.DEPARTURE_LOC_CODE 
+							,A.LAST_LOC_CODE 
+							,A.OUT_EST_DATE 
+							,A.CNTR_NO 
+							,A.ALLOCATE_YN 
+							,A.ACCEPTOR
+							,A.ALLOCATE_CAR_NOTI_NO 
+							,A.REGISTER_USER_ID 
+							, ISNULL((SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.REGISTER_USER_ID), A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+							,A.REGISTER_DATE_TIME 
+							,A.UPDATE_USER_ID 
+							, ISNULL((SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.UPDATE_USER_ID), A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+							,A.UPDATE_DATE_TIME 
+					FROM TB_BMS_ALLOCATE_CAR_NOTI A
+					LEFT JOIN TB_BMS_OUT_PLAN B WITH (NOLOCK)
+					ON	A.APPROVAL_NO = B.OUT_APPROVAL_NO
+					AND A.CARGO_REFERENCE_NO = B.CARGO_REFERENCE_NO
+					LEFT JOIN TB_BMS_OUT C WITH (NOLOCK)
+					ON  B.OUT_PLAN_NO = C.OUT_PLAN_NO
+					AND B.OUT_CLASS = '60'
+					WHERE A.INOUT_CLASS = 'O'
+					<if test="srchNo != null and srchNo != ''">
+						<!-- AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%') -->
+						<choose>
+							<when test='searchType == "multi"'>
+							AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+							</when>
+							<otherwise>
+							AND ${srchNoType} = #{srchNo}
+							</otherwise>
+						</choose>
+					</if>
+					<if test='srchDateGbn != "noDateChk"'>
+						<choose>
+							<when test='srchDateType == "dateTime"'>
+								AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+								AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+							</when>
+							<otherwise>
+								AND ${srchDateGbn} >= #{srchStartDate}
+								AND ${srchDateGbn} <![CDATA[<=]]> #{srchEndDate}
+							</otherwise>
+						</choose>
+					</if>
+					<if test="srchChangeClass != null and srchChangeClass != ''">
+					   AND A.CHANGE_CLASS = #{srchChangeClass}
+					</if>
+					<if test="srchAllocateYn != null and srchAllocateYn != ''">
+					   AND A.ALLOCATE_YN = #{srchAllocateYn}
+					</if>
+					<if test="srchTruckGuBun != null and srchTruckGuBun != '' and srchTruckGuBun == 'REAL_TRUCK_NO'">
+					   AND A.REAL_TRUCK_NO LIKE CONCAT('%', #{srchRealTruckNo}, '%')
+					</if>
+					<if test="srchTruckGuBun != null and srchTruckGuBun != '' and srchTruckGuBun == 'COMPANY_TRUCK_NO'">
+					   AND A.COMPANY_TRUCK_NO LIKE CONCAT('%', #{srchCompanyTruckNo}, '%')
+					</if>
+					<if test="srchTruckGuBun != null and srchTruckGuBun != '' and srchTruckGuBun == 'COMPANY_TRUCK_DRIVER'">
+					   AND A.COMPANY_TRUCK_DRIVER LIKE CONCAT('%', #{srchCompanyTruckDriver}, '%')
+					</if>
+					<if test="srchTruckGuBun != null and srchTruckGuBun != '' and srchTruckGuBun == 'COMPANY_TRUCK_TEL'">
+					   AND A.COMPANY_TRUCK_TEL LIKE CONCAT('%', dbo.Cryptography(A.CARGO_REFERENCE_NO, #{srchCompanyTruckTel}, 0), '%')
+					   <!-- AND A.COMPANY_TRUCK_TEL LIKE CONCAT('%', #{srchCompanyTruckTel}, '%') -->
+					</if>
+					</if>
+			   ) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectBmsAllocateCarDetail" parameterType="searchBmsAllocateCarList" resultType="bmsAllocateCar">
+		/* BmsAllocateCarMapper.selectBmsAllocateCarDetail : 배차예정정보 : 일괄배차등록 팝업 상세조회 */
+		SELECT REAL_TRUCK_NO
+			 , COMPANY_TRUCK_DRIVER
+			 , dbo.Cryptography(CARGO_REFERENCE_NO, COMPANY_TRUCK_TEL, 1) AS COMPANY_TRUCK_TEL
+			 , ACCEPTOR
+		FROM TB_BMS_ALLOCATE_CAR_NOTI
+		WHERE ALLOCATE_CAR_NOTI_NO = #{srchNo}
+	</select>
+	
+	<update id="updateBmsAllocateCar" parameterType="bmsAllocateCar">
+		/* BmsAllocateCarMapper.updateBmsAllocateCar : 배차예정정보 : 일괄배차등록 팝업 update */
+		UPDATE TB_BMS_ALLOCATE_CAR_NOTI
+		<set>
+			REAL_TRUCK_NO        = #{realTruckNo},
+			COMPANY_TRUCK_DRIVER = #{companyTruckDriver},
+			COMPANY_TRUCK_TEL    = dbo.Cryptography(#{cargoReferenceNo}, #{companyTruckTel}, 0),
+			ACCEPTOR             = #{acceptor},
+			ALLOCATE_YN			 = 'Y',
+			UPDATE_USER_ID       = #{updateUserId},
+			UPDATE_DATE_TIME     =  GETDATE()
+		</set>
+		WHERE ALLOCATE_CAR_NOTI_NO = #{allocateCarNotiNo}
+	</update>
+	
+</mapper>

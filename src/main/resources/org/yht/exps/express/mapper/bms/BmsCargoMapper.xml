@@ -1,0 +1,939 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ 
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsCargoMapper">
+
+	<select id="selectCarryIn" parameterType="HashMap" resultType="BmsCargoInfo">
+		/* BmsCargoMapper.selectCarryIn : 반입+반입예정 조회 */
+		WITH cargoData AS (
+			SELECT TOP 1
+				'IN_PLAN' AS SOURCE_TYPE,
+				0 AS IN_NO,
+				IN_PLAN_NO,
+				'' AS IN_CLASS,
+				<!-- 
+				0 AS OUT_NO,
+				0 AS OUT_PLAN_NO,
+				'' AS OUT_APPROVAL_NO,
+				'' AS APPROVAL_CLASS,
+				'' AS OUT_CLASS,
+				'' AS CUSTOMER_CODE,
+				'' AS CUSTOMER_NAME,
+				'' AS COMPANY_BUSINESS_NO,
+				'' AS COMPANY_NAME,
+				-->
+				OD_JOB_NO,
+				BL_NO,
+				CARGO_REFERENCE_NO,
+				MBL_NO,
+				VESSEL_FLIGHT,
+				COMMODITY_ITEM_LOC,
+				CASE
+					WHEN CD_TYPE = 'B' THEN '배제'
+					WHEN CD_TYPE = 'E' THEN '이행'
+					WHEN CD_TYPE = 'N' THEN '일반'
+					WHEN CD_TYPE = 'Y' THEN '목록'
+					ELSE ''
+				END AS CD_TYPE,
+				AMOUNT_USD,
+				'' AS LOCATION_PLACE,
+				'' AS INFO_LAST_CLASS,
+				SHIPPER_NAME,
+				SHIPPER_ADDRESS_1,
+				SHIPPER_TEL,
+				CONSIGNEE_NAME,
+				CONSIGNEE_ADDRESS_1,
+				CONSIGNEE_TEL,
+				AR_DATE + ' ' +  AR_TIME AS AR_DATE_TIME,
+				'' AS CARRY_IN_DATE_TIME,
+				'' AS CARRY_OUT_DATE_TIME,
+				'' AS OUT_SCAN_DATE_TIME,
+				'' AS FWD_NAME,
+				'' AS BROKER_NAME,
+				DELIVERY_NAME,
+				EX_CT,
+				0 AS CT,
+				0 AS OUT_CT,
+				0 AS STOCK_CT,
+				EX_WT,
+				0 AS WT,
+				0 AS OUT_WT,
+				0 AS STOCK_WT,
+				'' AS XRAY_LINE_NO,
+				(
+					SELECT TOP 1
+						xray.XRAY_INSPECTION_CODE
+					FROM TB_BMS_XRAY_RESULT xray WITH (NOLOCK)
+					WHERE xray.IN_PLAN_NO = _inPlan.IN_PLAN_NO
+				) AS XRAY_INSPECTION_CODE,
+				SE_INSPECTION_CODE,
+				PALN5EM_INSPECTION_CODE,
+				INSPECTION_TYPE,
+				BIG_SIZE_YN,
+				INTELLECTUAL_PROP_YN,
+				INSPECTION_CUSTOMS_YN,
+				(
+					SELECT TOP 1
+						(SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = xray.XRAY_INSPECTION_CODE AND CODE NOT IN ('C') AND USE_YN='Y') AS XRAY_INSPECTION_CODE
+					FROM TB_BMS_XRAY_RESULT xray WITH (NOLOCK)
+					WHERE xray.IN_PLAN_NO = _inPlan.IN_PLAN_NO
+				) AS XRAY_INSPECTION_CODE_STR,
+				(SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = SE_INSPECTION_CODE AND USE_YN='Y') AS SE_INSPECTION_CODE_STR,
+				(SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = PALN5EM_INSPECTION_CODE AND USE_YN='Y') AS PALN5EM_INSPECTION_CODE_STR,
+				(SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = INSPECTION_TYPE AND USE_YN='Y') AS INSPECTION_TYPE_STR,
+				0 AS XRAY_SCAN_CT,
+				0 AS XRAY_IMAGE_CT,
+				'' AS HOLD_CODE,
+				'' AS HOLD_REASON,
+				'' AS HOLD_RELEASE_YN
+			FROM TB_BMS_IN_PLAN _inPlan WITH (NOLOCK)
+			WHERE 1=1
+				<if test="blNo != ''">
+				AND BL_NO = #{blNo}
+				</if> 
+				<if test="inPlanNo != null and inPlanNo > 0">
+				AND IN_PLAN_NO = #{inPlanNo}
+				</if>
+				<if test="cargoReferenceNo != ''">
+				AND CARGO_REFERENCE_NO = #{cargoReferenceNo}
+				</if>
+			
+		UNION ALL
+			
+			SELECT TOP 1
+				'IN' AS SOURCE_TYPE,
+				IN_NO,
+				IN_PLAN_NO,
+				IN_CLASS,
+				<!-- 
+				0 AS OUT_NO,
+				0 AS OUT_PLAN_NO,
+				'' AS OUT_APPROVAL_NO,
+				'' AS APPROVAL_CLASS,
+				'' AS OUT_CLASS, 
+				'' AS CUSTOMER_CODE,
+				'' AS CUSTOMER_NAME,
+				'' AS COMPANY_BUSINESS_NO,
+				'' AS COMPANY_NAME,
+				-->
+				OD_JOB_NO,
+				BL_NO,
+				CARGO_REFERENCE_NO,
+				MBL_NO,
+				VESSEL_FLIGHT,
+				COMMODITY_ITEM_LOC,
+				CASE
+					WHEN CD_TYPE = 'B' THEN '배제'
+					WHEN CD_TYPE = 'E' THEN '이행'
+					WHEN CD_TYPE = 'N' THEN '일반'
+					WHEN CD_TYPE = 'Y' THEN '목록'
+					ELSE ''
+				END AS CD_TYPE,
+				AMOUNT_USD,
+				CASE
+					WHEN LOCATION_PLACE = '999' THEN '로케이션 삭제'
+					WHEN LOCATION_PLACE = 'A' THEN '일반'
+					WHEN LOCATION_PLACE = 'A101' THEN 'A1-01 장기보관'
+					WHEN LOCATION_PLACE = 'B' THEN '취하'
+					WHEN LOCATION_PLACE = 'C' THEN '홀드'
+					WHEN LOCATION_PLACE = 'C101' THEN 'C1-01'
+					WHEN LOCATION_PLACE = 'D' THEN '수입신고수리완료'
+					WHEN LOCATION_PLACE = 'D00101' THEN 'D0-01-01 체화'
+					WHEN LOCATION_PLACE = 'D9-AA' THEN 'D9-AA 파손'
+					WHEN LOCATION_PLACE = 'ETC001' THEN '기타분류위치'
+					ELSE LOCATION_PLACE
+				END AS LOCATION_PLACE,
+				'' AS INFO_LAST_CLASS,
+				SHIPPER_NAME,
+				SHIPPER_ADDRESS_1,
+				SHIPPER_TEL,
+				CONSIGNEE_NAME,
+				CONSIGNEE_ADDRESS_1,
+				CONSIGNEE_TEL,
+				AR_DATE + ' ' +  AR_TIME AS AR_DATE_TIME,
+				CARRYIN_DATE + ' ' +  CARRYIN_TIME AS CARRY_IN_DATE_TIME,
+				'' AS CARRY_OUT_DATE_TIME,
+				'' AS OUT_SCAN_DATE_TIME,
+				FWD_NAME,
+				'' AS BROKER_NAME,
+				DELIVERY_NAME,
+				EX_CT,
+				CT,
+				0 AS OUT_CT,
+				(SELECT SUM(STOCK_CT) FROM TB_BMS_IN _sub_in WITH (NOLOCK) WHERE _sub_in.CARGO_REFERENCE_NO = _in.CARGO_REFERENCE_NO GROUP BY _sub_in.CARGO_REFERENCE_NO)  AS STOCK_CT,
+				EX_WT,
+				WT,
+				0 AS OUT_WT,
+				(SELECT SUM(STOCK_WT) FROM TB_BMS_IN _sub_in WITH (NOLOCK) WHERE _sub_in.CARGO_REFERENCE_NO = _in.CARGO_REFERENCE_NO GROUP BY _sub_in.CARGO_REFERENCE_NO)  AS STOCK_WT,
+				XRAY_LINE_NO,
+				COALESCE(XRAY_INSPECTION_CODE,
+					(
+						SELECT TOP 1
+							xray.XRAY_INSPECTION_CODE
+						FROM TB_BMS_XRAY_RESULT xray WITH (NOLOCK)
+						WHERE xray.IN_PLAN_NO = _in.IN_PLAN_NO
+					)
+				) AS XRAY_INSPECTION_CODE,
+				SE_INSPECTION_CODE,
+				PALN5EM_INSPECTION_CODE,
+				INSPECTION_TYPE,
+				BIG_SIZE_YN,
+				INTELLECTUAL_PROP_YN,
+				INSPECTION_CUSTOMS_YN,
+				COALESCE((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = XRAY_INSPECTION_CODE AND CODE NOT IN ('C') AND USE_YN='Y'),
+					(
+						SELECT TOP 1
+							(SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = xray.XRAY_INSPECTION_CODE AND CODE NOT IN ('C') AND USE_YN='Y')
+						FROM TB_BMS_XRAY_RESULT xray WITH (NOLOCK)
+						WHERE xray.IN_PLAN_NO = _in.IN_PLAN_NO
+					)
+				) AS XRAY_INSPECTION_CODE_STR,
+				(SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = SE_INSPECTION_CODE AND USE_YN='Y') AS SE_INSPECTION_CODE_STR,
+				(SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = PALN5EM_INSPECTION_CODE AND USE_YN='Y') AS PALN5EM_INSPECTION_CODE_STR,
+				(SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = INSPECTION_TYPE AND USE_YN='Y') AS INSPECTION_TYPE_STR,
+				XRAY_SCAN_CT,
+				XRAY_IMAGE_CT,
+				'' AS HOLD_CODE,
+				'' AS HOLD_REASON,
+				'' AS HOLD_RELEASE_YN
+			FROM TB_BMS_IN _in WITH (NOLOCK)
+			WHERE 1=1
+				<if test="blNo != ''">
+				AND BL_NO = #{blNo}
+				</if> 
+				<if test="inPlanNo != null and inPlanNo > 0">
+				AND IN_PLAN_NO = #{inPlanNo}
+				</if>
+				<if test="cargoReferenceNo != ''">
+				AND CARGO_REFERENCE_NO = #{cargoReferenceNo}
+				</if>
+		)
+		
+		SELECT
+			MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(IN_NO, '') END) AS IN_NO,
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(IN_PLAN_NO, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(IN_PLAN_NO, '') END),
+				''
+			) AS IN_PLAN_NO,
+			<!-- MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(IN_PLAN_NO, '') END) AS IN_PLAN_NO, -->
+			MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(IN_CLASS, '') END) AS IN_CLASS,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(OD_JOB_NO, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(OD_JOB_NO, '') END),
+				''
+			) AS OD_JOB_NO,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(BL_NO, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(BL_NO, '') END),
+				''
+			) AS BL_NO,
+			<!-- CARGO_REFERENCE_NO, -->
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(CARGO_REFERENCE_NO, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(CARGO_REFERENCE_NO, '') END),
+				''
+			) AS CARGO_REFERENCE_NO,
+			
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(MBL_NO, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(MBL_NO, '') END),
+				''
+			) AS MBL_NO,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(VESSEL_FLIGHT, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(VESSEL_FLIGHT, '') END),
+				''
+			) AS VESSEL_FLIGHT,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(COMMODITY_ITEM_LOC, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(COMMODITY_ITEM_LOC, '') END),
+				''
+			) AS COMMODITY_ITEM_LOC,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(CD_TYPE, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(CD_TYPE, '') END),
+				''
+			) AS CD_TYPE,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN AMOUNT_USD END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN AMOUNT_USD END),
+				0
+			) AS AMOUNT_USD,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(LOCATION_PLACE, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(LOCATION_PLACE, '') END),
+				''
+			) AS LOCATION_PLACE,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(SHIPPER_NAME, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(SHIPPER_NAME, '') END),
+				''
+			) AS SHIPPER_NAME,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(SHIPPER_ADDRESS_1, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(SHIPPER_ADDRESS_1, '') END),
+				''
+			) AS SHIPPER_ADDRESS_1,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN dbo.Cryptography(OD_JOB_NO, NULLIF(SHIPPER_TEL, ''), 1) END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN dbo.Cryptography(OD_JOB_NO, NULLIF(SHIPPER_TEL, ''), 1) END),
+				''
+			) AS SHIPPER_TEL,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(CONSIGNEE_NAME, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(CONSIGNEE_NAME, '') END),
+				''
+			) AS CONSIGNEE_NAME,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(CONSIGNEE_ADDRESS_1, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(CONSIGNEE_ADDRESS_1, '') END),
+				''
+			) AS CONSIGNEE_ADDRESS_1,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN dbo.Cryptography(OD_JOB_NO, NULLIF(CONSIGNEE_TEL, ''), 1) END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN dbo.Cryptography(OD_JOB_NO, NULLIF(CONSIGNEE_TEL, ''), 1) END),
+				''
+			) AS CONSIGNEE_TEL,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(AR_DATE_TIME, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(AR_DATE_TIME, '') END),
+				''
+			) AS AR_DATE_TIME,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(CARRY_IN_DATE_TIME, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(CARRY_IN_DATE_TIME, '') END),
+				''
+			) AS CARRY_IN_DATE_TIME,
+		
+			MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(FWD_NAME, '') END) AS FWD_NAME,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN NULLIF(DELIVERY_NAME, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN NULLIF(DELIVERY_NAME, '') END),
+				''
+			) AS DELIVERY_NAME,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN XRAY_INSPECTION_CODE END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN XRAY_INSPECTION_CODE END),
+				''
+			) AS XRAY_INSPECTION_CODE,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN SE_INSPECTION_CODE END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN SE_INSPECTION_CODE END),
+				''
+			) AS SE_INSPECTION_CODE,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN PALN5EM_INSPECTION_CODE END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN PALN5EM_INSPECTION_CODE END),
+				''
+			) AS PALN5EM_INSPECTION_CODE,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN INSPECTION_TYPE END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN INSPECTION_TYPE END),
+				''
+			) AS INSPECTION_TYPE,
+			
+			<!-- 검사코드명 start -->
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN XRAY_INSPECTION_CODE_STR END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN XRAY_INSPECTION_CODE_STR END),
+				''
+			) AS XRAY_INSPECTION_CODE_STR,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN SE_INSPECTION_CODE_STR END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN SE_INSPECTION_CODE_STR END),
+				''
+			) AS SE_INSPECTION_CODE_STR,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN PALN5EM_INSPECTION_CODE_STR END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN PALN5EM_INSPECTION_CODE_STR END),
+				''
+			) AS PALN5EM_INSPECTION_CODE_STR,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN INSPECTION_TYPE_STR END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN INSPECTION_TYPE_STR END),
+				''
+			) AS INSPECTION_TYPE_STR,
+			<!-- end -->
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN BIG_SIZE_YN END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN BIG_SIZE_YN END),
+				''
+			) AS BIG_SIZE_YN,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN INTELLECTUAL_PROP_YN END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN INTELLECTUAL_PROP_YN END),
+				''
+			) AS INTELLECTUAL_PROP_YN,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN INSPECTION_CUSTOMS_YN END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN INSPECTION_CUSTOMS_YN END),
+				''
+			) AS INSPECTION_CUSTOMS_YN,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN EX_CT END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN EX_CT END),
+				0
+			) AS EX_CT,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN CT END),
+				0
+			) AS CT,
+			
+			MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN STOCK_CT END) AS STOCK_CT,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN EX_WT END),
+				MAX(CASE WHEN SOURCE_TYPE = 'IN_PLAN' THEN EX_WT END),
+				0
+			) AS EX_WT,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN WT END),
+				0
+			) AS WT,
+			
+			MAX(CASE WHEN SOURCE_TYPE = 'IN' THEN STOCK_WT END) AS STOCK_WT
+		
+		FROM cargoData
+		GROUP BY BL_NO;
+	</select>
+	
+	<select id="selectPkgByPkgNo" parameterType="HashMap" resultType="InPlanPkg">
+		/* BmsCargoMapper.selectPkgByPkgNo : 박스번호(+BL번호 조회옵션)로 박스 조회 */
+		SELECT TOP 1
+			*
+		FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+		WHERE PACKING_NO = #{packingNo}
+			<if test="blNo != ''">
+			AND BL_NO = #{blNo}
+			</if> 
+			AND DELETE_YN = 'N'
+	</select>
+	
+	<select id="selectCarryOut" parameterType="HashMap" resultType="BmsCargoInfo">
+		/* BmsCargoMapper.selectCarryOut : 반출+반출승인 조회 */
+		WITH cargoData AS (
+			SELECT
+				'OUT_PLAN' AS SOURCE_TYPE,
+				IN_NO,
+				<!-- 
+				0 AS IN_PLAN_NO,
+				'' AS IN_CLASS, 
+				-->
+				0 AS OUT_NO,
+				OUT_PLAN_NO,
+				'' AS OUT_APPROVAL_NO,
+				'' AS APPROVAL_CLASS,
+				OUT_CLASS,
+				'' AS CUSTOMER_CODE,
+				'' AS CUSTOMER_NAME,
+				COMPANY_BUSINESS_NO,
+				COMPANY_NAME,
+				'' AS OD_JOB_NO,
+				BL_NO,
+				CARGO_REFERENCE_NO,
+				MBL_NO,
+				VESSEL_FLIGHT,
+				'' AS COMMODITY_ITEM_LOC,
+				'' AS CD_TYPE,
+				0 AS AMOUNT_USD,
+				'' AS LOCATION_PLACE,
+				'' AS INFO_LAST_CLASS,
+				'' AS SHIPPER_NAME,
+				'' AS SHIPPER_ADDRESS_1,
+				'' AS SHIPPER_TEL,
+				'' AS CONSIGNEE_NAME,
+				'' AS CONSIGNEE_ADDRESS_1,
+				'' AS CONSIGNEE_TEL,
+				'' AS AR_DATE_TIME,
+				'' AS CARRY_IN_DATE_TIME,
+				'' AS CARRY_OUT_DATE_TIME,
+				OUT_SCAN_DATE_TIME,
+				'' AS FWD_NAME,
+				'' AS BROKER_NAME,
+				'' AS DELIVERY_NAME,
+				0 AS EX_CT,
+				0 AS CT,
+				0 AS OUT_CT,
+				0 AS STOCK_CT,
+				0 AS EX_WT,
+				0 AS WT,
+				0 AS OUT_WT,
+				0 AS STOCK_WT,
+				'' AS XRAY_LINE_NO,
+				'' AS XRAY_INSPECTION_CODE,
+				'' AS SE_INSPECTION_CODE,
+				'' AS PALN5EM_INSPECTION_CODE,
+				'' AS INSPECTION_TYPE,
+				'' AS BIG_SIZE_YN,
+				'' AS INTELLECTUAL_PROP_YN,
+				'' AS INSPECTION_CUSTOMS_YN,
+				0 AS XRAY_SCAN_CT,
+				0 AS XRAY_IMAGE_CT,
+				'' AS HOLD_CODE,
+				'' AS HOLD_REASON,
+				'' AS HOLD_RELEASE_YN
+			FROM TB_BMS_OUT_PLAN WITH (NOLOCK)
+			WHERE IN_NO = #{inNo}
+			
+		UNION ALL
+		
+			SELECT
+				'OUT' AS SOURCE_TYPE,
+				IN_NO,
+				<!-- 
+				0 AS IN_PLAN_NO,
+				'' AS IN_CLASS, 
+				-->
+				OUT_NO,
+				OUT_PLAN_NO,
+				OUT_APPROVAL_NO,
+				'' AS APPROVAL_CLASS,
+				OUT_CLASS,
+				CUSTOMER_CODE,
+				CUSTOMER_NAME,
+				'' AS COMPANY_BUSINESS_NO,
+				'' AS COMPANY_NAME,
+				OD_JOB_NO,
+				BL_NO,
+				CARGO_REFERENCE_NO,
+				MBL_NO,
+				'' AS VESSEL_FLIGHT,
+				'' AS COMMODITY_ITEM_LOC,
+				'' AS CD_TYPE,
+				0 AS AMOUNT_USD,
+				'' AS LOCATION_PLACE,
+				'' AS INFO_LAST_CLASS,
+				'' AS SHIPPER_NAME,
+				'' AS SHIPPER_ADDRESS_1,
+				'' AS SHIPPER_TEL,
+				'' AS CONSIGNEE_NAME,
+				'' AS CONSIGNEE_ADDRESS_1,
+				'' AS CONSIGNEE_TEL,
+				'' AS AR_DATE_TIME,
+				'' AS CARRY_IN_DATE_TIME,
+				CARRYOUT_DATE + ' ' +  CARRYOUT_TIME AS CARRY_OUT_DATE_TIME,
+				OUT_SCAN_DATE_TIME,
+				'' AS FWD_NAME,
+				BROKER_NAME,
+				'' AS DELIVERY_NAME,
+				0 AS EX_CT,
+				0 AS CT,
+				OUT_CT,
+				0 AS STOCK_CT,
+				0 AS EX_WT,
+				0 AS WT,
+				OUT_WT,
+				0 AS STOCK_WT,
+				'' AS XRAY_LINE_NO,
+				'' AS XRAY_INSPECTION_CODE,
+				'' AS SE_INSPECTION_CODE,
+				'' AS PALN5EM_INSPECTION_CODE,
+				'' AS INSPECTION_TYPE,
+				'' AS BIG_SIZE_YN,
+				'' AS INTELLECTUAL_PROP_YN,
+				'' AS INSPECTION_CUSTOMS_YN,
+				0 AS XRAY_SCAN_CT,
+				0 AS XRAY_IMAGE_CT,
+				'' AS HOLD_CODE,
+				'' AS HOLD_REASON,
+				'' AS HOLD_RELEASE_YN
+			FROM TB_BMS_OUT WITH (NOLOCK)
+			WHERE IN_NO = #{inNo}
+		)
+		
+		SELECT
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN NULLIF(IN_NO, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN NULLIF(IN_NO, '') END),
+				''
+			) AS IN_NO,
+			
+			MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN NULLIF(OUT_NO, '') END) AS OUT_NO,
+			MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN NULLIF(OUT_PLAN_NO, '') END) AS OUT_PLAN_NO,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN NULLIF(OUT_APPROVAL_NO, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN NULLIF(OUT_APPROVAL_NO, '') END),
+				''
+			) AS OUT_APPROVAL_NO,
+			
+			MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN NULLIF(APPROVAL_CLASS, '') END) AS APPROVAL_CLASS,
+			
+			MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN NULLIF(CUSTOMER_CODE, '') END) AS CUSTOMER_CODE,
+			MAX(CASE WHEN SOURCE_TYPE = 'OU' THEN NULLIF(CUSTOMER_NAME, '') END) AS CUSTOMER_NAME,
+			MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN NULLIF(COMPANY_BUSINESS_NO, '') END) AS COMPANY_BUSINESS_NO,
+			MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN NULLIF(COMPANY_NAME, '') END) AS COMPANY_NAME,
+				
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN NULLIF(OUT_CLASS, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN NULLIF(OUT_CLASS, '') END),
+				''
+			) AS OUT_CLASS,
+		
+			MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN NULLIF(OD_JOB_NO, '') END) AS OD_JOB_NO,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN NULLIF(BL_NO, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN NULLIF(BL_NO, '') END),
+				''
+			) AS BL_NO,
+		
+			CARGO_REFERENCE_NO,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN NULLIF(MBL_NO, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN NULLIF(MBL_NO, '') END),
+				''
+			) AS MBL_NO,
+		
+			MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN NULLIF(VESSEL_FLIGHT, '') END) AS VESSEL_FLIGHT,
+			
+			MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN NULLIF(CARRY_OUT_DATE_TIME, '') END) AS CARRY_OUT_DATE_TIME,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN NULLIF(OUT_SCAN_DATE_TIME, '') END),
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN NULLIF(OUT_SCAN_DATE_TIME, '') END),
+				''
+			) AS OUT_SCAN_DATE_TIME,
+			
+			MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN NULLIF(BROKER_NAME, '') END) AS BROKER_NAME,
+			
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN OUT_CT END),
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN OUT_CT END),
+				0
+			) AS OUT_CT,
+		
+			COALESCE(
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT' THEN OUT_WT END),
+				MAX(CASE WHEN SOURCE_TYPE = 'OUT_PLAN' THEN OUT_WT END),
+				0
+			) AS OUT_WT
+			
+		FROM cargoData
+		GROUP BY CARGO_REFERENCE_NO;
+	</select>
+	
+	<select id="selectPkg" parameterType="HashMap" resultType="InPlanPkg">
+		/* BmsCargoMapper.selectPkg : 박스 조회 */
+		<if test="inPlanNo != null or (blNo != null and blNo != '')">
+			<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT AA.*
+				, COUNT(*) OVER() AS TOTAL_CNT
+			FROM (		 
+				SELECT
+					pkg.*,
+					<!-- xrayH.XRAY_PASS_TIME, -->
+					outScan.PKG_OUT_SCAN_TIME,
+					stockScan.STOCK_PKG_SCAN_TIME,
+					'' AS STATUS
+				FROM TB_BMS_IN_PLAN_PKG pkg WITH(NOLOCK)
+				<!-- OUTER APPLY (
+					SELECT TOP 1 
+						REGISTER_DATE_TIME AS XRAY_PASS_TIME
+					FROM 
+						TB_BMS_XRAY_HISTORY WITH (NOLOCK)
+					WHERE PACKING_NO = pkg.PACKING_NO
+				) xrayH -->
+				OUTER APPLY (
+					SELECT TOP 1 
+						REGISTER_DATE_TIME AS PKG_OUT_SCAN_TIME
+					FROM 
+						TB_BMS_OUT_SCAN WITH (NOLOCK)
+					WHERE SCAN_NO = pkg.PACKING_NO
+						AND SCAN_RESULT = '완료'
+				) outScan
+				OUTER APPLY (
+					SELECT TOP 1 
+						REGISTER_DATE_TIME AS STOCK_PKG_SCAN_TIME
+					FROM 
+						TB_BMS_STOCK_PKG_SCAN WITH (NOLOCK)
+					WHERE SCAN_NO = pkg.PACKING_NO
+						AND SCAN_RESULT = '완료'
+				) stockScan
+				WHERE 1=1
+					<if test="inPlanNo != ''">
+					AND IN_PLAN_NO = #{inPlanNo}
+					</if>
+					<if test="blNo != ''">
+					AND BL_NO = #{blNo}
+					</if>
+					AND DELETE_YN = 'N'
+			) AA
+			<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+		</if>
+	</select>
+	
+	<select id="selectInList" parameterType="HashMap" resultType="CarryIn">
+		/* BmsCargoMapper.selectInList : 반입 조회 */
+		SELECT
+			*
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+	</select>
+	
+	<select id="selectOutList" parameterType="HashMap" resultType="BmsOut">
+		/* BmsCargoMapper.selectOutList : 반출 조회 */
+		SELECT
+			*
+		FROM TB_BMS_OUT WITH (NOLOCK)
+		WHERE IN_NO IN (<foreach collection="inNoList" item="item" separator=",">#{item.inNo}</foreach>)
+	</select>
+	
+	<select id="selectOutPlanList" parameterType="HashMap" resultType="BmsOutPlan">
+		/* BmsCargoMapper.selectOutPlanList : 반출 승인 조회 */
+		SELECT
+			*
+		FROM TB_BMS_OUT_PLAN WITH (NOLOCK)
+		WHERE IN_NO IN (<foreach collection="inNoList" item="item" separator=",">#{item.inNo}</foreach>)
+	</select>
+	
+	<select id="selectHoldInfo" parameterType="HashMap" resultType="HashMap">
+		/* BmsCargoMapper.selectHoldInfo : 화물조회 홀드 정보 조회 */
+		SELECT
+			ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = MAX(HOLD_CODE) AND ENT_CODE = #{entCode} AND GROUP_CODE='HOLD_CODE' AND USE_YN='Y'), '') AS HOLD_CODE, 
+			MAX(HOLD_REASON) AS HOLD_REASON,
+			MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+		FROM 
+			TB_ECM_OD_HOLD WITH (NOLOCK)
+		WHERE OD_JOB_NO = #{odJobNo}
+		GROUP BY OD_JOB_NO 
+	</select>
+	
+	<select id="selectInspectResultNotCompleteByInNo" parameterType="HashMap" resultType="bmsInspectResult">
+		/* BmsCargoMapper.selectInspectResultNotCompleteByInNo : 반입번호로 검사 안된 검사결과리스트 조회 */
+		SELECT 
+			* 
+		FROM TB_BMS_INSPECT_RESULT
+		
+		WHERE IN_NO = #{inNo}
+			AND INSPECTION_FINISH_YN = 'N'
+	</select>
+	
+	<select id="selectInspectResultCompleteByInNoAndType" parameterType="HashMap" resultType="bmsInspectResult">
+		/* BmsCargoMapper.selectInspectResultCompleteByInNoAndType : 반입번호로 검사 완료 검사결과 조회 */
+		SELECT TOP 1
+			* 
+		FROM TB_BMS_INSPECT_RESULT
+		WHERE IN_NO = #{inNo}
+			AND INSPECTION_FINISH_YN = 'Y'
+			AND INSPECTION_TYPE LIKE #{inspectionType} + '%'
+		ORDER BY INSPECTION_FINISH_DATE_TIME DESC
+	</select>
+	
+	<select id="selectXray" parameterType="HashMap" resultType="HashMap">
+	/* BmsCargoMapper.selectXray : 화물 조회 - XRAY판독결과 조회 */
+		SELECT TOP 1 
+			XRAY_INSPECTION_CODE,
+			XRAY_LINE_NO,
+			XRAY_SCAN_CT,
+			XRAY_IMAGE_CT,
+			XRAY_TIME,
+			INSPECTOR_ID
+		FROM TB_BMS_XRAY_RESULT  WITH (NOLOCK)
+		WHERE IN_PLAN_NO = #{inPlanNo}
+	</select>
+	
+	<select id="selectXrayPassTimeByPkgNo" parameterType="HashMap" resultType="String">
+	/* BmsCargoMapper.selectXrayPassTimeByPkgNo : 화물 조회 - 판독 일시 조회 */
+		SELECT TOP 1 
+			REGISTER_DATE_TIME AS XRAY_PASS_TIME
+		FROM 
+			TB_BMS_XRAY_HISTORY WITH (NOLOCK)
+		WHERE PACKING_NO = #{packingNo}
+		ORDER BY REGISTER_DATE_TIME DESC
+	</select>
+	
+	<select id="selectSortHistoryMsg" parameterType="HashMap" resultType="String">
+		/* BmsCargoMapper.selectSortHistoryMsg : 화물 조회 - 분류 메세지 조회 */
+			SELECT TOP 1 
+				CASE 
+					WHEN OUT_RSN_CD = '1' THEN SRT_TYPE_NM
+					ELSE OUT_RSN_NM 
+				END AS SRT_TYPE_NM 
+			FROM TB_BMS_SORT_RESULT WITH (NOLOCK)
+			WHERE HBL_NO = #{blNo}
+				AND BOX_ID <![CDATA[<>]]> ''
+			ORDER BY REGISTER_DATE_TIME DESC
+	</select>
+
+	<select id="selectXrayPassTimeByInPlanNo" parameterType="HashMap" resultType="String">
+	/* BmsCargoMapper.selectXrayPassTime : 화물 조회 - 판독 일시 조회 */
+		SELECT TOP 1 
+			REGISTER_DATE_TIME AS XRAY_PASS_TIME
+		FROM 
+			TB_BMS_XRAY_HISTORY WITH (NOLOCK)
+		WHERE IN_PLAN_NO = #{inPlanNo}
+		ORDER BY REGISTER_DATE_TIME DESC
+	</select>
+	
+	<select id="selectCargoInOutHistory" parameterType="HashMap" resultType="BmsCargoHistory">
+	/* BmsCargoMapper.selectCargoInOutHistory : 화물 조회 - 화물 반출입 내역 조회 */
+		WITH targetIn AS (
+		    SELECT
+		        i.IN_NO,
+		        i.IN_PLAN_NO,
+		        i.CARGO_REFERENCE_NO,
+		        i.LAST_POD_RAQ_DATE,
+		        i.REGISTER_DATE_TIME,
+		        i.IN_CLASS,
+		        i.CT,
+		        i.WT,
+		        i.CUSTOMS_REPORT_NO,
+		        i.IN_APPROVAL_NO,
+		        i.LAST_POD_STATUS
+		    FROM TB_BMS_IN i WITH (NOLOCK)
+		    WHERE i.CARGO_REFERENCE_NO = #{cargoReferenceNo}
+		),
+		cargoHistory AS (
+		    /*
+		     * 기존 inCargo의 의미를 보존한다.
+		     * 실제 반입이 하나라도 있으면 IN_PLAN 대신 모든 IN 행을 반환하고,
+		     * 아직 실제 반입이 없을 때만 IN_PLAN 한 행을 반환한다.
+		     */
+		    SELECT
+		        'IN_PLAN' AS SOURCE_TYPE,
+		        p.NOTIFY_DATE_TIME AS STATUS_DATE_TIME,
+		        p.REGISTER_DATE_TIME,
+		        p.CARGO_REFERENCE_NO,
+		        CAST(NULL AS int) AS IN_NO,
+		        p.IN_PLAN_NO,
+		        CAST(NULL AS int) AS OUT_PLAN_NO,
+		        CAST(NULL AS int) AS OUT_NO,
+		        '' AS STATUS_CLASS,
+		        p.EX_CT AS CT,
+		        p.EX_WT AS WT,
+		        '' AS CUSTOMS_REPORT_NO,
+		        p.IN_APPROVAL_NO AS APPROVAL_NO,
+		        CAST('' AS varchar(6)) AS LAST_POD_STATUS
+		    FROM TB_BMS_IN_PLAN p WITH (NOLOCK)
+		    WHERE p.CARGO_REFERENCE_NO = #{cargoReferenceNo}
+		      AND NOT EXISTS (SELECT 1 FROM targetIn)
+		
+		    UNION ALL
+		
+		    SELECT
+		        'IN' AS SOURCE_TYPE,
+		        CASE 
+			        WHEN i.LAST_POD_RAQ_DATE = '1900-01-01' THEN i.REGISTER_DATE_TIME
+			        ELSE i.LAST_POD_RAQ_DATE
+			    END AS STATUS_DATE_TIME,
+		        i.REGISTER_DATE_TIME,
+		        i.CARGO_REFERENCE_NO,
+		        i.IN_NO,
+		        i.IN_PLAN_NO,
+		        CAST(NULL AS int) AS OUT_PLAN_NO,
+		        CAST(NULL AS int) AS OUT_NO,
+		        i.IN_CLASS AS STATUS_CLASS,
+		        i.CT,
+		        i.WT,
+		        i.CUSTOMS_REPORT_NO,
+		        i.IN_APPROVAL_NO AS APPROVAL_NO,
+		        i.LAST_POD_STATUS AS reportStatus
+		    FROM targetIn i
+		
+		    UNION ALL
+		
+		    /*
+		     * OUT_PLAN은 다른 유사 컬럼이 아니라 TB_BMS_IN.IN_NO로만 연결한다.
+		     * OUT_CLASS='31'인데 아직 TB_BMS_OUT이 없어도 이 행은 그대로 남는다.
+		     * OUT_CLASS='1'(취하)도 이력으로 반환한다.
+		     */
+		    SELECT
+		        'OUT_PLAN' AS SOURCE_TYPE,
+		        op.NOTIFY_DATE_TIME AS STATUS_DATE_TIME,
+		        op.REGISTER_DATE_TIME,
+		        op.CARGO_REFERENCE_NO,
+		        op.IN_NO,
+		        i.IN_PLAN_NO AS IN_PLAN_NO,
+		        op.OUT_PLAN_NO,
+		        CAST(NULL AS int) AS OUT_NO,
+		        op.OUT_CLASS AS STATUS_CLASS,
+		        op.APPROVAL_CT AS CT,
+		        op.APPROVAL_WT AS WT,
+		        '' AS CUSTOMS_REPORT_NO,
+		        op.OUT_APPROVAL_NO AS APPROVAL_NO,
+		        op.APPROVAL_CLASS AS LAST_POD_STATUS
+		    FROM targetIn i
+		    INNER JOIN TB_BMS_OUT_PLAN op WITH (NOLOCK)
+		        ON op.IN_NO = i.IN_NO
+		
+		    UNION ALL
+		
+		    SELECT
+		        'OUT' AS SOURCE_TYPE,
+		        CASE 
+			        WHEN o.LAST_POD_RAQ_DATE = '1900-01-01' THEN o.REGISTER_DATE_TIME
+			        ELSE o.LAST_POD_RAQ_DATE
+			    END AS STATUS_DATE_TIME,
+		        o.REGISTER_DATE_TIME,
+		        o.CARGO_REFERENCE_NO,
+		        o.IN_NO,
+		        i.IN_PLAN_NO AS IN_PLAN_NO,
+		        o.OUT_PLAN_NO,
+		        o.OUT_NO,
+		        o.OUT_CLASS AS STATUS_CLASS,
+		        o.OUT_CT AS CT,
+		        o.OUT_WT AS WT,
+		        o.CUSTOMS_REPORT_NO,
+		        o.OUT_APPROVAL_NO AS APPROVAL_NO,
+		        o.LAST_POD_STATUS AS LAST_POD_STATUS
+		    FROM targetIn i
+		    INNER JOIN TB_BMS_OUT o WITH (NOLOCK)
+		        ON o.IN_NO = i.IN_NO
+		)
+		SELECT
+		     SOURCE_TYPE,
+			 STATUS_DATE_TIME,
+			 REGISTER_DATE_TIME,
+			 CARGO_REFERENCE_NO,
+			 IN_NO,
+			 IN_PLAN_NO,
+			 OUT_PLAN_NO,
+			 OUT_NO,
+			 STATUS_CLASS,
+			 CT,
+			 WT,
+			 CUSTOMS_REPORT_NO,
+			 APPROVAL_NO,
+			 LAST_POD_STATUS
+		FROM cargoHistory
+		ORDER BY
+		    STATUS_DATE_TIME DESC, REGISTER_DATE_TIME DESC
+	</select>
+	
+</mapper>

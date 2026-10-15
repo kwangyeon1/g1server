@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.HubnOrderMapper">
+
+    <insert id="insertInterfaceInfo" parameterType="HashMap">
+        INSERT INTO ${boundTable} (
+            mbl_no
+            ,hbl_no
+            ,status_code
+            ,status_event_date
+            ,status_event_attn
+            ,status_code_data
+            ,status_code_etc1
+            ,status_code_etc2
+            ,status_code_etc3
+            ,create_date
+            ,create_system
+            ,recv_system
+            ,interface_yn
+            ,interface_system
+            ,interface_date
+            <if test='boundTable == "IF_TEDAI_STATUS"'> 
+            ,ESB_STATUS
+            </if>
+        ) VALUES(
+            #{MBL_NO}
+            ,#{HBL_NO}
+            ,#{STATUS_CODE}
+            ,GETDATE()
+            ,''
+            ,#{HOLD_CODE}
+            ,#{STATUS_CODE_ETC1}
+            ,''
+            ,''
+            ,GETDATE()
+            ,'FMS'
+            ,'WMS'
+            ,'N'
+            ,'FMS'
+            ,'1900-01-01'
+            <if test='boundTable == "IF_TEDAI_STATUS"'>
+            ,'N'
+            </if>
+        )
+    </insert>
+
+    <select id="selectHubnBatchUpdateHoldTarget" parameterType="HashMap" resultType="HashMap">
+        /* OrderMapper.selectHubnBatchUpdateHoldTarget : 일괄변경 - 업데이트 대상 건 조회 */
+        SELECT od.OD_JOB_NO
+        , od.HBL_NO
+        , od.PO_NO
+        , od.MBL_NO
+        , hld.HOLD_CODE
+        , hld.HOLD_RELEASE_YN
+        <if test="updateType == 'hold'">
+			 , od.ENT_CODE
+			 , od.BOUND
+			 , od.BOUND_TYPE
+			 , od.CONSIGNEE_NAME_LOC
+			 , od.CONSIGNEE_HP
+			 , od.CONSIGNEE_ZIPCODE
+			 , od.DELIVERY_CODE
+			 , od.CUST_CODE_LV1
+			 , od.CUST_CODE_LV2
+			 , od.CUST_CODE_LV3
+			 , CASE WHEN od.CUST_CODE_LV3 IS NOT NULL THEN 3 WHEN od.CUST_CODE_LV2 IS NOT NULL THEN 2 ELSE 1 END AS STOCK_CUST_LV
+		 </if>
+        FROM TB_ECM_OD od
+        INNER JOIN TB_ECM_OD_ADDITIONAL ad
+        ON ad.OD_JOB_NO = od.OD_JOB_NO
+        LEFT JOIN TB_ECM_OD_PO_INFO poInfo
+        ON poInfo.OD_JOB_NO = od.OD_JOB_NO
+        LEFT JOIN TB_ECM_OD_HOLD hld
+        ON hld.OD_JOB_NO = od.OD_JOB_NO
+        <if test="updateType == 'hold' or updateType == 'holdRelease'">
+            AND hld.HOLD_CODE = #{holdCode}
+        </if>
+        <choose>
+            <when test='dataList != null'>
+                <!-- 적하목록/신고 화면에서 호출 시 마스터 선택하는 경우 있어 수정함 -->
+                <choose>
+                    <when test='checkDataTypeMh == "M"'>
+                        <choose>
+                            <when test='checkMfSubGridYn == "Y"'>
+                                WHERE (
+                                <foreach collection="dataList" item="item" separator="OR">
+                                    (od.MASTER_OD_JOB_NO = #{item.odJobNo} AND ISNULL(ad.SIMPLE_DOC_NO, '') = ISNULL(CAST(#{item.simpleDocNo} AS VARCHAR(20)), ''))
+                                </foreach>
+                                )
+                            </when>
+                            <otherwise>
+                                WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+                            </otherwise>
+                        </choose>
+                        AND od.BL_TYPE_MH = 'H'
+                    </when>
+                    <otherwise>
+                        WHERE od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                <include refid="org.yht.exps.express.mapper.eCommerce.OrderMapper.batchUpdateWhere"/>
+            </otherwise>
+        </choose>
+    </select>
+
+    <delete id="deleteResetSendCustomsManifest" parameterType="searchOrderBatchUpdate">
+        /* OrderMapper.deleteResetSendCustomsManifest : 목록신고초기화 */
+        DELETE FROM TB_ECM_POD_02
+        WHERE OD_JOB_NO IN(
+        <foreach collection="checkDataList" item="item" separator=",">#{item}</foreach>
+        )
+        AND POD_STATUS IN('ECM110'<!-- , 'ECM115' -->, 'ECM120', 'ECM130', 'ECM143');
+
+        DELETE FROM TB_ECM_POD_03
+        WHERE OD_JOB_NO IN(
+        <foreach collection="checkDataList" item="item" separator=",">#{item}</foreach>
+        )
+        AND POD_STATUS = 'ECM220';
+    </delete>
+
+    <update id="updateResetSendCustomsManifest" parameterType="searchOrderBatchUpdate">
+        /* OrderMapper.updateResetSendCustomsManifest : 목록신고초기화  */
+        UPDATE ad SET
+        ad.SIMPLE_EDI_STATUS = NULL
+        ,ad.SIMPLE_DOC_DATE = NULL
+        ,ad.SIMPLE_DOC_TIME = NULL
+        ,ad.SIMPLE_RESPONSE_DATE = NULL
+        ,ad.SIMPLE_REPORT_DATE = NULL
+        ,ad.LAST_POD_STATUS = CASE WHEN od.BL_TYPE_MH = 'M' THEN #{lastPodStatusMaster} ELSE #{lastPodStatus} END
+        ,ad.SIMPLE_RESULT_DATE = NULL
+        ,ad.SIMPLE_AUTH_NAME = NULL
+        ,ad.SIMPLE_STATEMENT_YN = 'N'
+        ,ad.SIMPLE_STATEMENT_REASON = NULL
+        ,ad.SE_INSPECTION_YN = 'N'
+        ,ad.SE_INSPECTION_CODE = NULL
+        ,ad.DROP_CODE = NULL
+        ,ad.DROP_YN = 'N'
+        ,ad.CLEARANCE_RECEIPT_DATE = NULL
+        ,ad.SIMPLE_DOC_NO = #{simpleDocNo}
+        FROM TB_ECM_OD od
+        INNER JOIN TB_ECM_OD_ADDITIONAL ad
+        ON ad.OD_JOB_NO = od.OD_JOB_NO
+        WHERE od.OD_JOB_NO = #{odJobNo};
+
+        UPDATE TB_ECM_OD
+        SET INSPECTION_YN = 'N'
+        ,ASSIGNMENT_WH_CODE = '02002004' /* 인천항 고정 */
+        WHERE OD_JOB_NO = #{odJobNo};
+    </update>
+
+</mapper>

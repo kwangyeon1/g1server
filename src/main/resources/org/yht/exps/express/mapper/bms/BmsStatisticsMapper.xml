@@ -1,0 +1,1013 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 통계조회 -->
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsStatisticsMapper">
+
+    <sql id="inGroupCodeCondi">
+        <if test="srchInGroupCodes != null and !srchInGroupCodes.isEmpty()">
+            <foreach collection="srchInGroupCodes" item="code" open="" separator="" close="">
+                <choose>
+                    <when test='srchMode == "excel"'>
+                        <choose>
+                            <when test='code == "CARRYIN_TIME"'>
+                                ,TBI.CARRYIN_TIME
+                            </when>
+                            <when test='code == "CARRYIN_HOUR"'>
+                                ,RIGHT('0' + CAST(DATEPART(HOUR, TBI.CARRYIN_TIME) AS VARCHAR(2)), 2) AS CARRYIN_HOUR
+                            </when>
+                            <when test='code == "LAST_POD_STATUS"'>
+                                , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = TBI.LAST_POD_STATUS) AS LAST_POD_STATUS
+                            </when>
+                            <when test='code == "LAST_POD_5TL_STATUS"'>
+                                , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = TBI.LAST_POD_5TL_STATUS) AS LAST_POD_5TL_STATUS
+                            </when>
+                            <when test='code == "IN_CLASS"'>
+                                , TBI.IN_CLASS + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'CARRYIN_TYPE'  AND CODE = TBI.IN_CLASS) AS IN_CLASS
+                            </when>
+                            <when test='code == "IN_APPROVAL_NO"'>
+                                ,TBI.IN_APPROVAL_NO
+                            </when>
+                            <when test='code == "TRANS_PERIOD_DATE"'>
+                                ,TBI.TRANS_PERIOD_DATE
+                            </when>
+                            <when test='code == "MBL_NO"'>
+                                ,TBI.MBL_NO
+                            </when>
+                            <when test='code == "NOTICE_INSPECT_YN"'>
+                                ,TBI.NOTICE_INSPECT_YN
+                            </when>
+                            <when test='code == "LOCATION_PLACE"'>
+                                ,TBI.LOCATION_PLACE
+                            </when>
+                            <when test='code == "IMPORT_EXPORT_CLASS"'>
+                                , TBI.IMPORT_EXPORT_CLASS + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'BOUND_TYPE_UNION' AND CODE = TBI.IMPORT_EXPORT_CLASS) AS IMPORT_EXPORT_CLASS
+                            </when>
+                            <when test='code == "VESSEL_FLIGHT"'>
+                                ,TBI.VESSEL_FLIGHT
+                            </when>
+                            <when test='code == "AR_DATE"'>
+                                ,TBI.AR_DATE
+                            </when>
+                            <when test='code == "AR_TIME"'>
+                                ,TBI.AR_TIME
+                            </when>
+                            <when test='code == "SHIPPER_CODE"'>
+                                ,TBI.SHIPPER_CODE
+                            </when>
+                            <when test='code == "SHIPPER_NAME"'>
+                                ,TBI.SHIPPER_NAME
+                            </when>
+                            <when test='code == "CONSIGNEE_CODE"'>
+                                ,TBI.CONSIGNEE_CODE
+                            </when>
+                            <when test='code == "CONSIGNEE_NAME"'>
+                                ,TBI.CONSIGNEE_NAME
+                            </when>
+                            <when test='code == "NOTIFY_CODE"'>
+                                ,TBI.NOTIFY_CODE
+                            </when>
+                            <when test='code == "NOTIFY_NAME"'>
+                                ,TBI.NOTIFY_NAME
+                            </when>
+                            <when test='code == "DELIVERY_CODE"'>
+                                ,TBI.DELIVERY_CODE
+                            </when>
+                            <when test='code == "DELIVERY_NAME"'>
+                                ,TBI.DELIVERY_NAME
+                            </when>
+                            <when test='code == "ORIG_COUNTRY"'>
+                                ,TBI.ORIG_COUNTRY
+                            </when>
+                            <when test='code == "SE_INSPECTION_CODE"'>
+                                , TBI.SE_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = TBI.SE_INSPECTION_CODE) AS SE_INSPECTION_CODE
+                            </when>
+                            <when test='code == "INSPECTION_TYPE"'>
+                                , TBI.INSPECTION_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = TBI.INSPECTION_TYPE) AS INSPECTION_TYPE
+                            </when>
+                            <when test='code == "INSPECTION_TYPE_A"'>
+                                , TBI.INSPECTION_TYPE_A + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = TBI.INSPECTION_TYPE_A) AS INSPECTION_TYPE_A
+                            </when>
+                            <when test='code == "INSPECTION_TYPE_B"'>
+                                , TBI.INSPECTION_TYPE_B + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = TBI.INSPECTION_TYPE_B) AS INSPECTION_TYPE_B
+                            </when>
+                            <when test='code == "XRAY_INSPECTION_CODE"'>
+                                , TBI.XRAY_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = TBI.XRAY_INSPECTION_CODE) AS XRAY_INSPECTION_CODE
+                            </when>
+                            <when test='code == "XRAY_LINE_NO"'>
+                                , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'XRAY_LINE_NO' AND CODE = TBI.XRAY_LINE_NO) AS XRAY_LINE_NO
+                            </when>
+                            <when test='code == "XRAY_CHECK"'>
+                                , TBI.XRAY_CHECK + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'XRAY_INSPECTION_TYPE' AND CODE = TBI.XRAY_CHECK) AS XRAY_CHECK
+                            </when>
+                            <when test='code == "CD_TYPE"'>
+                                , TBI.CD_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'CD_TYPE'  AND CODE = TBI.CD_TYPE) AS CD_TYPE
+                            </when>
+                            <when test='code == "ECM_TYPE"'>
+                                , TBI.ECM_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'CCL_ECOMMERCE_TYPE' AND CODE = TBI.ECM_TYPE) AS ECM_TYPE
+                            </when>
+                            <when test='code == "CD_USE_TYPE"'>
+                                , TBI.CD_USE_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                    AND GROUP_CODE = 'USE_GUBN' AND CODE = TBI.CD_USE_TYPE ) AS CD_USE_TYPE
+                            </when>
+                            <when test='code == "BIG_SIZE_YN"'>
+                                ,TBI.BIG_SIZE_YN
+                            </when>
+                            <when test='code == "REMARKS_1"'>
+                                ,TBI.REMARKS_1
+                            </when>
+                            <when test='code == "REMARKS_2"'>
+                                ,TBI.REMARKS_2
+                            </when>
+                            <when test='code == "REMARKS_3"'>
+                                ,TBI.REMARKS_3
+                            </when>
+                            <when test='code == "DISPOSAL_YN"'>
+                                ,TBI.DISPOSAL_YN
+                            </when>
+                        </choose>
+                    </when>
+                    <otherwise>
+                        <choose>
+                            <when test='code == "CARRYIN_TIME"'>
+                                ,TBI.CARRYIN_TIME
+                            </when>
+                            <when test='code == "CARRYIN_HOUR"'>
+                                ,RIGHT('0' + CAST(DATEPART(HOUR, TBI.CARRYIN_TIME) AS VARCHAR(2)), 2) AS CARRYIN_HOUR
+                            </when>
+                            <when test='code == "LAST_POD_STATUS"'>
+                                ,TBI.LAST_POD_STATUS
+                            </when>
+                            <when test='code == "LAST_POD_5TL_STATUS"'>
+                                ,TBI.LAST_POD_5TL_STATUS
+                            </when>
+                            <when test='code == "IN_CLASS"'>
+                                ,TBI.IN_CLASS
+                            </when>
+                            <when test='code == "IN_APPROVAL_NO"'>
+                                ,TBI.IN_APPROVAL_NO
+                            </when>
+                            <when test='code == "TRANS_PERIOD_DATE"'>
+                                ,TBI.TRANS_PERIOD_DATE
+                            </when>
+                            <when test='code == "MBL_NO"'>
+                                ,TBI.MBL_NO
+                            </when>
+                            <when test='code == "NOTICE_INSPECT_YN"'>
+                                ,TBI.NOTICE_INSPECT_YN
+                            </when>
+                            <when test='code == "LOCATION_PLACE"'>
+                                ,TBI.LOCATION_PLACE
+                            </when>
+                            <when test='code == "IMPORT_EXPORT_CLASS"'>
+                                ,TBI.IMPORT_EXPORT_CLASS
+                            </when>
+                            <when test='code == "VESSEL_FLIGHT"'>
+                                ,TBI.VESSEL_FLIGHT
+                            </when>
+                            <when test='code == "AR_DATE"'>
+                                ,TBI.AR_DATE
+                            </when>
+                            <when test='code == "AR_TIME"'>
+                                ,TBI.AR_TIME
+                            </when>
+                            <when test='code == "SHIPPER_CODE"'>
+                                ,TBI.SHIPPER_CODE
+                            </when>
+                            <when test='code == "SHIPPER_NAME"'>
+                                ,TBI.SHIPPER_NAME
+                            </when>
+                            <when test='code == "CONSIGNEE_CODE"'>
+                                ,TBI.CONSIGNEE_CODE
+                            </when>
+                            <when test='code == "CONSIGNEE_NAME"'>
+                                ,TBI.CONSIGNEE_NAME
+                            </when>
+                            <when test='code == "NOTIFY_CODE"'>
+                                ,TBI.NOTIFY_CODE
+                            </when>
+                            <when test='code == "NOTIFY_NAME"'>
+                                ,TBI.NOTIFY_NAME
+                            </when>
+                            <when test='code == "DELIVERY_CODE"'>
+                                ,TBI.DELIVERY_CODE
+                            </when>
+                            <when test='code == "DELIVERY_NAME"'>
+                                ,TBI.DELIVERY_NAME
+                            </when>
+                            <when test='code == "ORIG_COUNTRY"'>
+                                ,TBI.ORIG_COUNTRY
+                            </when>
+                            <when test='code == "SE_INSPECTION_CODE"'>
+                                ,TBI.SE_INSPECTION_CODE
+                            </when>
+                            <when test='code == "INSPECTION_TYPE"'>
+                                ,TBI.INSPECTION_TYPE
+                            </when>
+                            <when test='code == "INSPECTION_TYPE_A"'>
+                                ,TBI.INSPECTION_TYPE_A
+                            </when>
+                            <when test='code == "INSPECTION_TYPE_B"'>
+                                ,TBI.INSPECTION_TYPE_B
+                            </when>
+                            <when test='code == "XRAY_INSPECTION_CODE"'>
+                                ,XRAY_INSPECTION_CODE
+                            </when>
+                            <when test='code == "XRAY_LINE_NO"'>
+                                ,TBI.XRAY_LINE_NO
+                            </when>
+                            <when test='code == "XRAY_CHECK"'>
+                                ,TBI.XRAY_CHECK
+                            </when>
+                            <when test='code == "CD_TYPE"'>
+                                ,TBI.CD_TYPE
+                            </when>
+                            <when test='code == "ECM_TYPE"'>
+                                ,TBI.ECM_TYPE
+                            </when>
+                            <when test='code == "CD_USE_TYPE"'>
+                                ,TBI.CD_USE_TYPE
+                            </when>
+                            <when test='code == "BIG_SIZE_YN"'>
+                                ,TBI.BIG_SIZE_YN
+                            </when>
+                            <when test='code == "REMARKS_1"'>
+                                ,TBI.REMARKS_1
+                            </when>
+                            <when test='code == "REMARKS_2"'>
+                                ,TBI.REMARKS_2
+                            </when>
+                            <when test='code == "REMARKS_3"'>
+                                ,TBI.REMARKS_3
+                            </when>
+                            <when test='code == "DISPOSAL_YN"'>
+                                ,TBI.DISPOSAL_YN
+                            </when>
+                        </choose>
+                    </otherwise>
+                </choose>
+            </foreach>
+        </if>
+    </sql>
+
+    <sql id="inGroupCodeOrderCondi">
+        <if test="srchInGroupCodes != null and !srchInGroupCodes.isEmpty()">
+            <foreach collection="srchInGroupCodes" item="code" open="" separator="" close="">
+                <choose>
+                    <when test='code == "CARRYIN_TIME"'>
+                        ,TBI.CARRYIN_TIME
+                    </when>
+                    <when test='code == "CARRYIN_HOUR"'>
+                         ,RIGHT('0' + CAST(DATEPART(HOUR, TBI.CARRYIN_TIME) AS VARCHAR(2)), 2)
+                    </when>
+                    <when test='code == "LAST_POD_STATUS"'>
+                        ,TBI.LAST_POD_STATUS
+                    </when>
+                    <when test='code == "LAST_POD_5TL_STATUS"'>
+                        ,TBI.LAST_POD_5TL_STATUS
+                    </when>
+                    <when test='code == "IN_CLASS"'>
+                        ,TBI.IN_CLASS
+                    </when>
+                    <when test='code == "IN_APPROVAL_NO"'>
+                        ,TBI.IN_APPROVAL_NO
+                    </when>
+                    <when test='code == "TRANS_PERIOD_DATE"'>
+                        ,TBI.TRANS_PERIOD_DATE
+                    </when>
+                    <when test='code == "MBL_NO"'>
+                        ,TBI.MBL_NO
+                    </when>
+                    <when test='code == "NOTICE_INSPECT_YN"'>
+                        ,TBI.NOTICE_INSPECT_YN
+                    </when>
+                    <when test='code == "LOCATION_PLACE"'>
+                        ,TBI.LOCATION_PLACE
+                    </when>
+                    <when test='code == "IMPORT_EXPORT_CLASS"'>
+                        ,TBI.IMPORT_EXPORT_CLASS
+                    </when>
+                    <when test='code == "VESSEL_FLIGHT"'>
+                        ,TBI.VESSEL_FLIGHT
+                    </when>
+                    <when test='code == "AR_DATE"'>
+                        ,TBI.AR_DATE
+                    </when>
+                    <when test='code == "AR_TIME"'>
+                        ,TBI.AR_TIME
+                    </when>
+                    <when test='code == "SHIPPER_CODE"'>
+                        ,TBI.SHIPPER_CODE
+                    </when>
+                    <when test='code == "SHIPPER_NAME"'>
+                        ,TBI.SHIPPER_NAME
+                    </when>
+                    <when test='code == "CONSIGNEE_CODE"'>
+                        ,TBI.CONSIGNEE_CODE
+                    </when>
+                    <when test='code == "CONSIGNEE_NAME"'>
+                        ,TBI.CONSIGNEE_NAME
+                    </when>
+                    <when test='code == "NOTIFY_CODE"'>
+                        ,TBI.NOTIFY_CODE
+                    </when>
+                    <when test='code == "NOTIFY_NAME"'>
+                        ,TBI.NOTIFY_NAME
+                    </when>
+                    <when test='code == "DELIVERY_CODE"'>
+                        ,TBI.DELIVERY_CODE
+                    </when>
+                    <when test='code == "DELIVERY_NAME"'>
+                        ,TBI.DELIVERY_NAME
+                    </when>
+                    <when test='code == "ORIG_COUNTRY"'>
+                        ,TBI.ORIG_COUNTRY
+                    </when>
+                    <when test='code == "SE_INSPECTION_CODE"'>
+                        ,TBI.SE_INSPECTION_CODE
+                    </when>
+                    <when test='code == "INSPECTION_TYPE"'>
+                        ,TBI.INSPECTION_TYPE
+                    </when>
+                    <when test='code == "INSPECTION_TYPE_A"'>
+                        ,TBI.INSPECTION_TYPE_A
+                    </when>
+                    <when test='code == "INSPECTION_TYPE_B"'>
+                        ,TBI.INSPECTION_TYPE_B
+                    </when>
+                    <when test='code == "XRAY_INSPECTION_CODE"'>
+                        ,XRAY_INSPECTION_CODE
+                    </when>
+                    <when test='code == "XRAY_LINE_NO"'>
+                        ,TBI.XRAY_LINE_NO
+                    </when>
+                    <when test='code == "XRAY_CHECK"'>
+                        ,TBI.XRAY_CHECK
+                    </when>
+                    <when test='code == "CD_TYPE"'>
+                        ,TBI.CD_TYPE
+                    </when>
+                    <when test='code == "ECM_TYPE"'>
+                        ,TBI.ECM_TYPE
+                    </when>
+                    <when test='code == "CD_USE_TYPE"'>
+                        ,TBI.CD_USE_TYPE
+                    </when>
+                    <when test='code == "BIG_SIZE_YN"'>
+                        ,TBI.BIG_SIZE_YN
+                    </when>
+                    <when test='code == "REMARKS_1"'>
+                        ,TBI.REMARKS_1
+                    </when>
+                    <when test='code == "REMARKS_2"'>
+                        ,TBI.REMARKS_2
+                    </when>
+                    <when test='code == "REMARKS_3"'>
+                        ,TBI.REMARKS_3
+                    </when>
+                    <when test='code == "DISPOSAL_YN"'>
+                        ,TBI.DISPOSAL_YN
+                    </when>
+                </choose>
+            </foreach>
+        </if>
+    </sql>
+
+    <sql id="outGroupCodeCondi">
+        <if test="srchOutGroupCodes != null and !srchOutGroupCodes.isEmpty()">
+            <foreach collection="srchOutGroupCodes" item="code" open="" separator="" close="">
+                <choose>
+                    <when test='srchMode == "excel"'>
+                        <choose>
+                            <when test='code == "CARRYIN_DATE"'>
+                                ,TBI.CARRYIN_DATE
+                            </when>
+                            <when test='code == "CARRYIN_TIME"'>
+                                ,TBI.CARRYIN_TIME
+                            </when>
+                            <when test='code == "CARRYIN_HOUR"'>
+		                        ,RIGHT('0' + CAST(DATEPART(HOUR, TBI.CARRYIN_TIME) AS VARCHAR(2)), 2) AS CARRYIN_HOUR
+		                    </when>
+                            <when test='code == "LAST_POD_STATUS"'>
+                                , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = TBO.LAST_POD_STATUS) AS LAST_POD_STATUS
+                            </when>
+                            <when test='code == "OUT_CLASS"'>
+                                , TBO.OUT_CLASS + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                AND GROUP_CODE = 'CARRYOUT_TYPE' AND CODE = TBO.OUT_CLASS) AS OUT_CLASS
+                            </when>
+                            <when test='code == "MBL_NO"'>
+                                ,TBO.MBL_NO
+                            </when>
+                            <when test='code == "CUSTOMER_CODE"'>
+                                ,TBO.CUSTOMER_CODE
+                            </when>
+                            <when test='code == "CUSTOMER_NAME"'>
+                                ,TBO.CUSTOMER_NAME
+                            </when>
+                            <when test='code == "BROKER_CODE"'>
+                                ,TBO.BROKER_CODE
+                            </when>
+                            <when test='code == "BROKER_NAME"'>
+                                ,TBO.BROKER_NAME
+                            </when>
+                            <when test='code == "DELIVERY_CODE"'>
+                                ,TBI.DELIVERY_CODE
+                            </when>
+                            <when test='code == "DELIVERY_NAME"'>
+                                ,TBI.DELIVERY_NAME
+                            </when>
+                            <when test='code == "SE_INSPECTION_CODE"'>
+                                , TBI.SE_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = TBI.SE_INSPECTION_CODE) AS SE_INSPECTION_CODE
+                            </when>
+                            <when test='code == "INSPECTION_TYPE"'>
+                                , TBI.INSPECTION_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = TBI.INSPECTION_TYPE) AS INSPECTION_TYPE
+                            </when>
+                            <when test='code == "INSPECTION_TYPE_A"'>
+                                , TBI.INSPECTION_TYPE_A + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = TBI.INSPECTION_TYPE_A) AS INSPECTION_TYPE_A
+                            </when>
+                            <when test='code == "INSPECTION_TYPE_B"'>
+                                , TBI.INSPECTION_TYPE_B + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = TBI.INSPECTION_TYPE_B) AS INSPECTION_TYPE_B
+                            </when>
+                            <when test='code == "XRAY_INSPECTION_CODE"'>
+                                , TBI.XRAY_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = TBI.XRAY_INSPECTION_CODE) AS XRAY_INSPECTION_CODE
+                            </when>
+                            <when test='code == "XRAY_LINE_NO"'>
+                                , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                AND GROUP_CODE = 'XRAY_LINE_NO' AND CODE = TBI.XRAY_LINE_NO) AS XRAY_LINE_NO
+                            </when>
+                            <when test='code == "XRAY_CHECK"'>
+                                , TBI.XRAY_CHECK + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                AND GROUP_CODE = 'XRAY_INSPECTION_TYPE' AND CODE = TBI.XRAY_CHECK) AS XRAY_CHECK
+                            </when>
+                            <when test='code == "CD_TYPE"'>
+                                , TBI.CD_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                AND GROUP_CODE = 'CD_TYPE'  AND CODE = TBI.CD_TYPE) AS CD_TYPE
+                            </when>
+                            <when test='code == "ECM_TYPE"'>
+                                , TBI.ECM_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                AND GROUP_CODE = 'CCL_ECOMMERCE_TYPE' AND CODE = TBI.ECM_TYPE) AS ECM_TYPE
+                            </when>
+                            <when test='code == "CD_USE_TYPE"'>
+                                , TBI.CD_USE_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                                AND GROUP_CODE = 'USE_GUBN' AND CODE = TBI.CD_USE_TYPE ) AS CD_USE_TYPE
+                            </when>
+                            <when test='code == "BIG_SIZE_YN"'>
+                                ,TBI.BIG_SIZE_YN
+                            </when>
+                            <when test='code == "REMARKS_1"'>
+                                ,TBO.REMARKS_1
+                            </when>
+                            <when test='code == "REMARKS_2"'>
+                                ,TBO.REMARKS_2
+                            </when>
+                            <when test='code == "REMARKS_3"'>
+                                ,TBO.REMARKS_3
+                            </when>
+                            <when test='code == "REMARKS_IN1"'>
+                                ,TBI.REMARKS_1 AS CARRYIN_REMARKS_1
+                            </when>
+                            <when test='code == "REMARKS_IN2"'>
+                                ,TBI.REMARKS_2 AS CARRYIN_REMARKS_2
+                            </when>
+                            <when test='code == "REMARKS_IN2"'>
+                                ,TBI.REMARKS_3 AS CARRYIN_REMARKS_3
+                            </when>
+                            <when test='code == "LOCATION_PLACE"'>
+                                ,TBI.LOCATION_PLACE
+                            </when>
+                            <when test='code == "IMPORT_EXPORT_CLASS"'>
+                                ,TBI.IMPORT_EXPORT_CLASS
+                            </when>
+                        </choose>
+                    </when>
+                    <otherwise>
+                        <choose>
+                            <when test='code == "CARRYIN_DATE"'>
+                                ,TBI.CARRYIN_DATE
+                            </when>
+                            <when test='code == "CARRYIN_TIME"'>
+                                ,TBI.CARRYIN_TIME
+                            </when>
+                            <when test='code == "CARRYIN_HOUR"'>
+		                         ,RIGHT('0' + CAST(DATEPART(HOUR, TBI.CARRYIN_TIME) AS VARCHAR(2)), 2) AS CARRYIN_HOUR
+		                    </when>
+                            <when test='code == "LAST_POD_STATUS"'>
+                                ,TBO.LAST_POD_STATUS
+                            </when>
+                            <when test='code == "OUT_CLASS"'>
+                                ,TBO.OUT_CLASS
+                            </when>
+                            <when test='code == "MBL_NO"'>
+                                ,TBO.MBL_NO
+                            </when>
+                            <when test='code == "CUSTOMER_CODE"'>
+                                ,TBO.CUSTOMER_CODE
+                            </when>
+                            <when test='code == "CUSTOMER_NAME"'>
+                                ,TBO.CUSTOMER_NAME
+                            </when>
+                            <when test='code == "BROKER_CODE"'>
+                                ,TBO.BROKER_CODE
+                            </when>
+                            <when test='code == "BROKER_NAME"'>
+                                ,TBO.BROKER_NAME
+                            </when>
+                            <when test='code == "DELIVERY_CODE"'>
+                                ,TBI.DELIVERY_CODE
+                            </when>
+                            <when test='code == "DELIVERY_NAME"'>
+                                ,TBI.DELIVERY_NAME
+                            </when>
+                            <when test='code == "SE_INSPECTION_CODE"'>
+                                ,TBI.SE_INSPECTION_CODE
+                            </when>
+                            <when test='code == "INSPECTION_TYPE"'>
+                                ,TBI.INSPECTION_TYPE
+                            </when>
+                            <when test='code == "INSPECTION_TYPE_A"'>
+                                ,TBI.INSPECTION_TYPE_A
+                            </when>
+                            <when test='code == "INSPECTION_TYPE_B"'>
+                                ,TBI.INSPECTION_TYPE_B
+                            </when>
+                            <when test='code == "XRAY_INSPECTION_CODE"'>
+                                ,TBI.XRAY_INSPECTION_CODE
+                            </when>
+                            <when test='code == "XRAY_LINE_NO"'>
+                                ,TBI.XRAY_LINE_NO
+                            </when>
+                            <when test='code == "XRAY_CHECK"'>
+                                ,TBI.XRAY_CHECK
+                            </when>
+                            <when test='code == "CD_TYPE"'>
+                                ,TBI.CD_TYPE
+                            </when>
+                            <when test='code == "ECM_TYPE"'>
+                                ,TBI.ECM_TYPE
+                            </when>
+                            <when test='code == "CD_USE_TYPE"'>
+                                ,TBI.CD_USE_TYPE
+                            </when>
+                            <when test='code == "BIG_SIZE_YN"'>
+                                ,TBI.BIG_SIZE_YN
+                            </when>
+                            <when test='code == "REMARKS_1"'>
+                                ,TBO.REMARKS_1
+                            </when>
+                            <when test='code == "REMARKS_2"'>
+                                ,TBO.REMARKS_2
+                            </when>
+                            <when test='code == "REMARKS_3"'>
+                                ,TBO.REMARKS_3
+                            </when>
+                            <when test='code == "REMARKS_IN1"'>
+                                ,TBI.REMARKS_1 AS CARRYIN_REMARKS_1
+                            </when>
+                            <when test='code == "REMARKS_IN2"'>
+                                ,TBI.REMARKS_2 AS CARRYIN_REMARKS_2
+                            </when>
+                            <when test='code == "REMARKS_IN2"'>
+                                ,TBI.REMARKS_3 AS CARRYIN_REMARKS_3
+                            </when>
+                            <when test='code == "LOCATION_PLACE"'>
+                                ,TBI.LOCATION_PLACE
+                            </when>
+                            <when test='code == "IMPORT_EXPORT_CLASS"'>
+                                ,TBI.IMPORT_EXPORT_CLASS
+                            </when>
+                        </choose>
+                    </otherwise>
+                </choose>
+            </foreach>
+        </if>
+    </sql>
+
+    <sql id="outGroupCodeCondi1">
+        <if test="srchOutGroupCodes != null and !srchOutGroupCodes.isEmpty()">
+            <foreach collection="srchOutGroupCodes" item="code" open="" separator="" close="">
+                <choose>
+                    <when test='code == "CARRYIN_DATE"'>
+                        ,TBI.CARRYIN_DATE
+                    </when>
+                    <when test='code == "CARRYIN_TIME"'>
+                        ,TBI.CARRYIN_TIME
+                    </when>
+                    <when test='code == "CARRYIN_HOUR"'>
+                         ,RIGHT('0' + CAST(DATEPART(HOUR, TBI.CARRYIN_TIME) AS VARCHAR(2)), 2)
+                    </when>
+                    <when test='code == "LAST_POD_STATUS"'>
+                        ,TBO.LAST_POD_STATUS
+                    </when>
+                    <when test='code == "OUT_CLASS"'>
+                        ,TBO.OUT_CLASS
+                    </when>
+                    <when test='code == "MBL_NO"'>
+                        ,TBO.MBL_NO
+                    </when>
+                    <when test='code == "CUSTOMER_CODE"'>
+                        ,TBO.CUSTOMER_CODE
+                    </when>
+                    <when test='code == "CUSTOMER_NAME"'>
+                        ,TBO.CUSTOMER_NAME
+                    </when>
+                    <when test='code == "BROKER_CODE"'>
+                        ,TBO.BROKER_CODE
+                    </when>
+                    <when test='code == "BROKER_NAME"'>
+                        ,TBO.BROKER_NAME
+                    </when>
+                    <when test='code == "DELIVERY_CODE"'>
+                        ,TBI.DELIVERY_CODE
+                    </when>
+                    <when test='code == "DELIVERY_NAME"'>
+                        ,TBI.DELIVERY_NAME
+                    </when>
+                    <when test='code == "SE_INSPECTION_CODE"'>
+                        ,TBI.SE_INSPECTION_CODE
+                    </when>
+                    <when test='code == "INSPECTION_TYPE"'>
+                        ,TBI.INSPECTION_TYPE
+                    </when>
+                    <when test='code == "INSPECTION_TYPE_A"'>
+                        ,TBI.INSPECTION_TYPE_A
+                    </when>
+                    <when test='code == "INSPECTION_TYPE_B"'>
+                        ,TBI.INSPECTION_TYPE_B
+                    </when>
+                    <when test='code == "XRAY_INSPECTION_CODE"'>
+                        ,TBI.XRAY_INSPECTION_CODE
+                    </when>
+                    <when test='code == "XRAY_LINE_NO"'>
+                        ,TBI.XRAY_LINE_NO
+                    </when>
+                    <when test='code == "XRAY_CHECK"'>
+                        ,TBI.XRAY_CHECK
+                    </when>
+                    <when test='code == "CD_TYPE"'>
+                        ,TBI.CD_TYPE
+                    </when>
+                    <when test='code == "ECM_TYPE"'>
+                        ,TBI.ECM_TYPE
+                    </when>
+                    <when test='code == "CD_USE_TYPE"'>
+                        ,TBI.CD_USE_TYPE
+                    </when>
+                    <when test='code == "BIG_SIZE_YN"'>
+                        ,TBI.BIG_SIZE_YN
+                    </when>
+                    <when test='code == "REMARKS_1"'>
+                        ,TBO.REMARKS_1
+                    </when>
+                    <when test='code == "REMARKS_2"'>
+                        ,TBO.REMARKS_2
+                    </when>
+                    <when test='code == "REMARKS_3"'>
+                        ,TBO.REMARKS_3
+                    </when>
+                    <when test='code == "REMARKS_IN1"'>
+                        ,TBI.REMARKS_1 AS CARRYIN_REMARKS_1
+                    </when>
+                    <when test='code == "REMARKS_IN2"'>
+                        ,TBI.REMARKS_2 AS CARRYIN_REMARKS_2
+                    </when>
+                    <when test='code == "REMARKS_IN2"'>
+                        ,TBI.REMARKS_3 AS CARRYIN_REMARKS_3
+                    </when>
+                    <when test='code == "LOCATION_PLACE"'>
+                        ,TBI.LOCATION_PLACE
+                    </when>
+                    <when test='code == "IMPORT_EXPORT_CLASS"'>
+                        ,TBI.IMPORT_EXPORT_CLASS
+                    </when>
+                </choose>
+            </foreach>
+        </if>
+    </sql>
+
+    <sql id="outGroupCodeOrderCondi">
+        <if test="srchOutGroupCodes != null and !srchOutGroupCodes.isEmpty()">
+            <foreach collection="srchOutGroupCodes" item="code" open="" separator="" close="">
+                <choose>
+                    <when test='code == "CARRYIN_DATE"'>
+                        ,TBI.CARRYIN_DATE
+                    </when>
+                    <when test='code == "CARRYIN_TIME"'>
+                        ,TBI.CARRYIN_TIME
+                    </when>
+                    <when test='code == "CARRYIN_HOUR"'>
+                         ,RIGHT('0' + CAST(DATEPART(HOUR, TBI.CARRYIN_TIME) AS VARCHAR(2)), 2)
+                    </when>
+                    <when test='code == "LAST_POD_STATUS"'>
+                        ,TBO.LAST_POD_STATUS
+                    </when>
+                    <when test='code == "OUT_CLASS"'>
+                        ,TBO.OUT_CLASS
+                    </when>
+                    <when test='code == "MBL_NO"'>
+                        ,TBO.MBL_NO
+                    </when>
+                    <when test='code == "CUSTOMER_CODE"'>
+                        ,TBO.CUSTOMER_CODE
+                    </when>
+                    <when test='code == "CUSTOMER_NAME"'>
+                        ,TBO.CUSTOMER_NAME
+                    </when>
+                    <when test='code == "BROKER_CODE"'>
+                        ,TBO.BROKER_CODE
+                    </when>
+                    <when test='code == "BROKER_NAME"'>
+                        ,TBO.BROKER_NAME
+                    </when>
+                    <when test='code == "DELIVERY_CODE"'>
+                        ,TBI.DELIVERY_CODE
+                    </when>
+                    <when test='code == "DELIVERY_NAME"'>
+                        ,TBI.DELIVERY_NAME
+                    </when>
+                    <when test='code == "SE_INSPECTION_CODE"'>
+                        ,TBI.SE_INSPECTION_CODE
+                    </when>
+                    <when test='code == "INSPECTION_TYPE"'>
+                        ,TBI.INSPECTION_TYPE
+                    </when>
+                    <when test='code == "INSPECTION_TYPE_A"'>
+                        ,TBI.INSPECTION_TYPE_A
+                    </when>
+                    <when test='code == "INSPECTION_TYPE_B"'>
+                        ,TBI.INSPECTION_TYPE_B
+                    </when>
+                    <when test='code == "XRAY_INSPECTION_CODE"'>
+                        ,XRAY_INSPECTION_CODE
+                    </when>
+                    <when test='code == "XRAY_LINE_NO"'>
+                        ,TBI.XRAY_LINE_NO
+                    </when>
+                    <when test='code == "XRAY_CHECK"'>
+                        ,TBI.XRAY_CHECK
+                    </when>
+                    <when test='code == "CD_TYPE"'>
+                        ,TBI.CD_TYPE
+                    </when>
+                    <when test='code == "ECM_TYPE"'>
+                        ,TBI.ECM_TYPE
+                    </when>
+                    <when test='code == "CD_USE_TYPE"'>
+                        ,TBI.CD_USE_TYPE
+                    </when>
+                    <when test='code == "BIG_SIZE_YN"'>
+                        ,TBI.BIG_SIZE_YN
+                    </when>
+                    <when test='code == "REMARKS_1"'>
+                        ,TBO.REMARKS_1
+                    </when>
+                    <when test='code == "REMARKS_2"'>
+                        ,TBO.REMARKS_2
+                    </when>
+                    <when test='code == "REMARKS_3"'>
+                        ,TBO.REMARKS_3
+                    </when>
+                    <when test='code == "REMARKS_IN1"'>
+                        ,TBI.REMARKS_1
+                    </when>
+                    <when test='code == "REMARKS_IN2"'>
+                        ,TBI.REMARKS_2
+                    </when>
+                    <when test='code == "REMARKS_IN2"'>
+                        ,TBI.REMARKS_3
+                    </when>
+                    <when test='code == "LOCATION_PLACE"'>
+                        ,TBI.LOCATION_PLACE
+                    </when>
+                    <when test='code == "IMPORT_EXPORT_CLASS"'>
+                        ,TBI.IMPORT_EXPORT_CLASS
+                    </when>
+                </choose>
+            </foreach>
+        </if>
+    </sql>
+
+    <sql id="customerTypeCondi">
+        <if test="srchCustomerType != null and srchCustomerType != ''">
+        	<choose>
+                <when test="carryType == 'OUT'">
+                    <choose>
+	                   <when test="srchCustomerCode != null and srchCustomerCode != ''">
+		                   AND TBO.CUSTOMER_CODE = #{srchCustomerCode}
+		               </when>
+		               <otherwise>
+		                   <if test="srchCustomerName != null and srchCustomerName != ''">
+	                       		AND TBO.CUSTOMER_NAME LIKE CONCAT('%', #{srchCustomerName}, '%')
+	                       </if>
+		               </otherwise>
+                    </choose>
+                </when>
+                <otherwise>
+                    <choose>
+		                <when test="srchCustomerCode != null and srchCustomerCode != ''">
+		                    AND TBI.CUSTOMER_CODE = #{srchCustomerCode}
+		                </when>
+		                <otherwise>
+		                    <if test="srchCustomerName != null and srchCustomerName != ''">
+		                        AND TBI.CUSTOMER_NAME LIKE CONCAT('%', #{srchCustomerName}, '%')
+		                    </if>
+		                </otherwise>
+		            </choose>
+                </otherwise>
+            </choose>
+           <!--  <choose>
+                <when test="srchShipperCode != null and srchShipperCode != ''">
+                    AND TBI.SHIPPER_CODE = #{srchShipperCode}
+                </when>
+                <otherwise>
+                    <if test="srchShipperName != null and srchShipperName != ''">
+                        AND TBI.SHIPPER_NAME LIKE CONCAT('%', #{srchShipperName}, '%')
+                    </if>
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="srchConsigneeCode != null and srchConsigneeCode != ''">
+                    AND TBI.CONSIGNEE_CODE = #{srchConsigneeCode}
+                </when>
+                <otherwise>
+                    <if test="srchConsigneeName != null and srchConsigneeName != ''">
+                        AND TBI.CONSIGNEE_NAME LIKE CONCAT('%', #{srchConsigneeName}, '%')
+                    </if>
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="srchNotifyCode != null and srchNotifyCode != ''">
+                    AND TBI.NOTIFY_CODE = #{srchNotifyCode}
+                </when>
+                <otherwise>
+                    <if test="srchNotifyName != null and srchNotifyName != ''">
+                        AND TBI.NOTIFY_NAME LIKE CONCAT('%', #{srchNotifyName}, '%')
+                    </if>
+                </otherwise>
+            </choose> -->
+            <choose>
+                <when test="srchDeliveryCode != null and srchDeliveryCode != ''">
+                    AND TBI.DELIVERY_CODE = #{srchDeliveryCode}
+                </when>
+                <otherwise>
+                    <if test="srchDeliveryName != null and srchDeliveryName != ''">
+                        AND TBI.DELIVERY_NAME LIKE CONCAT('%', #{srchDeliveryName}, '%')
+                    </if>
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="srchFwdCode != null and srchFwdCode != ''">
+                    AND TBI.FWD_CODE = #{srchFwdCode}
+                </when>
+                <otherwise>
+                    <if test="srchFwdName != null and srchFwdName != ''">
+                        AND TBI.FWD_NAME LIKE CONCAT('%', #{srchFwdName}, '%')
+                    </if>
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="srchBrokerCode != null and srchBrokerCode != ''">
+                    AND TBO.BROKER_CODE = #{srchBrokerCode}
+                </when>
+                <otherwise>
+                    <if test="srchBrokerName != null and srchBrokerName != ''">
+                        AND TBO.BROKER_NAME LIKE CONCAT('%', #{srchBrokerName}, '%')
+                    </if>
+                </otherwise>
+            </choose>
+            <!-- <if test="srchCommodityItemLoc != null and srchCommodityItemLoc != ''">
+                AND TBI.COMMODITY_ITEM_LOC LIKE CONCAT('%', #{srchCommodityItemLoc}, '%')
+            </if> -->
+        </if>
+    </sql>
+
+    <select id="selectCarryInStatisticsList" parameterType="searchStatistics" resultType="bmsStatistics" fetchSize="1000">
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+        , COUNT(*) OVER() AS TOTAL_CNT
+        FROM (
+            SELECT
+            TBI.CARRYIN_DATE
+            <include refid="org.yht.exps.express.mapper.bms.BmsStatisticsMapper.inGroupCodeCondi"/>
+            ,COUNT(TBI.IN_NO) AS TOTAL_IN_CNT
+            ,SUM(TBI.CT) AS TOTAL_IN_SUM_CT
+            ,SUM(TBI.WT) AS TOTAL_IN_SUM_WT
+            FROM TB_BMS_IN TBI WITH (NOLOCK)
+            LEFT JOIN TB_BMS_OUT TBO WITH (NOLOCK)
+            ON TBO.IN_NO = TBI.IN_NO
+            WHERE TBI.CARRYIN_DATE <![CDATA[>=]]> #{srchStartDate} AND TBI.CARRYIN_DATE <![CDATA[<=]]> #{srchEndDate}
+            <if test='srchMode == "notSearch"'>
+			AND 1 = 0
+			</if>
+            <include refid="org.yht.exps.express.mapper.bms.BmsStatisticsMapper.customerTypeCondi"/>
+            GROUP BY TBI.CARRYIN_DATE
+            <include refid="org.yht.exps.express.mapper.bms.BmsStatisticsMapper.inGroupCodeOrderCondi"/>
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+
+    <select id="selectCarryOutStatisticsList" parameterType="searchStatistics" resultType="bmsStatistics" fetchSize="1000">
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+        , COUNT(*) OVER() AS TOTAL_CNT
+        FROM (
+            SELECT
+            TBO.CARRYOUT_DATE
+            <include refid="org.yht.exps.express.mapper.bms.BmsStatisticsMapper.outGroupCodeCondi"/>
+            ,COUNT(TBO.OUT_NO) AS TOTAL_OUT_CNT
+            ,SUM(TBO.OUT_CT) AS TOTAL_OUT_SUM_CT
+            ,SUM(TBO.OUT_WT) AS TOTAL_OUT_SUM_WT
+            FROM TB_BMS_OUT TBO WITH (NOLOCK)
+            LEFT JOIN TB_BMS_IN TBI WITH (NOLOCK)
+            ON TBI.IN_NO = TBO.IN_NO
+            WHERE TBO.CARRYOUT_DATE <![CDATA[>=]]> #{srchStartDate} AND TBO.CARRYOUT_DATE <![CDATA[<=]]> #{srchEndDate}
+            <if test='srchMode == "notSearch"'>
+			AND 1 = 0
+			</if>
+            <include refid="org.yht.exps.express.mapper.bms.BmsStatisticsMapper.customerTypeCondi"/>
+            GROUP BY TBO.CARRYOUT_DATE
+            <include refid="org.yht.exps.express.mapper.bms.BmsStatisticsMapper.outGroupCodeOrderCondi"/>
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+
+    <select id="selectStockStatisticsList" parameterType="searchStatistics" resultType="bmsStatistics" fetchSize="1000">
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+        , COUNT(*) OVER() AS TOTAL_CNT
+        FROM (
+            SELECT
+            TBI.CARRYIN_DATE
+            <include refid="org.yht.exps.express.mapper.bms.BmsStatisticsMapper.inGroupCodeCondi"/>
+            ,ISNULL(SUM(CASE WHEN TBI.STOCK_WT <![CDATA[>]]> 0 THEN 1 ELSE 0 END),0) AS TOTAL_STOCK_CNT
+            ,SUM(TBI.STOCK_CT) AS TOTAL_STOCK_SUM_CT
+            ,SUM(TBI.STOCK_WT) AS TOTAL_STOCK_SUM_WT
+            FROM TB_BMS_IN TBI WITH (NOLOCK)
+            LEFT JOIN TB_BMS_OUT TBO WITH (NOLOCK)
+            ON TBO.IN_NO = TBI.IN_NO
+            WHERE TBI.CARRYIN_DATE <![CDATA[>=]]> #{srchStartDate} AND TBI.CARRYIN_DATE <![CDATA[<=]]> #{srchEndDate}
+            	AND TBI.STOCK_CT > 0 AND TBI.STOCK_WT > 0
+            <if test='srchMode == "notSearch"'>
+			AND 1 = 0
+			</if>
+            <include refid="org.yht.exps.express.mapper.bms.BmsStatisticsMapper.customerTypeCondi"/>
+            GROUP BY TBI.CARRYIN_DATE
+            <include refid="org.yht.exps.express.mapper.bms.BmsStatisticsMapper.inGroupCodeOrderCondi"/>
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+    
+    <select id="selectXrayCarryInStatisticsList" parameterType="searchStatistics" resultType="bmsStatistics" fetchSize="1000">
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+        , COUNT(*) OVER() AS TOTAL_CNT
+        FROM (
+            SELECT
+            RIGHT('0' + CAST(DATEPART(HOUR, TXR.XRAY_TIME) AS VARCHAR(2)), 2) AS XRAY_TIME
+            ,COUNT(TXR.IN_PLAN_NO) AS XRAY_CNT
+    		,COUNT(DISTINCT NULLIF(TXR.INSPECTOR_ID, '')) AS XRAY_ID_CNT
+    		,SUM(CASE WHEN TPP.INPUT_SCAN_TYPE = 'A' THEN 1 ELSE 0 END) AS XRAY_ACNT
+    		,SUM(CASE WHEN TPP.INPUT_SCAN_TYPE = 'M' THEN 1 ELSE 0 END) AS XRAY_MCNT
+            <include refid="org.yht.exps.express.mapper.bms.BmsStatisticsMapper.inGroupCodeCondi"/>
+            ,COUNT(TBI.IN_NO) AS TOTAL_IN_CNT
+            ,SUM(TBI.CT) AS TOTAL_IN_SUM_CT
+            ,SUM(TBI.WT) AS TOTAL_IN_SUM_WT
+            FROM TB_BMS_IN TBI WITH (NOLOCK)
+            LEFT JOIN TB_BMS_OUT TBO WITH (NOLOCK)
+            ON TBO.IN_NO = TBI.IN_NO
+            LEFT JOIN TB_BMS_IN_PLAN_PKG TPP WITH(NOLOCK)
+    		ON TBI.IN_PLAN_NO = TPP.IN_PLAN_NO
+			LEFT JOIN TB_BMS_XRAY_RESULT TXR WITH(NOLOCK)
+    		ON TBI.IN_PLAN_NO = TXR.IN_PLAN_NO
+            WHERE TXR.XRAY_TIME <![CDATA[>=]]> CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat}) AND TXR.XRAY_TIME <![CDATA[<=]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+            AND TPP.INPUT_SCAN_TYPE IN ('A','M')
+            <if test='srchMode == "notSearch"'>
+			AND 1 = 0
+			</if>
+            <include refid="org.yht.exps.express.mapper.bms.BmsStatisticsMapper.customerTypeCondi"/>
+            GROUP BY RIGHT('0' + CAST(DATEPART(HOUR, TXR.XRAY_TIME) AS VARCHAR(2)), 2)
+            <include refid="org.yht.exps.express.mapper.bms.BmsStatisticsMapper.inGroupCodeOrderCondi"/>
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+</mapper>
+

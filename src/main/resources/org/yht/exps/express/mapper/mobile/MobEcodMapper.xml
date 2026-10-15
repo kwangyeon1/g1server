@@ -1,0 +1,790 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.mobile.MobEcodMapper">
+		
+	<select id="selectOrderDetail" parameterType="searchMobEcod" resultType="mobEcod" >
+		/* MobEcodMapper.selectOrderDetail : Order 조회 */
+		SELECT TOP 1
+			 od.OD_JOB_NO
+			,od.MBL_NO
+			,od.HBL_NO
+			,od.CD_TYPE
+			,(SELECT ISNULL(sta.NAME_${userLanguage}, sta.NAME_DEFAULT) 
+			  FROM TB_SMS_CODE_DETAIL sta 
+			  WHERE sta.ENT_CODE = od.ENT_CODE 
+			  AND sta.CODE = od.CD_TYPE
+			  AND sta.GROUP_CODE = 'CD_TYPE'
+			  ) AS CD_TYPE_NM
+			,od.PIECES
+			,od.GWT
+			,od.VWT
+			,od.HSN
+			,od.AR_DATE
+			,od.DEST_CODE
+			,od.OB_DATE
+			,od.ORIG_CODE
+			,od.COMMODITY_ITEM
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV1) AS CUST_CODE_LV1
+			,od.SHIPPER_NAME
+			,od.CONSIGNEE_NAME
+			,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS CONSIGNEE_ADDRESS
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+			,od.CONSIGNEE_NAME_LOC
+			,od.CONSIGNEE_ADDRESS_LOC
+			,od.CONSIGNEE_ZIPCODE
+			,(SELECT ISNULL(sta.NAME_${userLanguage}, sta.NAME_DEFAULT) 
+			  FROM TB_SMS_CODE_DETAIL sta 
+			  WHERE sta.ENT_CODE = od.ENT_CODE 
+			  AND sta.CODE = od.CLEARANCE_PAYMENT_TYPE
+			  AND sta.GROUP_CODE = 'ECM_PAYMENT_GUBN'
+			  ) AS CLEARANCE_PAYMENT_TYPE
+<!-- 			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.DELIVERY_CODE ) AS DELIVERY_CODE -->
+			,od.DELIVERY_CODE
+			,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND code = od.DELIVERY_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE') AS DELIVERY_NAME
+			,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND code = od.DELIVERY_PAYMENT_TYPE AND GROUP_CODE = 'ECM_PAYMENT_GUBN') AS DELIVERY_PAYMENT_TYPE
+			,od.DELIVERY_NOTE 
+			,(SELECT ISNULL(sta.NAME_${userLanguage}, sta.NAME_DEFAULT) 
+			  FROM TB_SMS_CODE_DETAIL sta 
+			  WHERE sta.ENT_CODE = od.ENT_CODE 
+			  AND sta.CODE = (SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N')
+			  AND sta.GROUP_CODE = 'HOLD_CODE'
+			  ) AS HOLD_NM
+			,CASE WHEN ISNULL((SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N'), '') IN ('', '4')
+			 	  THEN (SELECT TOP 1 HOLD_REASON FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N')
+			 	  ELSE (SELECT NAME_${userLanguage}
+			 	  		FROM TB_SMS_CODE_DETAIL
+			 	  		WHERE ENT_CODE = od.ENT_CODE
+			 	  		AND GROUP_CODE = 'HOLD_CODE'
+			 	  		AND CODE = (SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N'))
+				  END AS HOLD_REASON
+			,det.NAME_${userLanguage} AS LAST_POD_STATUS_NM	
+			,od.BOUND
+			,odAdd.CLEARANCE_YN
+			,odAdd.CARRYIN_DATE
+			,CASE WHEN pod.POD_STATUS = 'ECM290' THEN 'Y' ELSE 'N' END AS CARRYOUT_YN
+			,CASE WHEN 	odAdd.CARRYOUT_DATE IS NOT NULL THEN 'Y' ELSE 'N' END AS CARRYDATE_YN
+			,CASE WHEN (SELECT COUNT(*) FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') > 0 THEN 'Y' ELSE 'N' END AS HOLD_YN
+			,od.DELIVERY_FEE
+			,CASE WHEN ISNULL(STOCK_DATE_TIME,'') != '' THEN '재고 | ' + CONVERT(CHAR(10), STOCK_DATE_TIME, 23) +' | ' +
+			(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = odAdd.STOCK_USER_ID)
+			 WHEN ISNULL(CARRYOUT_DATE,'') != '' THEN '반출(세관) | ' + CONVERT(CHAR(10), CARRYOUT_DATE, 23)
+			 WHEN ISNULL(CARRYIN_DATE,'') != '' THEN '반입(세관) | ' + CONVERT(CHAR(10), CARRYIN_DATE, 23)  
+			 ELSE '' END AS WH_LOCATION_NM
+			,od.INSPECTION_YN
+			,odAdd.SE_INSPECTION_YN
+			,CASE WHEN od.INSPECTION_YN = 'Y' THEN '검사'
+			      WHEN odAdd.SE_INSPECTION_YN = 'Y' THEN '선별'
+			      WHEN odAdd.XRAY_YN = 'Y' THEN 'X-RAY'
+			 END AS INSPECTION_NM
+			,(SELECT SUM(AR_AMOUNT) FROM TB_ECM_OD_COST cost WHERE cost.OD_JOB_NO = od.OD_JOB_NO AND CHARGE_CODE = 'WHC') AS WAREHOUSE_FEE
+			,odAdd.CLEARANCE_DATE
+			,odAdd.DROP_YN
+			,od.MULTI_YN
+			,CASE WHEN (odAdd.CLEARANCE_DATE IS NOT NULL AND odAdd.CARRYIN_DATE IS NOT NULL ) THEN 'Y' ELSE 'N' END AS USE_YN
+			,(SELECT TOP 1 CASE WHEN POD_STATUS = 'ECM280' THEN '승인' WHEN POD_STATUS = 'ECM290' THEN '반출' END FROM TB_ECM_POD_03 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS IN('ECM280', 'ECM290')) AS POD_STATUS
+			,odAdd.INSPECTION_SEQ_NO
+			<choose>
+			<when test='cryptographyYn == "Y"'>
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS CONSIGNEE_HP
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+			</when>
+			<otherwise>
+			,od.CONSIGNEE_HP
+			,od.CONSIGNEE_TEL
+			</otherwise>
+			</choose>
+		FROM TB_ECM_OD od
+		LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+		LEFT OUTER JOIN TB_ECM_POD_03 pod ON od.OD_JOB_NO = pod.OD_JOB_NO AND pod.POD_STATUS = 'ECM290'
+		LEFT JOIN TB_SMS_CODE_DETAIL det ON 
+				od.ENT_CODE = det.ENT_CODE AND det.GROUP_CODE = 'STATUS_ORDER_CARGO' AND odAdd.LAST_POD_STATUS = det.CODE 
+		WHERE od.ENT_CODE = #{entCode}
+		AND od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+		AND od.DEST_CODE = #{destCode}
+		/*AND od.AR_DATE > DATEADD(day, -90, GETDATE())*/
+		ORDER BY od.PO_DATE DESC, AR_DATE DESC 
+	</select>
+	
+	<select id="selectOrderDetail2" parameterType="searchMobEcod" resultType="mobEcod" >
+		/* MobEcodMapper.selectOrderDetail2 : 출고처리 조회 */
+		SELECT TOP 1
+			 od.OD_JOB_NO
+<!-- 			,od.MBL_NO -->
+			,od.HBL_NO
+<!-- 			,od.CD_TYPE -->
+<!-- 			,(SELECT ISNULL(sta.NAME_${userLanguage}, sta.NAME_DEFAULT)  -->
+<!-- 			  FROM TB_SMS_CODE_DETAIL sta  -->
+<!-- 			  WHERE sta.ENT_CODE = od.ENT_CODE  -->
+<!-- 			  AND sta.CODE = od.CD_TYPE -->
+<!-- 			  AND sta.GROUP_CODE = 'CD_TYPE' -->
+<!-- 			  ) AS CD_TYPE_NM -->
+			,od.PIECES 
+			,od.GWT
+<!-- 			,od.AR_DATE -->
+<!-- 			,od.BOUND -->
+			,odAdd.CARRYIN_DATE
+			,CASE WHEN 	pod.POD_STATUS = 'ECM280' THEN 'Y' ELSE 'N' END AS CARRYOUT_YN
+			,CASE WHEN (SELECT COUNT(*) FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') > 0 THEN 'Y' ELSE 'N' END AS HOLD_YN
+<!-- 			,pod.POD_STATUS -->
+<!-- 			,odAdd.DROP_YN -->
+
+		FROM TB_ECM_OD od
+			LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+			LEFT OUTER JOIN TB_ECM_POD_03 pod ON od.OD_JOB_NO = pod.OD_JOB_NO 
+										  AND pod.POD_STATUS = 'ECM280'
+		WHERE od.ENT_CODE = #{entCode}
+		AND od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+		AND od.DEST_CODE = #{destCode}
+		<if test='selectType == "carryOut"'>
+		AND od.PIECES > 0
+		AND (od.CD_TYPE = 'N' OR od.CD_TYPE = 'B' OR odAdd.DROP_YN = 'Y') 
+		AND odAdd.CARRYIN_DATE IS NOT NULL
+		AND odAdd.CLEARANCE_DATE IS NOT NULL
+		</if>
+		<if test='carryoutStatus == "P"'>
+		AND odAdd.WH_CARRYOUT_DATE IS NULL    
+		AND odAdd.CARRYOUT_USER_ID IS NULL   
+		</if>
+		<if test='carryoutStatus == "F"'>
+		AND odAdd.WH_CARRYOUT_DATE IS NOT NULL    
+		AND odAdd.CARRYOUT_USER_ID IS NOT NULL   
+		</if>
+		<if test="srchStartDate != null and srchStartDate != ''">
+		AND od.AR_DATE >= #{srchStartDate}
+		</if>
+		<if test="srchEndDate != null and srchEndDate != ''">
+		AND od.AR_DATE <![CDATA[<=]]> #{srchEndDate}
+		</if>
+<!-- 		AND od.AR_DATE > GETDATE() - 90 -->
+		ORDER BY od.PO_DATE DESC
+		
+	</select>
+	
+	
+	<select id="selectCarryoutCnt" parameterType="searchMobEcod" resultType="int">
+		/* MobEcodMapper.selectCarryoutCnt : Order 출고건수  */
+		SELECT COUNT(*) 
+		FROM TB_ECM_OD_ADDITIONAL  
+		WHERE CARRYOUT_DATE = CONVERT(CHAR(8), GETDATE(), 112)
+		AND CARRYOUT_STATUS = 'F'
+	</select>
+	
+	<update id="carryoutSave" parameterType="mobEcod">
+		/* MobEcodMapper.carryoutSave : 모바일 출고처리 */			
+		UPDATE TB_ECM_OD_ADDITIONAL SET  
+		    <if test='carryoutStatus == "P"'>
+		    	CARRYOUT_STATUS = 'F'
+		    	,WH_CARRYOUT_DATE = GETDATE()
+				,CARRYOUT_USER_ID = #{carryoutUserId} 
+			</if>
+			<if test='carryoutStatus == "F"'>
+				CARRYOUT_STATUS = 'P'
+				,WH_CARRYOUT_DATE = NULL
+				,CARRYOUT_USER_ID = NULL
+			</if>
+		<if test="carryoutList != null and carryoutList != ''">
+			WHERE OD_JOB_NO IN
+			(<foreach collection="carryoutList" item="item" separator=",">#{item.odJobNo}</foreach>)
+		</if>                                                  
+<!-- 		WHERE OD_JOB_NO IN -->
+<!-- 			(<foreach collection="carryoutList" item="item" separator=",">#{item.odJobNo}</foreach>) -->
+	</update>
+	
+	<select id="selectInventoryList" parameterType="searchMobEcod" resultType="mobEcod">
+		/* MobEcodMapper.selectInventoryList : 로케이션 재고 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+		    od.OD_JOB_NO,
+		    od.MBL_NO,
+		    MAX(od.HBL_NO) AS HBL_NO,
+		    SUM(od.PIECES) AS PIECES,
+		    CASE WHEN odAdd.CARRYOUT_DATE IS NOT NULL THEN 'Y' ELSE 'N' END AS CARRYOUT_YN,
+		    CASE WHEN (SELECT COUNT(*) FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') > 0 THEN 'Y' ELSE 'N' END AS HOLD_YN,
+		    MAX(ISNULL(od.CONSIGNEE_NAME_LOC, od.CONSIGNEE_NAME)) AS CONSIGNEE_NAME,
+		    MAX(od.AR_DATE) AS AR_DATE,
+		    MAX(od.INSPECTION_YN) AS INSPECTION_YN
+		FROM TB_ECM_OD od
+		LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+		WHERE od.ENT_CODE = #{entCode}
+		AND odAdd.WH_LOCATION = #{whLocation}
+		AND DEST_CODE = #{destCode}
+		AND odAdd.WH_CARRYOUT_DATE IS NOT NULL
+		AND odAdd.CARRYOUT_USER_ID IS NOT NULL
+		GROUP BY
+    		od.OD_JOB_NO,
+   			od.MBL_NO,
+   			odAdd.CARRYOUT_DATE
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectLocationList" parameterType="mobEcod"  resultType="mobEcod">
+		/* MobEcodMapper.selectLocationList : 모바일 로케이션 조회 */		
+		SELECT
+			 CODE AS WH_LOCATION
+			<choose>
+				<when test="userLanguage == null or userLanguage == ''">
+		  			,${userLangMobile} AS WH_LOCATION_NM 	
+		  		</when>
+		  		<otherwise>
+					,NAME_${userLanguage} AS WH_LOCATION_NM
+		  		</otherwise>
+	  		</choose>
+		FROM TB_SMS_CODE_DETAIL
+		WHERE 1=1
+		AND USE_YN = 'Y'
+		AND GROUP_CODE = 'WH_LOCATION'	
+		AND ENT_CODE = #{entCode}
+		<if test="hblNo != null and hblNo != ''">
+		AND CODE = LTRIM(RTRIM(#{hblNo}))
+		</if>
+	</select>
+	
+	
+	<update id="inventorySave" parameterType="mobEcod">
+		/* MobEcodMapper.inventorySave : 모바일 재고등록 */			
+		UPDATE odAdd SET
+		    WH_LOCATION = #{whLocation} 
+		    <if test="gmtTime != null and gmtTime != ''">
+			,STOCK_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			</if>
+			<if test='gmtTime == null or gmtTime == ""'>
+			,STOCK_DATE_TIME = NULL
+			</if>
+		    ,STOCK_USER_ID = #{stockUserId}
+		    ,STOCK_YN = #{stockYn}
+<!-- 		    ,CARRYOUT_DATE = NULL     -->
+<!-- 		    ,CARRYOUT_USER_ID = NULL                                                     -->
+    	FROM TB_ECM_OD od
+		INNER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+		WHERE od.HBL_NO = LTRIM(RTRIM(#{hblNo})) 
+	</update>
+	
+	
+	
+	<select id="selectOrderMulti" parameterType="searchMobEcod" resultType="mobEcodMulti">
+		/* MobEcodMapper.selectOrderMulti : Multi 멀티중량  List */
+		SELECT
+			ROW_NUMBER() OVER(ORDER BY SEQ_NO_ID ASC) AS NUM
+			,multi.OD_JOB_NO
+			,multi.SEQ_NO_ID
+			,multi.DELIVERY_NO
+			,multi.DELIVERY_CODE
+			,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = multi.DELIVERY_CODE) AS DELIVERY_NAME
+			,multi.CUSTOMER_CODE
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{entCode} AND CUSTOMER_CODE = multi.CUSTOMER_CODE) AS CUSTOMER_NAME
+			,multi.DELIVERY_NO_CHANGED
+			,multi.PIECES
+			,multi.PAYMENT_GUBN
+			,multi.DELIVERY_FEE
+			,multi.DIM_WIDTH
+			,multi.DIM_LENGTH
+			,multi.DIM_HEIGHT
+			,multi.VWT				
+		FROM TB_ECM_OD_MULTI multi
+		WHERE multi.OD_JOB_NO = #{odJobNo}
+		ORDER BY multi.SEQ_NO_ID
+	</select>
+	
+	<update id="insertOrderMulti" parameterType="mobEcodMulti">
+		/* MobEcodMapper.insertOrderMulti : 멀티등록 */			
+		INSERT INTO TB_ECM_OD_MULTI(
+			OD_JOB_NO
+			,SEQ_NO_ID
+			,DELIVERY_NO
+			,DELIVERY_CODE
+			,PAYMENT_GUBN
+			,PIECES
+			,DIM_WIDTH
+			,DIM_LENGTH
+			,DIM_HEIGHT
+			,VWT
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+		)VALUES(
+		   #{odJobNo}
+		    ,(SELECT ISNULL(MAX(SEQ_NO_ID), 0) + 1 FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = #{odJobNo})
+		    ,#{deliveryNo}
+			,#{deliveryCode}
+			,#{paymentGubn}
+		    ,#{pieces}
+		    ,#{dimWidth}
+		    ,#{dimLength}
+		    ,#{dimHeight}
+		    ,#{vwt}
+		    ,#{registerUserId}
+		    ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</update>
+	
+	<update id="updateOrderMulti" parameterType="mobEcodMulti">
+		/* MobEcodMapper.updateOrderMulti : 멀티등록 update*/			
+		UPDATE TB_ECM_OD_MULTI
+		SET	DELIVERY_CODE = #{deliveryCode}
+			<if test='gubun == "MULTI"'>
+			,DELIVERY_NO_CHANGED = #{deliveryNoChanged}
+			</if>
+			<if test='gubun == "CASE"'>
+			,PAYMENT_GUBN = #{paymentGubn}
+			</if>
+			,PIECES = #{pieces}
+			,DIM_WIDTH = #{dimWidth}
+			,DIM_LENGTH = #{dimLength}
+			,DIM_HEIGHT = #{dimHeight}
+			,VWT = #{vwt}
+			,REGISTER_USER_ID = #{registerUserId}
+			,REGISTER_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		WHERE OD_JOB_NO = #{odJobNo}
+		    AND SEQ_NO_ID = #{seqNoId}
+	</update>
+	
+	<update id="deleteOrderMulti" parameterType="mobEcod">
+		/* MobEcodMapper.deleteOrderMulti : 멀티등록 delete*/		
+		<if test="odJobNo != null and odJobNo != ''">
+			DELETE FROM TB_ECM_OD_MULTI
+			WHERE OD_JOB_NO = #{odJobNo}
+		</if>
+		<if test='odJobNo == null or odJobNo == ""'>
+			DELETE FROM TB_ECM_OD_MULTI
+			WHERE OD_JOB_NO = (SELECT TOP 1 OD_JOB_NO FROM TB_ECM_OD WHERE ENT_CODE = #{entCode} AND HBL_NO = LTRIM(RTRIM(#{hblNo})) ORDER BY PO_DATE DESC)
+		</if>
+	</update>
+	
+	<update id="updateOrderReceiptMulti" parameterType="mobEcod">
+		/* MobEcodMapper.updateOrderReceiptMulti : 멀티등록 인계정보 update*/		
+		UPDATE TB_ECM_OD_MULTI SET
+			DELIVERER_USER_ID = #{recipientUserId}
+			,RECIPIENT_NAME = #{recipientName}
+			<if test='gubun == "F"'>
+			,DELIVERY_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		  	,RECEIPT_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			</if>
+			<if test='gubun == "C"'>
+			,DELIVERY_DATE = NULL
+		  	,RECEIPT_DATE = NULL
+			</if>
+		<choose>
+			<when test="odJobNo != null and odJobNo != ''">
+		WHERE OD_JOB_NO = #{odJobNo}
+			</when>
+			<otherwise>
+		WHERE OD_JOB_NO = (SELECT TOP 1 OD_JOB_NO FROM TB_ECM_OD WHERE ENT_CODE = #{entCode} AND HBL_NO = LTRIM(RTRIM(#{hblNo})) ORDER BY PO_DATE DESC)
+			</otherwise>
+		</choose>
+	</update>
+	
+	<update id="multiBatchDelete" parameterType="mobEcod">
+		/* MobEcodMapper.multiBatchDelete : 멀티등록 일괄등록 전 삭제 */
+		DELETE FROM TB_ECM_OD_MULTI
+		WHERE OD_JOB_NO IN (<foreach collection="multiList" item="item" separator=",">#{item.odJobNo}</foreach>)
+	</update>
+	
+	<update id="multiBatchSave" parameterType="mobEcod">
+		/* MobEcodMapper.multiBatchSave : 멀티등록 일괄등록 */			
+		INSERT INTO TB_ECM_OD_MULTI(
+			OD_JOB_NO
+			,SEQ_NO_ID
+			,DELIVERY_NO
+			,DELIVERY_CODE
+			,PIECES
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,RECIPIENT_NAME
+			,RECEIPT_DATE
+		)
+		SELECT
+		    od.OD_JOB_NO
+		    ,(SELECT ISNULL(MAX(SEQ_NO_ID), 0) + 1 FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO)
+		    ,od.HBL_NO
+			,#{deliveryCode}
+		    ,od.PIECES
+		    ,#{registerUserId}
+		    ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		    ,#{recipientName}
+		    ,#{gmtTime}
+		FROM TB_ECM_OD od
+			WHERE od.OD_JOB_NO IN 
+			(<foreach collection="multiList" item="item" separator=",">#{item.odJobNo}</foreach>)
+	</update>
+	
+	<update id="saveReceiptList" parameterType="mobEcod">
+		/* MobEcodMapper.saveReceiptList : 멀티 인계 또는 취소처리*/	
+		UPDATE TB_ECM_OD_MULTI SET
+		<if test='gubun == "F"'>
+		 DELIVERER_USER_ID = #{recipientUserId}
+		,DELIVERY_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		,RECIPIENT_NAME = #{recipientName}
+		,RECEIPT_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		</if>
+		<if test='gubun == "C"'>
+		 DELIVERER_USER_ID = NULL
+		,DELIVERY_DATE = NULL
+		,RECIPIENT_NAME = NULL
+		,RECEIPT_DATE = NULL
+		</if>		
+		WHERE OD_JOB_NO IN (<foreach collection="multiList" item="item" separator=",">#{item.odJobNo}</foreach>)
+	</update>
+	
+	<update id="saveReceiptList2" parameterType="mobEcod">
+		/* MobEcodMapper.saveReceiptList2 : 인계정보 저장*/	
+		UPDATE TB_ECM_OD_ADDITIONAL SET
+			CARRYOUT_USER_ID = #{recipientUserId}
+			<if test='gubun == "F"'>
+				,WH_CARRYOUT_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			</if>
+			<if test='gubun == "C"'>
+				,WH_CARRYOUT_DATE = NULL
+			</if>
+		<choose>
+			<when test="multiList != null and multiList != ''">
+				WHERE OD_JOB_NO IN (<foreach collection="multiList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			</when>              
+			<otherwise>
+				WHERE OD_JOB_NO = #{odJobNo}
+			</otherwise> 
+		</choose>   
+	</update>
+	
+	<select id="selectOrderDetailByCarryoutList" parameterType="searchMobEcod" resultType="mobEcod">
+		/* MobEcodMapper.selectOrderDetailByCarryoutList : 출고처리 리스트 조회 */
+		SELECT
+			 od.OD_JOB_NO
+			,od.HBL_NO
+			,od.PIECES 
+			,od.GWT
+			,odAdd.CARRYIN_DATE
+			,CASE WHEN 	pod.POD_STATUS = 'ECM280' THEN 'Y' ELSE 'N' END AS CARRYOUT_YN
+			,CASE WHEN (SELECT COUNT(*) FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') > 0 THEN 'Y' ELSE 'N' END AS HOLD_YN
+		FROM TB_ECM_OD od
+			LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+			LEFT OUTER JOIN TB_ECM_POD_03 pod ON od.OD_JOB_NO = pod.OD_JOB_NO
+										  AND pod.POD_STATUS = 'ECM280'
+		WHERE od.ENT_CODE = #{entCode}
+		AND od.PIECES > 0
+		AND (od.CD_TYPE = 'N' OR od.CD_TYPE = 'B' OR odAdd.DROP_YN = 'Y')
+		AND od.DEST_CODE = #{destCode} 
+		AND odAdd.CARRYIN_DATE IS NOT NULL
+		AND odAdd.CLEARANCE_DATE IS NOT NULL
+		<if test="srchBoundType != null and srchBoundType != ''">
+		AND od.BOUND_TYPE >= #{srchBoundType}
+		</if>
+		<if test="srchStartDate != null and srchStartDate != ''">
+		AND od.AR_DATE >= #{srchStartDate}
+		</if>
+		<if test="srchEndDate != null and srchEndDate != ''">
+		AND od.AR_DATE <![CDATA[<=]]> #{srchEndDate}
+		</if>
+		<if test='carryoutStatus == "P"'>
+		AND WH_CARRYOUT_DATE IS NULL    
+		AND CARRYOUT_USER_ID IS NULL   
+		</if>
+		<if test='carryoutStatus == "F"'>
+		AND WH_CARRYOUT_DATE IS NOT NULL    
+		AND CARRYOUT_USER_ID IS NOT NULL   
+		</if>
+		
+	</select>
+	
+	
+	<select id="selectMultiOrderDetail" parameterType="searchMobEcod" resultType="mobEcod">
+		/* MobEcodMapper.selectMultiOrderDetail : 화물 일괄 조회(하우스번호) */
+		SELECT TOP 1
+			 od.OD_JOB_NO
+			,od.MBL_NO
+			,od.HBL_NO
+			,od.PIECES
+			,od.GWT
+			,(CASE WHEN 'ECM280' IN (SELECT POD_STATUS FROM TB_ECM_POD_03 po WHERE od.ENT_CODE = po.ENT_CODE AND od.OD_JOB_NO = po.OD_JOB_NO) THEN 'Y' ELSE 'N' END) AS ECM280YN
+			,CASE WHEN (SELECT COUNT(*) FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') > 0 THEN 'Y' ELSE 'N' END AS HOLD_YN
+			,STUFF((SELECT CONCAT('|', SEQ_NO_ID) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO AND DELIVERY_NO = od.HBL_NO FOR XML PATH('')), 1, 1, '') as SEQ_NO_ID
+		FROM TB_ECM_OD od
+		WHERE od.ENT_CODE = #{entCode}
+		AND od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+		AND od.AR_DATE > DATEADD(DD, -90, GETDATE())
+		AND od.DEST_CODE = #{destCode}
+	</select>
+	
+	<select id="selectMultiOrderList" parameterType="searchMobEcod" resultType="mobEcodMulti">
+		/* MobEcodMapper.selectMultiOrderList : 화물 일괄 조회(송장번호) */
+		SELECT mu.DELIVERY_NO
+			,od.OD_JOB_NO
+			,mu.SEQ_NO_ID
+			,od.PIECES, od.GWT
+			,(CASE WHEN 'ECM280' IN (SELECT POD_STATUS FROM TB_ECM_POD_03 po WHERE od.ENT_CODE = po.ENT_CODE AND od.OD_JOB_NO = po.OD_JOB_NO) THEN 'Y' ELSE 'N' END) AS ECM280YN
+			,CASE WHEN (SELECT COUNT(*) FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') > 0 THEN 'Y' ELSE 'N' END AS HOLD_YN
+			,od.PO_DATE 
+		FROM TB_ECM_OD od
+		LEFT OUTER JOIN TB_ECM_OD_MULTI mu ON od.OD_JOB_NO = mu.OD_JOB_NO 
+		WHERE od.ENT_CODE = #{entCode}
+		AND mu.DELIVERY_NO  = LTRIM(RTRIM(#{hblNo}))
+		<if test="odJobNo != null and odJobNo != ''">
+			AND od.OD_JOB_NO = #{odJobNo}
+		</if>
+		<if test="destCode != null and destCode != ''">
+			AND od.DEST_CODE = #{destCode}
+		</if>
+		AND od.AR_DATE > DATEADD(DD, -90, GETDATE())
+	</select>	
+	
+	<update id="insertMultiOrderDelivery" parameterType="mobEcodMulti">
+		/* MobEcodMapper.insertMultiOrderDelivery : 변경배송사 신규등록 */			
+		INSERT INTO TB_ECM_OD_MULTI(
+			OD_JOB_NO
+			,SEQ_NO_ID
+			,DELIVERY_NO
+			,DELIVERY_CODE
+			,PAYMENT_GUBN
+			,DELIVERY_FEE
+			,PIECES
+			,DIM_WIDTH
+			,DIM_LENGTH
+			,DIM_HEIGHT
+			,VWT
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+		)VALUES(
+		    #{odJobNo}
+		    ,(SELECT ISNULL(MAX(SEQ_NO_ID), 0) + 1 FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = #{odJobNo})
+		    ,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+			,#{deliveryCode}
+			,'01'
+			,0
+			,0
+			,0
+			,0
+			,0
+			,0
+		    ,#{registerUserId}
+		    ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</update>
+	
+	<update id="updateMultiOrderDeliveryMul" parameterType="mobEcodMulti">
+	/* MobEcodMapper.updateMultiOrderDeliveryMul : 변경배송사 업데이트(멀티중량화물) */	
+		UPDATE TB_ECM_OD_MULTI 
+		SET
+		    DELIVERY_CODE = #{deliveryCode}      
+		WHERE OD_JOB_NO = #{odJobNo}
+	    AND SEQ_NO_ID = #{seqNoId}
+	</update>
+	
+	<select id="selectCaseOrderDetail" parameterType="searchMobEcod" resultType="mobEcod">
+		/* MobEcodMapper.selectCaseOrderDetail : 화물 건별 조회 */
+		SELECT TOP 1
+			 od.OD_JOB_NO
+			,od.BOUND
+			,od.PO_DATE
+			,od.MBL_NO
+			,od.HBL_NO
+			,od.PIECES
+			,od.GWT
+			,od.DELIVERY_PAYMENT_TYPE AS DELIVERY_PAYMENT_TYPE
+			,od.CONSIGNEE_NAME
+			,od.COMMODITY_ITEM
+			,od.DELIVERY_CODE
+			,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND code = od.DELIVERY_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE') AS DELIVERY_NAME
+		FROM TB_ECM_OD od
+		WHERE od.ENT_CODE = #{entCode}
+		AND od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+		AND od.DEST_CODE = #{destCode}
+	</select>
+	
+	<update id="deleteCaseOrderDelivery" parameterType="mobEcodMulti">
+		/* MobEcodMapper.deleteCaseOrderDelivery : 건별 그리드 delete*/		
+			DELETE FROM TB_ECM_OD_MULTI
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="saveCaseOrderDelivery" parameterType="mobEcodMulti">
+		/* MobEcodMapper.saveCaseOrderDelivery : 건별 변경송장번호 등록 */			
+		INSERT INTO TB_ECM_OD_MULTI(
+			OD_JOB_NO
+			,SEQ_NO_ID
+			,DELIVERY_NO
+			,DELIVERY_NO_CHANGED
+			,DELIVERY_CODE
+			,PAYMENT_GUBN
+			,DELIVERY_FEE
+			,PIECES
+			,DIM_WIDTH
+			,DIM_LENGTH
+			,DIM_HEIGHT
+			,VWT
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+		)VALUES(
+		    #{odJobNo}
+		    ,(SELECT ISNULL(MAX(SEQ_NO_ID), 0) + 1 FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = #{odJobNo})
+		    ,#{notChkBl}
+		    ,#{deliveryNoChanged}
+			,#{deliveryCodeChange}
+			,#{paymentGubn}
+			,#{deliveryFee}
+			,#{pieces}
+			,#{dimWidth}
+			,#{dimLength}
+			,#{dimHeight}
+			,#{vwt}
+		    ,#{registerUserId}
+		    ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</update>
+
+
+	<select id="selectCaseOrderDetailMultiVe" parameterType="searchMobEcod" resultType="mobEcod">
+		/* MobEcodMapper.selectCaseOrderDetailMultiVe : 화물 건별 조회 */
+		SELECT TOP 1
+			 od.OD_JOB_NO
+			,od.BOUND
+			,mul.PAYMENT_GUBN AS DELIVERY_PAYMENT_TYPE
+			 ,od.PO_DATE
+			 ,od.MBL_NO
+			 ,od.HBL_NO
+			 ,od.PIECES
+			 ,od.GWT
+			 ,od.CONSIGNEE_NAME
+			 ,od.COMMODITY_ITEM
+			 ,od.DELIVERY_CODE
+			 ,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND code = od.DELIVERY_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE') AS DELIVERY_NAME
+		FROM TB_ECM_OD_MULTI mul
+			 LEFT JOIN TB_ECM_OD od
+						   ON od.OD_JOB_NO = mul.OD_JOB_NO
+		WHERE DELIVERY_NO = LTRIM(RTRIM(#{hblNo}))
+		  AND od.DEST_CODE = #{destCode}
+		  AND od.ENT_CODE = #{entCode}
+	</select>
+
+
+	<select id="selectOrderDetailVe" parameterType="searchMobEcod" resultType="mobEcod" >
+		/* MobEcodMapper.selectOrderDetail : Order 조회 */
+		SELECT TOP 1
+		od.OD_JOB_NO
+		,od.MBL_NO
+		,od.HBL_NO
+		,od.CD_TYPE
+		,(SELECT ISNULL(sta.NAME_${userLanguage}, sta.NAME_DEFAULT)
+		FROM TB_SMS_CODE_DETAIL sta
+		WHERE sta.ENT_CODE = od.ENT_CODE
+		AND sta.CODE = od.CD_TYPE
+		AND sta.GROUP_CODE = 'CD_TYPE'
+		) AS CD_TYPE_NM
+		,od.PIECES
+		,od.GWT
+		,od.VWT
+		,od.HSN
+		,od.AR_DATE
+		,od.DEST_CODE
+		,od.OB_DATE
+		,od.ORIG_CODE
+		,od.COMMODITY_ITEM
+		,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV1) AS CUST_CODE_LV1
+		,od.SHIPPER_NAME
+		,od.CONSIGNEE_NAME
+		,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS CONSIGNEE_ADDRESS
+		,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+		,od.CONSIGNEE_NAME_LOC
+		,od.CONSIGNEE_ADDRESS_LOC
+		,od.CONSIGNEE_ZIPCODE
+		,(SELECT ISNULL(sta.NAME_${userLanguage}, sta.NAME_DEFAULT)
+		FROM TB_SMS_CODE_DETAIL sta
+		WHERE sta.ENT_CODE = od.ENT_CODE
+		AND sta.CODE = od.CLEARANCE_PAYMENT_TYPE
+		AND sta.GROUP_CODE = 'ECM_PAYMENT_GUBN'
+		) AS CLEARANCE_PAYMENT_TYPE
+		<!-- 			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.DELIVERY_CODE ) AS DELIVERY_CODE -->
+		,od.DELIVERY_CODE
+		,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND code = od.DELIVERY_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE') AS DELIVERY_NAME
+		,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND code = od.DELIVERY_PAYMENT_TYPE AND GROUP_CODE = 'ECM_PAYMENT_GUBN') AS DELIVERY_PAYMENT_TYPE
+		,od.DELIVERY_NOTE
+		,(SELECT ISNULL(sta.NAME_${userLanguage}, sta.NAME_DEFAULT)
+		FROM TB_SMS_CODE_DETAIL sta
+		WHERE sta.ENT_CODE = od.ENT_CODE
+		AND sta.CODE = (SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N')
+		AND sta.GROUP_CODE = 'HOLD_CODE'
+		) AS HOLD_NM
+		,CASE WHEN ISNULL((SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N'), '') IN ('', '4')
+		THEN (SELECT TOP 1 HOLD_REASON FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N')
+		ELSE (SELECT NAME_${userLanguage}
+		FROM TB_SMS_CODE_DETAIL
+		WHERE ENT_CODE = od.ENT_CODE
+		AND GROUP_CODE = 'HOLD_CODE'
+		AND CODE = (SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N'))
+		END AS HOLD_REASON
+		,det.NAME_${userLanguage} AS LAST_POD_STATUS_NM
+		,od.BOUND
+		,odAdd.CLEARANCE_YN
+		,odAdd.CARRYIN_DATE
+		,CASE WHEN pod.POD_STATUS = 'ECM290' THEN 'Y' ELSE 'N' END AS CARRYOUT_YN
+		,CASE WHEN 	odAdd.CARRYOUT_DATE IS NOT NULL THEN 'Y' ELSE 'N' END AS CARRYDATE_YN
+		,CASE WHEN (SELECT COUNT(*) FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') > 0 THEN 'Y' ELSE 'N' END AS HOLD_YN
+		,od.DELIVERY_FEE
+		,CASE WHEN ISNULL(STOCK_DATE_TIME,'') != '' THEN '재고 | ' + CONVERT(CHAR(10), STOCK_DATE_TIME, 23) +' | ' +
+		(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = odAdd.STOCK_USER_ID)
+		WHEN ISNULL(CARRYOUT_DATE,'') != '' THEN '반출(세관) | ' + CONVERT(CHAR(10), CARRYOUT_DATE, 23)
+		WHEN ISNULL(CARRYIN_DATE,'') != '' THEN '반입(세관) | ' + CONVERT(CHAR(10), CARRYIN_DATE, 23)
+		ELSE '' END AS WH_LOCATION_NM
+		,od.INSPECTION_YN
+		,odAdd.SE_INSPECTION_YN
+		,CASE WHEN od.INSPECTION_YN = 'Y' THEN '검사'
+		WHEN odAdd.SE_INSPECTION_YN = 'Y' THEN '선별'
+		WHEN odAdd.XRAY_YN = 'Y' THEN 'X-RAY'
+		END AS INSPECTION_NM
+		,(SELECT SUM(AR_AMOUNT) FROM TB_ECM_OD_COST cost WHERE cost.OD_JOB_NO = od.OD_JOB_NO AND CHARGE_CODE = 'WHC') AS WAREHOUSE_FEE
+		,odAdd.CLEARANCE_DATE
+		,odAdd.DROP_YN
+		,CASE WHEN odAdd.SE_INSPECTION_CODE = '01' THEN '총기'
+		WHEN odAdd.SE_INSPECTION_CODE = '02' THEN '마약'
+		WHEN odAdd.SE_INSPECTION_CODE = '03' THEN '검역'
+		WHEN odAdd.SE_INSPECTION_CODE = '04' THEN '식품'
+		WHEN odAdd.SE_INSPECTION_CODE = '05' THEN '의약품'
+		WHEN odAdd.SE_INSPECTION_CODE = '06' THEN '수입검사'
+		WHEN odAdd.SE_INSPECTION_CODE = 'C' THEN '수입검사'
+		WHEN odAdd.SE_INSPECTION_CODE = '07' THEN 'AI고위험'
+		ELSE '검사미지정'
+		END AS SE_INSPECTION_CHK
+		,(CAST(odAdd.INSPECTION_SEQ_NO AS VARCHAR) + '/' + CAST((SELECT COUNT(*) FROM TB_ECM_OD AS AB WHERE AB.MASTER_OD_JOB_NO = od.MASTER_OD_JOB_NO) AS VARCHAR)) AS INSPECTION_SEQ_DISPLAY
+		,od.MULTI_YN
+		,CASE WHEN (odAdd.CLEARANCE_DATE IS NOT NULL AND odAdd.CARRYIN_DATE IS NOT NULL ) THEN 'Y' ELSE 'N' END AS USE_YN
+		,(SELECT TOP 1 CASE WHEN POD_STATUS = 'ECM280' THEN '승인' WHEN POD_STATUS = 'ECM290' THEN '반출' END FROM TB_ECM_POD_03 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS IN('ECM280', 'ECM290')) AS POD_STATUS
+		,odAdd.INSPECTION_SEQ_NO
+		<choose>
+			<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS CONSIGNEE_HP
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+			</when>
+			<otherwise>
+				,od.CONSIGNEE_HP
+				,od.CONSIGNEE_TEL
+			</otherwise>
+		</choose>
+		FROM TB_ECM_OD od
+		LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+		LEFT OUTER JOIN TB_ECM_POD_03 pod ON od.OD_JOB_NO = pod.OD_JOB_NO AND pod.POD_STATUS = 'ECM290'
+		LEFT JOIN TB_SMS_CODE_DETAIL det ON
+		od.ENT_CODE = det.ENT_CODE AND det.GROUP_CODE = 'STATUS_ORDER_CARGO' AND odAdd.LAST_POD_STATUS = det.CODE
+		WHERE od.ENT_CODE = #{entCode}
+		AND od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+		AND od.DEST_CODE = #{destCode}
+		/*AND od.AR_DATE > DATEADD(day, -90, GETDATE())*/
+		ORDER BY od.PO_DATE DESC, AR_DATE DESC
+	</select>
+
+
+	<update id="updateCaseOrderDelivery" parameterType="mobEcodMulti">
+		/* MobEcodMapper.updateCaseOrderDelivery : 건별 변경송장번호 멀티 업데이트 */
+		UPDATE TB_ECM_OD_MULTI SET
+	        DELIVERY_CODE        = #{deliveryCodeChange}
+			 ,PAYMENT_GUBN         = #{paymentGubn}
+			 ,DELIVERY_FEE         = #{deliveryFee}
+			 ,PIECES               = #{pieces}
+			 ,DIM_WIDTH            = #{dimWidth}
+			 ,DIM_LENGTH           = #{dimLength}
+			 ,DIM_HEIGHT           = #{dimHeight}
+			 ,VWT                  = #{vwt}
+		WHERE OD_JOB_NO = #{odJobNo}
+		AND DELIVERY_NO  = #{notChkBl}
+	</update>
+
+</mapper>

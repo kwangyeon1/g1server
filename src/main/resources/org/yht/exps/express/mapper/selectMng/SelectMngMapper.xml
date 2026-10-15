@@ -1,0 +1,1154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.selectMng.SelectMngMapper">
+
+	<select id="selectSelectionList" parameterType="searchSelectionList" resultType="selection">
+		/* SelectMngMapper.selectSelectionList : 목록선별 리스트 조회 */
+		<if test='srchType != "updateHsCode"'>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		</if>
+			SELECT
+				 od.HBL_NO
+				,od.PIECES
+				,od.GWT
+				,od.AMOUNT_LOC
+				,od.AMOUNT_CUR
+				,od.COMMODITY_ITEM
+				,od.ALLOWED_ITEM_CODE
+				,od.URL
+				,od.CONSIGNEE_NAME
+				,od.CONSIGNEE_ADDRESS
+				,od.CONSIGNEE_COUNTRY_CODE
+				,od.SHIPPER_NAME
+				,od.SHIPPER_ADDRESS
+				,od.SHIPPER_TEL
+				,od.SHIPPER_COUNTRY_CODE
+				,od.DEST_CODE
+				,od.DEST_COUNTRY
+				,dbo.Cryptography(od.OD_JOB_NO, od.SHIPPER_BUSINESS_ID, 1) AS SHIPPER_BUSINESS_ID
+				,od.OD_JOB_NO
+				,od.MASTER_OD_JOB_NO
+				,od.BOUND
+				,od.BOUND_TYPE
+				,ISNULL(od.AMOUNT_USD, 0) AS AMOUNT_USD
+				,ISNULL(od.ORIG_COUNTRY, '') AS ORIG_COUNTRY_CODE
+				,ad.CRIME_AREA_YN
+				,ad.ACTUAL_CST_NAME
+				,od.CD_TYPE
+				,od.INSPECTION_YN
+				,od.CD_USE_TYPE
+				,od.ECM_TYPE
+				,od.DOCUMENT_YN
+				,CASE WHEN ad.SELECTION_YN = 'Y' THEN '' ELSE sel.CHECK_INFO END AS CHECK_INFO
+				,CASE WHEN ad.SELECTION_YN = 'Y' THEN '' ELSE sel.SELECTION_TYPE END AS SELECTION_TYPE
+				,CASE WHEN ad.SELECTION_YN = 'Y' OR sel.OD_JOB_NO IS NULL THEN 'N' ELSE sel.DATA_CHANGE_YN END AS DATA_CHANGE_YN
+				<choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+				,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS CUSTOMS_ID
+				</when>
+				<otherwise>
+				,od.CONSIGNEE_TEL
+				,od.CUSTOMS_ID
+				</otherwise>
+				</choose>
+				,ad.SIMPLE_DOC_NO
+				,od.CUST_CODE_LV1
+				,od.CUST_CODE_LV2
+				,od.PIECES_REAL
+			FROM TB_ECM_OD od
+				 LEFT JOIN TB_ECM_OD_ADDITIONAL ad
+				 		   ON ad.OD_JOB_NO = od.OD_JOB_NO
+				 LEFT JOIN TB_ECM_OD_SELECTION sel
+				 		   ON sel.HOUSE_OD_JOB_NO = od.OD_JOB_NO
+				 		   <choose>
+				 		   <when test='srchType == "selfSelection"'>
+				 		   AND sel.AUTO_SELECTION_YN = 'N'
+				 		   </when>
+				 		   <otherwise>
+				 		   AND sel.AUTO_SELECTION_YN = 'Y'
+				 		   </otherwise>
+				 		   </choose>
+			<choose>
+			<when test="srchOdJobNo != null and srchOdJobNo != ''">
+			WHERE od.OD_JOB_NO = #{srchOdJobNo}
+			</when>
+			<when test="srchOdJobNoList != null">
+			WHERE od.OD_JOB_NO IN(<foreach collection="srchOdJobNoList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			<otherwise>
+			WHERE od.MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+			</otherwise>
+			</choose>
+			AND od.BOUND_TYPE = 'IMP'
+			AND od.BL_TYPE_MH = 'H'
+			<if test="srchCdType != null and srchCdType != ''">
+			AND od.CD_TYPE = #{srchCdType}
+			</if>
+			<if test="srchCdUseType != null and srchCdUseType != ''">
+			AND od.CD_USE_TYPE = #{srchCdUseType}
+			</if>
+			<if test="srchEcmType != null and srchEcmType != ''">
+			AND od.ECM_TYPE = #{srchEcmType}
+			</if>
+			<if test="srchInspectionYn != null and srchInspectionYn != ''">
+			AND od.INSPECTION_YN = #{srchInspectionYn}
+			</if>
+			<if test="srchCrimeAreaYn != null and srchCrimeAreaYn != ''">
+			AND ad.CRIME_AREA_YN = #{srchCrimeAreaYn}
+			</if>
+		<if test='srchType != "updateHsCode"'>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+		</if>
+	</select>
+	
+	<select id="selectTempSelectionList" parameterType="searchSelectionList" resultType="selection">
+		/* SelectMngMapper.selectTempSelectionList : 목록선별 임시저장 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			<choose>
+			<when test='srchMode == "excel"'>
+			SELECT 
+				 A.HBL_NO
+				,A.PIECES
+				,A.GWT
+				,A.AMOUNT_LOC
+				,A.AMOUNT_CUR
+				,A.COMMODITY_ITEM
+				,A.ALLOWED_ITEM_CODE
+				,A.URL
+				,A.CONSIGNEE_NAME
+				,A.CONSIGNEE_ADDRESS
+				,A.CUSTOMS_ID
+				,A.CONSIGNEE_TEL
+				,A.CONSIGNEE_COUNTRY_CODE
+				,A.SHIPPER_NAME
+				,A.SHIPPER_ADDRESS
+				,A.SHIPPER_TEL
+				,A.SHIPPER_COUNTRY_CODE
+				,A.DEST_CODE
+				,A.OD_JOB_NO
+				,A.MASTER_OD_JOB_NO
+				,A.BOUND
+				,A.BOUND_TYPE
+				,A.AMOUNT_USD
+				,A.ORIG_COUNTRY_CODE
+				,A.CRIME_AREA_YN
+				,A.INSPECTION_YN
+				,A.CHECK_INFO
+				,A.SELECTION_TYPE
+				,A.DATA_CHANGE_YN
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'CD_TYPE' AND CODE = A.CD_TYPE) AS CD_TYPE
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'USE_GUBN' AND CODE = A.CD_USE_TYPE) AS CD_USE_TYPE
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'CCL_ECOMMERCE_TYPE' AND CODE = A.ECM_TYPE) AS ECM_TYPE
+			FROM(
+			</when>
+			<when test='srchSelectionType == "srchOption"'>
+			SELECT A.* FROM(
+			</when>
+			</choose>
+			SELECT
+				 od.HBL_NO
+				,od.PIECES
+				,od.GWT
+				,od.AMOUNT_LOC
+				,od.AMOUNT_CUR
+				,od.COMMODITY_ITEM
+				,od.URL
+				,od.CONSIGNEE_NAME
+				,od.CONSIGNEE_ADDRESS
+				,od.CONSIGNEE_COUNTRY_CODE
+				,od.SHIPPER_NAME
+				,od.SHIPPER_ADDRESS
+				,od.SHIPPER_TEL
+				,od.SHIPPER_COUNTRY_CODE
+				,od.DEST_CODE
+				,od.OD_JOB_NO
+				,od.MASTER_OD_JOB_NO
+				,od.BOUND
+				,od.BOUND_TYPE
+				,ISNULL(od.AMOUNT_USD, 0) AS AMOUNT_USD
+				,ISNULL(od.ORIG_COUNTRY, '') AS ORIG_COUNTRY_CODE
+				,ad.CRIME_AREA_YN
+				,CASE WHEN ad.SELECTION_YN = 'Y' THEN od.INSPECTION_YN ELSE ISNULL(sel.INSPECTION_YN, od.INSPECTION_YN) END AS INSPECTION_YN
+				,CASE WHEN ad.SELECTION_YN = 'Y' THEN '' ELSE sel.CHECK_INFO END AS CHECK_INFO
+				,CASE WHEN ad.SELECTION_YN = 'Y' THEN '' ELSE sel.SELECTION_TYPE END AS SELECTION_TYPE
+				,CASE WHEN ad.SELECTION_YN = 'Y' OR sel.OD_JOB_NO IS NULL THEN 'N' ELSE sel.DATA_CHANGE_YN END AS DATA_CHANGE_YN
+				,CASE WHEN ad.SELECTION_YN = 'Y' THEN od.CD_TYPE ELSE ISNULL(sel.CD_TYPE, od.CD_TYPE) END AS CD_TYPE
+				,CASE WHEN ad.SELECTION_YN = 'Y' THEN od.CD_USE_TYPE ELSE ISNULL(sel.CD_USE_TYPE, od.CD_USE_TYPE) END AS CD_USE_TYPE
+				,CASE WHEN ad.SELECTION_YN = 'Y' THEN od.ECM_TYPE ELSE ISNULL(sel.ECM_TYPE, od.ECM_TYPE) END AS ECM_TYPE
+				,CASE WHEN ad.SELECTION_YN = 'Y' THEN od.ALLOWED_ITEM_CODE ELSE ISNULL(sel.ALLOWED_ITEM_CODE, od.ALLOWED_ITEM_CODE) END AS ALLOWED_ITEM_CODE
+				<choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+				,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS CUSTOMS_ID
+				</when>
+				<otherwise>
+				,od.CONSIGNEE_TEL
+				,od.CUSTOMS_ID
+				</otherwise>
+				</choose>
+			FROM TB_ECM_OD od
+				 LEFT JOIN TB_ECM_OD_ADDITIONAL ad
+				 		   ON ad.OD_JOB_NO = od.OD_JOB_NO
+				 LEFT JOIN TB_ECM_OD_SELECTION sel
+				 		   ON sel.HOUSE_OD_JOB_NO = od.OD_JOB_NO
+				 		   <choose>
+				 		   <when test='srchType == "selfSelection"'>
+				 		   AND sel.AUTO_SELECTION_YN = 'N'
+				 		   </when>
+				 		   <otherwise>
+				 		   AND sel.AUTO_SELECTION_YN = 'Y'
+				 		   </otherwise>
+				 		   </choose>
+ 			<choose>
+<!-- 			<when test="srchOdJobNo != null and srchOdJobNo != ''"> -->
+<!-- 			WHERE od.OD_JOB_NO = #{srchOdJobNo} -->
+<!-- 			</when> -->
+ 			<when test="srchOdJobNoList != null">
+ 			WHERE od.OD_JOB_NO IN(<foreach collection="srchOdJobNoList" item="item" separator=",">#{item}</foreach>)
+ 			</when>
+ 			<otherwise>
+			WHERE od.MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+ 			</otherwise>
+			</choose>
+			AND od.BOUND_TYPE = 'IMP'
+			AND od.BL_TYPE_MH = 'H'
+			<if test="srchCrimeAreaYn != null and srchCrimeAreaYn != ''">
+			AND ad.CRIME_AREA_YN = #{srchCrimeAreaYn}
+			</if>
+			
+			<if test='srchSelectionType == "srchOption" or srchMode == "excel"'>
+			) A
+			WHERE 1 = 1
+			<if test="srchCdType != null and srchCdType != ''">
+			AND A.CD_TYPE = #{srchCdType}
+			</if>
+			<if test="srchCdUseType != null and srchCdUseType != ''">
+			AND A.CD_USE_TYPE = #{srchCdUseType}
+			</if>
+			<if test="srchEcmType != null and srchEcmType != ''">
+			AND A.ECM_TYPE = #{srchEcmType}
+			</if>
+			<if test="srchInspectionYn != null and srchInspectionYn != ''">
+			AND A.INSPECTION_YN = #{srchInspectionYn}
+			</if>
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectSelectionOdList" parameterType="searchSelectionList" resultType="selection">
+		/* SelectMngMapper.selectSelectionOdList : 선별마감시 그리드에 체크되어있는 데이터 제외한 목록선별 임시저장 리스트 조회 */
+			SELECT
+				 sel.CD_TYPE
+				,sel.INSPECTION_YN
+				,sel.CD_USE_TYPE
+				,sel.ECM_TYPE
+				,sel.ALLOWED_ITEM_CODE
+				,sel.ITEM_NAME AS SELECTION_ITEM_NAME
+				,od.OD_JOB_NO
+				,ISNULL(od.AMOUNT_USD, 0) AS AMOUNT_USD
+				,ISNULL(od.ORIG_COUNTRY, '') AS ORIG_COUNTRY_CODE
+			FROM TB_ECM_OD_SELECTION sel
+				 INNER JOIN TB_ECM_OD od
+				 			ON od.OD_JOB_NO = sel.HOUSE_OD_JOB_NO
+			WHERE sel.OD_JOB_NO = #{masterOdJobNo}
+			<!-- ALLOWED_ITEM_CODE업데이트 위해 전부 조회 후 그리드 체크데이터 제거함 -->
+<!-- 			<if test="selectionList != null and selectionList.size > 0"> -->
+<!-- 			AND sel.HOUSE_OD_JOB_NO NOT IN(<foreach collection="selectionList" item="item" separator=",">#{item.odJobNo}</foreach>) -->
+<!-- 			</if> -->
+	</select>
+	
+	<select id="selectTempSelectionItemList" parameterType="searchSelectionList" resultType="goodsSelectionInfo">
+		/* SelectMngMapper.selectTempSelectionItemList : 품목검토 임시저장 리스트 조회 */
+			SELECT
+				 item.OD_JOB_NO AS MASTER_OD_JOB_NO
+				,item.SEQ_NO_ID
+				,item.ITEM_NAME
+				,item.ALLOWED_ITEM_CODE AS HS_CODE
+				,item.CD_TYPE_YT_YN AS CD_YTYPE_YN
+				,item.CD_TYPE_BT_YN AS CD_BTYPE_YN
+				,item.INSPECTION_YN
+				,item.REVIEW_YN
+				,hbl.HOUSE_OD_JOB_NO AS OD_JOB_NO
+				,od.AMOUNT_USD
+				,od.CD_TYPE
+				,ISNULL(od.ORIG_COUNTRY, '') AS ORIG_COUNTRY_CODE
+			FROM TB_ECM_OD_SELECTION_ITEM item
+				 INNER JOIN TB_ECM_OD_SELECTION_ITEM_HBL hbl
+				 			ON hbl.OD_JOB_NO = item.OD_JOB_NO
+				 			AND hbl.SEQ_NO_ID = item.SEQ_NO_ID
+				 INNER JOIN TB_ECM_OD od
+				 			ON od.OD_JOB_NO = hbl.HOUSE_OD_JOB_NO
+			WHERE item.OD_JOB_NO = #{srchMasterOdJobNo}
+			ORDER BY item.SEQ_NO_ID
+	</select>
+	
+	<select id="selectItenName" parameterType="selection" resultType="goodsSelectionInfo">
+		/* SelectMngMapper.selectItenName : 세부품목 조회 */
+			<choose>
+			<when test='selectionType == "auto"'>
+				WITH TMP AS (
+					SELECT
+						 item.DETAIL_ITEM_NAME AS OD_ITEM_NAME
+						,dbo.GetRegExReplace(item.DETAIL_ITEM_NAME, '[^a-z0-9]', '') AS OD_ITEM_NAME_REPLACE
+						,item.HS_CODE AS OD_HS_CODE
+						,item.SEQ_NO_ID
+						,od.INSPECTION_YN
+						,od.OD_JOB_NO
+						,od.CD_USE_TYPE
+						,od.ECM_TYPE
+						,ISNULL(od.AMOUNT_USD, 0) AS AMOUNT_USD
+					FROM TB_ECM_OD od
+						 LEFT JOIN TB_ECM_OD_ITEM item
+						 		   ON item.OD_JOB_NO = od.OD_JOB_NO
+					WHERE od.OD_JOB_NO = #{odJobNo}
+				)
+				SELECT A.* FROM(
+					SELECT
+						 od.*
+						,goods.ITEM_NAME
+						,goods.CD_YTYPE_YN
+						,goods.CD_BTYPE_YN
+						,goods.HS_CODE
+						,ROW_NUMBER() OVER(PARTITION BY od.OD_JOB_NO,od.SEQ_NO_ID ORDER BY od.OD_JOB_NO) AS ROW_NUM	
+					FROM TMP od
+						 LEFT JOIN TB_ECM_GOODS_SELECTION_INFO goods
+						 		   <choose>
+						 		   <when test='srchRatio == "10"'>
+						 		   ON goods.ITEM_NAME = od.OD_ITEM_NAME_REPLACE
+						 		   </when>
+						 		   <otherwise>
+						 		   ON goods.ITEM_NAME LIKE CONCAT(SUBSTRING(od.OD_ITEM_NAME_REPLACE, 1, LEN(od.OD_ITEM_NAME_REPLACE) * ${srchRatio} / 10), '%')
+						 		   </otherwise>
+						 		   </choose>
+				) A
+				WHERE A.ROW_NUM = 1
+				ORDER BY A.SEQ_NO_ID
+			</when>
+			<otherwise>
+				SELECT
+					 item.DETAIL_ITEM_NAME AS OD_ITEM_NAME
+					,item.HS_CODE AS OD_HS_CODE
+					,item.SEQ_NO_ID
+					,od.INSPECTION_YN
+					,od.OD_JOB_NO
+					,od.CD_USE_TYPE
+					,od.ECM_TYPE
+					,ISNULL(od.AMOUNT_USD, 0) AS AMOUNT_USD
+				FROM TB_ECM_OD od
+					 LEFT JOIN TB_ECM_OD_ITEM item
+					 		   ON item.OD_JOB_NO = od.OD_JOB_NO
+				WHERE od.OD_JOB_NO = #{odJobNo}
+				ORDER BY item.SEQ_NO_ID
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectChkItemNameList" parameterType="searchSelectionList" resultType="HashMap">
+		/* SelectMngMapper.selectChkItemNameList : 선별 리스트 조회(세부품목과 비교할 내용) */
+			SELECT
+				 ETC1 AS SEARCH_TYPE
+				,ETC2 AS KEYWORD
+				,ETC3 AS OPERATOR
+				,ETC4 AS CHECK_FIELD
+				,ETC5 AS DESCRIPTION
+				,ETC7 AS DOCUMENT_YN
+			FROM TB_SMS_CODE_DETAIL
+			WHERE ENT_CODE = #{srchEntCode}
+			AND GROUP_CODE = 'GOODS_SELECTION'
+			AND ETC1 IN(<foreach collection="srchSelectionOption" item="item" separator=",">#{item}</foreach>)
+			AND ETC4 IN('DetailItemName', 'HsCode')
+			<if test="srchInspectionOption != null">
+			AND (ETC1 != '3Y' OR ETC4 IN(<foreach collection="srchInspectionOption" item="item" separator=",">#{item}</foreach>))
+			</if>
+			ORDER BY ETC1 DESC
+	</select>
+	
+	<select id="selectChkHsCodeList" parameterType="searchSelectionList" resultType="HashMap">
+		/* SelectMngMapper.selectChkHsCodeList : 선별 리스트 조회(HsCode 업데이트할 내용) */
+			SELECT
+				 ETC2 AS KEYWORD
+				,ETC3 AS OPERATOR
+				,ETC6 AS HS_CODE
+				,ETC7 AS DOCUMENT_YN
+			FROM TB_SMS_CODE_DETAIL
+			WHERE ENT_CODE = #{srchEntCode}
+			AND GROUP_CODE = 'GOODS_SELECTION'
+			AND ETC1 = 'HS'
+	</select>
+	
+	<select id="selectChkOtherList" parameterType="searchSelectionList" resultType="HashMap">
+		/* SelectMngMapper.selectChkOtherList : 선별 리스트 조회(오더항목과 비교할 내용) */
+			SELECT
+				 ETC1 AS SEARCH_TYPE
+				,ETC2 AS KEYWORD
+				,ETC3 AS OPERATOR
+				,CASE ETC4 WHEN 'DetailItemName' THEN 'CommodityItem' WHEN 'HsCode' THEN 'AllowedItemCode' ELSE ETC4 END AS CHECK_FIELD
+				,ETC5 AS DESCRIPTION
+				,ETC7 AS DOCUMENT_YN
+			FROM TB_SMS_CODE_DETAIL
+			WHERE ENT_CODE = #{srchEntCode}
+			AND GROUP_CODE = 'GOODS_SELECTION'
+			AND ETC1 IN(<foreach collection="srchSelectionOption" item="item" separator=",">#{item}</foreach>)
+			<if test="srchInspectionOption != null">
+			AND (ETC1 != '3Y' OR ETC4 IN(<foreach collection="srchInspectionOption" item="item" separator=",">#{item}</foreach>))
+			</if>
+			ORDER BY ETC1 DESC
+	</select>
+	
+	<select id="selectGoodsSelectionList" parameterType="HashMap" resultType="goodsSelectionInfo">
+		/* SelectMngMapper.selectGoodsSelectionList : GOODS_SELECTION_INFO 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 goods.ITEM_NAME
+				,goods.HS_CODE
+				,CASE goods.CD_YTYPE_YN WHEN 'Y' THEN 'Y' ELSE 'N' END AS CD_YTYPE_YN
+				,CASE goods.CD_BTYPE_YN WHEN 'Y' THEN 'Y' ELSE 'N' END AS CD_BTYPE_YN
+				,goods.REGISTER_DATE_TIME
+				,goods.UPDATE_DATE_TIME
+				<if test="srchEntCode != null and srchEntCode != ''">
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = #{srchEntCode} AND USER_ID = goods.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = #{srchEntCode} AND USER_ID = goods.UPDATE_USER_ID) AS UPDATE_USER_NAME
+				</if>
+			FROM TB_ECM_GOODS_SELECTION_INFO goods
+			WHERE 1 = 1
+			<if test="srchItemName != null and srchItemName!= ''">
+			<choose>
+			<when test='srchItemNameLikeOption == "Y"'>
+			AND goods.ITEM_NAME LIKE CONCAT('%', dbo.GetRegExReplace(#{srchItemName}, '[^a-z0-9]', ''), '%')
+			</when>
+			<otherwise>
+			AND goods.ITEM_NAME = dbo.GetRegExReplace(#{srchItemName}, '[^a-z0-9]', '')
+			</otherwise>
+			</choose>
+			</if>
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND goods.${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			</if>
+			<if test="srchEndDate != null and srchEndDate != ''">
+			AND goods.${srchDateGbn} <![CDATA[<=]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectGoodsSelectionDupChk" parameterType="HashMap" resultType="String">
+		/* SelectMngMapper.selectGoodsSelectionDupChk : GOODS_SELECTION_INFO 중복체크 */
+			WITH TMP AS (
+				SELECT ITEM_NAME
+				FROM TB_ECM_GOODS_SELECTION_INFO
+				WHERE ITEM_NAME IN(
+				<choose>
+				<when test='insertType == "backupFileUpdate"'>
+				<foreach collection="itemNameList" item="item" separator=",">dbo.GetRegExReplace(#{item.itemName}, '[^a-z0-9]', '')</foreach>
+				</when>
+				<otherwise>
+				<foreach collection="itemNameList" item="item" separator=",">dbo.GetRegExReplace(#{item}, '[^a-z0-9]', '')</foreach>
+				</otherwise>
+				</choose>
+				)
+			)
+			SELECT STUFF((SELECT ',' + ITEM_NAME FROM TMP FOR XML PATH('')), 1, 1, '') AS ITEM_NAME
+	</select>
+	
+	<delete id="deleteTempSelection" parameterType="selection">
+		/* SelectMngMapper.deleteTempSelection : 선별오더임시데이터 삭제 */
+			DELETE FROM TB_ECM_OD_SELECTION
+			WHERE OD_JOB_NO = #{masterOdJobNo}
+			<if test="deleteOdJobNoList != null and deleteOdJobNoList.size > 0">
+			AND HOUSE_OD_JOB_NO IN(<foreach collection="deleteOdJobNoList" item="item" separator=",">#{item}</foreach>)
+			</if>
+	</delete>
+	
+	<delete id="deleteOtherTempSelection" parameterType="selection">
+		/* SelectMngMapper.deleteOtherTempSelection : 다른메뉴선별오더임시데이터 삭제 */
+			DELETE FROM TB_ECM_OD_SELECTION
+			WHERE OD_JOB_NO = #{masterOdJobNo}
+			<choose>
+			<when test='autoSelectionYn == "Y"'>
+			AND AUTO_SELECTION_YN = 'N';
+			</when>
+			<otherwise>
+			AND AUTO_SELECTION_YN = 'Y';
+			DELETE FROM TB_ECM_OD_SELECTION_ITEM
+			WHERE OD_JOB_NO = #{masterOdJobNo};
+			DELETE FROM TB_ECM_OD_SELECTION_ITEM_HBL
+			WHERE OD_JOB_NO = #{masterOdJobNo};
+			</otherwise>
+			</choose>
+	</delete>
+	
+	<delete id="deleteTempSelectionItem" parameterType="selection">
+		/* SelectMngMapper.deleteTempSelectionItem : 선별품명임시데이터 삭제 */
+			DELETE FROM TB_ECM_OD_SELECTION_ITEM
+			WHERE OD_JOB_NO = #{masterOdJobNo};
+			DELETE FROM TB_ECM_OD_SELECTION_ITEM_HBL
+			WHERE OD_JOB_NO = #{masterOdJobNo};
+	</delete>
+	
+	<insert id="insertTempSelection" parameterType="selection">
+		/* SelectMngMapper.insertTempSelection : 선별오더임시저장 */
+			INSERT INTO TB_ECM_OD_SELECTION(
+				   OD_JOB_NO
+				  ,HOUSE_OD_JOB_NO
+				  ,CD_TYPE
+				  ,INSPECTION_YN
+				  ,CD_USE_TYPE
+				  ,ECM_TYPE
+				  ,CHECK_INFO
+				  ,SELECTION_TYPE
+				  ,AUTO_SELECTION_YN
+				  ,CRIME_AREA_YN
+				  ,ALLOWED_ITEM_CODE
+				  ,ITEM_NAME
+				  ,DATA_CHANGE_YN
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{masterOdJobNo}
+				  ,#{odJobNo}
+				  ,#{cdType}
+				  ,#{inspectionYn}
+				  ,#{cdUseType}
+				  ,#{ecmType}
+				  ,#{checkInfo}
+				  ,#{selectionType}
+				  ,#{autoSelectionYn}
+				  ,#{crimeAreaYn}
+				  ,#{allowedItemCode}
+				  ,#{selectionItemName}
+				  ,#{dataChangeYn}
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+	
+	<insert id="insertTempSelectionItem" parameterType="goodsSelectionInfo">
+		/* SelectMngMapper.insertTempSelectionItem : 선별품명임시저장 */
+			INSERT INTO TB_ECM_OD_SELECTION_ITEM(
+				   OD_JOB_NO
+				  ,SEQ_NO_ID
+				  ,ITEM_NAME
+				  ,ALLOWED_ITEM_CODE
+				  ,CD_TYPE_YT_YN
+				  ,CD_TYPE_BT_YN
+				  ,INSPECTION_YN
+				  ,REVIEW_YN
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{masterOdJobNo}
+				  ,#{seqNoId}
+				  ,#{itemName}
+				  ,#{hsCode}
+				  ,#{cdYtypeYn}
+				  ,#{cdBtypeYn}
+				  ,#{inspectionYn}
+				  ,#{reviewYn}
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+	
+	<insert id="insertTempSelectionItemHbl" parameterType="selection">
+		/* SelectMngMapper.insertTempSelectionItemHbl : 선별품명오더임시저장 */
+			INSERT INTO TB_ECM_OD_SELECTION_ITEM_HBL(
+				   OD_JOB_NO
+				  ,SEQ_NO_ID
+				  ,HOUSE_OD_JOB_NO
+			)VALUES(
+				   #{masterOdJobNo}
+				  ,#{seqNoId}
+				  ,#{odJobNo}
+			)
+	</insert>
+	
+	<update id="updateTempSelectionItem" parameterType="goodsSelectionInfo">
+		/* SelectMngMapper.updateTempSelectionItem : 선별품명임시저장 */
+			UPDATE TB_ECM_OD_SELECTION_ITEM SET
+				   ALLOWED_ITEM_CODE = #{hsCode}
+				  ,CD_TYPE_YT_YN = #{cdYtypeYn}
+				  ,CD_TYPE_BT_YN = #{cdBtypeYn}
+				  ,INSPECTION_YN = #{inspectionYn}
+				  ,REVIEW_YN = #{reviewYn}
+			WHERE OD_JOB_NO = #{masterOdJobNo}
+			AND SEQ_NO_ID = #{seqNoId}
+	</update>
+	
+	<update id="updateSelectionList" parameterType="selection">
+		/* SelectMngMapper.updateSelectionList : 목록선별 리스트 수정 */
+			UPDATE TB_ECM_OD SET
+				   CD_TYPE = #{cdType}
+				  <if test='selectionType != "gridCdType"'>
+				  ,INSPECTION_YN = #{inspectionYn}
+				  ,CD_USE_TYPE = #{cdUseType}
+				  ,ECM_TYPE = #{ecmType}
+				  </if>
+			WHERE OD_JOB_NO = #{odJobNo};
+			
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   CD_TYPE = #{cdType}
+			WHERE OD_JOB_NO = #{odJobNo};
+	</update>
+	
+	<update id="updateSelectionHsList" parameterType="goodsSelectionInfo">
+		/* SelectMngMapper.updateSelectionHsList : 선별 HsCode 업데이트 */
+			UPDATE TB_ECM_OD_ITEM SET
+				   HS_CODE = #{hsCode}
+			WHERE OD_JOB_NO = #{odJobNo}
+<!-- 			<choose> -->
+<!-- 			<when test="seqNoId != null and seqNoId != ''"> -->
+<!-- 			AND SEQ_NO_ID = #{seqNoId} -->
+<!-- 			</when> -->
+<!-- 			<otherwise> -->
+			AND DETAIL_ITEM_NAME = #{itemName};
+<!-- 			</otherwise> -->
+<!-- 			</choose> -->
+			UPDATE TB_ECM_OD SET
+				   ALLOWED_ITEM_CODE = #{hsCode}
+			WHERE OD_JOB_NO = #{odJobNo};
+	</update>
+	
+	<update id="updateInspectionList" parameterType="goodsSelectionInfo">
+		/* SelectMngMapper.updateInspectionList : 선별 검사YN 업데이트 */
+			UPDATE TB_ECM_OD SET
+				   INSPECTION_YN = #{inspectionYn}
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updateSelectionClearanceStatus" parameterType="selection">
+		/* SelectMngMapper.updateSelectionClearanceStatus : 목록선별 수정시 목록이 아닐경우 통관상태 신고전으로 수정 */
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   CLEARANCE_STATUS = CASE WHEN ISNULL(CLEARANCE_STATUS, '') = '' THEN 'CLS010' ELSE CLEARANCE_STATUS END
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updateSelectionYn" parameterType="updateSelectionList">
+		/* SelectMngMapper.updateSelectionYn : 목록선별 선별마감/마감해제 */
+			UPDATE ad SET
+				   ad.SELECTION_YN = #{selectionYn}
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+	</update>
+	
+	<select id="selectSelectionYn" parameterType="updateSelectionList" resultType="String">
+		/* SelectMngMapper.selectSelectionYn : 목록선별 선별마감시 기존상태 체크 */
+			SELECT SELECTION_YN
+			FROM TB_ECM_OD_ADDITIONAL
+			WHERE OD_JOB_NO = #{masterOdJobNo}
+	</select>
+	
+	<select id="insertGoodsSelectionInfo" parameterType="goodsSelectionInfo" resultType="HashMap">
+		/* SelectMngMapper.insertGoodsSelectionInfo : 통관목록 자동선별(기초) 저장 */
+			DECLARE @ITEM_NAME NVARCHAR(200) = dbo.GetRegExReplace(#{itemName}, '[^a-z0-9]', '');
+			INSERT INTO TB_ECM_GOODS_SELECTION_INFO(
+				   ITEM_NAME
+				  ,HS_CODE
+				  ,CD_YTYPE_YN
+				  ,CD_BTYPE_YN
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   @ITEM_NAME
+				  ,#{hsCode}
+				  ,#{cdYtypeYn}
+				  ,#{cdBtypeYn}
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			);
+			SELECT @ITEM_NAME AS ITEM_NAME;
+	</select>
+	
+	<insert id="insertGoodsSelectionInfoBatch" parameterType="HashMap">
+		/* SelectMngMapper.insertGoodsSelectionInfoBatch : 통관목록 자동선별(기초) 저장(엑셀업로드) */
+			INSERT INTO TB_ECM_GOODS_SELECTION_INFO(
+				   ITEM_NAME
+				  ,HS_CODE
+				  ,CD_YTYPE_YN
+				  ,CD_BTYPE_YN
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			) VALUES(
+				   dbo.GetRegExReplace(#{ITEM_NAME}, '[^a-z0-9]', '')
+				  ,#{HS_CODE}
+				  ,#{CD_YTYPE_YN}
+				  ,#{CD_BTYPE_YN}
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+	
+	<insert id="insertGoodsSelectionInfoBackupFile" parameterType="goodsSelectionInfo">
+		/* SelectMngMapper.insertGoodsSelectionInfoBackupFile : 통관목록 자동선별(기초) 저장(backup File 업데이트) */
+			INSERT INTO TB_ECM_GOODS_SELECTION_INFO(
+				   ITEM_NAME
+				  ,HS_CODE
+				  ,CD_YTYPE_YN
+				  ,CD_BTYPE_YN
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			) VALUES(
+				   dbo.GetRegExReplace(#{itemName}, '[^a-z0-9]', '')
+				  ,#{hsCode}
+				  ,#{cdYtypeYn}
+				  ,#{cdBtypeYn}
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+
+	<update id="updateGoodsSelectionInfo" parameterType="saveGoodsSelectionInfo">
+		/* SelectMngMapper.updateGoodsSelectionInfo : 통관목록 자동선별(기초) 수정 */
+			UPDATE TB_ECM_GOODS_SELECTION_INFO SET
+				   HS_CODE = #{hsCode}
+				  ,CD_YTYPE_YN = #{cdYtypeYn}
+				  ,CD_BTYPE_YN = #{cdBtypeYn}
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE ITEM_NAME = #{itemName}
+	</update>
+	
+	<delete id="deleteGoodsSelectionInfo" parameterType="saveGoodsSelectionInfo">
+		/* SelectMngMapper.deleteGoodsSelectionInfo : 통관목록 자동선별(기초) 삭제 */
+			DELETE FROM TB_ECM_GOODS_SELECTION_INFO
+			WHERE ITEM_NAME IN (<foreach collection="goodsSelectionInfoList" item="item" separator=",">#{item.itemName}</foreach>)
+	</delete>
+	
+	<insert id="insertSelfSelection" parameterType="selfSelection">
+		/* SelectMngMapper.insertSelfSelection : 통관목록 자체선별(기초) 저장 */
+			<selectKey resultType="String" keyProperty="jobNo" order="BEFORE">
+			SELECT CASE WHEN MAX(CODE) IS NULL THEN '000000001'
+		  				ELSE CONCAT(REPLICATE('0', 9 - LEN(MAX(CODE) + 1)), MAX(CODE) + 1) END
+		  	FROM TB_SMS_CODE_DETAIL
+		  	WHERE GROUP_CODE = 'GOODS_SELECTION'
+			</selectKey>
+			INSERT INTO TB_SMS_CODE_DETAIL(
+				   ENT_CODE
+				  ,CODE_DEFINE_ID
+				  ,CODE
+				  ,GROUP_CODE
+				  ,ETC1
+				  ,ETC2
+				  ,ETC3
+				  ,ETC4
+				  ,ETC5
+				  ,ETC6
+				  ,ETC7
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{entCode}
+				  ,'ECM-014'
+				  ,#{jobNo}
+				  ,'GOODS_SELECTION'
+				  ,#{selectionTarget}
+				  ,#{keyword}
+				  ,#{operator}
+				  ,#{dataField}
+				  ,#{remarks}
+				  ,#{updateHsCode}
+				  ,#{documentYn}
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+	
+	<insert id="insertSelfSelectionExcelUpload" parameterType="HashMap">
+		/* SelectMngMapper.insertSelfSelectionExcelUpload : 통관목록 자체선별(기초) 저장 엑셀업로드 */
+			INSERT INTO TB_SMS_CODE_DETAIL(
+				   ENT_CODE
+				  ,CODE_DEFINE_ID
+				  ,CODE
+				  ,GROUP_CODE
+				  ,ETC1
+				  ,ETC2
+				  ,ETC3
+				  ,ETC4
+				  ,ETC5
+				  ,ETC6
+				  ,ETC7
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{entCode}
+				  ,'ECM-014'
+				  ,(
+				  	SELECT CASE WHEN MAX(CODE) IS NULL THEN '000000001'
+				  				ELSE CONCAT(REPLICATE('0', 9 - LEN(MAX(CODE) + 1)), MAX(CODE) + 1) END
+				  	FROM TB_SMS_CODE_DETAIL
+				  	WHERE GROUP_CODE = 'GOODS_SELECTION'
+				   )
+				  ,'GOODS_SELECTION'
+				  ,#{selectionTarget}
+				  ,#{keyword}
+				  ,#{operator}
+				  ,#{dataField}
+				  ,#{remarks}
+				  ,#{updateHsCode}
+				  ,#{documentYn}
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+	
+	<select id="selectSelfSelection" parameterType="HashMap" resultType="selfSelection">
+		/* SelectMngMapper.selectSelfSelection : 통관목록 자체선별(기초) 조회 */
+			SELECT
+				 selection.CODE AS JOB_NO
+				,selection.ETC1 AS SELECTION_TARGET
+				,selection.ETC2 AS KEYWORD
+				,selection.ETC3 AS OPERATOR
+				,selection.ETC4 AS DATA_FIELD
+				,selection.ETC5 AS REMARKS
+				,selection.ETC6 AS UPDATE_HS_CODE
+				,selection.ETC7 AS DOCUMENT_YN
+				,selection.USE_YN
+				,selection.REGISTER_DATE_TIME
+				,selection.UPDATE_DATE_TIME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = selection.ENT_CODE AND USER_ID = selection.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = selection.ENT_CODE AND USER_ID = selection.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			FROM TB_SMS_CODE_DETAIL selection
+			WHERE ENT_CODE = #{entCode} 
+			AND GROUP_CODE = 'GOODS_SELECTION'
+			AND CODE = #{jobNo}
+	</select>
+	
+	<update id="updateSelfSelection" parameterType="selfSelection">
+		/* SelectMngMapper.updateSelfSelection : 통관목록 자체선별(기초) 수정 */
+			UPDATE TB_SMS_CODE_DETAIL SET
+				   ETC1 = #{selectionTarget}
+				  ,ETC2 = #{keyword}
+				  ,ETC3 = #{operator}
+				  ,ETC4 = #{dataField}
+				  ,ETC5 = #{remarks}
+				  ,ETC6 = #{updateHsCode}
+				  ,ETC7 = #{documentYn}
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE ENT_CODE = #{entCode} 
+			AND GROUP_CODE = 'GOODS_SELECTION'
+			AND CODE = #{jobNo}
+	</update>
+	
+	
+	<delete id="deleteSelfSelection" parameterType="deleteSelfSelection">
+		/* SelectMngMapper.deleteGoodsSelectionInfo : 통관목록 자체선별(기초) 삭제 */
+			DELETE FROM TB_SMS_CODE_DETAIL
+			WHERE ENT_CODE = #{entCode} 
+			AND GROUP_CODE = 'GOODS_SELECTION'
+			AND CODE IN (<foreach collection="jobNoList" item="item" separator=",">#{item}</foreach>)
+	</delete>
+	
+	<select id="selectInspectionList" parameterType="HashMap" resultType="selection">
+		/* SelectMngMapper.selectInspectionList : 검사선별관리 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 MAX(od.OD_JOB_NO) AS OD_JOB_NO
+				,MAX(od.AR_DATE) AS AR_DATE
+				,MAX(od.VESSEL_FLIGHT) AS VESSEL_FLIGHT
+				,MAX(od.MBL_NO) AS MBL_NO
+				,MAX(od.HBL_NO) AS HBL_NO
+				,MAX(od.PIECES) AS PIECES
+				,MAX(od.PIECES_REAL) AS PIECES_REAL
+				,MAX(od.GWT) AS GWT
+				,MAX(od.AMOUNT_CUR) AS AMOUNT_CUR
+				,MAX(od.ORIG_COUNTRY) AS ORIG_COUNTRY_CODE
+				,MAX(od.COMMODITY_ITEM) AS COMMODITY_ITEM
+				,MAX(od.BOUND) AS BOUND
+				,CONCAT(MAX(od.ECM_TYPE), (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = MAX(od.ENT_CODE) AND GROUP_CODE = 'CCL_ECOMMERCE_TYPE' AND CODE = MAX(od.ECM_TYPE))) AS ECM_TYPE
+				,SUBSTRING(CONCAT(''
+					<if test='DestCountry == "Y"'>, CASE WHEN MAX(opt1.CODE) IS NOT NULL THEN ', 국가' END</if>
+					<if test='CommodityItem == "Y"'>, CASE WHEN MAX(opt2.CODE) IS NOT NULL THEN ', 우범' END</if>
+					<if test='ShipperBusinessId == "Y"'>, CASE WHEN MAX(opt3.CODE) IS NOT NULL THEN ', ASO' END</if>
+					<if test='ShipperName == "Y"'>, CASE WHEN MAX(opt4.CODE) IS NOT NULL THEN ', 송하인 상호' END</if>
+					<if test='ShipperAddress == "Y"'>, CASE WHEN MAX(opt5.CODE) IS NOT NULL THEN ', 송하인 주소' END</if>
+					<if test='ShipperTel == "Y"'>, CASE WHEN MAX(opt6.CODE) IS NOT NULL THEN ', 송하인 전화번호' END</if>
+					<if test='ConsigneeName == "Y"'>, CASE WHEN MAX(opt7.CODE) IS NOT NULL THEN ', 수하인 상호' END</if>
+					<if test='ConsigneeAddress == "Y"'>, CASE WHEN MAX(opt8.CODE) IS NOT NULL THEN ', 수하인 주소' END</if>
+					<if test='ConsigneeTel == "Y"'>, CASE WHEN MAX(opt9.CODE) IS NOT NULL THEN ', 수하인 전화번호' END</if>
+					<if test='Pieces == "Y"'>, CASE WHEN MAX(od.PIECES) > 1 THEN ', 수량' END</if>
+					<if test='EcmType == "Y"'>, CASE WHEN MAX(od.ECM_TYPE) = 'D' THEN ', 개인' END</if>
+				 ), 3, 100) AS CHECK_INFO
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+				 <if test='DestCountry == "Y"'>
+				 LEFT JOIN TB_SMS_CODE_DETAIL opt1
+				 			ON opt1.ENT_CODE = od.ENT_CODE
+				 			AND opt1.GROUP_CODE = 'GOODS_SELECTION'
+				 			AND opt1.ETC1 = '3Y'
+				 			AND opt1.ETC4 = 'DestCountry'
+				 			AND opt1.ETC2 = od.DEST_COUNTRY
+				 			AND opt1.ETC7 = od.DOCUMENT_YN
+				 </if>
+				 <if test='CommodityItem == "Y"'>
+				 LEFT JOIN TB_SMS_CODE_DETAIL opt2
+				 			ON opt2.ENT_CODE = od.ENT_CODE
+				 			AND opt2.GROUP_CODE = 'GOODS_SELECTION'
+				 			AND opt2.ETC1 = '3Y'
+				 			AND opt2.ETC4 = 'CommodityItem'
+				 			AND opt2.ETC7 = od.DOCUMENT_YN
+				 			AND od.COMMODITY_ITEM LIKE CONCAT('%', opt2.ETC2, '%')
+				 </if>
+				 <if test='ShipperBusinessId == "Y"'>
+				 LEFT JOIN TB_SMS_CODE_DETAIL opt3
+				 		   ON opt3.ENT_CODE = od.ENT_CODE
+				 		   AND opt3.GROUP_CODE = 'GOODS_SELECTION'
+				 		   AND opt3.ETC1 = '3Y'
+				 		   AND opt3.ETC4 = 'ShipperBusinessId'
+				 		   AND opt3.ETC2 = dbo.Cryptography(od.OD_JOB_NO, od.SHIPPER_BUSINESS_ID, 1)
+				 		   AND opt3.ETC7 = od.DOCUMENT_YN
+				 </if>
+				 <if test='ShipperName == "Y"'>
+				 LEFT JOIN TB_SMS_CODE_DETAIL opt4
+				 		   ON opt4.ENT_CODE = od.ENT_CODE
+				 		   AND opt4.GROUP_CODE = 'GOODS_SELECTION'
+				 		   AND opt4.ETC1 = '3Y'
+				 		   AND opt4.ETC4 = 'ShipperName'
+				 		   AND opt4.ETC2 = od.SHIPPER_NAME
+				 		   AND opt4.ETC7 = od.DOCUMENT_YN
+				 </if>
+				 <if test='ShipperAddress == "Y"'>
+				 LEFT JOIN TB_SMS_CODE_DETAIL opt5
+				 		   ON opt5.ENT_CODE = od.ENT_CODE
+				 		   AND opt5.GROUP_CODE = 'GOODS_SELECTION'
+				 		   AND opt5.ETC1 = '3Y'
+				 		   AND opt5.ETC4 = 'ShipperAddress'
+				 		   AND opt5.ETC2 = CONCAT(od.SHIPPER_ADDRESS, od.SHIPPER_ADDRESS_A, od.SHIPPER_ADDRESS_B, od.SHIPPER_ADDRESS_C, od.SHIPPER_ADDRESS_D)
+				 		   AND opt5.ETC7 = od.DOCUMENT_YN
+				 </if>
+				 <if test='ShipperTel == "Y"'>
+				 LEFT JOIN TB_SMS_CODE_DETAIL opt6
+				 		   ON opt6.ENT_CODE = od.ENT_CODE
+				 		   AND opt6.GROUP_CODE = 'GOODS_SELECTION'
+				 		   AND opt6.ETC1 = '3Y'
+				 		   AND opt6.ETC4 = 'ShipperTel'
+				 		   AND opt6.ETC2 = od.SHIPPER_TEL
+				 		   AND opt6.ETC7 = od.DOCUMENT_YN
+				 </if>
+				 <if test='ConsigneeName == "Y"'>
+				 LEFT JOIN TB_SMS_CODE_DETAIL opt7
+				 		   ON opt7.ENT_CODE = od.ENT_CODE
+				 		   AND opt7.GROUP_CODE = 'GOODS_SELECTION'
+				 		   AND opt7.ETC1 = '3Y'
+				 		   AND opt7.ETC4 = 'ConsigneeName'
+				 		   AND opt7.ETC2 = od.CONSIGNEE_NAME
+				 		   AND opt7.ETC7 = od.DOCUMENT_YN
+				 </if>
+				 <if test='ConsigneeAddress == "Y"'>
+				 LEFT JOIN TB_SMS_CODE_DETAIL opt8
+				 		   ON opt8.ENT_CODE = od.ENT_CODE
+				 		   AND opt8.GROUP_CODE = 'GOODS_SELECTION'
+				 		   AND opt8.ETC1 = '3Y'
+				 		   AND opt8.ETC4 = 'ConsigneeAddress'
+				 		   AND opt8.ETC2 = CONCAT(od.CONSIGNEE_ADDRESS, od.CONSIGNEE_ADDRESS_A, od.CONSIGNEE_ADDRESS_B, od.CONSIGNEE_ADDRESS_C, od.CONSIGNEE_ADDRESS_D)
+				 		   AND opt8.ETC7 = od.DOCUMENT_YN
+				 </if>
+				 <if test='ConsigneeTel == "Y"'>
+				 LEFT JOIN TB_SMS_CODE_DETAIL opt9
+				 		   ON opt9.ENT_CODE = od.ENT_CODE
+				 		   AND opt9.GROUP_CODE = 'GOODS_SELECTION'
+				 		   AND opt9.ETC1 = '3Y'
+				 		   AND opt9.ETC4 = 'ConsigneeTel'
+				 		   AND opt9.ETC7 = od.DOCUMENT_YN
+				 		   <choose>
+				 		   <when test='cryptographyYn == "Y"'>
+				 		   AND opt9.ETC2 = dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1)
+				 		   </when>
+				 		   <otherwise>
+				 		   AND opt9.ETC2 = od.CONSIGNEE_TEL
+				 		   </otherwise>
+				 		   </choose>
+				 </if>
+			WHERE od.BOUND_TYPE = 'IMP'
+			AND od.CD_TYPE = 'Y' <!--  목록건만 조회 */ --> 
+			<if test='srchDateGbn != "noDateChk"'>
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</if>
+			<choose>
+			<when test='boundType == "AI"'>
+			AND od.BOUND = 'AIR'
+			</when>
+			<otherwise>
+			AND od.BOUND = 'SEA'
+			</otherwise>
+			</choose>
+			<if test="srchNo != null and srchNo != ''">
+				<choose>
+					<when test='srchNoLikeYn == "Y"'>
+					AND ${srchNoType} LIKE CONCAT(#{srchNo},'%')
+					</when>
+					<otherwise>
+						<choose>
+							<when test='searchType == "multi"'>
+							AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+							</when>
+							<otherwise>
+							AND ${srchNoType} = #{srchNo}
+							</otherwise>
+						</choose>
+					</otherwise>
+				</choose>
+			</if>
+			AND ISNULL(ad.SIMPLE_EDI_STATUS, '') IN('', 'ERROR')
+			AND ISNULL(od.INSPECTION_YN, '') != 'Y'
+			AND (
+				<trim prefixOverrides="OR">
+					<if test='DestCountry == "Y"'>OR opt1.CODE IS NOT NULL</if>
+					<if test='CommodityItem == "Y"'>OR opt2.CODE IS NOT NULL</if>
+					<if test='ShipperBusinessId == "Y"'>OR opt3.CODE IS NOT NULL</if>
+					<if test='ShipperName == "Y"'>OR opt4.CODE IS NOT NULL</if>
+					<if test='ShipperAddress == "Y"'>OR opt5.CODE IS NOT NULL</if>
+					<if test='ShipperTel == "Y"'>OR opt6.CODE IS NOT NULL</if>
+					<if test='ConsigneeName == "Y"'>OR opt7.CODE IS NOT NULL</if>
+					<if test='ConsigneeAddress == "Y"'>OR opt8.CODE IS NOT NULL</if>
+					<if test='ConsigneeTel == "Y"'>OR opt9.CODE IS NOT NULL</if>
+					<if test='Pieces == "Y"' >OR od.PIECES > 1</if>
+					<if test='EcmType == "Y"'>OR od.ECM_TYPE = 'D'</if>
+				</trim>
+			)
+			GROUP BY od.OD_JOB_NO
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectSelfSelectionList" parameterType="searchSelfSelectionList" resultType="selfSelection">
+		/* SelectMngMapper.selectSelfSelectionList : 통관목록 자체선별(기초)리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 selection.CODE AS JOB_NO
+				,CASE selection.ETC1 WHEN 'OB' THEN '배제' WHEN 'ON' THEN '일반' WHEN '3Y' THEN '검사요청' WHEN 'ZX' THEN '우범대상' WHEN 'HS' THEN '품목코드' WHEN 'JK' THEN 'HSCODE 오류' END AS SELECTION_TARGET
+				,selection.ETC2 AS KEYWORD
+				,CASE selection.ETC3 WHEN '0' THEN '키워드동일' WHEN '1' THEN '키워드포함' WHEN '2' THEN '이상' WHEN '3' THEN '이하' END AS OPERATOR
+				,selection.ETC4 AS DATA_FIELD
+				,selection.ETC5 AS REMARKS
+				,selection.ETC7 AS DOCUMENT_YN
+				,selection.USE_YN 
+				,selection.REGISTER_DATE_TIME
+				,selection.UPDATE_DATE_TIME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = selection.ENT_CODE AND USER_ID = selection.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = selection.ENT_CODE AND USER_ID = selection.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			FROM TB_SMS_CODE_DETAIL selection
+			WHERE selection.ENT_CODE = #{srchEntCode} 
+			AND selection.GROUP_CODE = 'GOODS_SELECTION'
+			<if test="srchUseYn != null and srchUseYn != ''">
+			AND selection.USE_YN = #{srchUseYn}
+			</if>
+			<if test="srchSelectionTarget != null and srchSelectionTarget != ''">
+			AND selection.ETC1 = #{srchSelectionTarget}
+			</if>
+			<if test="srchKeyword != null and srchKeyword != ''">
+			AND selection.ETC2 = #{srchKeyword}
+			</if>
+			<if test="srchDataField != null and srchDataField != ''">
+			AND selection.ETC4 = #{srchDataField}
+			</if>
+			<if test="srchOperator != null and srchOperator != ''">
+			AND selection.ETC3 = #{srchOperator}
+			</if>
+			<if test="srchDocumentYn != null and srchDocumentYn != ''">
+			AND selection.ETC7 = #{srchDocumentYn}
+			</if>
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND selection.${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			</if>
+			<if test="srchEndDate != null and srchEndDate != ''">
+			AND selection.${srchDateGbn} <![CDATA[<=]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectSelfSelectionListExcelUploadChk" resultType="HashMap">
+		/* SelectMngMapper.selectSelfSelectionListExcelUploadChk : 통관목록 자체선별(기초) 엑셀업로드 체크 */
+			SELECT
+				 COL_TITLE
+				,COL_TYPE_VALUE
+			FROM exps_master.dbo.TB_SMS_CODE_DEFINE_COLUMN
+			WHERE CODE_DEFINE_ID = 'ECM-014'
+			AND COL_TITLE IN('SEARCH_TYPE', 'OPERATOR' ,'CHECK_FIELD')
+	</select>
+	
+	<select id="selectSelectionMailList" parameterType="updateSelectionList" resultType="HashMap">
+		/* SelectMngMapper.selectSelectionMailList : 통관목록 자동선별 선별마감 후 이메일 전송 리스트 조회 */
+			SELECT
+				 MAX(MBL_NO) AS MBL_NO
+				,MAX(AR_DATE) AS AR_DATE
+				,MAX(VESSEL_FLIGHT) AS VESSEL_FLIGHT
+				,CUST_CODE_LV1 AS CUST_CODE_LV1
+				,CUST_CODE_LV2 AS CUST_CODE_LV2
+				,CB_CODE AS CB_CODE
+				,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER cus WHERE cus.CUSTOMER_CODE = od.CB_CODE) AS CB_NAME
+				,(SELECT EMAIL FROM TB_SMS_CUSTOMER cus WHERE cus.CUSTOMER_CODE = od.CB_CODE) AS CB_EMAIL
+				,COUNT(CASE WHEN ISNULL(CD_TYPE,'') = 'N' THEN 1 END) AS CD_TYPE_N_CNT
+				,COUNT(CASE WHEN ISNULL(CD_TYPE,'') = 'B' THEN 1 END) AS CD_TYPE_B_CNT
+				,COUNT(CASE WHEN ISNULL(CD_TYPE,'') IN ('N', 'B') THEN 1 END) AS CD_TYPE_NB_CNT
+			FROM TB_ECM_OD od
+			WHERE MASTER_OD_JOB_NO = #{masterOdJobNo}
+			AND BL_TYPE_MH = 'H'
+			AND ISNULL(CB_CODE, '') != ''
+			GROUP BY CB_CODE, CUST_CODE_LV1, CUST_CODE_LV2
+	</select>
+	
+	<select id="selectGoodsSelectionMailList" parameterType="searchSelectionList" resultType="goodsSelectionMail">
+		/* SelectMngMapper.selectGoodsSelectionMailList : 통관목록 자동선별 선별마감 후 이메일 전송 리스트 조회 */
+			SELECT A.* 
+			FROM (
+				SELECT
+					 MAX(MBL_NO) AS MBL_NO
+					,MAX(AR_DATE) AS AR_DATE
+					,MAX(VESSEL_FLIGHT) AS VESSEL_FLIGHT
+					,CASE WHEN ISNULL(CUST_CODE_LV2, '') != '' THEN CUST_CODE_LV2 ELSE CUST_CODE_LV1 END AS CUST_CODE 
+					,CB_CODE AS CB_CODE
+					,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER cus WHERE cus.CUSTOMER_CODE = od.CB_CODE) AS CB_NAME
+					,(SELECT EMAIL FROM TB_SMS_CUSTOMER cus WHERE cus.CUSTOMER_CODE = od.CB_CODE) AS CB_EMAIL
+					,COUNT(CASE WHEN ISNULL(CD_TYPE,'') = 'N' THEN 1 END) AS CD_NTYPE_CNT
+					,COUNT(CASE WHEN ISNULL(CD_TYPE,'') = 'B' THEN 1 END) AS CD_BTYPE_CNT
+					,COUNT(CASE WHEN ISNULL(CD_TYPE,'') IN ('N','B') THEN 1 END) AS CD_NB_TYPE_CNT
+				FROM TB_ECM_OD od
+				WHERE MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+				AND BL_TYPE_MH = 'H'
+				AND ISNULL(CB_CODE, '') != ''
+				GROUP BY CB_CODE, CUST_CODE_LV1, CUST_CODE_LV2
+			) A
+			WHERE ISNULL(CB_EMAIL, '') != ''
+	</select>
+	
+	<update id="updateSelectionSimpleDocNo" parameterType="selection">
+		/* SelectMngMapper.updateSelectionSimpleDocNo : 목록선별 리스트 제출번호 수정 */
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   SIMPLE_DOC_NO = #{simpleDocNo}
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+</mapper>

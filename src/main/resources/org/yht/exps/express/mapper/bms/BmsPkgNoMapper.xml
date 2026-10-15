@@ -1,0 +1,613 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsPkgNoMapper">
+
+	<select id="selectBmsPkgNoListByInPlanNo" parameterType="searchBmsPkgNoList" resultType="bmsPkgNo">
+		/* BmsPkgNoMapper.selectBmsPkgNoListByInPlanNo : 박스번호 리스트 - 반입예정번호(inPlanNo)로 조회 */
+		SELECT A.BL_NO
+			 , A.MBL_NO
+			 , A.CARGO_REFERENCE_NO
+			 , A.EX_CT
+			 , PKG.PACKING_NO
+			 , PKG.DELETE_YN
+			 , PKG.NEW_CARGO_REFERENCE_NO
+			 , PKG.IN_PLAN_NO
+			 , PKG.SEQ
+		FROM TB_BMS_IN_PLAN A WITH (NOLOCK)
+		LEFT JOIN TB_BMS_IN_PLAN_PKG PKG
+		ON PKG.IN_PLAN_NO = A.IN_PLAN_NO
+		WHERE A.IN_PLAN_NO = #{srchNo}
+	</select>
+	
+	<select id="selectBmsPkgNoListExistPlanByInPlanNo" parameterType="searchBmsPkgNoList" resultType="bmsPkgNo">
+		/* BmsPkgNoMapper.selectBmsPkgNoListExistPlanByInPlanNo : 박스번호 리스트 - 반입예정번호(InPlanNo)로 반입예정이 있는 경우 조회 */
+		SELECT A.BL_NO
+			 , A.MBL_NO
+			 , A.CARGO_REFERENCE_NO
+			 , A.EX_CT
+			 , PKG.PACKING_NO
+			 , PKG.DELETE_YN
+			 , PKG.NEW_CARGO_REFERENCE_NO
+			 , PKG.IN_PLAN_NO
+			 , PKG.SEQ
+		FROM TB_BMS_IN A WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN_PKG PKG WITH (NOLOCK)	<!-- LEFT 조인에서 INNER로 변경, NOLOCK 추가 2026.04.22 2sowell -->
+		ON PKG.IN_PLAN_NO = A.IN_PLAN_NO
+		WHERE A.CARGO_REFERENCE_NO = #{cargoReferenceNo}
+		<!--  A.MBL_NO = #{mblNo}
+			AND A.BL_NO =  #{blNo} -->
+			AND A.IN_PLAN_NO > 0 
+	</select>
+	
+	<select id="selectBmsPkgNoListExistPlanByOrigInPlanNo" parameterType="searchBmsPkgNoList" resultType="bmsPkgNo">
+		/* BmsPkgNoMapper.selectBmsPkgNoListExistPlanByOrigInPlanNo : 박스번호 리스트 - 반입예정번호(inPlanNo)로 반입예정이 있는 경우 조회 */
+		SELECT A.BL_NO
+			 , A.MBL_NO
+			 , A.CARGO_REFERENCE_NO
+			 , A.EX_CT
+			 , PKG.PACKING_NO
+			 , PKG.DELETE_YN
+			 , PKG.NEW_CARGO_REFERENCE_NO
+			 , PKG.IN_PLAN_NO
+			 , PKG.SEQ
+		FROM TB_BMS_IN A WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN_PKG PKG WITH (NOLOCK)	<!-- LEFT 조인에서 INNER로 변경, NOLOCK 추가 2026.04.22 2sowell -->
+		ON PKG.IN_PLAN_NO = A.ORIG_IN_PLAN_NO
+		WHERE A.CARGO_REFERENCE_NO = #{cargoReferenceNo}
+		AND A.IN_CLASS = '21'
+		AND A.ORIG_IN_PLAN_NO > 0 <!-- ORIG_IN_PLAN_NO 조회조건 추가 2026.04.20 2sowell -->
+	</select>
+
+	<select id="selectBmsPkgNoListByInNo" parameterType="searchBmsPkgNoList" resultType="bmsPkgNo">
+		/* BmsPkgNoMapper.selectBmsPkgNoListByInNo : 박스번호 리스트 - 반입번호(inNo)로 조회 */
+		SELECT A.BL_NO
+			 , A.MBL_NO
+			 , A.CARGO_REFERENCE_NO
+			 , A.EX_CT
+			 , PKG.PACKING_NO
+			 , PKG.DELETE_YN
+			 , PKG.NEW_CARGO_REFERENCE_NO
+			 , PKG.IN_PLAN_NO
+			 , PKG.SEQ
+		FROM TB_BMS_IN A WITH (NOLOCK)
+		LEFT JOIN TB_BMS_IN_PLAN_PKG PKG ON PKG.IN_PLAN_NO = A.IN_PLAN_NO OR PKG.IN_PLAN_NO = A.ORIG_IN_PLAN_NO
+		WHERE A.IN_NO = #{srchNo}
+	</select>
+
+	<select id="checkDupPkgByPackingNo" parameterType="HashMap" resultType="Integer">
+		/* BmsPkgNoMapper.checkDupPkgByPackingNo : 박스번호 중복 조회 */
+		SELECT 
+			COUNT(*) AS CNT
+		FROM TB_BMS_IN_PLAN_PKG PKG 
+		WHERE PACKING_NO = #{packingNo}
+		AND DELETE_YN = 'N'
+	</select>
+	
+	<select id="selectInPlanWithPkgByMblWithBl" parameterType="HashMap" resultType="inPlanPkg">
+		/* BmsPkgNoMapper.selectInPlanWithPkgByMblWithBl : 해당 BL 박스 리스트  */
+		SELECT 
+			   _plan.IN_PLAN_NO
+			 , _plan.BL_NO
+			 , _plan.MBL_NO
+			 , _plan.CARGO_REFERENCE_NO
+			 , _plan.EX_CT
+		FROM TB_BMS_IN_PLAN _plan WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN _in WITH (NOLOCK)
+			ON _in.IN_PLAN_NO = _plan.IN_PLAN_NO
+		WHERE  _in.IN_PLAN_NO = #{inPlanNo}
+			AND _plan.MBL_NO = #{mblNo}
+			AND _plan.BL_NO = #{blNo}
+	</select>
+	<!-- <select id="selectInPlanWithPkgByMblWithBl" parameterType="HashMap" resultType="inPlanPkg">
+		/* BmsPkgNoMapper.selectInPlanWithPkgByMblWithBl : 해당 BL 박스 리스트  */
+		SELECT 
+			   _plan.IN_PLAN_NO
+			 , _plan.BL_NO
+			 , _plan.MBL_NO
+			 , _plan.CARGO_REFERENCE_NO
+			 , _plan.EX_CT
+		FROM TB_BMS_IN_PLAN _plan
+		WHERE  _plan.IN_PLAN_NO <![CDATA[<>]]> #{inPlanNo}
+			AND _plan.MBL_NO = #{mblNo}
+			AND _plan.BL_NO = #{blNo}
+	</select> -->
+	
+	<select id="selectBmsInByInNo" parameterType="HashMap" resultType="carryIn">
+		/* BmsPkgNoMapper.selectBmsInByInNo : 반입번호로 반입 조회 */
+		SELECT 
+			*
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE IN_NO = #{inNo}
+	</select>
+	<select id="selectOriginBlByInNo" parameterType="HashMap" resultType="carryIn">
+		/* BmsPkgNoMapper.selectOriginBlByInNo : 입항 반입의 데이터를 조회 */
+		SELECT TOP 1
+			*
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+			AND BL_NO = #{blNo}
+			AND IN_PLAN_NO > 0
+		ORDER BY CARRYIN_DATE DESC
+	</select>
+	
+	<select id="selectOriginBlByInNoClass" parameterType="HashMap" resultType="carryIn">
+		/* BmsPkgNoMapper.selectOriginBlByInNoClass : 반입유형으로 데이터를 조회 */
+		SELECT TOP 1
+			*
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+			AND BL_NO = #{blNo}
+			AND IN_CLASS = #{inClass}
+		ORDER BY CARRYIN_DATE DESC
+	</select>
+	
+	
+	<select id="selectBmsInPlanByInPlanNo" parameterType="HashMap" resultType="inPlan">
+		/* BmsPkgNoMapper.selectBmsInPlanByInPlanNo : 반입예정번호로 반입예정 조회 */
+		SELECT 
+			*
+		FROM TB_BMS_IN_PLAN WITH (NOLOCK)
+		WHERE IN_PLAN_NO = #{inPlanNo}
+	</select>
+	
+	<select id="selectPkgListByInPlanNo" parameterType="HashMap" resultType="inPlanPkg">
+		/* BmsPkgNoMapper.selectPkgListByInPlanNo : 반입예정번호로 박스 리스트 조회 */
+		SELECT 
+			*
+		FROM TB_BMS_IN_PLAN_PKG 
+		WHERE IN_PLAN_NO = #{inPlanNo}
+			AND DELETE_YN = 'N'
+	</select>
+	
+	<select id="sumPkgByInPlanNo" parameterType="HashMap" resultType="Integer">
+		/* BmsPkgNoMapper.sumPkgByInPlanNo : 반입예정번호로 박스 카운트 */
+		SELECT 
+			SUM(PACKING_CT) AS sum
+		FROM TB_BMS_IN_PLAN_PKG 
+		WHERE IN_PLAN_NO = #{inPlanNo}
+			AND DELETE_YN = 'N'
+	</select>
+	
+	<insert id="batchInsertPkgByInPlanNo" parameterType="HashMap">
+		/* BmsPkgNoMapper.batchInsertPkgByInPlanNo : 반입예정번호로 박스 리스트 조회 */
+		INSERT INTO TB_BMS_IN_PLAN_PKG
+			(
+			  IN_PLAN_NO
+			, BL_NO
+			, PACKING_NO
+			, PACKING_CT
+			, DIM_WIDTH
+			, DIM_LENGTH
+			, DIM_HEIGHT
+			, WEIGHING_WT
+			, IN_CT
+			, OUT_CT
+			, SAMPLE_IN_CT
+			, SAMPLE_OUT_CT
+			, MOVE_IN_CT
+			, MOVE_OUT_CT
+			, RETURN_IN_CT
+			, RETURN_OUT_CT
+			, LOCATION_PLACE
+			, LOCATION_STATUS
+			, INSPECT_STATUS
+			, DELETE_YN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME
+			)
+		SELECT 
+			IN_PLAN_NO
+			, BL_NO
+			, PACKING_NO + CAST(FLOOR(RAND() * 90) + 10 AS VARCHAR)
+			, 1
+			, DIM_WIDTH
+			, DIM_LENGTH
+			, DIM_HEIGHT
+			, WEIGHING_WT
+			, 1
+			, OUT_CT
+			, SAMPLE_IN_CT
+			, SAMPLE_OUT_CT
+			, MOVE_IN_CT
+			, MOVE_OUT_CT
+			, RETURN_IN_CT
+			, RETURN_OUT_CT
+			, LOCATION_PLACE
+			, LOCATION_STATUS
+			, INSPECT_STATUS
+			, DELETE_YN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, #{updateUserId}
+			, GETDATE()
+		FROM TB_BMS_IN_PLAN_PKG 
+		WHERE IN_PLAN_NO = #{inPlanNo}
+			AND DELETE_YN = 'N'
+	</insert>
+	
+	<insert id="insertPkg" parameterType="HashMap">
+		/* BmsPkgNoMapper.insertPkg : 박스저장 */
+		INSERT INTO TB_BMS_IN_PLAN_PKG (
+			  IN_PLAN_NO
+			, BL_NO
+			, PACKING_NO
+			, PACKING_CT
+			, IN_CT
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME
+		)
+		VALUES(
+			  #{inPlanNo}
+			, #{blNo}
+			, #{packingNo}
+			, 1
+			, #{inCt}
+			, #{updateUserId}
+			, GETDATE()
+			, #{updateUserId}
+			, GETDATE()
+		)
+	</insert>
+	
+	<update id="softDeleteInPlanPkgByInPlanNo" parameterType="HashMap">
+		/* BmsPkgNoMapper.softDeleteInPlanPkg */
+		UPDATE TB_BMS_IN_PLAN_PKG 
+		SET 
+			DELETE_YN = 'Y'
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE IN_PLAN_NO = #{inPlanNo}
+	</update>
+	
+	<update id="softDeleteInPlanPkgByPkgNoList" parameterType="HashMap">
+		/* BmsPkgNoMapper.softDeleteInPlanPkgByPkgNoList */
+		UPDATE TB_BMS_IN_PLAN_PKG 
+		SET 
+			DELETE_YN = 'Y'
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE PACKING_NO IN (<foreach collection="packingNoList" item="item" separator=",">#{item}</foreach>)
+	</update>
+	
+	<update id="updatePkgNewCargoNo" parameterType="HashMap">
+		/* BmsPkgNoMapper.updatePkgNewCargoNo */
+		UPDATE TB_BMS_IN_PLAN_PKG 
+		SET 
+			NEW_CARGO_REFERENCE_NO = #{newCargoReferenceNo}
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE SEQ IN (<foreach collection="dataList" item="item" separator=",">#{item.seq}</foreach>)
+	</update>
+	
+	<update id="updateBlankNewCargoNoFromPkg" parameterType="HashMap">
+		/* BmsPkgNoMapper.updateBlankNewCargoNoFromPkg */
+		UPDATE TB_BMS_IN_PLAN_PKG 
+		SET 
+			NEW_CARGO_REFERENCE_NO = ''
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE IN_PLAN_NO = #{inPlanNo}
+			AND BL_NO = #{blNo}
+			AND NEW_CARGO_REFERENCE_NO = #{newCargoReferenceNo}
+	</update>
+	
+	<insert id="insertInPlan" parameterType="HashMap">
+		/* BmsPkgNoMapper.insertInPlan : 반입예정 저장 */
+		INSERT INTO TB_BMS_IN_PLAN (
+			IN_APPROVAL_NO
+			, OD_JOB_NO
+			, CARGO_REFERENCE_NO
+			, BL_NO
+			, MBL_NO
+			, INSPECT_YN
+			, NOTICE_INSPECT_YN
+			, PKG_TYPE
+			, EX_CT
+			, EX_WT
+			, EX_CBM
+			, CUSTOMS_CODE
+			, CUSTOMS_DPT_CODE
+			, VESSEL_FLIGHT
+			, VOYAGE
+			, AR_DATE
+			, AR_TIME
+			, COMMODITY_ITEM_LOC
+			, SHIPPER_CODE
+			, SHIPPER_NAME
+			, SHIPPER_ADDRESS_1
+			, SHIPPER_ADDRESS_2
+			, CONSIGNEE_CODE
+			, CONSIGNEE_NAME
+			, CONSIGNEE_ADDRESS_1
+			, CONSIGNEE_ADDRESS_2
+			, CONSIGNEE_BUSINESS_ID
+			, CONSIGNEE_TEL
+			, NOTIFY_CODE
+			, NOTIFY_NAME
+			, NOTIFY_ADDRESS_1
+			, NOTIFY_ADDRESS_2
+			, NOTIFY_TEL
+			, SPECIAL_CODE_1
+			, SPECIAL_CODE_2
+			, SPECIAL_CODE_3
+			, CARRIER_CODE
+			, CNTR_NO
+			, ORIG_COUNTRY
+			, SE_INSPECTION_CODE
+			, SIMPLE_AUTH_NAME
+			, INSPECTION_TYPE
+			, INSPECTION_TYPE_A
+			, INSPECTION_TYPE_B
+			, PALN5EM_INSPECTION_CODE
+			, CD_TYPE
+			, ECM_TYPE
+			, CD_USE_TYPE
+			, BIG_SIZE_YN
+			, AMOUNT_USD
+			, REFERENCE_NO
+			, IN_YN			
+			, DELIVERY_CODE
+			, DELIVERY_NAME
+			, SHIPPER_TEL
+			, MGN_ISSUE_YN
+			, CRIME_SELECTION_YN
+			, INTELLECTUAL_PROP_YN
+			, INSPECTION_CUSTOMS_YN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME
+		)
+		SELECT
+			IN_APPROVAL_NO
+			, OD_JOB_NO
+			, CARGO_REFERENCE_NO
+			, BL_NO
+			, MBL_NO
+			, INSPECT_YN
+			, NOTICE_INSPECT_YN
+			, PKG_TYPE
+			, EX_CT
+			, EX_WT
+			, EX_CBM
+			, CUSTOMS_CODE
+			, CUSTOMS_DPT_CODE
+			, VESSEL_FLIGHT
+			, VOYAGE
+			, AR_DATE
+			, AR_TIME
+			, COMMODITY_ITEM_LOC
+			, SHIPPER_CODE
+			, SHIPPER_NAME
+			, SHIPPER_ADDRESS_1
+			, SHIPPER_ADDRESS_2
+			, CONSIGNEE_CODE
+			, CONSIGNEE_NAME
+			, CONSIGNEE_ADDRESS_1
+			, CONSIGNEE_ADDRESS_2
+			, CONSIGNEE_BUSINESS_ID
+			, CONSIGNEE_TEL
+			, NOTIFY_CODE
+			, NOTIFY_NAME
+			, NOTIFY_ADDRESS_1
+			, NOTIFY_ADDRESS_2
+			, NOTIFY_TEL
+			, SPECIAL_CODE_1
+			, SPECIAL_CODE_2
+			, SPECIAL_CODE_3
+			, CARRIER_CODE
+			, CNTR_NO
+			, ORIG_COUNTRY
+			, SE_INSPECTION_CODE
+			, SIMPLE_AUTH_NAME
+			, INSPECTION_TYPE
+			, INSPECTION_TYPE_A
+			, INSPECTION_TYPE_B
+			, PALN5EM_INSPECTION_CODE
+			, CD_TYPE
+			, ECM_TYPE
+			, CD_USE_TYPE
+			, BIG_SIZE_YN
+			, AMOUNT_USD
+			, REFERENCE_NO
+			, 'Y'			
+			, DELIVERY_CODE
+			, DELIVERY_NAME
+			, SHIPPER_TEL
+			, MGN_ISSUE_YN
+			, CRIME_SELECTION_YN
+			, INTELLECTUAL_PROP_YN
+			, INSPECTION_CUSTOMS_YN
+			, #{updateUserId}
+			, GETDATE()
+			, #{updateUserId}
+			, GETDATE()
+		FROM TB_BMS_IN WITH(NOLOCK)
+		WHERE IN_NO = #{inNo}
+	</insert>
+	
+	<select id="selectInPlanNoByCargoWithBl" parameterType="HashMap" resultType="Integer">
+		/* BmsPkgNoMapper.selectInPlanNoByCargoWithBl : 생성한 IN_PLAN_NO 조회  */
+		SELECT TOP 1
+			IN_PLAN_NO
+		FROM TB_BMS_IN_PLAN WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+		AND BL_NO = #{blNo}
+		ORDER BY IN_PLAN_NO DESC
+	</select>
+	
+	<update id="updateInPlanNo" parameterType="CarryIn">
+		/* BmsPkgNoMapper.updateInPlanNo */
+		UPDATE TB_BMS_IN 
+		SET 
+			IN_PLAN_NO = #{inPlanNo}
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE IN_NO = #{inNo}
+	</update>
+	
+	<update id="updateOrigInPlanNo" parameterType="CarryIn">
+		/* BmsPkgNoMapper.updateOrigInPlanNo */
+		UPDATE TB_BMS_IN 
+		SET 
+			ORIG_IN_PLAN_NO = #{origInPlanNo}
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE IN_NO = #{inNo}
+	</update>
+	
+	<select id="selectXrayHistoryByInPlanNo" parameterType="HashMap" resultType="Integer">
+		/* BmsPkgNoMapper.selectXrayHistoryByInPlanNo : Xray History 데이터 존재유무 조회  */
+		SELECT COUNT(*) AS CNT
+		FROM TB_BMS_XRAY_HISTORY WITH (NOLOCK)
+		WHERE IN_PLAN_NO = #{inPlanNo}
+		AND PACKING_NO = #{packingNo}	<!-- PACKING_NO 별로 XRAY_HISTORY 들어가도록 수정 2026.04.24 2sowell -->
+	</select>
+	
+	<select id="selectXrayResultByInPlanNo" parameterType="HashMap" resultType="Integer">
+		/* BmsPkgNoMapper.selectXrayResultByInPlanNo : Xray Result 데이터 존재유무 조회  */
+		SELECT COUNT(*) AS CNT
+		FROM TB_BMS_XRAY_RESULT WITH (NOLOCK)
+		WHERE IN_PLAN_NO = #{inPlanNo}
+	</select>
+	
+	<insert id="insertXrayHistory" parameterType="HashMap">
+		/* BmsPkgNoMapper.insertXrayHistory : Xray History 저장 */
+		INSERT INTO TB_BMS_XRAY_HISTORY (
+			IN_PLAN_NO
+			, PACKING_NO
+			, XRAY_INSPECTION_CODE
+			, REGISTER_DATE_TIME
+		)
+		VALUES(
+			#{inPlanNo}
+			, #{packingNo}
+			, #{xrayInspectionCode}
+			, GETDATE()
+		)
+	</insert>
+	
+	<insert id="insertXrayResult" parameterType="HashMap">
+		/* BmsPkgNoMapper.insertXrayResult : Xray Result 저장 */
+		INSERT INTO TB_BMS_XRAY_RESULT (
+			IN_PLAN_NO
+			, CARGO_REFERENCE_NO
+			, XRAY_INSPECTION_CODE
+			, XRAY_LINE_NO
+			, XRAY_SCAN_CT
+			, XRAY_IMAGE_CT
+			, XRAY_TIME
+		)
+		VALUES(
+			#{inPlanNo}
+			, #{cargoReferenceNo}
+			, #{xrayInspectionCode}
+			, #{xrayLineNo}
+			, #{xrayScanCt}
+			, #{xrayImageCt}
+			, GETDATE()
+		)
+	</insert>
+	
+	<update id="softDeleteInPlanPkgByPkgNo" parameterType="HashMap">
+		/* BmsPkgNoMapper.softDeleteInPlanPkgByPkgNo */
+		UPDATE TB_BMS_IN_PLAN_PKG 
+		SET 
+			DELETE_YN = 'Y'
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE PACKING_NO = #{packingNo}
+	</update>
+	
+	<update id="updateXrayHistory" parameterType="HashMap">
+		/* BmsPkgNoMapper.updateXrayHistory : Xray History 박스변경 */
+		UPDATE TB_BMS_XRAY_HISTORY SET
+			PACKING_NO = #{packingNo}
+		WHERE IN_PLAN_NO = #{inPlanNo}
+		AND PACKING_NO = #{oldPackingNo}
+	</update>
+	
+	<update id="updatePkg" parameterType="HashMap">
+		/* BmsPkgNoMapper.updatePkg : 박스변경 */
+		UPDATE TB_BMS_IN_PLAN_PKG SET
+			PACKING_NO = #{packingNo}
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE SEQ = #{seq}
+	</update>
+	
+	<select id="checkDupPkgByInPackingNo" parameterType="HashMap" resultType="Integer">
+		/* BmsPkgNoMapper.checkDupPkgByInPackingNo : 한 inplanNo 박스번호 중복 조회 */
+		SELECT 
+			COUNT(*) AS CNT
+		FROM TB_BMS_IN_PLAN_PKG PKG 
+		WHERE PACKING_NO = #{packingNo}
+		AND DELETE_YN = 'N'
+		AND IN_PLAN_NO = #{inPlanNo}
+	</select>
+	
+	<select id="checkDupPkgInfoByPackingNo" parameterType="HashMap" resultType="HashMap">
+		/* BmsPkgNoMapper.checkDupPkgInfoByPackingNo : 한 inplanNo 박스번호 중복 조회 */
+		SELECT 
+			COUNT(*) AS CNT
+			,MAX(PKG.BL_NO) AS BL_NO
+			,MAX(I.IN_CLASS) AS IN_CLASS
+		FROM TB_BMS_IN_PLAN_PKG PKG 
+		LEFT JOIN TB_BMS_IN I ON I.IN_PLAN_NO = PKG.IN_PLAN_NO
+		WHERE PKG.PACKING_NO = #{packingNo}
+		AND PKG.DELETE_YN = 'N'
+		AND PKG.IN_PLAN_NO != #{inPlanNo}
+	</select>
+	
+	<select id="checkBoxOutScanByPackingNo" parameterType="HashMap" resultType="Integer">
+		/* BmsPkgNoMapper.checkBoxOutScanByPackingNo : 출고스캔 데이터 조회 */
+		SELECT
+			COUNT(*) AS CNT
+		FROM TB_BMS_OUT_SCAN 
+		WHERE SCAN_NO = #{packingNo}
+		AND SCAN_RESULT = '완료'
+	</select>
+	
+	<select id="checkBoxDeliveryOutScanByPackingNo" parameterType="HashMap" resultType="Integer">
+		/* BmsPkgNoMapper.checkBoxDeliveryOutScanByPackingNo : 박스스캔 데이터 조회 */
+		SELECT
+			COUNT(*) AS CNT
+		FROM TB_BMS_OUT_DELIVERY
+		WHERE PACKING_NO = #{packingNo}
+	</select>
+	
+	<update id="updatePantosPkgNo" parameterType="HashMap">
+		/* BmsPkgNoMapper.updatePantosPkgNo : 판토스 박스변경 */
+		BEGIN
+		
+		UPDATE TB_BMS_LOCATION_SCAN SET
+			SCAN_NO = #{packingNo}
+		WHERE BL_NO = #{blNo}
+		AND SCAN_NO = #{oldPackingNo};
+		
+		UPDATE TB_BMS_STOCK_PKG_SCAN SET
+			SCAN_NO = #{packingNo}
+			,PACKING_NO = #{packingNo}
+		WHERE BL_NO = #{blNo}
+		AND SCAN_NO = #{oldPackingNo};
+		
+		UPDATE TB_BMS_OUT_SCAN SET
+			SCAN_NO = #{packingNo}
+		WHERE BL_NO = #{blNo}
+		AND SCAN_NO = #{oldPackingNo};
+		
+		UPDATE TB_BMS_TIC_MOVE_SCAN SET
+			SCAN_NO = #{packingNo}
+		WHERE BL_NO = #{blNo}
+		AND SCAN_NO = #{oldPackingNo};
+		
+		END
+	</update>
+</mapper>

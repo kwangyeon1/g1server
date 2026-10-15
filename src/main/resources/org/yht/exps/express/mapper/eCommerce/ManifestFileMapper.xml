@@ -1,0 +1,2213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.ManifestFileMapper">
+
+	<select id="selectExclusionList" parameterType="searchManifestFileList" resultType="manifestFile">
+		/* ManifestFileMapper.selectExclusionList : 적하목록 파일업로드 배제리스트 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 cdb.HBL_NO
+			,cdb.CONSIGNEE_NAME
+			,cdb.CONSIGNEE_HP
+			,cdb.OLD_COMMODITY_ITEM
+			,cdb.NEW_COMMODITY_ITEM
+			,cdb.CONSIGNEE_ADDRESS
+			,cdb.ALLOWED_ITEM_CODE
+			,cdb.URL
+			,cdb.AMOUNT_CUR
+			,cdb.CURRENCY_CODE
+			,cdb.CUSTOMS_ID
+			,cdb.CD_USE_TYPE
+			,cdb.F_CODE
+			,cdb.CONSIGNEE_ADDRESS_LOC
+			,cdb.CONSIGNEE_NAME_LOC
+			,cdb.CONSIGNEE_ZIPCODE
+			,CONVERT(CHAR(19), cdb.IMPORT_DATE, 20) AS IMPORT_DATE
+			,cdb.REMOVE
+			,(SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = cdb.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			,CONVERT(CHAR(19), cdb.REGISTER_DATE_TIME, 20) AS REGISTER_DATE_TIME
+			,(SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = cdb.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			,CONVERT(CHAR(19), cdb.UPDATE_DATE_TIME, 20) AS UPDATE_DATE_TIME
+		FROM TB_CD_B_INFO cdb
+		WHERE 1 = 1
+		<if test="srchNo != null and srchNo != ''">
+<!-- 			<choose> -->
+<!-- 			<when test='srchNoLikeYn == "Y"'> -->
+<!-- 			AND ${srchNoType} LIKE CONCAT(#{srchNo},'%') -->
+<!-- 			</when> -->
+<!-- 			<otherwise> -->
+				<choose>
+					<when test='searchType == "multi"'>
+					AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<otherwise>
+					AND ${srchNoType} = #{srchNo}
+					</otherwise>
+				</choose>
+<!-- 			</otherwise> -->
+<!-- 			</choose> -->
+		</if>
+		<choose>
+		<when test='srchStatus == "A"'>
+		AND cdb.REMOVE != 'X'
+		</when>
+		<when test='srchStatus == "B"'>
+		AND cdb.REMOVE = 'X'
+		AND cdb.F_CODE = '1'
+		AND cdb.IMPORT_DATE >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+		AND cdb.IMPORT_DATE <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+		</when>
+		<when test='srchStatus == "C"'>
+		AND cdb.REMOVE = ''
+		AND cdb.IMPORT_DATE IS NULL
+		</when>
+		</choose>
+		
+		<choose>
+		<when test='srchDateType == "dateTime"'>
+		AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+		AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+		</when>
+		<otherwise>
+		AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+		AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+		</otherwise>
+		</choose>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectMasterTempList" parameterType="searchManifestFileList" resultType="manifestFile">
+		/* ManifestFileMapper.selectMasterTempList : 임시마스터 리스트 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 mod.GROUP_NAME
+			,mod.MBL_NO
+			,mod.LINE_CODE
+			,mod.VESSEL_FLIGHT
+			,mod.OB_DATE
+			,mod.OB_TIME
+			,mod.DEST_CODE
+			,mod.SERVICE_CODE
+			,mod.RUN_TYPE
+			,mod.SEQ_NO_ID
+            ,mod.REGISTER_DATE_TIME
+		FROM TB_ECM_MASTER_TEMP mod
+		WHERE 1 = 1
+		<if test='srchDateGbn != "noDateChk"'>
+			<choose>
+			<when test='srchDateType == "dateTime"'>
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</when>
+			<otherwise>
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</otherwise>
+			</choose>
+		</if>
+		<if test="bound != null and bound != ''">
+		AND mod.BOUND = #{bound}
+		</if>
+		<if test="boundType != null and boundType != ''">
+		AND mod.BOUND_TYPE = #{boundType}
+		</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectUpsBasicList" parameterType="searchManifestFileList" resultType="manifestFile">
+		/* ManifestFileMapper.selectUpsBasicList : UPS기초코드 리스트 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 ups.BASIC_TYPE
+			<choose>
+			<when test='srchBasicType == "B"'>
+			,(SELECT CONCAT(CODE, '.', NAME_KOR) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode} AND CODE = ups.ETC1 AND GROUP_CODE = 'CCL_ECOMMERCE_TYPE') AS ETC1
+			,ups.ETC2
+			</when>
+			<when test='srchBasicType == "E"'>
+			,ups.ETC1
+			,ups.ETC2
+			,(SELECT CONCAT(CODE, '.', NAME_KOR) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode} AND CODE = ups.ETC3 AND GROUP_CODE = 'ECM_BUY_TYPE') AS ETC3
+			</when>
+			<when test='srchBasicType == "C" or srchBasicType == "D"'>
+			,ups.ETC1
+			,CASE WHEN ups.ETC2 = 'A' THEN '화주명'   
+					WHEN ups.ETC2 = 'B' THEN '송하인상호'
+					WHEN ups.ETC2 = 'C' THEN '송하인국가코드'
+					WHEN ups.ETC2 = 'D' THEN '품명'
+					ELSE ''
+				END AS ETC2		
+			</when>
+			<otherwise>
+			,ups.ETC1
+			,ups.ETC2
+			</otherwise>
+			</choose>
+			,ups.HBL_NO
+			,ups.REGISTER_DATE_TIME
+			,ups.UPDATE_DATE_TIME
+			,ups.SEQ_NO_ID
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = #{srchEntCode} AND USER_ID = ups.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = #{srchEntCode} AND USER_ID = ups.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM TB_UPS_BASIC ups
+		WHERE 1 = 1
+		<choose>
+		<when test='srchDateType == "dateTime"'>
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+			</if> 
+			<if test="srchEndDate != null and srchEndDate != ''">
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</if>
+		</when>
+		<otherwise>
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+			</if>
+			<if test="srchEndDate != null and srchEndDate != ''"> 
+			AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</if>
+		</otherwise>
+		</choose>
+		<if test="srchBasicType != null and srchBasicType != ''">
+		AND ups.BASIC_TYPE = #{srchBasicType}
+		</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectUpsGroupList" parameterType="searchManifestFileList" resultType="manifestFile">
+		/* ManifestFileMapper.selectUpsGroupList : UPS그룹코드 리스트 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 ups.GROUP_NAME
+			,ups.COUNTRY_CODE
+			,ups.CITY_PORT
+			,ups.REGISTER_DATE_TIME
+			,ups.UPDATE_DATE_TIME
+			,ups.SEQ_NO_ID
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = #{srchEntCode} AND USER_ID = ups.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = #{srchEntCode} AND USER_ID = ups.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM TB_UPS_BOUND ups
+		WHERE 1 = 1
+		<choose>
+		<when test='srchDateType == "dateTime"'>
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+			</if> 
+			<if test="srchEndDate != null and srchEndDate != ''">
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</if>
+		</when>
+		<otherwise>
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+			</if>
+			<if test="srchEndDate != null and srchEndDate != ''"> 
+			AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</if>
+		</otherwise>
+		</choose>
+		<if test="srchGroupName != null and srchGroupName != ''">
+		AND ups.GROUP_NAME = #{srchGroupName}
+		</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectExclusionOrderUpdate" parameterType="HashMap" resultType="HashMap">
+		/* ManifestFileMapper.selectExclusionOrderUpdate : 오더업데이트대상조회 */
+		SELECT TOP 1
+			 OD_JOB_NO
+			,CD_USE_TYPE AS CD_USE_TYPE_OLD
+			,URL
+			,DOCUMENT_YN
+		FROM TB_ECM_OD
+		WHERE HBL_NO = #{HBL_NO} ORDER BY PO_DATE DESC
+	</select>
+	
+	<update id="updateOrderExclusion" parameterType="HashMap">
+		/* ManifestFileMapper.updateOrderExclusion : 개인통관부호 엑셀업로드시 오더 업데이트 */
+		UPDATE TB_ECM_OD SET
+			   ECM_TYPE = #{ECM_TYPE}
+			  <if test='removeUrlYn == "Y"'>
+			  ,URL = ''
+			  </if>
+			  <if test="CUSTOMS_ID != null and CUSTOMS_ID != ''">,CUSTOMS_ID = #{CUSTOMS_ID}</if>
+			  <if test="CD_USE_TYPE != null and CD_USE_TYPE != ''">,CD_USE_TYPE = #{CD_USE_TYPE}</if>
+			  <if test="CONSIGNEE_ADDRESS_LOC != null and CONSIGNEE_ADDRESS_LOC != ''">,CONSIGNEE_ADDRESS_LOC = ISNULL(CAST(#{CONSIGNEE_ADDRESS_LOC} AS NVARCHAR(300)), '')</if>
+			  <if test="CONSIGNEE_NAME_LOC != null and CONSIGNEE_NAME_LOC != ''">,CONSIGNEE_NAME_LOC = #{CONSIGNEE_NAME_LOC}</if>
+			  <if test="CONSIGNEE_HP != null and CONSIGNEE_HP != ''">,CONSIGNEE_HP = #{CONSIGNEE_HP}</if>
+			  <if test="CONSIGNEE_ZIPCODE != null and CONSIGNEE_ZIPCODE != ''">,CONSIGNEE_ZIPCODE = #{CONSIGNEE_ZIPCODE}</if>
+		WHERE OD_JOB_NO = #{OD_JOB_NO}
+	</update>
+	
+	<insert id="insertExclusion" parameterType="HashMap">
+		/* ManifestFileMapper.insertExclusion : 적하목록 배제리스트 엑셀업로드 */
+		MERGE TB_CD_B_INFO AS A 
+		USING (SELECT #{HBL_NO} AS HBL_NO) AS B 
+		ON (A.HBL_NO = B.HBL_NO)
+		WHEN MATCHED THEN
+		UPDATE SET
+			   HBL_NO = #{HBL_NO}
+			  <if test="F_CODE != null and F_CODE != ''">,F_CODE = #{F_CODE}</if>
+			  <if test="OLD_COMMODITY_ITEM != null and OLD_COMMODITY_ITEM != ''">,OLD_COMMODITY_ITEM = #{OLD_COMMODITY_ITEM}</if>
+			  <if test="NEW_COMMODITY_ITEM != null and NEW_COMMODITY_ITEM != ''">,NEW_COMMODITY_ITEM = #{NEW_COMMODITY_ITEM}</if>
+			  <if test="CONSIGNEE_NAME != null and CONSIGNEE_NAME != ''">,CONSIGNEE_NAME = #{CONSIGNEE_NAME}</if>
+			  <if test="CONSIGNEE_HP != null and CONSIGNEE_HP != ''">,CONSIGNEE_HP = #{CONSIGNEE_HP}</if>
+			  <if test="CONSIGNEE_ADDRESS != null and CONSIGNEE_ADDRESS != ''">,CONSIGNEE_ADDRESS = #{CONSIGNEE_ADDRESS}</if>
+			  <if test="ALLOWED_ITEM_CODE != null and ALLOWED_ITEM_CODE != ''">,ALLOWED_ITEM_CODE = #{ALLOWED_ITEM_CODE}</if>
+			  <if test="URL != null and URL != ''">,URL = #{URL}</if>
+			  <if test="AMOUNT_CUR != null and AMOUNT_CUR != ''">,AMOUNT_CUR = #{AMOUNT_CUR}</if>
+			  <if test="CURRENCY_CODE != null and CURRENCY_CODE != ''">,CURRENCY_CODE = #{CURRENCY_CODE}</if>
+			  <if test="CUSTOMS_ID != null and CUSTOMS_ID != ''">,CUSTOMS_ID = #{CUSTOMS_ID}</if>
+			  <if test="CD_USE_TYPE != null and CD_USE_TYPE != ''">,CD_USE_TYPE = #{CD_USE_TYPE}</if>
+			  <if test="CONSIGNEE_ADDRESS_LOC != null and CONSIGNEE_ADDRESS_LOC != ''">,CONSIGNEE_ADDRESS_LOC = ISNULL(CAST(#{CONSIGNEE_ADDRESS_LOC} AS NVARCHAR(300)), '')</if>
+			  <if test="CONSIGNEE_NAME_LOC != null and CONSIGNEE_NAME_LOC != ''">,CONSIGNEE_NAME_LOC = #{CONSIGNEE_NAME_LOC}</if>
+			  <if test="CONSENT != null and CONSENT != ''">,CONSENT = #{CONSENT}</if>
+			  <if test='uploadType == "customsId"'>,CUSTOMS_UPDATE_YN = 'Y'</if>
+			  <if test="CONSIGNEE_ZIPCODE != null and CONSIGNEE_ZIPCODE != ''">,CONSIGNEE_ZIPCODE = #{CONSIGNEE_ZIPCODE}</if>
+			  ,UPDATE_USER_ID = #{userId}
+			  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		WHEN NOT MATCHED BY TARGET THEN
+		INSERT(
+			   HBL_NO
+			  ,F_CODE
+			  ,OLD_COMMODITY_ITEM
+			  ,NEW_COMMODITY_ITEM
+			  ,CONSIGNEE_NAME
+			  ,CONSIGNEE_HP
+			  ,CONSIGNEE_ADDRESS
+			  ,ALLOWED_ITEM_CODE
+			  ,URL
+			  ,AMOUNT_CUR
+			  ,CURRENCY_CODE
+			  ,CUSTOMS_ID
+			  ,CD_USE_TYPE
+			  ,CONSIGNEE_ADDRESS_LOC
+			  ,CONSIGNEE_NAME_LOC
+			  ,CONSENT
+			  ,REMOVE
+			  <if test='uploadType == "customsId"'>,CUSTOMS_UPDATE_YN</if>
+			  ,CONSIGNEE_ZIPCODE
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{HBL_NO}
+			  ,#{F_CODE}
+			  ,#{OLD_COMMODITY_ITEM}
+			  ,#{NEW_COMMODITY_ITEM}
+			  ,#{CONSIGNEE_NAME}
+			  ,#{CONSIGNEE_HP}
+			  ,#{CONSIGNEE_ADDRESS}
+			  ,#{ALLOWED_ITEM_CODE}
+			  ,#{URL}
+			  ,#{AMOUNT_CUR}
+			  ,#{CURRENCY_CODE}
+			  ,#{CUSTOMS_ID}
+			  ,#{CD_USE_TYPE}
+			  ,ISNULL(CAST(#{CONSIGNEE_ADDRESS_LOC} AS NVARCHAR(300)), '')
+			  ,#{CONSIGNEE_NAME_LOC}
+			  ,#{CONSENT}
+			  ,''
+			  <if test='uploadType == "customsId"'>,'Y'</if>
+			  ,#{CONSIGNEE_ZIPCODE}
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		);
+	</insert>
+	
+	<delete id="deleteExclusion" parameterType="searchManifestFileList">
+		/* ManifestFileMapper.deleteExclusion : 적하목록 배제리스트 삭제 */
+		DELETE FROM TB_CD_B_INFO WHERE HBL_NO IN(<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+	</delete>
+	
+	<update id="updateExclusion" parameterType="HashMap">
+		/* ManifestFileMapper.updateExclusion : 적하목록 배제리스트 상태변경 */
+		UPDATE TB_CD_B_INFO SET IMPORT_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE()), REMOVE = 'X' WHERE HBL_NO = #{hblNo}
+	</update>
+	
+	<select id="selectUpsBasic" parameterType="HashMap" resultType="HashMap">
+		/* ManifestFileMapper.selectUpsBasic : 적하목록 파일업로드 UPS기초데이터 조회 */
+		SELECT
+			 ETC1
+			,ETC2
+			,BASIC_TYPE
+		FROM TB_UPS_BASIC
+		WHERE BOUND = #{srchBound}
+		AND BOUND_TYPE = #{srchBoundType}
+		<if test="srchBasicType != null and srchBasicType != ''">
+		AND BASIC_TYPE = #{srchBasicType}
+			<if test='srchBasicType == "C" or srchBasicType == "D"'>
+				AND ETC2 = 'A'
+			</if>
+		</if>
+		<!-- srchBasicTypeInList 가 현재 C,D 만 쓰고 있어서 ETC2가 A일때 조건을 추가하였음 
+			추후에 다른 값도 쓰고 있다면 ETC2 조건을 따로 처리해야함 -->
+		<if test="srchBasicTypeInList != null">
+		AND BASIC_TYPE IN(<foreach collection="srchBasicTypeInList" item="item" separator=",">#{item}</foreach>)
+		AND ETC2 = 'A'
+		</if>
+		<if test="srchEtc1 != null and srchEtc1 != ''">
+		AND ETC1 = #{srchEtc1}
+		</if>
+		<if test="srchEtc2 != null and srchEtc2 != ''">
+		AND ETC2 = #{srchEtc2}
+		</if>
+		<if test="srchEtc1InList != null">
+		AND ETC1 IN(<foreach collection="srchEtc1InList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		<if test="srchEtc2InList != null">
+		AND ETC2 IN(<foreach collection="srchEtc2InList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		<if test="sortStr != null and sortStr != ''">
+		${sortStr}
+		</if>
+	</select>
+	
+	<select id="selectUpsBasicMap" parameterType="HashMap" resultType="HashMap">
+		/* ManifestFileMapper.selectUpsBasicMap : 적하목록 파일업로드 UPS기초데이터 조회 */
+		SELECT
+			 ETC1
+			,ETC2
+			,ETC3
+			,HBL_NO
+			,BOUND
+		FROM TB_UPS_BASIC
+		WHERE BOUND = #{srchBound}
+		AND BOUND_TYPE = #{srchBoundType}
+		<if test="srchBasicType != null and srchBasicType != ''">
+		AND BASIC_TYPE = #{srchBasicType}
+			<if test='srchBasicType == "C" or srchBasicType == "D"'>
+				AND ETC2 = 'A'
+			</if>
+		</if>
+		<!-- srchBasicTypeInList 가 현재 C,D 만 쓰고 있어서 ETC2가 A일때 조건을 추가하였음 
+			추후에 다른 값도 쓰고 있다면 ETC2 조건을 따로 처리해야함 -->
+		<if test="srchBasicTypeInList != null">
+		AND BASIC_TYPE IN(<foreach collection="srchBasicTypeInList" item="item" separator=",">#{item}</foreach>)
+		AND ETC2 = 'A'
+		</if>
+		<if test="srchEtc1 != null and srchEtc1 != ''">
+		AND ETC1 = #{srchEtc1}
+		</if>
+		<if test="srchEtc2 != null and srchEtc2 != ''">
+		AND ETC2 = #{srchEtc2}
+		</if>
+		<if test="srchHblNo != null and srchHblNo != ''">
+		AND HBL_NO = #{srchHblNo}
+		</if>
+		<if test="srchEtc1InList != null">
+		AND ETC1 IN(<foreach collection="srchEtc1InList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		<if test="srchEtc2InList != null">
+		AND ETC2 IN(<foreach collection="srchEtc2InList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		<if test="sortStr != null and sortStr != ''">
+		${sortStr}
+		</if>
+	</select>
+	
+	<select id="selectUpsBound" parameterType="HashMap" resultType="HashMap">
+		/* ManifestFileMapper.selectUpsBound : TB_UPS_BOUND 조회 */
+		SELECT <if test='top1Yn == "Y"'>TOP 1</if>
+			 GROUP_NAME
+		FROM TB_UPS_BOUND
+		WHERE BOUND = #{srchBound}
+		AND BOUND_TYPE = #{srchBoundType}
+		<if test="srchCountryCode != null and srchCountryCode != ''">
+		AND COUNTRY_CODE = #{srchCountryCode}
+		</if>
+		<if test="srchCityPortIn != null">
+		AND CITY_PORT IN(<foreach collection="srchCityPortIn" item="item" separator=",">#{item}</foreach>)
+		</if>
+	</select>
+	
+	<select id="selectUpsGroup" parameterType="HashMap" resultType="HashMap">
+		/* ManifestFileMapper.selectUpsGroup : 적하목록 파일업로드 UPS기초데이터 조회 */
+		SELECT <if test='top1Yn == "Y"'>TOP 1</if>
+			 ups.MBL_NO
+			,ups.DEST_CODE
+			,ups.OB_DATE
+			,ups.OB_TIME
+			,ups.LINE_CODE
+			,ups.VESSEL_FLIGHT
+			,code.NAME_ENG AS DEST_NAME
+			,code.ETC2 AS DEST_COUNTRY
+		FROM TB_ECM_MASTER_TEMP ups
+			 LEFT JOIN TB_SMS_CODE_DETAIL code
+			 		   ON code.ENT_CODE = #{srchEntCode}
+			 		   AND code.CODE = ups.DEST_CODE
+			 		   AND code.GROUP_CODE = 'CITY_PORT'
+		<choose>
+		<when test="seqNoId != null and seqNoId != ''">
+			WHERE ups.SEQ_NO_ID = #{seqNoId}
+		</when>
+		<otherwise>
+			WHERE ups.BOUND = #{srchBound}
+			AND ups.BOUND_TYPE = #{srchBoundType}
+			<if test="srchGroupName != null and srchGroupName != ''">
+			AND ups.GROUP_NAME = #{srchGroupName}
+			</if>
+			<if test="srchRunType != null and srchRunType != ''">
+			AND ups.RUN_TYPE = #{srchRunType}
+			</if>
+			<if test="srchServiceCodeInList != null">
+			AND ISNULL(ups.SERVICE_CODE,'') IN(<foreach collection="srchServiceCodeInList" item="item" separator=",">#{item}</foreach>)
+			</if>
+            <if test="currentDate != null">
+            AND CONCAT(OB_DATE,' ',OB_TIME, ':00' ) <![CDATA[>]]> #{currentDate}
+            </if>
+			<if test="sortStr != null and sortStr != ''">
+			${sortStr}
+			</if>
+		</otherwise>
+		</choose>
+	</select>
+	
+	<select id="selectExclusion" parameterType="HashMap" resultType="HashMap">
+		/* ManifestFileMapper.selectExclusion : 적하목록 파일업로드 배제 */
+		SELECT
+			 HBL_NO
+			,CONSIGNEE_NAME
+			,CONSIGNEE_HP
+			,CONSIGNEE_ADDRESS
+			,CUSTOMS_ID
+			,CD_USE_TYPE
+			,OLD_COMMODITY_ITEM
+			,NEW_COMMODITY_ITEM
+			,F_CODE
+			,ALLOWED_ITEM_CODE
+			,URL
+			,CURRENCY_CODE
+			,AMOUNT_CUR
+			,CONSIGNEE_NAME_LOC
+			,CONSIGNEE_ADDRESS_LOC
+			,CONSIGNEE_ZIPCODE
+		FROM TB_CD_B_INFO
+		WHERE HBL_NO = #{hblNo}
+	</select>
+	
+	<select id="selectOrderCustomsId" parameterType="HashMap" resultType="HashMap">
+		/* ManifestFileMapper.selectOrderCustomsId : 오더 통관고유부호 조회 */
+		IF (
+			SELECT COUNT(*)
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_CD_B_INFO cd
+				 			ON cd.HBL_NO = od.HBL_NO
+				 			AND cd.CONSENT = 'Y'
+			WHERE od.AR_DATE >= CONVERT(DATE, #{beforeOneYear}, 23)
+			AND od.AR_DATE <![CDATA[<=]]> CONVERT(DATE, #{nowDate}, 23)
+			AND ISNULL(od.CUSTOMS_ID, '') != ''
+			AND dbo.func_AlphabetRemain(od.CONSIGNEE_NAME) = #{consigneeName}
+		) > 0
+		BEGIN
+			SELECT TOP 1
+				 od.CUSTOMS_ID
+				,od.CUSTOMS_ID_TYPE
+				,CONCAT(ISNULL(od.MRN, ''), ISNULL(od.MSN, ''), ISNULL(od.HSN, '')) AS LC_NO
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_CD_B_INFO cd
+				 			ON cd.HBL_NO = od.HBL_NO
+				 			ANd cd.CONSENT = 'Y'
+			WHERE od.AR_DATE >= CONVERT(DATE, #{beforeOneYear}, 23)
+			AND od.AR_DATE <![CDATA[<=]]> CONVERT(DATE, #{nowDate}, 23)
+			AND ISNULL(od.CUSTOMS_ID, '') != ''
+			AND dbo.func_AlphabetRemain(od.CONSIGNEE_NAME) = #{consigneeName}
+			AND (
+				RIGHT(dbo.func_getNumeric(od.CONSIGNEE_TEL) ,8) = #{consigneeTel}
+				<choose>
+				<when test="consigneeHp != null and consigneeHp != ''">
+				OR RIGHT(dbo.func_getNumeric(od.CONSIGNEE_HP) ,8) = #{consigneeHp}
+				</when>
+				<otherwise>
+				OR RIGHT(dbo.func_getNumeric(od.CONSIGNEE_HP) ,8) = #{consigneeTel}
+				</otherwise>
+				</choose> 
+			)
+			ORDER BY od.AR_DATE DESC
+		END
+	</select>
+	
+	<select id="selectMasterInfo" parameterType="HashMap" resultType="HashMap">
+		/* ManifestFileMapper.selectMasterInfo : 적하목록 파일업로드 마스터조회 */
+		SELECT
+			 mod.MBL_NO
+			,mod.OD_JOB_NO
+			,mod.MRN
+			,mod.MSN
+			,mod.LINE_CODE
+			,mod.VESSEL_FLIGHT
+			,mod.DEST_CODE
+			,mod.ORIG_CODE
+			,mod.AR_DATE
+			,mod.AR_TIME
+			,mod.OB_DATE
+			,mod.OB_TIME
+			,mod.ORIG_NAME
+			,mod.ORIG_COUNTRY
+			,mod.DEST_NAME
+			,mod.DEST_PORT
+			,mod.DEST_COUNTRY
+			,mod.CUSTOMS_CODE
+			,mod.CUSTOMS_DPT_CODE
+			,mod.DISC_WH_CODE
+			,mod.ASSIGNMENT_WH_CODE
+			,mod.SELECTOR_USER_ID
+			,mod.CONFIRMER_USER_ID
+			,mod.FINISH_YN
+			,mad.EDI_MAILBOX_SEQ_NO
+			<if test='selectSimpleDocNo == "Y"'>
+			,(
+				SELECT MIN(had.SIMPLE_DOC_NO)
+				FROM TB_ECM_OD hod
+					 INNER JOIN TB_ECM_OD_ADDITIONAL had
+					 			ON had.OD_JOB_NO = hod.OD_JOB_NO
+					 			AND ISNULL(had.SIMPLE_DOC_NO, '') IN('ERROR', '')
+				 WHERE hod.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+				 AND hod.BL_TYPE_MH = 'H'
+				 AND hod.DOCUMENT_YN = 'Y'
+			 ) AS SIMPLE_DOC_NO_DOCUMENT_Y
+			,(
+				SELECT MIN(had.SIMPLE_DOC_NO)
+				FROM TB_ECM_OD hod
+					 INNER JOIN TB_ECM_OD_ADDITIONAL had
+					 			ON had.OD_JOB_NO = hod.OD_JOB_NO
+					 			AND ISNULL(had.SIMPLE_DOC_NO, '') IN('ERROR', '')
+				 WHERE hod.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+				 AND hod.BL_TYPE_MH = 'H'
+				 AND ISNULL(hod.DOCUMENT_YN, 'N') = 'N'
+			 ) AS SIMPLE_DOC_NO_DOCUMENT_N
+			</if>
+			<if test='selectMaxHsn == "Y"'>
+			,(SELECT MAX(HSN) FROM TB_ECM_OD WHERE MASTER_OD_JOB_NO = mod.OD_JOB_NO) AS MAX_HSN
+			</if>
+		FROM TB_ECM_OD mod
+			 INNER JOIN TB_ECM_OD_ADDITIONAL mad
+			 			ON mad.OD_JOB_NO = mod.OD_JOB_NO
+		WHERE mod.MBL_NO = #{mblNo}
+		AND mod.BOUND = #{bound}
+		AND mod.BOUND_TYPE = #{boundType}
+		AND mod.BL_TYPE_MH = 'M'
+	</select>
+	
+	<select id="selectMasterInfo2" parameterType="HashMap" resultType="searchManifestFileList">
+		/* ManifestFileMapper.selectMasterInfo2 : 적하목록 파일업로드 마스터조회 */
+		SELECT
+			 mod.MBL_NO
+			,mod.OD_JOB_NO
+			,mod.MRN
+			,mod.MSN
+			,mod.LINE_CODE
+			,mod.VESSEL_FLIGHT
+			,mod.DEST_CODE
+			,mod.ORIG_CODE
+			,mod.AR_DATE
+			,mod.AR_TIME
+			,mod.OB_DATE
+			,mod.OB_TIME
+			,mod.ORIG_NAME
+			,mod.ORIG_COUNTRY
+			,mod.DEST_NAME
+			,mod.DEST_COUNTRY
+			,mod.CUSTOMS_CODE
+			,mod.CUSTOMS_DPT_CODE
+			,mod.VENDER_ID_1 AS VENDER_ID
+			,mod.FINISH_YN
+			,mad.EDI_MAILBOX_SEQ_NO
+			<if test='selectMaxHsn == "Y"'>
+			,(SELECT MAX(HSN) FROM TB_ECM_OD WHERE MASTER_OD_JOB_NO = mod.OD_JOB_NO) AS HSN
+			</if>
+			,mod.CUST_CODE_LV1
+			,mod.SHIPPER_COUNTRY_CODE
+			,mod.CONSIGNEE_COUNTRY_CODE
+		FROM TB_ECM_OD mod
+			 INNER JOIN TB_ECM_OD_ADDITIONAL mad
+			 			ON mad.OD_JOB_NO = mod.OD_JOB_NO
+		WHERE mod.MBL_NO = #{mblNo}
+		AND mod.BOUND = #{bound}
+		AND mod.BOUND_TYPE = #{boundType}
+		AND mod.BL_TYPE_MH = 'M'
+	</select>
+	
+	<select id="selectHouseInfoList" parameterType="HashMap" resultType="HashMap">
+		/* ManifestFileMapper.selectHouseInfoList : 적하목록 파일업로드 하우스조회 */
+		SELECT
+			 od.HBL_NO
+		FROM TB_ECM_OD od
+		WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+		<choose>
+		<when test="hblNoList != null">
+		AND od.HBL_NO IN(<foreach collection="hblNoList" separator="," item="item">#{item}</foreach>)
+		</when>
+		<otherwise>
+		AND od.HBL_NO = #{hblNo}
+		</otherwise>
+		</choose>
+	</select>
+	
+	<select id="selectEpnList" parameterType="HashMap" resultType="HashMap">
+		/* ManifestFileMapper.selectEpnList : 적하목록 파일업로드 TB_ECM_EPN */
+		SELECT
+			 HBL_NO
+		FROM TB_ECM_EPN
+		WHERE 1 = 1
+		AND HBL_NO = #{hblNo}
+		AND CLEARANCE_TYPE != 'F'
+	</select>
+	
+	<select id="selectBusEdiCodeInfo" parameterType="HashMap" resultType="HashMap">
+		/* ManifestFileMapper.selectBusEdiCodeInfo : TB_SMS_ENT_BUS_EDI_CODE 조회 */
+			SELECT TOP 1
+	 			 MAX(EDI_SELECTOR_USER_ID) AS EDI_SELECTOR_USER_ID
+	 			,MAX(EDI_CONFIRMER_USER_ID) AS EDI_CONFIRMER_USER_ID
+	 			,MAX(CASE WHEN DOCUMENT_YN = 'Y' THEN LTRIM(RTRIM(EDI_EXPRESS_SIGN)) END) AS EDI_EXPRESS_SIGN_DOCUMENT_Y
+	 			,MAX(CASE WHEN ISNULL(DOCUMENT_YN, 'N') = 'N' THEN LTRIM(RTRIM(EDI_EXPRESS_SIGN)) END) AS EDI_EXPRESS_SIGN_DOCUMENT_N
+	 			,CONVERT(VARCHAR, DATEADD(DAY, -365, GETDATE()), 23) AS BEFORE_ONE_YEAR
+	 			,CONVERT(VARCHAR, GETDATE(), 23) AS NOW_DATE
+	 		FROM TB_SMS_ENT_BUS_EDI_CODE
+			WHERE ENT_CODE = #{srchEntCode}
+			AND ENT_BUSINESS_CODE = #{srchEntBusinessCode}
+			AND BOUND = #{srchBound}
+			AND EDI_CITY_PORT = #{srchEdiCityPort}
+	</select>
+	
+	<select id="selectMasterTempGroupName" parameterType="searchManifestFileList" resultType="String">
+		/* ManifestFileMapper.selectMasterTempGroupName : 임시마스터 그룹명 리스트 */
+		SELECT GROUP_NAME 
+		FROM TB_UPS_BOUND 
+		WHERE BOUND = #{bound} 
+		AND BOUND_TYPE = #{boundType} 
+		GROUP BY GROUP_NAME
+	</select>
+	
+	<insert id="insertMasterTemp" parameterType="searchManifestFileList">
+		/* ManifestFileMapper.insertMasterTemp : 임시마스터 저장 */
+		INSERT INTO TB_ECM_MASTER_TEMP(
+			   BOUND
+			  ,BOUND_TYPE
+			  ,GROUP_NAME
+			  ,MBL_NO
+			  ,LINE_CODE
+			  ,VESSEL_FLIGHT
+			  ,OB_DATE
+			  ,OB_TIME
+			  ,DEST_CODE
+			  ,RUN_TYPE
+			  ,SERVICE_CODE
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{bound}
+			  ,#{boundType}
+			  ,#{groupName}
+			  ,#{mblNo}
+			  ,#{lineCode}
+			  ,#{vesselFlight}
+			  ,CONVERT(DATE, #{obDate}, ${dateFormat})
+			  ,#{obTime}
+			  ,#{destCode}
+			  ,'Y'
+			  ,#{serviceCode}
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</insert>
+	
+	<update id="updateMasterTemp" parameterType="searchManifestFileList">
+		/* ManifestFileMapper.updateMasterTemp : 임시마스터 저장 */
+		UPDATE TB_ECM_MASTER_TEMP SET
+			   GROUP_NAME = #{groupName}
+			  ,MBL_NO = #{mblNo}
+			  ,DEST_CODE = #{destCode}
+			  ,LINE_CODE = #{lineCode}
+			  ,VESSEL_FLIGHT = #{vesselFlight}
+			  ,OB_DATE = CONVERT(DATE, #{obDate}, ${dateFormat})
+			  ,OB_TIME = #{obTime}
+			  ,SERVICE_CODE = #{serviceCode}
+			  ,UPDATE_USER_ID = #{userId}
+			  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		WHERE SEQ_NO_ID = #{seqNoId}
+	</update>
+	
+	<delete id="deleteMasterTemp" parameterType="searchManifestFileList">
+		/* ManifestFileMapper.deleteMasterTemp : 임시마스터 저장 */
+		DELETE FROM TB_ECM_MASTER_TEMP WHERE SEQ_NO_ID = #{seqNoId}
+	</delete>
+	
+	<select id="selectUpsBasicDupCheck" parameterType="HashMap" resultType="String">
+		/* ManifestFileMapper.selectUpsBasicDupCheck : UPS기초코드 중복체크 */
+		SELECT HBL_NO
+		FROM TB_UPS_BASIC
+		WHERE BASIC_TYPE = #{basicType}
+		<choose>
+		<when test="hblNoList != null">
+		AND HBL_NO IN(<foreach collection="hblNoList" item="item" separator=",">#{item.HBL_NO}</foreach>)
+		</when>
+		<otherwise>
+		AND HBL_NO = #{hblNo}
+		</otherwise>
+		</choose>
+	</select>
+	
+	<insert id="insertUpsBasic" parameterType="manifestFile" useGeneratedKeys="true" keyProperty="seqNoId">
+		/* ManifestFileMapper.insertUpsBasic : UPS기초코드 저장 */
+		INSERT INTO TB_UPS_BASIC(
+			   BOUND
+			  ,BOUND_TYPE
+			  ,BASIC_TYPE
+			  ,ETC1
+			  ,ETC2
+			  ,ETC3
+			  ,HBL_NO
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{bound}
+			  ,#{boundType}
+			  ,#{basicType}
+			  ,#{etc1}
+			  ,#{etc2}
+			  ,#{etc3}
+			  ,#{hblNo}
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</insert>
+	
+	<insert id="insertUpsBasicMap" parameterType="HashMap">
+		/* ManifestFileMapper.insertUpsBasic : UPS기초코드 저장 */
+		INSERT INTO TB_UPS_BASIC(
+			   BOUND
+			  ,BOUND_TYPE
+			  ,BASIC_TYPE
+			  ,ETC1
+			  ,ETC2
+			  ,ETC3
+			  ,HBL_NO
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{bound}
+			  ,#{boundType}
+			  ,#{basicType}
+			  ,#{ETC1}
+			  ,#{ETC2}
+			  ,#{ETC3}
+			  ,#{HBL_NO}
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</insert>
+	
+	<update id="updateUpsBasic" parameterType="manifestFile">
+		/* ManifestFileMapper.updateUpsBasic : UPS기초코드 저장 */
+		UPDATE TB_UPS_BASIC SET
+			   ETC1 = #{etc1}
+			  ,ETC2 = #{etc2}
+			  ,ETC3 = #{etc3}
+			  ,HBL_NO = #{hblNo}
+			  ,UPDATE_USER_ID = #{userId}
+			  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		WHERE SEQ_NO_ID = #{seqNoId}
+	</update>
+	
+	<delete id="deleteUpsBasic" parameterType="manifestFile">
+		/* ManifestFileMapper.deleteUpsBasic : UPS기초코드 저장 */
+		DELETE FROM TB_UPS_BASIC WHERE SEQ_NO_ID IN(<foreach collection="seqNoIdList" item="item" separator=",">#{item}</foreach>)
+	</delete>
+	
+	<select id="selectUpsBasicEntry" parameterType="manifestFile" resultType="manifestFile">
+		/* ManifestFileMapper.selectUpsBasicEntry : UPS기초코드 조회 */
+		SELECT
+			 ups.BASIC_TYPE
+			,ups.ETC1
+			,ups.ETC2
+			,ups.ETC3
+			,ups.HBL_NO
+			,ups.SEQ_NO_ID
+			,ups.REGISTER_DATE_TIME
+			,ups.UPDATE_DATE_TIME
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = #{entCode} AND USER_ID = ups.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = #{entCode} AND USER_ID = ups.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM TB_UPS_BASIC ups
+		WHERE ups.SEQ_NO_ID = #{seqNoId}
+	</select>
+	
+	<insert id="insertUpsGroup" parameterType="manifestFile" useGeneratedKeys="true" keyProperty="seqNoId">
+		/* ManifestFileMapper.insertUpsGroup : UPS그룹코드 저장 */
+		INSERT INTO TB_UPS_BOUND(
+			   BOUND
+			  ,BOUND_TYPE
+			  ,GROUP_NAME
+			  ,COUNTRY_CODE
+			  ,CITY_PORT
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{bound}
+			  ,#{boundType}
+			  ,#{groupName}
+			  ,#{countryCode}
+			  ,#{cityPort}
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</insert>
+	
+	<update id="updateUpsGroup" parameterType="manifestFile">
+		/* ManifestFileMapper.updateUpsGroup : UPS그룹코드 저장 */
+		UPDATE TB_UPS_BOUND SET
+			   GROUP_NAME = #{groupName}
+			  ,COUNTRY_CODE = #{countryCode}
+			  ,CITY_PORT = #{cityPort}
+			  ,UPDATE_USER_ID = #{userId}
+			  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		WHERE SEQ_NO_ID = #{seqNoId}
+	</update>
+	
+	<delete id="deleteUpsGroup" parameterType="manifestFile">
+		/* ManifestFileMapper.deleteUpsGroup : UPS그룹코드 저장 */
+		DELETE FROM TB_UPS_BOUND WHERE SEQ_NO_ID IN(<foreach collection="seqNoIdList" item="item" separator=",">#{item}</foreach>)
+	</delete>
+	
+	<select id="selectUpsGroupEntry" parameterType="manifestFile" resultType="manifestFile">
+		/* ManifestFileMapper.selectUpsGroupEntry : UPS그룹코드 조회 */
+		SELECT
+			 ups.GROUP_NAME
+			,ups.COUNTRY_CODE
+			,ups.CITY_PORT
+			,ups.SEQ_NO_ID
+			,ups.REGISTER_DATE_TIME
+			,ups.UPDATE_DATE_TIME
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = #{entCode} AND USER_ID = ups.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = #{entCode} AND USER_ID = ups.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM TB_UPS_BOUND ups
+		WHERE ups.SEQ_NO_ID = #{seqNoId}
+	</select>
+	
+	<insert id="insertOdChildNo" parameterType="HashMap">
+		/* ManifestFileMapper.insertOdChildNo : 적하목록 파일업로드 TB_ECM_OD_CHILD_NO 저장 */
+		INSERT INTO TB_ECM_OD_CHILD_NO(
+			   OD_JOB_NO
+			  ,SEQ_NO_ID
+			  ,TRACKING_NO
+		)VALUES(
+			   #{odJobNo}
+			  ,#{seqNoId}
+			  ,#{trackingNo}
+		)
+	</insert>
+	
+	<insert id="insertMasterOrder" parameterType="searchManifestFileList">
+		/* ManifestFileMapper.insertMasterOrder : 적하목록 파일업로드 마스터저장 */
+		INSERT INTO TB_ECM_OD(
+			   OD_JOB_NO
+			  ,ENT_CODE
+			  ,ENT_BUSINESS_CODE
+			  ,SOLUTION
+			  ,BOUND
+			  ,BOUND_TYPE
+			  ,PO_DATE
+			  ,BL_TYPE_MH
+			  ,CONSOL_YN
+			  ,MBL_NO
+<!-- 			  ,VOYAGE -->
+			  ,LINE_CODE
+<!-- 			  ,LINE_NAME -->
+			  ,MASTER_OD_JOB_NO
+			  ,CUST_CODE_LV1
+			  ,VESSEL_FLIGHT
+			  ,ORIG_CODE
+			  ,ORIG_NAME
+			  ,ORIG_COUNTRY
+			  ,DEST_COUNTRY
+			  ,OB_DATE
+			  ,OB_TIME
+			  ,DEST_CODE
+			  ,DEST_NAME
+			  ,AR_DATE
+			  ,AR_TIME
+			  ,CUSTOMS_CODE
+			  ,CUSTOMS_DPT_CODE
+			  ,ASSIGNMENT_WH_CODE
+			  ,DISC_WH_CODE
+			  ,SELECTOR_USER_ID
+			  ,CONFIRMER_USER_ID
+			  ,VENDER_ID_1
+			  ,DEST_PORT
+			  ,FINISH_YN
+			  ,MRN
+			  ,MSN
+			  ,INPUT_METHOD
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{odJobNo}
+			  ,#{srchEntCode}
+			  ,#{entBusinessCode}
+			  ,'ECM'
+			  ,#{bound}
+			  ,#{boundType}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,'M'
+			  ,#{consolYn}
+			  ,LTRIM(RTRIM(#{mblNo}))
+<!-- 			  ,#{voyage} -->
+			  ,#{lineCode}
+<!-- 			  ,#{lineName} -->
+			  ,#{odJobNo}
+			  ,#{custCodeLv1}
+			  ,#{vesselFlight}
+			  ,#{origCode}
+			  ,#{origName}
+			  ,#{origCountry}
+			  ,#{destCountry}
+			  ,CONVERT(DATE, #{obDate}, ${dateFormat})
+			  ,#{obTime}
+			  ,#{destCode}
+			  ,#{destName}
+			  ,CONVERT(DATE, #{arDate}, ${dateFormat})
+			  ,#{arTime}
+			  ,#{customsCode}
+			  ,#{customsDptCode}
+			  ,#{assignmentWhCode}
+			  ,#{discWhCode}
+			  ,#{selectorUserId}
+			  ,#{confirmerUserId}
+			  ,#{venderId}
+			  ,#{destPort}
+			  ,#{finishYn}
+			  ,#{mrn}
+			  ,#{msn}
+			  ,'WEB'
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		);
+		INSERT INTO TB_ECM_OD_ADDITIONAL(
+			   OD_JOB_NO
+			  ,SIMPLE_DOC_NO
+			  ,EDI_MAILBOX_SEQ_NO
+			  ,MASTER_OD_JOB_NO
+			  ,MBL_NO
+			  ,BL_TYPE_MH
+		)VALUES(
+			   #{odJobNo}
+			  ,#{simpleDocNo}
+			  ,#{ediMailboxSeqNo}
+			  ,#{odJobNo}
+			  ,LTRIM(RTRIM(#{mblNo}))
+			  ,'M'
+		);
+	</insert>
+	
+	<insert id="insertHouseOrder" parameterType="manifestFile">
+		/* ManifestFileMapper.insertHouseOrder : 적하목록 파일업로드 하우스저장 */
+		<if test='simpleDocNo == "create"'>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.selectNextStockMaxNo"/>
+		</if>
+		INSERT INTO TB_ECM_OD(
+			   OD_JOB_NO
+			  ,ENT_CODE
+			  ,ENT_BUSINESS_CODE
+			  ,SOLUTION
+			  ,BOUND
+			  ,BOUND_TYPE
+			  ,PO_DATE
+			  ,CUST_CODE_LV1
+			  ,VENDER_ID_1
+			  ,BL_TYPE_MH
+			  ,BL_TYPE_IERT
+			  ,CONSOL_YN
+			  ,MASTER_OD_JOB_NO
+			  ,MBL_NO
+			  ,HBL_NO
+			  ,MRN
+			  ,MSN
+			  ,HSN
+<!-- 			  ,TR_CODE -->
+<!-- 			  ,TR_NAME -->
+<!-- 			  ,DELIVERY_CODE -->
+<!-- 			  ,DELIVERY_NAME -->
+<!-- 			  ,DELIVERY_NOTE -->
+<!-- 			  ,DELIVERY_PAYMENT_TYPE -->
+<!-- 			  ,DELIVERY_FEE -->
+<!-- 			  ,DELIVERY_NAME_CHANGED -->
+<!-- 			  ,DELIVERY_ADDRESS_CHANGED -->
+<!-- 			  ,DELIVERY_REASON_CHANGED -->
+<!-- 			  ,SELLER_REG_NO -->
+			  ,SELLER_NAME
+			  ,AGENT_REG_NO
+			  ,AGENT_NAME
+<!-- 			  ,SALES_BROKER_REG_NO -->
+<!-- 			  ,SALES_BROKER_NAME -->
+<!-- 			  ,CB_CODE -->
+<!-- 			  ,CB_NAME -->
+			  ,CD_TYPE
+			  ,CD_TYPE_OLD
+			  ,CD_USE_TYPE
+			  ,ECM_TYPE
+			  ,ECM_BUY_TYPE
+			  ,CUSTOMS_ID_TYPE
+			  ,CUSTOMS_ID
+			  ,INSPECTION_YN
+			  ,GE_INSPECTION_YN
+<!-- 			  ,INSPECTION_TYPE -->
+			  ,MULTI_YN
+			  ,HOLD_YN
+<!-- 			  ,HOLD_CODE -->
+<!-- 			  ,HOLD_REASON -->
+			  ,REMARKS
+<!-- 			  ,HOLD_RELEASE_ATTN -->
+<!-- 			  ,HOLD_RELEASE_DATE -->
+<!-- 			  ,CLEARANCE_PAYMENT_TYPE -->
+<!-- 			  ,CLEARANCE_VIOLATION_CODE -->
+<!-- 			  ,CLEARANCE_VIOLATION_REASON -->
+<!-- 			  ,TARIFF_REMARKS -->
+			  ,URL
+			  ,FTA_YN
+			  ,VESSEL_FLIGHT
+			  ,ORIG_CODE
+			  ,ORIG_NAME
+			  ,OB_DATE
+			  ,OB_TIME
+			  ,DEST_CODE
+			  ,DEST_NAME
+			  ,AR_DATE
+			  ,AR_TIME
+			  ,PIECES
+<!-- 			  ,UNIT_PIECES -->
+			  ,PIECES_REAL
+			  ,GWT
+			  ,GWT_LBS
+<!-- 			  ,CBM -->
+			  ,COMMODITY_ITEM
+			  ,ALLOWED_ITEM_CODE
+			  ,CURRENCY_CODE
+			  ,AMOUNT_LOC
+			  ,AMOUNT_CUR
+			  ,AMOUNT_USD
+			  ,EXCHANGE_RATE
+			  ,CUSTOMS_CODE
+			  ,CUSTOMS_DPT_CODE
+			  ,ASSIGNMENT_WH_CODE
+			  ,DISC_WH_CODE
+			  ,SELECTOR_USER_ID
+			  ,CONFIRMER_USER_ID
+			  ,FWRD_CODE
+			  ,SHIPPER_NAME
+			  ,SHIPPER_ADDRESS
+			  ,SHIPPER_ADDRESS_A
+			  ,SHIPPER_ADDRESS_B
+			  ,SHIPPER_ADDRESS_C
+			  ,SHIPPER_ADDRESS_D
+			  ,SHIPPER_TEL
+			  ,SHIPPER_BUSINESS_ID
+			  ,SHIPPER_FAX
+<!-- 			  ,SHIPPER_ATTN -->
+			  ,SHIPPER_ZIPCODE
+			  ,SHIPPER_PLACE
+			  ,SHIPPER_STATE_CODE
+			  ,SHIPPER_STREET
+<!-- 			  ,SHIPPER_HP -->
+<!-- 			  ,CARRYIN_NO -->
+<!-- 			  ,CONSIGNEE_CODE -->
+			  ,CONSIGNEE_NAME
+			  ,CONSIGNEE_ADDRESS
+			  ,CONSIGNEE_ADDRESS_A
+			  ,CONSIGNEE_ADDRESS_B
+			  ,CONSIGNEE_ADDRESS_C
+			  ,CONSIGNEE_ADDRESS_D
+<!-- 			  ,CONSIGNEE_HP -->
+			  ,CONSIGNEE_TEL
+			  ,CONSIGNEE_ZIPCODE
+			  ,CONSIGNEE_NAME_LOC
+			  ,CONSIGNEE_ADDRESS_LOC
+			  ,CONSIGNEE_FAX
+<!-- 			  ,CONSIGNEE_ATTN -->
+			  ,CONSIGNEE_PLACE
+			  ,CONSIGNEE_STATE_CODE
+			  ,CONSIGNEE_STREET
+			  ,FINISH_YN
+			  ,LINE_CODE
+			  ,ORIG_COUNTRY
+			  ,DEST_COUNTRY
+			  ,SHIPPER_COUNTRY_CODE
+			  ,CONSIGNEE_COUNTRY_CODE
+<!-- 			  ,VOYAGE -->
+			  ,DEST_PORT
+			  ,VWT
+<!-- 			  ,INCOTERMS -->
+<!-- 			  ,RETURN_YN -->
+<!-- 			  ,RETURN_DELIVERY_NO -->
+<!-- 			  ,HOLD_REMARKS -->
+<!-- 			  ,GOODS_LOC_CODE -->
+<!-- 			  ,GOODS_LOC_ADDR -->
+<!-- 			  ,BWH_NAME -->
+<!-- 			  ,GOODS_LOC_INSPECT_YN -->
+<!-- 			  ,GOODS_LOC_INSPECT_REASON -->
+			  ,INPUT_METHOD
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+<!-- 			  ,ASSIGNMENT_CODE -->
+<!-- 			  ,DIM_WIDTH -->
+<!-- 			  ,DIM_HEIGHT -->
+<!-- 			  ,DIM_LENGTH -->
+			  ,FINISH_USER_ID
+			  ,FINISH_DATE
+			  ,DOCUMENT_YN
+		)VALUES(
+			   #{odJobNo}
+			  ,#{entCode}
+			  ,#{headEntBusinessCode}
+			  ,#{solution}
+			  ,#{bound}
+			  ,#{boundType}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{custCodeLv1}
+			  ,#{venderId}
+			  ,#{blTypeMh}
+			  <choose>
+			  <when test='blTypeIert == "create"'>
+			  ,ISNULL((SELECT TOP 1 CASE WHEN CLEARANCE_TYPE = 'E' THEN 'R' END FROM TB_ECM_EPN WHERE HBL_NO = #{hblNo}), 'E')
+			  </when>
+			  <otherwise>
+			  ,#{blTypeIert}
+			  </otherwise>
+			  </choose>
+			  ,#{consolYn}
+			  ,#{masterOdJobNo}
+			  ,LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+			  ,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+			  ,#{mrn}
+			  ,#{msn}
+			  ,#{hsn}
+<!-- 			  ,#{trCode} -->
+<!-- 			  ,#{trName} -->
+<!-- 			  ,#{deliveryCode} -->
+<!-- 			  ,#{deliveryName} -->
+<!-- 			  ,#{deliveryNote} -->
+<!-- 			  ,#{deliveryPaymentType} -->
+<!-- 			  ,#{deliveryFee} -->
+<!-- 			  ,#{deliveryNameChanged} -->
+<!-- 			  ,#{deliveryAddressChanged} -->
+<!-- 			  ,#{deliveryReasonChanged} -->
+<!-- 			  ,#{sellerRegNo} -->
+			  ,#{sellerName}
+			  ,#{agentRegNo}
+			  ,#{agentName}
+<!-- 			  ,#{salesBrokerRegNo} -->
+<!-- 			  ,#{salesBrokerName} -->
+<!-- 			  ,#{cbCode} -->
+<!-- 			  ,#{cbName} -->
+			  ,#{cdType}
+			  ,#{cdType}
+			  ,#{cdUseType}
+			  ,#{ecmType}
+			  ,#{ecmBuyType}
+			  ,#{customsIdType}
+			  ,#{customsId}
+			  ,#{inspectionYn}
+			  ,#{geInspectionYn}
+<!-- 			  ,#{inspectionType} -->
+			  ,#{multiYn}
+			  ,#{holdYn}
+<!-- 			  ,#{holdCode} -->
+<!-- 			  ,#{holdReason} -->
+			  ,#{remarks}
+<!-- 			  ,#{holdReleaseAttn} -->
+<!-- 			  <choose> -->
+<!-- 			  <when test="holdReleaseDate == ''"> -->
+<!-- 			  ,NULL -->
+<!-- 			  </when> -->
+<!-- 			  <otherwise> -->
+<!-- 			  ,CONVERT(DATE, #{holdReleaseDate}, ${dateFormat}) -->
+<!-- 			  </otherwise> -->
+<!-- 			  </choose> -->
+<!-- 			  ,#{clearancePaymentType} -->
+<!-- 			  ,#{clearanceViolationCode} -->
+<!-- 			  ,#{clearanceViolationReason} -->
+<!-- 			  ,#{tariffRemarks} -->
+			  ,#{url}
+			  ,#{ftaYn}
+			  ,#{vesselFlight}
+			  ,#{origCode}
+			  ,#{origName}
+			  <choose>
+			  <when test="obDate == ''">
+			  ,NULL
+			  </when>
+			  <otherwise>
+			  ,CONVERT(DATE, #{obDate}, ${dateFormat})
+			  </otherwise>
+			  </choose>
+			  ,#{obTime}
+			  ,#{destCode}
+			  ,#{destName}
+			  <choose>
+			  <when test="arDate == ''">
+			  ,NULL
+			  </when>
+			  <otherwise>
+			  ,CONVERT(DATE, #{arDate}, ${dateFormat})
+			  </otherwise>
+			  </choose>
+			  ,#{arTime}
+			  ,#{pieces}
+<!-- 			  ,#{unitPieces} -->
+			  ,#{piecesReal}
+			  ,#{gwt}
+			  ,#{gwtLbs}
+<!-- 			  ,#{cbm} -->
+			  ,UPPER(#{commodityItem})
+			  ,#{allowedItemCode}
+			  ,#{currencyCode}
+			  ,#{amountLoc}
+			  ,#{amountCur}
+			  ,#{amountUsd}
+			  ,#{exchangeRate}
+			  ,#{customsCode}
+			  ,#{customsDptCode}
+			  ,#{assignmentWhCode}
+			  ,#{discWhCode}
+			  ,#{selectorUserId}
+			  ,#{confirmerUserId}
+			  ,#{fwrdCode}
+			  ,UPPER(#{shipperName})
+			  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 1, 60)
+			  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 61, 60)
+			  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 121, 60)
+			  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 181, 60)
+			  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 241, 60)
+			  ,#{shipperTel}
+			  ,dbo.Cryptography(#{odJobNo}, #{shipperBusinessId}, 0)
+			  ,#{shipperFax}
+<!-- 			  ,#{shipperAttn} -->
+			  ,#{shipperZipcode}
+			  ,#{shipperPlace}
+			  ,#{shipperStateCode}
+			  ,#{shipperStreet}
+<!-- 			  ,#{shipperHp} -->
+<!-- 			  ,#{carryinNo} -->
+<!-- 			  ,#{consigneeCode} -->
+			  ,UPPER(#{consigneeName})
+			  ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 1, 60)
+			  ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 61, 60)
+			  ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 121, 60)
+			  ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 181, 60)
+			  ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 241, 60)
+<!-- 			  ,#{consigneeHp} -->
+			  ,#{consigneeTel}
+			  ,#{consigneeZipcode}
+			  ,#{consigneeNameLoc}
+			  ,ISNULL(CAST(#{consigneeAddressLoc} AS NVARCHAR(300)), '')
+			  ,#{consigneeFax}
+<!-- 			  ,#{consigneeAttn} -->
+			  ,#{consigneePlace}
+			  ,#{consigneeStateCode}
+			  ,#{consigneeStreet}
+			  ,#{finishYn}
+			  ,#{lineCode}
+			  ,#{origCountry}
+			  ,#{destCountry}
+			  ,#{shipperCountryCode}
+			  ,#{consigneeCountryCode}
+<!-- 			  ,#{voyage} -->
+			  ,#{destPort}
+			  ,0
+<!-- 			  ,#{incoterms} -->
+<!-- 			  ,#{returnYn} -->
+<!-- 			  ,#{returnDeliveryNo} -->
+<!-- 			  ,#{holdRemarks} -->
+<!-- 			  ,#{goodsLocCode} -->
+<!-- 			  ,#{goodsLocAddr} -->
+<!-- 			  ,#{bwhName} -->
+<!-- 			  ,#{goodsLocInspectYn} -->
+<!-- 			  ,#{goodsLocInspectReason} -->
+			  ,'WEB'
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+<!-- 			  ,#{assignmentCode} -->
+<!-- 			  ,#{dimWidth} -->
+<!-- 			  ,#{dimHeight} -->
+<!-- 			  ,#{dimLength} -->
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{documentYn}
+		);
+		INSERT INTO TB_ECM_OD_ADDITIONAL(
+			   OD_JOB_NO
+			  ,CUSTOMS_ID_VERIFY
+			  ,CUSTOMS_ID_ERROR
+			  ,SIMPLE_DOC_NO
+			  ,LAST_POD_STATUS
+			  ,EDI_MAILBOX_SEQ_NO
+			  ,MASTER_OD_JOB_NO
+			  ,MBL_NO
+			  ,HBL_NO
+			  ,CD_TYPE
+			  ,BL_TYPE_MH
+			  ,HSN
+			  ,AMS_YN
+			  ,TRACKING_NO
+			  ,PLAN_YN
+			  ,BANK_NAME
+			  ,ORIG
+			  ,BILLING_TERM
+			  ,TRANS_TYPE
+			  ,DUTIES
+			  ,TS_SEND_TYPE
+			  ,ACTUAL_CST_NAME
+<!-- 			  ,PACKING_ERROR_YN -->
+		)VALUES(
+			   #{odJobNo}
+			  ,#{customsIdVerify}
+			  ,#{customsIdError}
+			  <choose>
+			  <when test='simpleDocNo == "create"'>
+			  ,@RES_STOCK_NO
+			  </when>
+			  <otherwise>
+			  ,#{simpleDocNo}
+			  </otherwise>
+			  </choose>
+			  ,#{lastPodStatus}
+			  ,#{ediMailboxSeqNo}
+			  ,#{masterOdJobNo}
+			  ,LTRIM(RTRIM(#{mblNo}))
+			  ,LTRIM(RTRIM(#{hblNo}))
+			  ,#{cdType}
+			  ,#{blTypeMh}
+			  ,#{hsn}
+			  ,#{amsYn}
+			  ,#{trackingNo}
+			  ,#{planYn}
+			  ,#{bankName}
+			  ,#{orig}
+			  ,#{billingTerm}
+			  ,#{transType}
+			  ,#{duties}
+			  ,#{tsSendType}
+			  ,#{actualCstName}
+<!-- 			  ,#{packingErrorYn} -->
+		);
+		INSERT INTO TB_ECM_POD_01(
+			   POD_JOB_NO
+			  ,ENT_CODE
+			  ,OD_JOB_NO
+			  ,POD_STATUS
+			  ,POD_DATE
+			  ,POD_TIME
+			  ,BL_NO
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{podJobNo}
+			  ,#{entCode}
+			  ,#{odJobNo}
+			  ,'ECM010'
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+			  ,LTRIM(RTRIM(#{hblNo}))
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		);
+		<if test="mblNo != null and mblNo != ''">
+		INSERT INTO TB_ECM_POD_01(
+			   POD_JOB_NO
+			  ,ENT_CODE
+			  ,OD_JOB_NO
+			  ,POD_STATUS
+			  ,POD_DATE
+			  ,POD_TIME
+			  ,BL_NO
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{podJobNo2}
+			  ,#{entCode}
+			  ,#{odJobNo}
+			  ,'ECM055'
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+			  ,LTRIM(RTRIM(#{hblNo}))
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		);
+		</if>
+	</insert>
+	
+	<insert id="insertHousePacking" parameterType="HashMap">
+		/* ManifestFileMapper.insertHousePacking : 적하목록 파일업로드 하우스 Packing */
+		INSERT INTO TB_ECM_OD_PACKING(
+			   OD_JOB_NO
+			  ,SEQ_NO_ID
+			  ,PACKING_NO
+<!-- 			  ,GWT -->
+			  ,NWT
+			  ,VWT
+			  ,DIM_WIDTH
+			  ,DIM_LENGTH
+			  ,DIM_HEIGHT
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+		)VALUES(
+			   #{odJobNo}
+			  ,#{seqNoId}
+			  ,#{packingNo}
+<!-- 			  ,#{gwt} -->
+			  ,0
+			  ,0
+			  ,0
+			  ,0
+			  ,0
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</insert>
+	
+	<insert id="insertHouseItem" parameterType="HashMap">
+		/* ManifestFileMapper.insertHouseItem : 적하목록 파일업로드 하우스세부품목 */
+		INSERT INTO TB_ECM_OD_ITEM(
+			   OD_JOB_NO
+			  ,SEQ_NO_ID
+			  ,PIECES
+			  ,UNIT_PIECES
+			  ,DETAIL_ITEM_NAME
+			  ,AMOUNT
+			  ,CURRENCY_CODE
+			  ,HS_CODE
+			  ,UNIT_PRICE
+<!-- 			  ,DETAIL_ITEM_NAME_LOC -->
+<!-- 			  ,BRAND -->
+<!-- 			  ,ORIGIN_COUNTRY -->
+			  ,GWT
+<!-- 			  ,DIM_WIDTH -->
+<!-- 			  ,DIM_LENGTH -->
+<!-- 			  ,DIM_HEIGHT -->
+<!-- 			  ,VWT -->
+<!-- 			  ,ECM_URL -->
+<!-- 			  ,DELIVERY_NO -->
+<!-- 			  ,REMARKS -->
+		)VALUES(
+			   #{odJobNo}
+			  ,#{seqNoId}
+			  ,#{pieces}
+			  ,#{unitPieces}
+			  ,UPPER(#{detailItemName})
+			  ,#{amount}
+			  ,#{currencyCode}
+			  ,#{hsCode}
+			  ,#{unitPrice}
+<!-- 			  ,#{detailItemNameLoc} -->
+<!-- 			  ,#{brand} -->
+<!-- 			  ,#{originCountry} -->
+			  ,#{gwt}
+<!-- 			  ,#{dimWidth} -->
+<!-- 			  ,#{dimLength} -->
+<!-- 			  ,#{dimHeight} -->
+<!-- 			  ,#{vwt} -->
+<!-- 			  ,#{ecmUrl} -->
+<!-- 			  ,#{deliveryNo} -->
+<!-- 			  ,#{remarks} -->
+		)
+	</insert>
+	
+	<select id="selectTsHouseInList" parameterType="SearchManifestFileList" resultType="ManifestFile">
+		/* ManifestFileMapper.selectTsHouseInList : UPS : 항공수입 T/S HAWB 가져오기 - 항공수입 T/S HAWB 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				   od.OD_JOB_NO AS IMP_OD_JOB_NO
+				 , od.AR_DATE
+				 , od.PO_DATE
+				 , od.MBL_NO AS IMP_MBL_NO
+				 , od.HBL_NO
+				 , od.MRN
+				 , od.MSN
+				 , od.HSN
+				 , od.REMARKS 
+				 , od.VESSEL_FLIGHT
+				 , od.ORIG_CODE
+				 , od.CD_TYPE
+				 , od.AMOUNT_CUR
+				 , od.AMOUNT_LOC
+				 , od.AMOUNT_USD
+				 , od.DOCUMENT_YN
+				 , expOd.MASTER_OD_JOB_NO AS EXP_MASTER_OD_JOB_NO
+				 , expOd.OD_JOB_NO AS EXP_OD_JOB_NO
+				 , expOd.MBL_NO AS EXP_MBL_NO
+				 , CASE WHEN ISNULL(expOd.OD_JOB_NO, '') != '' THEN 'Y' ELSE 'N' END AS EXP_YN
+			FROM TB_ECM_OD od
+			LEFT JOIN TB_ECM_OD_ADDITIONAL ad
+			ON od.OD_JOB_NO = ad.OD_JOB_NO
+			LEFT JOIN (
+				SELECT MASTER_OD_JOB_NO
+					 , OD_JOB_NO
+					 , MBL_NO
+					 , HBL_NO
+				  FROM TB_ECM_OD
+			     WHERE BOUND = 'AIR'
+			       AND BOUND_TYPE = 'EXP'
+				   AND BL_TYPE_IERT = 'R'
+			) expOd
+			ON od.HBL_NO = expOd.HBL_NO
+			WHERE od.BL_TYPE_MH = 'H'
+			AND od.BOUND = 'AIR'
+			AND od.BOUND_TYPE = 'IMP'
+			AND od.BL_TYPE_IERT = 'T'
+			<if test='srchDateGbn != "noDateChk"'>
+				<if test="srchStartDate != null and srchStartDate != ''">
+				AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+				</if>
+				<if test="srchEndDate != null and srchEndDate != ''">
+				AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+				</if>
+			</if>
+			<if test="srchNo != null and srchNo != ''">
+				<choose>
+					<when test='searchType == "multi"'>
+					AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<otherwise>
+					AND ${srchNoType} = #{srchNo}
+					</otherwise>
+				</choose>
+			</if>
+			<if test='srchExpYn != null and srchExpYn != ""'>
+				<choose>
+					<when test='srchExpYn == "Y"'>
+					AND ISNULL(expOd.OD_JOB_NO, '') != ''
+					</when>
+					<when test='srchExpYn == "N"'>
+					AND ISNULL(expOd.OD_JOB_NO, '') = ''
+					</when>
+				</choose>
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<insert id="insertTsHouseOrder" parameterType="manifestFile">
+		/* ManifestFileMapper.insertTsHouseOrder : UPS 항공수출 T/S HAWB 생성 */
+		<if test='simpleDocNo == "create"'>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.selectNextStockMaxNo"/>
+		</if>
+		INSERT INTO TB_ECM_OD(
+			   OD_JOB_NO
+			  ,ENT_CODE
+			  ,ENT_BUSINESS_CODE
+			  ,SOLUTION
+			  ,BOUND
+			  ,BOUND_TYPE
+			  ,PO_DATE
+			  ,CUST_CODE_LV1
+			  ,VENDER_ID_1
+			  ,BL_TYPE_MH
+			  ,BL_TYPE_IERT
+			  ,CONSOL_YN
+			  ,MASTER_OD_JOB_NO
+			  ,MBL_NO
+			  ,HBL_NO
+			  ,MRN
+			  ,MSN
+			  ,HSN
+<!-- 			  ,TR_CODE -->
+<!-- 			  ,TR_NAME -->
+<!-- 			  ,DELIVERY_CODE -->
+<!-- 			  ,DELIVERY_NAME -->
+<!-- 			  ,DELIVERY_NOTE -->
+<!-- 			  ,DELIVERY_PAYMENT_TYPE -->
+<!-- 			  ,DELIVERY_FEE -->
+<!-- 			  ,DELIVERY_NAME_CHANGED -->
+<!-- 			  ,DELIVERY_ADDRESS_CHANGED -->
+<!-- 			  ,DELIVERY_REASON_CHANGED -->
+<!-- 			  ,SELLER_REG_NO -->
+			  ,SELLER_NAME
+			  ,AGENT_REG_NO
+			  ,AGENT_NAME
+<!-- 			  ,SALES_BROKER_REG_NO -->
+<!-- 			  ,SALES_BROKER_NAME -->
+<!-- 			  ,CB_CODE -->
+<!-- 			  ,CB_NAME -->
+			  ,CD_TYPE
+			  ,CD_TYPE_OLD
+			  ,CD_USE_TYPE
+			  ,ECM_TYPE
+			  ,ECM_BUY_TYPE
+			  ,CUSTOMS_ID_TYPE
+			  ,CUSTOMS_ID
+			  ,INSPECTION_YN
+			  ,GE_INSPECTION_YN
+<!-- 			  ,INSPECTION_TYPE -->
+			  ,MULTI_YN
+			  ,HOLD_YN
+<!-- 			  ,HOLD_CODE -->
+<!-- 			  ,HOLD_REASON -->
+			  ,REMARKS
+<!-- 			  ,HOLD_RELEASE_ATTN -->
+<!-- 			  ,HOLD_RELEASE_DATE -->
+<!-- 			  ,CLEARANCE_PAYMENT_TYPE -->
+<!-- 			  ,CLEARANCE_VIOLATION_CODE -->
+<!-- 			  ,CLEARANCE_VIOLATION_REASON -->
+<!-- 			  ,TARIFF_REMARKS -->
+			  ,URL
+			  ,FTA_YN
+			  ,VESSEL_FLIGHT
+			  ,ORIG_CODE
+			  ,ORIG_NAME
+			  ,OB_DATE
+			  ,OB_TIME
+			  ,DEST_CODE
+			  ,DEST_NAME
+			  ,AR_DATE
+			  ,AR_TIME
+			  ,PIECES
+<!-- 			  ,UNIT_PIECES -->
+			  ,PIECES_REAL
+			  ,GWT
+			  ,GWT_LBS
+<!-- 			  ,CBM -->
+			  ,COMMODITY_ITEM
+			  ,ALLOWED_ITEM_CODE
+			  ,CURRENCY_CODE
+			  ,AMOUNT_LOC
+			  ,AMOUNT_CUR
+			  ,AMOUNT_USD
+			  ,EXCHANGE_RATE
+			  ,CUSTOMS_CODE
+			  ,CUSTOMS_DPT_CODE
+			  ,ASSIGNMENT_WH_CODE
+			  ,DISC_WH_CODE
+			  ,SELECTOR_USER_ID
+			  ,CONFIRMER_USER_ID
+			  ,FWRD_CODE
+			  ,SHIPPER_NAME
+			  ,SHIPPER_ADDRESS
+			  ,SHIPPER_ADDRESS_A
+			  ,SHIPPER_ADDRESS_B
+			  ,SHIPPER_ADDRESS_C
+			  ,SHIPPER_ADDRESS_D
+			  ,SHIPPER_TEL
+			  ,SHIPPER_BUSINESS_ID
+			  ,SHIPPER_FAX
+<!-- 			  ,SHIPPER_ATTN -->
+			  ,SHIPPER_ZIPCODE
+			  ,SHIPPER_PLACE
+			  ,SHIPPER_STATE_CODE
+			  ,SHIPPER_STREET
+<!-- 			  ,SHIPPER_HP -->
+<!-- 			  ,CARRYIN_NO -->
+<!-- 			  ,CONSIGNEE_CODE -->
+			  ,CONSIGNEE_NAME
+			  ,CONSIGNEE_ADDRESS
+			  ,CONSIGNEE_ADDRESS_A
+			  ,CONSIGNEE_ADDRESS_B
+			  ,CONSIGNEE_ADDRESS_C
+			  ,CONSIGNEE_ADDRESS_D
+<!-- 			  ,CONSIGNEE_HP -->
+			  ,CONSIGNEE_TEL
+			  ,CONSIGNEE_ZIPCODE
+			  ,CONSIGNEE_NAME_LOC
+			  ,CONSIGNEE_ADDRESS_LOC
+			  ,CONSIGNEE_FAX
+<!-- 			  ,CONSIGNEE_ATTN -->
+			  ,CONSIGNEE_PLACE
+			  ,CONSIGNEE_STATE_CODE
+			  ,CONSIGNEE_STREET
+			  ,FINISH_YN
+			  ,LINE_CODE
+			  ,ORIG_COUNTRY
+			  ,DEST_COUNTRY
+			  ,SHIPPER_COUNTRY_CODE
+			  ,CONSIGNEE_COUNTRY_CODE
+<!-- 			  ,VOYAGE -->
+			  ,DEST_PORT
+			  ,VWT
+<!-- 			  ,INCOTERMS -->
+<!-- 			  ,RETURN_YN -->
+<!-- 			  ,RETURN_DELIVERY_NO -->
+<!-- 			  ,HOLD_REMARKS -->
+<!-- 			  ,GOODS_LOC_CODE -->
+<!-- 			  ,GOODS_LOC_ADDR -->
+<!-- 			  ,BWH_NAME -->
+<!-- 			  ,GOODS_LOC_INSPECT_YN -->
+<!-- 			  ,GOODS_LOC_INSPECT_REASON -->
+			  ,INPUT_METHOD
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+<!-- 			  ,ASSIGNMENT_CODE -->
+<!-- 			  ,DIM_WIDTH -->
+<!-- 			  ,DIM_HEIGHT -->
+<!-- 			  ,DIM_LENGTH -->
+			  ,FINISH_USER_ID
+			  ,FINISH_DATE
+			  ,DOCUMENT_YN
+		)
+		SELECT
+			   #{odJobNo}
+			  ,#{entCode}
+			  ,#{headEntBusinessCode}
+			  ,#{solution}
+			  ,#{bound}
+			  ,#{boundType}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{custCodeLv1}
+			  ,#{venderId}
+			  ,#{blTypeMh}
+			  <choose>
+			  <when test='blTypeIert == "create"'>
+			  ,ISNULL((SELECT TOP 1 CASE WHEN CLEARANCE_TYPE = 'E' THEN 'R' END FROM TB_ECM_EPN WHERE HBL_NO = #{hblNo}), 'E')
+			  </when>
+			  <otherwise>
+			  ,#{blTypeIert}
+			  </otherwise>
+			  </choose>
+			  ,#{consolYn}
+			  ,#{masterOdJobNo}
+			  ,LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+			  ,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+			  ,#{mrn}
+			  ,#{msn}
+			  ,#{hsn}
+<!-- 			  ,#{trCode} -->
+<!-- 			  ,#{trName} -->
+<!-- 			  ,#{deliveryCode} -->
+<!-- 			  ,#{deliveryName} -->
+<!-- 			  ,#{deliveryNote} -->
+<!-- 			  ,#{deliveryPaymentType} -->
+<!-- 			  ,#{deliveryFee} -->
+<!-- 			  ,#{deliveryNameChanged} -->
+<!-- 			  ,#{deliveryAddressChanged} -->
+<!-- 			  ,#{deliveryReasonChanged} -->
+<!-- 			  ,#{sellerRegNo} -->
+			  ,SELLER_NAME
+			  ,AGENT_REG_NO
+			  ,AGENT_NAME
+<!-- 			  ,#{salesBrokerRegNo} -->
+<!-- 			  ,#{salesBrokerName} -->
+<!-- 			  ,#{cbCode} -->
+<!-- 			  ,#{cbName} -->
+			  ,CD_TYPE
+			  ,CD_TYPE_OLD
+			  ,CD_USE_TYPE
+			  ,ECM_TYPE
+			  ,ECM_BUY_TYPE
+			  ,#{customsIdType}
+			  ,CUSTOMS_ID
+			  ,#{inspectionYn}
+			  ,GE_INSPECTION_YN
+<!-- 			  ,#{inspectionType} -->
+			  ,#{multiYn}
+			  ,#{holdYn}
+<!-- 			  ,#{holdCode} -->
+<!-- 			  ,#{holdReason} -->
+			  ,REMARKS
+<!-- 			  ,#{holdReleaseAttn} -->
+<!-- 			  <choose> -->
+<!-- 			  <when test="holdReleaseDate == ''"> -->
+<!-- 			  ,NULL -->
+<!-- 			  </when> -->
+<!-- 			  <otherwise> -->
+<!-- 			  ,CONVERT(DATE, #{holdReleaseDate}, ${dateFormat}) -->
+<!-- 			  </otherwise> -->
+<!-- 			  </choose> -->
+<!-- 			  ,#{clearancePaymentType} -->
+<!-- 			  ,#{clearanceViolationCode} -->
+<!-- 			  ,#{clearanceViolationReason} -->
+<!-- 			  ,#{tariffRemarks} -->
+			  ,URL
+			  ,#{ftaYn}
+			  ,#{vesselFlight}
+			  ,#{origCode}
+			  ,#{origName}
+			  <choose>
+			  <when test="obDate == ''">
+			  ,NULL
+			  </when>
+			  <otherwise>
+			  ,CONVERT(DATE, #{obDate}, ${dateFormat})
+			  </otherwise>
+			  </choose>
+			  ,#{obTime}
+			  ,#{destCode}
+			  ,#{destName}
+			  <choose>
+			  <when test="arDate == ''">
+			  ,NULL
+			  </when>
+			  <otherwise>
+			  ,CONVERT(DATE, #{arDate}, ${dateFormat})
+			  </otherwise>
+			  </choose>
+			  ,#{arTime}
+			  ,PIECES
+<!-- 			  ,#{unitPieces} -->
+			  ,PIECES_REAL
+			  ,GWT
+			  ,GWT_LBS
+<!-- 			  ,#{cbm} -->
+			  ,COMMODITY_ITEM
+			  ,ALLOWED_ITEM_CODE
+			  ,CURRENCY_CODE
+			  ,#{amountLoc}
+			  ,#{amountCur}
+			  ,#{amountUsd}
+			  ,#{exchangeRate}
+			  ,#{customsCode}
+			  ,#{customsDptCode}
+			  ,ASSIGNMENT_WH_CODE
+			  ,DISC_WH_CODE
+			  ,SELECTOR_USER_ID
+			  ,CONFIRMER_USER_ID
+			  ,FWRD_CODE
+			  ,SHIPPER_NAME
+			  ,SHIPPER_ADDRESS
+			  ,SHIPPER_ADDRESS_A
+			  ,SHIPPER_ADDRESS_B
+			  ,SHIPPER_ADDRESS_C
+			  ,SHIPPER_ADDRESS_D
+			  ,SHIPPER_TEL
+			  ,SHIPPER_BUSINESS_ID
+			  ,SHIPPER_FAX
+<!-- 			  ,#{shipperAttn} -->
+			  ,SHIPPER_ZIPCODE
+			  ,SHIPPER_PLACE
+			  ,SHIPPER_STATE_CODE
+			  ,SHIPPER_STREET
+<!-- 			  ,#{shipperHp} -->
+<!-- 			  ,#{carryinNo} -->
+<!-- 			  ,#{consigneeCode} -->
+			  ,CONSIGNEE_NAME
+			  ,CONSIGNEE_ADDRESS
+			  ,CONSIGNEE_ADDRESS_A
+			  ,CONSIGNEE_ADDRESS_B
+			  ,CONSIGNEE_ADDRESS_C
+			  ,CONSIGNEE_ADDRESS_D
+<!-- 			  ,#{consigneeHp} -->
+			  ,CONSIGNEE_TEL
+			  ,CONSIGNEE_ZIPCODE
+			  ,CONSIGNEE_NAME_LOC
+			  ,CONSIGNEE_ADDRESS_LOC
+			  ,CONSIGNEE_FAX
+<!-- 			  ,#{consigneeAttn} -->
+			  ,CONSIGNEE_PLACE
+			  ,CONSIGNEE_STATE_CODE
+			  ,CONSIGNEE_STREET
+			  ,#{finishYn}
+			  ,#{lineCode}
+			  ,#{origCountry}
+			  ,#{destCountry}
+			  ,#{shipperCountryCode}
+			  ,#{consigneeCountryCode}
+<!-- 			  ,#{voyage} -->
+			  ,#{destPort}
+			  ,VWT
+<!-- 			  ,#{incoterms} -->
+<!-- 			  ,#{returnYn} -->
+<!-- 			  ,#{returnDeliveryNo} -->
+<!-- 			  ,#{holdRemarks} -->
+<!-- 			  ,#{goodsLocCode} -->
+<!-- 			  ,#{goodsLocAddr} -->
+<!-- 			  ,#{bwhName} -->
+<!-- 			  ,#{goodsLocInspectYn} -->
+<!-- 			  ,#{goodsLocInspectReason} -->
+			  ,'WEB'
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+<!-- 			  ,#{assignmentCode} -->
+<!-- 			  ,#{dimWidth} -->
+<!-- 			  ,#{dimHeight} -->
+<!-- 			  ,#{dimLength} -->
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{documentYn}
+		FROM TB_ECM_OD
+		WHERE OD_JOB_NO = #{impOdJobNo};
+		
+		INSERT INTO TB_ECM_OD_ADDITIONAL(
+			   OD_JOB_NO
+			  ,CUSTOMS_ID_VERIFY
+			  ,CUSTOMS_ID_ERROR
+			  ,SIMPLE_DOC_NO
+			  ,LAST_POD_STATUS
+			  ,EDI_MAILBOX_SEQ_NO
+			  ,MASTER_OD_JOB_NO
+			  ,MBL_NO
+			  ,HBL_NO
+			  ,CD_TYPE
+			  ,BL_TYPE_MH
+			  ,HSN
+			  ,AMS_YN
+			  ,TRACKING_NO
+			  ,PLAN_YN
+			  ,BANK_NAME
+			  ,ORIG
+			  ,BILLING_TERM
+			  ,TRANS_TYPE
+			  ,DUTIES
+			  ,TS_SEND_TYPE
+			  ,ACTUAL_CST_NAME
+<!-- 			  ,PACKING_ERROR_YN -->
+		)
+		SELECT
+			   #{odJobNo}
+			  ,CUSTOMS_ID_VERIFY
+			  ,CUSTOMS_ID_ERROR
+			  <choose>
+			  <when test='simpleDocNo == "create"'>
+			  ,@RES_STOCK_NO
+			  </when>
+			  <otherwise>
+			  ,#{simpleDocNo}
+			  </otherwise>
+			  </choose>
+			  ,#{lastPodStatus}
+			  ,#{ediMailboxSeqNo}
+			  ,#{masterOdJobNo}
+			  ,LTRIM(RTRIM(#{mblNo}))
+			  ,LTRIM(RTRIM(#{hblNo}))
+			  ,CD_TYPE
+			  ,#{blTypeMh}
+			  ,#{hsn}
+			  ,AMS_YN
+			  ,TRACKING_NO
+			  ,PLAN_YN
+			  ,BANK_NAME
+			  ,ORIG
+			  ,BILLING_TERM
+			  ,TRANS_TYPE
+			  ,DUTIES
+			  ,TS_SEND_TYPE
+			  ,ACTUAL_CST_NAME
+<!-- 			  ,#{packingErrorYn} -->
+		FROM TB_ECM_OD_ADDITIONAL
+		WHERE OD_JOB_NO = #{impOdJobNo};
+		
+		INSERT INTO TB_ECM_POD_01(
+			   POD_JOB_NO
+			  ,ENT_CODE
+			  ,OD_JOB_NO
+			  ,POD_STATUS
+			  ,POD_DATE
+			  ,POD_TIME
+			  ,BL_NO
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{podJobNo}
+			  ,#{entCode}
+			  ,#{odJobNo}
+			  ,'ECM010'
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+			  ,LTRIM(RTRIM(#{hblNo}))
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		);
+		INSERT INTO TB_ECM_POD_01(
+			   POD_JOB_NO
+			  ,ENT_CODE
+			  ,OD_JOB_NO
+			  ,POD_STATUS
+			  ,POD_DATE
+			  ,POD_TIME
+			  ,BL_NO
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{podJobNo2}
+			  ,#{entCode}
+			  ,#{odJobNo}
+			  ,'ECM055'
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+			  ,LTRIM(RTRIM(#{hblNo}))
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		);
+		
+		INSERT INTO TB_ECM_OD_LICENSE(
+			   OD_JOB_NO
+			  ,LICENSE_NO
+			  ,PIECES
+			  ,UNIT_PIECES
+			  ,GWT
+			  ,UNIT_WEIGHT
+			  ,COMBINE_TYPE_A_Z
+			  ,COMBINE_PIECES
+			  ,PARTIAL_YN
+			  ,PARTIAL_SEQ
+			  ,EFN_PO_NO
+			  ,EFN_SENDER_CODE
+			  ,EFN_DELIVERY_NO
+			  ,EFN_DOC_NO
+			  ,EFN_TYPE
+			  ,EDI_STATUS
+			  ,EDI_DATE_TIME
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)
+		SELECT
+			 #{odJobNo}
+			,#{licenseNo}
+			,PIECES
+			,ISNULL(UNIT_PIECES,'PCS')
+			,GWT
+			,NULL
+			,NULL
+			,0
+			,'N'
+			,0
+			,NULL
+			,NULL
+			,NULL
+			,NULL
+			,NULL
+			,NULL
+			,NULL
+			,#{userId}
+		    ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		    ,#{userId}
+		    ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		FROM TB_ECM_OD
+		WHERE OD_JOB_NO = #{impOdJobNo};
+	</insert>
+	
+	<update id="updateTsHouseOrder" parameterType="manifestFile">
+		/* ManifestFileMapper.updateTsHouseOrder : UPS 항공수출 T/S HAWB 수정 */
+		<if test='simpleDocNo == "create"'>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.selectNextStockMaxNo"/>
+		</if>
+			UPDATE TB_ECM_OD SET
+				   MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  ,MASTER_OD_JOB_NO = #{masterOdJobNo}
+				  ,LINE_CODE = #{lineCode}
+				  ,VESSEL_FLIGHT = #{vesselFlight}
+				  ,OB_DATE = #{obDate}
+				  ,OB_TIME = #{obTime}
+				  ,DEST_CODE = #{destCode}
+				  ,DEST_NAME = #{destName}
+				  ,AR_DATE = #{arDate}
+				  ,AR_TIME = #{arTime}
+				  ,DEST_COUNTRY = #{destCountry}
+				  ,SHIPPER_COUNTRY_CODE = #{origCountry}
+				  ,CONSIGNEE_COUNTRY_CODE = #{destCountry}
+				  ,CONSOL_YN = 'Y'
+				  ,AMOUNT_LOC = #{amountLoc}
+				  ,AMOUNT_USD = #{amountUsd}
+				  ,EXCHANGE_RATE = #{exchangeRate}
+		  		  ,ORIG_CODE = #{origCode}
+				  ,MRN = #{mrn}
+				  ,MSN = #{msn}
+				  ,UPDATE_USER_ID = #{userId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,FINISH_YN = 'Y'
+				  ,HSN = #{hsn}
+				  ,VENDER_ID_1 = #{venderId}
+			WHERE OD_JOB_NO = #{odJobNo};
+			
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   EDI_MAILBOX_SEQ_NO = #{ediMailboxSeqNo}
+				  ,MASTER_OD_JOB_NO = #{masterOdJobNo}
+				  ,MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  ,HSN = #{hsn}
+				  <choose>
+				  <when test='simpleDocNo == "create"'>
+				  ,SIMPLE_DOC_NO = @RES_STOCK_NO
+				  </when>
+				  <otherwise>
+				  ,SIMPLE_DOC_NO = #{simpleDocNo}
+				  </otherwise>
+				  </choose>
+				  ,LAST_POD_STATUS = 'ECM055'
+			WHERE OD_JOB_NO = #{odJobNo};
+			
+			INSERT INTO TB_ECM_POD_01(
+				   POD_JOB_NO
+				  ,ENT_CODE
+				  ,OD_JOB_NO
+				  ,POD_STATUS
+				  ,POD_DATE
+				  ,POD_TIME
+				  ,BL_NO
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{podJobNo}
+				  ,#{entCode}
+				  ,#{odJobNo}
+				  ,'ECM055'
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+				  ,LTRIM(RTRIM(#{hblNo}))
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			);
+	</update>
+	
+	<select id="selectDuplicateHblNo" parameterType="HashMap" resultType="int">
+		SELECT
+			COUNT(1)
+		  FROM	
+		  	TB_ECM_OD
+		 WHERE	
+		 	ENT_CODE = #{entCode}
+		 	AND HBL_NO = #{hblNo}
+		 	AND BOUND_TYPE = 'EXP'
+	</select>
+</mapper>

@@ -1,0 +1,968 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsTotalManageMapper">
+	<sql id="searchMaster_main_info">
+		<if test='srchDateGbn != "noDateChk"'>
+			<choose>
+				<when test='srchDateGbn == "APPROVAL_DATE" or srchDateGbn == "APPROVAL_CANCEL_DATE"'>
+					AND OP.${srchDateGbn} <![CDATA[>=]]> #{srchStartDate}
+					AND OP.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, #{srchEndDate})
+				</when>
+				<when test='srchDateGbn == "CARRYIN_DATE" or srchDateGbn == "CARRYOUT_DATE"'>
+					AND I.${srchDateGbn} <![CDATA[>=]]> #{srchStartDate}
+					AND I.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, #{srchEndDate})
+				</when>
+				<when test='srchDateGbn == "AR_DATE"'>
+					AND M.${srchDateGbn} <![CDATA[>=]]> #{srchStartDate}
+					AND M.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, #{srchEndDate})
+				</when>
+				<otherwise>
+					AND P.${srchDateGbn} <![CDATA[>=]]> #{srchStartDate}
+					AND P.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, #{srchEndDate})
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<when test='srchNoType == "BL_NO" or srchNoType == "CARGO_REFERENCE_NO" or srchNoType == "MBL_NO"'>
+					AND P.${srchNoType} = #{srchNo}
+				</when>
+				<when test='srchNoType == "IN_NO"'>
+					AND I.${srchNoType} = #{srchNo}
+				</when>
+				<when test='srchNoType == "PKG_NO"'>
+					<choose>
+						<when test='searchType == "multi"'>
+							AND P.IN_PLAN_NO IN (SELECT IN_PLAN_NO FROM TB_BMS_IN_PLAN_PKG WHERE PACKING_NO IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>))
+						</when>
+						<otherwise>
+							AND P.IN_PLAN_NO IN (SELECT IN_PLAN_NO FROM TB_BMS_IN_PLAN_PKG WHERE PACKING_NO = #{srchNo})
+						</otherwise>
+					</choose>
+				</when>
+			</choose>
+		</if>
+	</sql>
+
+	<sql id="orderBy">
+		<trim prefix="ORDER BY ">
+			<choose>
+				<when test="sort != null and sort.size > 0 ">
+					<foreach item="orderItem" index="index" collection="sort" separator=",">
+						${orderItem.field} ${orderItem.dir}
+					</foreach>
+				</when>
+				<otherwise>
+					${defaultSort}
+				</otherwise>
+			</choose>
+		</trim>	
+	</sql>
+
+	<select id="selectTotalManageList" parameterType="searchTotalManage" resultType="bmsTotalManage">
+		/* BmsTotalManageMapper.selectTotalManageList  : 통합관리 Master 조회 (2025.12.18 수정)*/
+		WITH M_DEST AS (
+			-- 0. 도착일시 최초 도착일시 보이도록
+		    SELECT
+        		MBL_NO,
+        		AR_DATE,
+        		AR_TIME,
+        		FORMAT(CAST(CONCAT(DEST_DATE, ' ', DEST_TIME) AS DATETIME), 'yyyy-MM-dd HH:mm') AS DEST_DATE_TIME,
+        		ROW_NUMBER() OVER (PARTITION BY MBL_NO ORDER BY ISNULL(NULLIF(DEST_DATE,''),'9999-12-31'), SEQ ASC) AS RN <!-- DEST_DATE가 있는것중에 제일 처음에 등록된 것 2026.01.08 2sowell -->
+    		FROM TB_BMS_MASTER_DEST WITH (NOLOCK)
+    		WHERE 1=1
+    		<if test='srchDateGbn != "noDateChk"'>	<!-- 조회조건이 있는경우엔 날짜 조건 안타도록 수정 2026.01.09 2sowell -->
+    			<if test='srchDateGbn == "AR_DATE"'>
+					AND AR_DATE <![CDATA[>=]]> #{srchStartDate}
+			    	AND AR_DATE <![CDATA[<]]> DATEADD(DAY, 1, #{srchEndDate})
+				</if>
+    		</if>
+		),
+		MASTER_DEST AS (
+		    -- 1. 마스터 정보 및 최신 날짜 정보 요약
+		    SELECT 
+		        MBL_NO, 
+		        MAX(CASE WHEN RN = 1 THEN AR_DATE END) AS AR_DATE, 
+		        MAX(CASE WHEN RN = 1 THEN AR_TIME END) AS AR_TIME,
+		        MAX(CASE WHEN RN = 1 THEN DEST_DATE_TIME END) AS DEST_DATE_TIME
+		    FROM M_DEST
+		    GROUP BY MBL_NO
+		),
+		OUT_SUMMARY AS (
+		    -- 2. 출고 정보 요약 (IN_NO당 1건)
+		    SELECT 
+		        OP.IN_NO,
+		        MAX(O.OUT_CLASS) AS OUT_CLASS,
+		        MAX(O.OUT_SCAN_DATE_TIME) AS OUT_SCAN_DATE_TIME,
+		        MAX(O.TIC_OUT_SCAN_YN) AS TIC_OUT_SCAN_YN,
+		        MAX(OP.APPROVAL_DATE) AS APPROVAL_DATE,
+		        MAX(OP.APPROVAL_CANCEL_DATE) AS APPROVAL_CANCEL_DATE,
+		        SUM(
+		            CASE 
+		                WHEN O.OUT_SCAN_DATE_TIME = '1900-01-01 00:00:00.000'
+		                THEN O.OUT_CT ELSE 0 
+		            END
+		        ) AS S_OUT_CT
+		    FROM TB_BMS_OUT_PLAN OP WITH(NOLOCK)
+		    JOIN TB_BMS_OUT O WITH(NOLOCK)
+		        ON O.OUT_PLAN_NO = OP.OUT_PLAN_NO
+		    GROUP BY OP.IN_NO
+		),
+		SAMPLE_SUMMARY AS (
+		    -- 3. 샘플 정보 요약
+		    SELECT IN_NO, MAX(BL_NO) AS SAMPLE_BL_NO
+		    FROM TB_BMS_SAMPLE WITH(NOLOCK)
+		    GROUP BY IN_NO
+		),
+		HF_SUMMARY AS (
+		    -- 4. 5HF 정보 요약
+		    SELECT BL_NO, MAX(DIVIDE_CLASS) AS DIVIDE_CLASS
+		    FROM TB_BMS_5HF WITH(NOLOCK)
+		    WHERE DIVIDE_CLASS IN ('1', '3')
+		    GROUP BY BL_NO
+		),
+		STOCK_AGG AS (
+		    -- 5. MBL 단위 실시간 재고 합산
+		     SELECT 
+		        TBI.MBL_NO,
+		        SUM(TBI.STOCK_CT + ISNULL(OS.S_OUT_CT, 0)) AS MBL_STOCK_CT
+		    FROM TB_BMS_IN TBI WITH(NOLOCK)
+		    LEFT JOIN OUT_SUMMARY OS ON TBI.IN_NO = OS.IN_NO
+		    GROUP BY TBI.MBL_NO
+		    HAVING SUM(TBI.STOCK_CT + ISNULL(OS.S_OUT_CT, 0)) > 0
+		),
+		MAIN_INFO AS (
+		    -- 6. 개별 행 데이터 결합 (여기서 뻥튀기 방지됨)
+		    SELECT
+		        P.IN_PLAN_NO, P.MBL_NO, P.BL_NO, P.CARGO_REFERENCE_NO,
+		        M.AR_DATE, M.AR_TIME, P.CD_TYPE, P.IN_YN, P.VESSEL_FLIGHT,
+		        P.EX_CT, P.EX_WT, P.BIG_SIZE_YN, P.SE_INSPECTION_CODE,
+		        P.INSPECTION_TYPE, P.INSPECTION_CUSTOMS_YN, P.INTELLECTUAL_PROP_YN,
+		        I.IN_CLASS, I.XRAY_SCAN_CT, I.XRAY_INSPECTION_CODE, I.CARRYIN_DATE, I.CARRYOUT_DATE,
+		        OP.OUT_CLASS, OP.OUT_SCAN_DATE_TIME, OP.TIC_OUT_SCAN_YN,
+		        M.DEST_DATE_TIME,
+		        SS.SAMPLE_BL_NO,
+		        HF.DIVIDE_CLASS,
+		        ISNULL(S.MBL_STOCK_CT, 0) AS MBL_STOCK_CT
+		    FROM TB_BMS_IN_PLAN P WITH(NOLOCK)
+		    INNER JOIN MASTER_DEST M ON M.MBL_NO = P.MBL_NO 
+		    LEFT JOIN TB_BMS_IN I WITH(NOLOCK) ON I.IN_PLAN_NO = P.IN_PLAN_NO
+		    LEFT JOIN OUT_SUMMARY OP ON OP.IN_NO = I.IN_NO
+		    LEFT JOIN SAMPLE_SUMMARY SS ON SS.IN_NO = I.IN_NO
+		    LEFT JOIN HF_SUMMARY HF ON HF.BL_NO = P.BL_NO
+		    LEFT JOIN STOCK_AGG S ON S.MBL_NO = P.MBL_NO 
+		                         <!-- AND S.AR_DATE = P.AR_DATE 
+		                         AND S.AR_TIME = P.AR_TIME 
+		                         AND S.VESSEL_FLIGHT = P.VESSEL_FLIGHT -->
+		    WHERE 1=1
+		    <include refid="org.yht.exps.express.mapper.bms.BmsTotalManageMapper.searchMaster_main_info"/>
+		),
+		TOTAL_INFO AS (
+			SELECT
+				MI.MBL_NO,
+				MAX(MI.AR_DATE) AS AR_DATE,
+				MAX(MI.AR_TIME) AS AR_TIME,
+				MAX(MI.VESSEL_FLIGHT) AS VESSEL_FLIGHT,
+				MAX(MI.DEST_DATE_TIME) AS DEST_DATE_TIME,
+				SUM(ISNULL(MI.EX_CT, 0)) AS CT,
+				SUM(ISNULL(MI.EX_WT, 0)) AS WT,
+				COUNT(MI.BL_NO) AS HBL_CNT,
+				COUNT(CASE MI.CD_TYPE WHEN 'Y' THEN 1 END) AS SIMPLE_CNT,
+				COUNT(CASE MI.CD_TYPE WHEN 'N' THEN 1 END) AS GENERAL_CNT,
+				COUNT(CASE MI.CD_TYPE WHEN 'B' THEN 1 END) AS EXCLUDE_CNT,
+				COUNT(MI.BL_NO) AS IN_PLAN_CNT,
+				COUNT(CASE WHEN MI.IN_CLASS <![CDATA[<>]]> '21' THEN 1 END) AS CARRY_IN_CNT,
+				COUNT(CASE WHEN MI.IN_YN = 'N' THEN 1 END) AS NO_CARRYIN_CNT,
+				COUNT(CASE WHEN MI.XRAY_SCAN_CT <![CDATA[<>]]> 0 THEN 1 END) AS XRAY_CNT,
+				COUNT(CASE WHEN MI.OUT_CLASS <![CDATA[<>]]> '61' AND ISNULL(MI.CARRYOUT_DATE, '') <![CDATA[<>]]> '' THEN 1 END) AS CARRY_OUT_CNT,
+				MAX(MI.MBL_STOCK_CT) AS STOCK_CNT, --MAX로 변경
+				COUNT(CASE WHEN MI.TIC_OUT_SCAN_YN = 'Y' THEN 1 END) AS MOVE_CARRY_OUT_CNT,
+				COUNT(CASE WHEN MI.IN_CLASS = '21' THEN 1 END) AS MOVE_CARRY_IN_CNT,
+				COUNT(MI.SAMPLE_BL_NO) AS SAMPLE_OUT_CNT,
+				COUNT(CASE WHEN MI.DIVIDE_CLASS = '3' THEN 1 END) AS PARTIAL_CNT,
+				COUNT(CASE WHEN MI.DIVIDE_CLASS = '1' THEN 1 END) AS MAINTENANCE_CNT,
+				COUNT(CASE MI.BIG_SIZE_YN WHEN 'Y' THEN 1 END) AS BIG_SIZE_CNT,
+				COUNT(CASE WHEN MI.SE_INSPECTION_CODE = '01' THEN 1 END) AS SE_INSP01_CNT,
+				COUNT(CASE WHEN MI.SE_INSPECTION_CODE = '02' THEN 1 END) AS SE_INSP02_CNT,
+				COUNT(CASE WHEN MI.SE_INSPECTION_CODE = '03' THEN 1 END) AS SE_INSP03_CNT,
+				COUNT(CASE WHEN MI.SE_INSPECTION_CODE = '05' THEN 1 END) AS SE_INSP05_CNT,
+				COUNT(CASE WHEN MI.SE_INSPECTION_CODE = '06' THEN 1 END) AS SE_INSP06_CNT,
+				COUNT(CASE WHEN MI.SE_INSPECTION_CODE = 'C' THEN 1 END) AS SE_INSP07_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_TYPE = '5' THEN 1 END) AS INSP05_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_TYPE = '6' THEN 1 END) AS INSP06_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_TYPE = '8' THEN 1 END) AS INSP08_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_TYPE = '9' THEN 1 END) AS INSP09_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_TYPE = '10' THEN 1 END) AS INSP10_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_TYPE = '11' THEN 1 END) AS INSP11_CNT,
+				COUNT(CASE WHEN MI.XRAY_INSPECTION_CODE = '01' THEN 1 END) AS XRAY01_CNT,
+				COUNT(CASE WHEN MI.XRAY_INSPECTION_CODE = '02' THEN 1 END) AS XRAY02_CNT,
+				COUNT(CASE WHEN MI.XRAY_INSPECTION_CODE = '03' THEN 1 END) AS XRAY03_CNT,
+				COUNT(CASE WHEN MI.XRAY_INSPECTION_CODE = '04' THEN 1 END) AS XRAY04_CNT,
+				COUNT(CASE WHEN MI.XRAY_INSPECTION_CODE = '06' THEN 1 END) AS XRAY06_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_CUSTOMS_YN = 'Y' THEN 1 END) AS INSP_CUSTOMS_CNT,
+				COUNT(CASE WHEN MI.INTELLECTUAL_PROP_YN = 'Y' THEN 1 END) AS INTELL_PROP_CNT,
+				CASE WHEN COUNT(CASE WHEN MI.IN_CLASS <![CDATA[<>]]> '21' THEN 1 END) = 0 THEN '반입예정'
+					WHEN COUNT(MI.BL_NO) <![CDATA[>]]> COUNT(CASE WHEN MI.IN_CLASS <![CDATA[<>]]> '21' THEN 1 END) THEN '반입중'
+					WHEN COUNT(MI.BL_NO) <![CDATA[<=]]> COUNT(CASE WHEN MI.IN_CLASS <![CDATA[<>]]> '21' THEN 1 END) THEN '반입완료'
+					WHEN COUNT(MI.BL_NO) <![CDATA[>]]> COUNT(CASE WHEN MI.OUT_CLASS <![CDATA[<>]]> '61' AND ISNULL(MI.CARRYOUT_DATE, '') <![CDATA[<>]]> '' THEN 1 END) THEN '반출중'
+					WHEN COUNT(MI.BL_NO) <![CDATA[<=]]> COUNT(CASE WHEN MI.OUT_CLASS <![CDATA[<>]]> '61' AND ISNULL(MI.CARRYOUT_DATE, '') <![CDATA[<>]]> '' THEN 1 END) THEN '반출완료'
+				END AS LAST_POD_STATUS
+			FROM
+				MAIN_INFO MI
+			GROUP BY MI.MBL_NO
+		)
+		SELECT
+			*,
+			ROW_NUMBER() OVER(ORDER BY MBL_NO) AS NUM,
+			COUNT(*) OVER() AS TOTAL
+		FROM 
+			TOTAL_INFO
+		<if test="srchMode != 'excel' and srchMode != 'client' and page != null and page != 0">
+		<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+			OFFSET ${startNum} ROWS FETCH NEXT ${pageSize} ROWS ONLY
+		</if>
+	</select>
+
+	<select id="selectTotalManageList_bak" parameterType="searchTotalManage" resultType="bmsTotalManage">
+		/* BmsTotalManageMapper.selectTotalManageList_bak  : 통합관리 Master 조회 (사용안함)*/
+		WITH MAIN_INFO AS (
+			SELECT
+				P.IN_PLAN_NO,
+				P.MBL_NO,
+				P.BL_NO,
+				P.CARGO_REFERENCE_NO,
+				M.AR_DATE,
+				M.AR_TIME,
+				P.CD_TYPE,
+				P.IN_YN,
+				P.VESSEL_FLIGHT,
+				P.EX_CT,
+				P.EX_WT,
+				P.BIG_SIZE_YN,
+				P.SE_INSPECTION_CODE,
+				P.INSPECTION_TYPE,
+				P.INSPECTION_CUSTOMS_YN,
+				P.INTELLECTUAL_PROP_YN,
+				I.IN_CLASS,
+				I.XRAY_SCAN_CT,
+				I.XRAY_INSPECTION_CODE,
+				I.CARRYIN_DATE,
+				I.CARRYOUT_DATE,
+				O.OUT_CLASS,
+				O.OUT_SCAN_DATE_TIME,
+				O.TIC_OUT_SCAN_YN,
+				(
+					SELECT TOP 1 FORMAT(CAST(CONCAT(MD.DEST_DATE, ' ', MD.DEST_TIME) AS DATETIME), 'yyyy-MM-dd HH:mm')
+					FROM TB_BMS_MASTER_DEST MD WITH(NOLOCK)
+					WHERE MD.MBL_NO = P.MBL_NO
+					ORDER BY MD.DEST_DATE DESC, MD.DEST_TIME DESC
+				) AS DEST_DATE_TIME,
+				BS.BL_NO AS SAMPLE_BL_NO,
+				HF.DIVIDE_CLASS,
+				(
+					SELECT TOP 1
+						ISNULL(TBI.STOCK_CT + TBO.S_OUT_CT, 0)
+					FROM TB_BMS_IN TBI WITH (NOLOCK)
+					LEFT JOIN (
+						SELECT 
+							IN_NO
+							, MAX(MBL_NO) AS MBL_NO
+							, SUM(OUT_CT) AS S_OUT_CT
+						FROM TB_BMS_OUT WITH (NOLOCK)
+						WHERE 1=1
+							AND OUT_SCAN_DATE_TIME = '1900-01-01 00:00:00.000'
+						GROUP BY IN_NO
+					) TBO
+						ON TBI.IN_NO = TBO.IN_NO
+					WHERE TBI.MBL_NO = P.MBL_NO 
+						AND TBI.AR_DATE = P.AR_DATE 
+						AND TBI.AR_TIME = P.AR_TIME 
+						AND TBI.VESSEL_FLIGHT = P.VESSEL_FLIGHT 
+						AND TBI.STOCK_CT + ISNULL(TBO.S_OUT_CT, 0) > 0
+				) AS MBL_STOCK_CT
+			FROM
+				TB_BMS_IN_PLAN P WITH(NOLOCK)
+				LEFT JOIN TB_BMS_IN I WITH(NOLOCK) ON I.IN_PLAN_NO = P.IN_PLAN_NO
+				LEFT JOIN TB_BMS_OUT_PLAN OP WITH(NOLOCK) ON OP.IN_NO = I.IN_NO
+				LEFT JOIN TB_BMS_OUT O WITH(NOLOCK) ON O.OUT_PLAN_NO = OP.OUT_PLAN_NO
+				LEFT JOIN TB_BMS_SAMPLE BS WITH(NOLOCK) ON BS.IN_NO = I.IN_NO
+				LEFT JOIN TB_BMS_5HF HF WITH(NOLOCK) ON HF.BL_NO = P.BL_NO AND HF.DIVIDE_CLASS IN ('1', '3')
+				<!-- 입항일시 조회 테이블 변경 2025.12.08 2sowell / 보여지는것만 TB_BMS_MASTER_DEST테이블. 조회할때는 IN_PLAN쪽 -->
+				LEFT JOIN (
+					SELECT MBL_NO, LEFT(MAX(AR_DATE + AR_TIME), 10) AS AR_DATE, RIGHT(MAX(AR_DATE + AR_TIME), 5) AS AR_TIME FROM TB_BMS_MASTER_DEST WITH(NOLOCK) GROUP BY MBL_NO
+				) M ON M.MBL_NO = P.MBL_NO
+			WHERE 
+				1=1
+				<include refid="org.yht.exps.express.mapper.bms.BmsTotalManageMapper.searchMaster_main_info"/>
+		),
+		TOTAL_INFO AS (
+			SELECT
+				MI.MBL_NO,
+				MAX(MI.AR_DATE) AS AR_DATE,	<!-- 그룹바이 변경으로 인한 MAX 처리 -->
+				MAX(MI.AR_TIME) AS AR_TIME,
+				MAX(MI.VESSEL_FLIGHT) AS VESSEL_FLIGHT,
+				MAX(MI.DEST_DATE_TIME) AS DEST_DATE_TIME,
+				SUM(ISNULL(MI.EX_CT, 0)) AS CT,
+				SUM(ISNULL(MI.EX_WT, 0)) AS WT,
+				COUNT(MI.BL_NO) AS HBL_CNT,
+				COUNT(CASE MI.CD_TYPE WHEN 'Y' THEN 1 END) AS SIMPLE_CNT,
+				COUNT(CASE MI.CD_TYPE WHEN 'N' THEN 1 END) AS GENERAL_CNT,
+				COUNT(CASE MI.CD_TYPE WHEN 'B' THEN 1 END) AS EXCLUDE_CNT,
+				COUNT(MI.BL_NO) AS IN_PLAN_CNT,
+				COUNT(CASE WHEN MI.IN_CLASS <![CDATA[<>]]> '21' THEN 1 END) AS CARRY_IN_CNT,
+				COUNT(CASE WHEN MI.IN_YN = 'N' THEN 1 END) AS NO_CARRYIN_CNT,
+				COUNT(CASE WHEN MI.XRAY_SCAN_CT <![CDATA[<>]]> 0 THEN 1 END) AS XRAY_CNT,
+				COUNT(CASE WHEN MI.OUT_CLASS <![CDATA[<>]]> '61' AND ISNULL(MI.CARRYOUT_DATE, '') <![CDATA[<>]]> '' THEN 1 END) AS CARRY_OUT_CNT,
+				SUM(MI.MBL_STOCK_CT) AS STOCK_CNT,
+				COUNT(CASE WHEN MI.TIC_OUT_SCAN_YN = 'Y' THEN 1 END) AS MOVE_CARRY_OUT_CNT,
+				COUNT(CASE WHEN MI.IN_CLASS = '21' THEN 1 END) AS MOVE_CARRY_IN_CNT,
+				COUNT(MI.SAMPLE_BL_NO) AS SAMPLE_OUT_CNT,
+				COUNT(CASE WHEN MI.DIVIDE_CLASS = '3' THEN 1 END) AS PARTIAL_CNT,
+				COUNT(CASE WHEN MI.DIVIDE_CLASS = '1' THEN 1 END) AS MAINTENANCE_CNT,
+				COUNT(CASE MI.BIG_SIZE_YN WHEN 'Y' THEN 1 END) AS BIG_SIZE_CNT,
+				COUNT(CASE WHEN MI.SE_INSPECTION_CODE = '01' THEN 1 END) AS SE_INSP01_CNT,
+				COUNT(CASE WHEN MI.SE_INSPECTION_CODE = '02' THEN 1 END) AS SE_INSP02_CNT,
+				COUNT(CASE WHEN MI.SE_INSPECTION_CODE = '03' THEN 1 END) AS SE_INSP03_CNT,
+				COUNT(CASE WHEN MI.SE_INSPECTION_CODE = '05' THEN 1 END) AS SE_INSP05_CNT,
+				COUNT(CASE WHEN MI.SE_INSPECTION_CODE = '06' THEN 1 END) AS SE_INSP06_CNT,
+				COUNT(CASE WHEN MI.SE_INSPECTION_CODE = 'C' THEN 1 END) AS SE_INSP07_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_TYPE = '5' THEN 1 END) AS INSP05_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_TYPE = '6' THEN 1 END) AS INSP06_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_TYPE = '8' THEN 1 END) AS INSP08_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_TYPE = '9' THEN 1 END) AS INSP09_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_TYPE = '10' THEN 1 END) AS INSP10_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_TYPE = '11' THEN 1 END) AS INSP11_CNT,
+				COUNT(CASE WHEN MI.XRAY_INSPECTION_CODE = '01' THEN 1 END) AS XRAY01_CNT,
+				COUNT(CASE WHEN MI.XRAY_INSPECTION_CODE = '02' THEN 1 END) AS XRAY02_CNT,
+				COUNT(CASE WHEN MI.XRAY_INSPECTION_CODE = '03' THEN 1 END) AS XRAY03_CNT,
+				COUNT(CASE WHEN MI.XRAY_INSPECTION_CODE = '04' THEN 1 END) AS XRAY04_CNT,
+				COUNT(CASE WHEN MI.XRAY_INSPECTION_CODE = '06' THEN 1 END) AS XRAY06_CNT,
+				COUNT(CASE WHEN MI.INSPECTION_CUSTOMS_YN = 'Y' THEN 1 END) AS INSP_CUSTOMS_CNT,
+				COUNT(CASE WHEN MI.INTELLECTUAL_PROP_YN = 'Y' THEN 1 END) AS INTELL_PROP_CNT,
+				CASE WHEN COUNT(CASE WHEN MI.IN_CLASS <![CDATA[<>]]> '21' THEN 1 END) = 0 THEN '반입예정'
+					WHEN COUNT(MI.BL_NO) <![CDATA[>]]> COUNT(CASE WHEN MI.IN_CLASS <![CDATA[<>]]> '21' THEN 1 END) THEN '반입중'
+					WHEN COUNT(MI.BL_NO) <![CDATA[<=]]> COUNT(CASE WHEN MI.IN_CLASS <![CDATA[<>]]> '21' THEN 1 END) THEN '반입완료'
+					WHEN COUNT(MI.BL_NO) <![CDATA[>]]> COUNT(CASE WHEN MI.OUT_CLASS <![CDATA[<>]]> '61' AND ISNULL(MI.CARRYOUT_DATE, '') <![CDATA[<>]]> '' THEN 1 END) THEN '반출중'
+					WHEN COUNT(MI.BL_NO) <![CDATA[<=]]> COUNT(CASE WHEN MI.OUT_CLASS <![CDATA[<>]]> '61' AND ISNULL(MI.CARRYOUT_DATE, '') <![CDATA[<>]]> '' THEN 1 END) THEN '반출완료'
+				END AS LAST_POD_STATUS
+			FROM
+				MAIN_INFO MI
+			<!-- GROUP BY MI.MBL_NO, MI.AR_DATE, MI.AR_TIME, MI.VESSEL_FLIGHT --> <!-- MBL_NO로만 그룹묶도록 수정 2025.12.04 2sowell -->
+			GROUP BY MI.MBL_NO
+		)
+		SELECT
+			*,
+			ROW_NUMBER() OVER(ORDER BY MBL_NO, AR_DATE, AR_TIME) AS NUM,
+			COUNT(*) OVER() AS TOTAL
+		FROM 
+			TOTAL_INFO
+		<if test="srchMode != 'excel' and srchMode != 'client' and page != null and page != 0">
+		<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+			OFFSET ${startNum} ROWS FETCH NEXT ${pageSize} ROWS ONLY
+		</if>
+	</select>
+
+	<select id="selectTotalManageDetailList" parameterType="searchTotalManage" resultType="bmsTotalManageDetail">
+		/* BmsTotalManageMapper.selectTotalManageDetailList  : 통합관리 House 조회 (수정 2025.12.08 2sowell) */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				T.HBL_NO
+				,T.BL_NO
+				,T.MBL_NO
+				,T.CARGO_REFERENCE_NO
+				,T.PACKING_NO
+				,T.CARGO_STEP
+				,T.CD_TYPE
+				,T.IN_PLAN_NO
+				,T.IN_NO
+				,T.OD_JOB_NO
+				,T.ORIG_IN_PLAN_NO
+				,T.LAST_POD_5TL_STATUS
+				,T.IN_CLASS
+				<choose>
+				<when test='srchHouseCdTypeGbn == "04"'>	<!-- 이고반출완료 -->
+				,'이고반출완료' AS TRANS_STEP
+				</when>
+				<when test='srchHouseCdTypeGbn == "05"'>	<!-- 미반입 -->
+				,'미반입' AS TRANS_STEP
+				</when>
+				<otherwise>
+				,CASE
+					WHEN T.CARGO_STEP = '반입예정' THEN NULL
+					WHEN T.CARGO_STEP = '반출' AND T.TRANS_STEP = '대상미등록' THEN NULL
+					ELSE T.TRANS_STEP 
+				 END AS TRANS_STEP		<!-- 반입예정,반출인건은 대상미등록에 안뜨도록 -->
+				</otherwise>
+				</choose>
+				,T.LOCATION_PLACE
+				,T.APPROVAL_CLASS
+				,T.OUT_CLASS
+				,T.TIC_OUT_FTP_SEND_YN
+				,T.TIC_OUT_SCAN_YN
+				,T.CT
+				,T.WT
+				,T.INSPECT
+				,T.COMMODITY_ITEM_LOC
+				,T.CONSIGNEE_CODE
+				,T.CONSIGNEE_NAME
+				,T.CONSIGNEE_ADDRESS1
+				,T.CONSIGNEE_TEL
+				,T.SHIPPER_CODE
+				,T.SHIPPER_NAME
+				,T.DELIVERY_NAME
+				,T.SAMPLE_SEL
+				,T.TRANS_SEL
+				,T.TIC_YN
+				,T.CHECK_TYPE_TYPES_STR
+				,T.CARRYOUT_DATE
+				,T.CARRYOUT_TIME
+			FROM(
+				SELECT
+					P.BL_NO AS HBL_NO
+					, P.BL_NO AS BL_NO
+					, P.MBL_NO AS MBL_NO
+					, P.CARGO_REFERENCE_NO AS CARGO_REFERENCE_NO
+					, STUFF(( SELECT ','+ PACKING_NO FROM TB_BMS_IN_PLAN_PKG PKG WHERE PKG.IN_PLAN_NO = P.IN_PLAN_NO AND PKG.DELETE_YN = 'N' FOR XML PATH('') ), 1, 1, '') AS PACKING_NO
+					, CASE
+						WHEN O.LAST_POD_STATUS = 'BMS05' THEN '반출(오류)'
+						WHEN O.OUT_CLASS IS NOT NULL THEN '반출'
+						<if test='srchHouseCdTypeGbn != null and srchHouseCdTypeGbn != "" and srchHouseCdTypeGbn == "0"'>	<!-- 이고관련 조회일경우 승인취하, 승인 안나오게 수정 2025.12.23 2sowell -->
+					 	WHEN OP.APPROVAL_CLASS = '1' THEN '승인취하' 
+						WHEN OP.APPROVAL_CLASS = '31' THEN '승인'
+						</if>
+	                	WHEN IT.LAST_POD_STATUS = 'BMS05' THEN '이고반입(오류)'
+						WHEN IT.CARGO_REFERENCE_NO IS NOT NULL THEN '이고반입'
+						WHEN OT.LAST_POD_STATUS = 'BMS05' THEN '이고반출(오류)'
+						WHEN OT.CARGO_REFERENCE_NO IS NOT NULL THEN '이고반출'
+						WHEN I.LAST_POD_STATUS = 'BMS05' THEN '반입(오류)'
+						WHEN I.CARGO_REFERENCE_NO IS NOT NULL THEN '반입'
+					  ELSE '반입예정'   
+					  END AS CARGO_STEP
+					<!--   , CASE WHEN O.OUT_CLASS IS NOT NULL THEN '반출'
+						ELSE 
+							CASE WHEN OP.APPROVAL_CLASS = '1' THEN '승인취하' 
+								WHEN OP.APPROVAL_CLASS = '31' THEN '승인'
+	                        ELSE
+								CASE WHEN I.CARGO_REFERENCE_NO IS NOT NULL THEN '반입'
+							ELSE
+								'반입예정'
+	                        END
+						END
+					 END AS CARGO_STEP -->
+					, P.CD_TYPE AS CD_TYPE
+					, P.IN_PLAN_NO AS IN_PLAN_NO
+					, I.IN_NO AS IN_NO
+					, I.OD_JOB_NO AS OD_JOB_NO
+					, I.ORIG_IN_PLAN_NO AS ORIG_IN_PLAN_NO
+					, I.LAST_POD_5TL_STATUS AS LAST_POD_5TL_STATUS
+					, ISNULL(IT.IN_CLASS,I.IN_CLASS) AS IN_CLASS	<!-- 이고반입 데이터가 있을경우 이고반입으로 변경 2025.12.15 2sowell -->
+	 				, dbo.FN_GET_TRANS_STEP(P.SE_INSPECTION_CODE,I.XRAY_INSPECTION_CODE,I.PALN5EM_INSPECTION_CODE,P.INSPECTION_CUSTOMS_YN,I.INTELLECTUAL_PROP_YN,I.BIG_SIZE_YN,IT.CARGO_REFERENCE_NO,IT.LAST_POD_STATUS,OT.CARGO_REFERENCE_NO,CONVERT(varchar,OT.OUT_SCAN_DATE_TIME,23),OT.TIC_OUT_SCAN_YN, O.CARGO_REFERENCE_NO) 
+	 						AS TRANS_STEP	
+					, I.LOCATION_PLACE AS LOCATION_PLACE
+					, CASE WHEN O.OUT_CLASS IS NOT NULL THEN '31' ELSE OP.APPROVAL_CLASS END AS APPROVAL_CLASS
+	                , ISNULL(O.OUT_CLASS, OT.OUT_CLASS) AS OUT_CLASS	<!-- 이고반출 데이터가 있을경우 이고반출로 변경 2025.12.15 2sowell -->
+	                , OT.TIC_OUT_FTP_SEND_YN AS TIC_OUT_FTP_SEND_YN
+	                , OT.TIC_OUT_SCAN_YN AS TIC_OUT_SCAN_YN
+	                , I.CT AS CT
+	                , I.WT AS WT
+					, STUFF( 
+	                	(CASE WHEN P.SE_INSPECTION_CODE = '01' OR I.XRAY_INSPECTION_CODE = '01' OR I.PALN5EM_INSPECTION_CODE = '01' THEN ',마약' ELSE '' END)
+	                		+
+	                	(CASE WHEN P.SE_INSPECTION_CODE = '02' OR I.XRAY_INSPECTION_CODE = '02' OR I.PALN5EM_INSPECTION_CODE = '02' THEN ',총기' ELSE '' END)
+	                		+
+	                	(CASE WHEN P.SE_INSPECTION_CODE = '03' OR I.XRAY_INSPECTION_CODE = '03' OR I.PALN5EM_INSPECTION_CODE = '03' THEN ',검역' ELSE '' END)
+							+
+	                	(CASE WHEN P.SE_INSPECTION_CODE = '04' OR I.XRAY_INSPECTION_CODE = '04' OR I.PALN5EM_INSPECTION_CODE = '04' THEN ',식의약품' ELSE '' END)
+							+
+	               		(CASE WHEN P.SE_INSPECTION_CODE = '05' OR I.XRAY_INSPECTION_CODE = '05' OR I.PALN5EM_INSPECTION_CODE = '05' THEN ',협업' ELSE '' END)
+							+
+	                	(CASE WHEN P.SE_INSPECTION_CODE = '06' OR I.XRAY_INSPECTION_CODE = '06' OR I.PALN5EM_INSPECTION_CODE = '06' THEN ',수입(기타)' ELSE '' END)
+	                		+
+	                	(CASE WHEN P.INSPECTION_TYPE = '5' THEN ',검사(일반/간이)' ELSE '' END) 
+							+
+	                	(CASE WHEN P.INSPECTION_TYPE = '6' THEN ',검역(사전검역)' ELSE '' END)
+							+
+	                	(CASE WHEN P.INSPECTION_TYPE = '8' THEN ',검역(동물검역)' ELSE '' END)
+							+
+	                	(CASE WHEN P.INSPECTION_TYPE = '9' THEN ',검역(식물검역)' ELSE '' END)
+							+
+	              		(CASE WHEN P.INSPECTION_TYPE = '10' THEN ',검역(식품검역)' ELSE '' END)
+							+
+	               		(CASE WHEN P.INSPECTION_TYPE = '11' THEN ',검역(서류)' ELSE '' END)
+	               			+
+	                	(CASE WHEN P.INSPECTION_CUSTOMS_YN = 'Y' THEN ',집중' ELSE '' END)
+	                  		, 1, 1, '')  AS INSPECT
+	                 , I.COMMODITY_ITEM_LOC AS COMMODITY_ITEM_LOC
+	                 , P.CONSIGNEE_CODE AS CONSIGNEE_CODE
+					 , P.CONSIGNEE_NAME AS CONSIGNEE_NAME
+					 , CONCAT(P.CONSIGNEE_ADDRESS_1, P.CONSIGNEE_ADDRESS_2) AS CONSIGNEE_ADDRESS1
+					 , dbo.Cryptography(P.OD_JOB_NO, P.CONSIGNEE_TEL, 1) AS CONSIGNEE_TEL
+					 , P.SHIPPER_CODE AS SHIPPER_CODE
+					 , P.SHIPPER_NAME AS SHIPPER_NAME
+	                 , P.DELIVERY_NAME AS DELIVERY_NAME
+	                 , CASE WHEN BS.RETURN_DATE IS NULL THEN ''
+						ELSE CASE WHEN BS.RETURN_DATE = '' THEN '반출' ELSE '반입' END 
+						END AS SAMPLE_SEL
+	                 <!-- , CASE WHEN OT.CARGO_REFERENCE_NO IS NULL THEN ''
+						ELSE CASE WHEN IT.CARGO_REFERENCE_NO IS NOT NULL THEN '반입'
+							ELSE CASE WHEN OT.OUT_SCAN_DATE_TIME > '1900-01-01 00:00:00.000' THEN '반출' ELSE '' END
+						END
+						END AS TRANS_SEL -->
+					 , H.TRANS_SEL	<!-- 이고 항목 이력테이블로 변경 2026.01.09 2sowell -->
+	                 , CASE WHEN 
+	                 	P.BIG_SIZE_YN = 'Y' 
+	                 	OR (P.SE_INSPECTION_CODE = '01' OR I.XRAY_INSPECTION_CODE = '01' OR I.PALN5EM_INSPECTION_CODE = '01')
+	                 	OR (P.SE_INSPECTION_CODE = '02' OR I.XRAY_INSPECTION_CODE = '02' OR I.PALN5EM_INSPECTION_CODE = '02')
+	                 	OR P.INTELLECTUAL_PROP_YN = 'Y' 
+	                 	OR P.INSPECTION_CUSTOMS_YN = 'Y'
+	                 	THEN 'Y' ELSE 'N' END AS TIC_YN
+	                 , STUFF( 
+	                 	(CASE WHEN P.SE_INSPECTION_CODE = '01' OR I.XRAY_INSPECTION_CODE = '01' OR I.PALN5EM_INSPECTION_CODE = '01' THEN ',마약' ELSE '' END)
+	                 		+
+	                 	(CASE WHEN P.SE_INSPECTION_CODE = '02' OR I.XRAY_INSPECTION_CODE = '02' OR I.PALN5EM_INSPECTION_CODE = '02' THEN ',총기' ELSE '' END)
+	                 		+
+	                	(CASE WHEN P.BIG_SIZE_YN = 'Y' THEN ',거대,' ELSE '' END)
+	                 		+
+	                 	(CASE WHEN P.INTELLECTUAL_PROP_YN = 'Y' THEN ',지재권' ELSE '' END) 
+	                 		+
+	                 	(CASE WHEN P.INSPECTION_CUSTOMS_YN = 'Y' THEN ',집중' ELSE '' END)
+	                  		, 1, 1, '') AS CHECK_TYPE_TYPES_STR
+	                 , OT.CARRYOUT_DATE AS CARRYOUT_DATE	<!-- 이고반출 반출일시 추가 2025.12.16 2sowell -->
+					 , OT.CARRYOUT_TIME AS CARRYOUT_TIME
+					 , IIF(IT.CARGO_REFERENCE_NO IS NULL, 'N', 'Y') AS IT_IN_YN	<!-- 이고 반입여부 추가 N:미반입 2025.12.17 2sowell -->
+				FROM TB_BMS_IN_PLAN P WITH(NOLOCK)
+				LEFT JOIN TB_BMS_IN I WITH(NOLOCK) ON I.IN_PLAN_NO = P.IN_PLAN_NO
+				LEFT JOIN (	SELECT MAX(APPROVAL_CLASS) AS APPROVAL_CLASS
+									,MAX(OUT_CLASS) AS OUT_CLASS
+									,CARGO_REFERENCE_NO
+									,MAX(APPROVAL_DATE) AS APPROVAL_DATE
+									,MAX(APPROVAL_CANCEL_DATE) AS APPROVAL_CANCEL_DATE
+							FROM TB_BMS_OUT_PLAN WITH(NOLOCK)
+							WHERE OUT_CLASS IN  ('53','50','60')
+							GROUP BY CARGO_REFERENCE_NO ) OP
+				ON I.CARGO_REFERENCE_NO = OP.CARGO_REFERENCE_NO
+				LEFT JOIN ( SELECT  MAX(OUT_CLASS) AS OUT_CLASS
+									,CARGO_REFERENCE_NO
+									,MAX(LAST_POD_STATUS) AS LAST_POD_STATUS
+							FROM TB_BMS_OUT O WITH(NOLOCK) 
+							WHERE OUT_CLASS IN  ('53','50','60')
+							GROUP BY CARGO_REFERENCE_NO ) AS O
+				ON I.CARGO_REFERENCE_NO = O.CARGO_REFERENCE_NO
+				<!-- LEFT JOIN TB_BMS_OUT OT WITH(NOLOCK) ON I.IN_NO = OT.IN_NO AND OT.OUT_CLASS = '61' --> <!-- 화물관리번호로 조인 기준 변경 2026.01.02 2sowell -->
+				LEFT JOIN TB_BMS_OUT OT WITH(NOLOCK) ON I.CARGO_REFERENCE_NO = OT.CARGO_REFERENCE_NO AND OT.OUT_CLASS = '61'
+				LEFT JOIN TB_BMS_IN IT WITH(NOLOCK) ON I.CARGO_REFERENCE_NO = IT.CARGO_REFERENCE_NO AND IT.IN_CLASS = '21'
+				LEFT JOIN TB_BMS_SAMPLE BS WITH(NOLOCK) ON BS.IN_NO = I.IN_NO
+				<!-- 입항일시 조회 테이블 변경 2025.12.18 2sowell -->
+				LEFT JOIN (
+					SELECT MBL_NO, LEFT(MAX(AR_DATE + AR_TIME), 10) AS AR_DATE FROM TB_BMS_MASTER_DEST WITH(NOLOCK) GROUP BY MBL_NO
+				) M ON M.MBL_NO = P.MBL_NO
+				<!-- 이력테이블 추가 2026.01.09 2sowell -->
+				LEFT JOIN (	SELECT	CARGO_REFERENCE_NO
+									,STRING_AGG(IIF(OUT_NO IS NOT NULL,'반출','반입'),'/') WITHIN GROUP(ORDER BY SEQ_NO) AS TRANS_SEL
+							FROM TB_BMS_INOUT_MOVE_HISTORY WITH(NOLOCK)
+							WHERE (OUT_CLASS = '61' OR IN_CLASS = '21')
+							GROUP BY CARGO_REFERENCE_NO
+				) H ON H.CARGO_REFERENCE_NO = I.CARGO_REFERENCE_NO
+				WHERE 1=1
+				<include refid="org.yht.exps.express.mapper.bms.BmsTotalManageMapper.searchMaster_main_info"/>
+				<if test="srchRowMblNo != null and srchRowMblNo != ''">
+					AND P.MBL_NO = #{srchRowMblNo}
+				</if>
+				<if test='checkTypeTab != null and checkTypeTab.size > 0'>
+					AND (
+					<foreach collection="checkTypeTab" item="item" separator="OR">
+						<choose>
+							<when test='item == "Y"'>
+								P.BIG_SIZE_YN = 'Y' /* 거대 */
+							</when>
+							<when test='item == "N"'>
+								P.CRIME_SELECTION_YN = 'Y' /* 우범화물 */
+							</when>
+							<when test='item == "01"'>
+								(P.SE_INSPECTION_CODE = '01' OR I.XRAY_INSPECTION_CODE = '01' OR P.PALN5EM_INSPECTION_CODE = '01') /* 마약 */
+							</when>
+							<when test='item == "02"'>
+								(P.SE_INSPECTION_CODE = '02' OR I.XRAY_INSPECTION_CODE = '02' OR P.PALN5EM_INSPECTION_CODE = '02') /* 총기 */
+							</when>
+							<when test='item == "a1"'>
+								P.INTELLECTUAL_PROP_YN = 'Y' /* 지재권 */
+							</when>
+							<when test='item == "a2"'>
+								P.INSPECTION_CUSTOMS_YN = 'Y' /* 집중검사 */
+							</when>
+						</choose>
+					</foreach>
+					)
+				</if>
+			) T
+			WHERE 1=1
+			<if test="srchHouseCdTypeGbn != null and srchHouseCdTypeGbn != ''">
+				<choose>
+					<when test='srchHouseCdTypeGbn == "02"'>	<!-- 대상미등록 -->
+						AND T.TRANS_STEP = '대상미등록' AND T.CARGO_STEP != '반입예정' AND T.CARGO_STEP != '반출'	<!-- 대상미등록에 반입예정건 안뜨도록, 반출건 안뜨도록 -->
+					</when>
+					<when test='srchHouseCdTypeGbn == "03"'>	<!-- 송신대상 -->
+						AND T.TRANS_STEP = '송신대상'
+					</when>
+					<when test='srchHouseCdTypeGbn == "04"'>	<!-- 이고반출완료 -->
+						AND T.TRANS_STEP = '이고반출완료'
+					</when>
+					<when test='srchHouseCdTypeGbn == "05"'>	<!-- 미반입 -->
+						AND T.TRANS_STEP = '이고반출완료' AND T.IT_IN_YN = 'N'	<!-- 이고반입(21)이 생성되지 않은 건 -->
+					</when>
+					<when test='srchHouseCdTypeGbn == "06"'>	<!-- 이고반입완료 -->
+						AND T.TRANS_STEP = '이고반입완료'
+					</when>
+					<when test='srchHouseCdTypeGbn == "07"'>	<!-- 반출완료 -->
+						AND T.TRANS_STEP = '반출완료'
+					</when>
+					<when test='srchHouseCdTypeGbn == "01"'>	<!-- 전체 -->
+						AND ((T.TRANS_STEP = '대상미등록' AND T.CARGO_STEP NOT IN ('반입예정','반출'))	<!-- 대상미등록 반입예정, 반출 안나오도록 빠진 부분 추가 2026.01.09 2sowell -->
+							OR (T.TRANS_STEP IN ('송신대상', '이고반출완료', '미반입', '이고반입완료', '반출완료'))) <!-- 전체일 경우 추가 2025.12.16 -->	
+					</when>
+				</choose>
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+	
+	<select id="selectTotalManageDetailList_bak" parameterType="searchTotalManage" resultType="bmsTotalManageDetail">
+		/* BmsTotalManageMapper.selectTotalManageDetailList_bak  : 통합관리 House 조회 (사용안함 2025.12.08 2sowell) */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				P.BL_NO AS HBL_NO
+				, P.MBL_NO AS MBL_NO
+				, P.CARGO_REFERENCE_NO AS CARGO_REFERENCE_NO
+				, STUFF(( SELECT ','+ PACKING_NO FROM TB_BMS_IN_PLAN_PKG PKG WHERE PKG.BL_NO = P.BL_NO FOR XML PATH('') ), 1, 1, '') AS PACKING_NO
+				, P.CD_TYPE AS CD_TYPE
+				, P.AR_DATE AS AR_DATE
+				, P.AR_TIME AS AR_TIME
+				, P.VESSEL_FLIGHT AS VESSEL_FLIGHT
+				, I.LAST_POD_STATUS AS CARRY_IN_STATUS
+				, I.LAST_POD_5TL_STATUS AS LAST_POD_5TL_STATUS
+				, I.IN_CLASS AS IN_CLASS
+				, I.CARRYIN_DATE AS CARRYIN_DATE
+				, I.CARRYIN_TIME AS CARRYIN_TIME
+				, I.CUSTOMS_REPORT_NO AS CUSTOMS_REPORT_NO
+				, I.LOCATION_PLACE AS LOCATION_PLACE
+				, OP.APPROVAL_CLASS AS APPROVAL_CLASS
+				, OP.OUT_CLASS AS APPROVAL_OUT_CLASS
+				, OP.OUT_APPROVAL_NO AS APPROVAL_OUT_NO
+				, OP.DELIVERY_TERMS AS DELIVERY_TERMS
+				, OP.COMPANY_NAME AS COMPANY_NAME
+				, OP.APPCANCEL_DATE_DIFF AS APPCANCEL_DATE_DIFF
+				, OP.INAPP_DATE_DIFF AS INAPP_DATE_DIFF
+				, FORMAT(CAST(OP.NOTIFY_DATE_TIME AS DATETIME), 'yyyy-MM-dd HH:mm:ss') AS APPROVAL_DATE
+				, FORMAT(CAST(OP.NOTIFY_DATE_TIME AS DATETIME), 'yyyy-MM-dd HH:mm:ss') AS APPROVAL_CANCEL_DATE
+				<!-- , CASE WHEN OP.APPROVAL_CLASS = '31' THEN FORMAT(CAST(OP.NOTIFY_DATE_TIME AS DATETIME), 'yyyy-MM-dd HH:mm:ss') END AS APPROVAL_DATE
+				, CASE WHEN OP.APPROVAL_CLASS = '1' THEN FORMAT(CAST(OP.NOTIFY_DATE_TIME AS DATETIME), 'yyyy-MM-dd HH:mm:ss') END AS APPROVAL_CANCEL_DATE -->
+				, O.OUT_CLASS AS OUT_CLASS
+				, O.OUT_APPROVAL_NO AS OUT_APPROVAL_NO
+				, O.CARRYOUT_DATE AS CARRYOUT_DATE
+				, O.CARRYOUT_TIME AS CARRYOUT_TIME
+				, O.LAST_POD_STATUS AS CARRY_OUT_STATUS
+				, OP.DUTY AS DUTY
+				, OP.APPRAISE_VALUE AS APPRAISE_VALUE
+				, OP.INS_PAYMENT_TYPE AS INS_PAYMENT_TYPE
+				, OP.CURRENCY_CODE AS CURRENCY_CODE
+				, OP.INS_PAYMENT_YN AS INS_PAYMENT_YN
+				, OP.CRITERIA_CODE AS CRITERIA_CODE
+				, O.INOUT_DATE_DIFF AS INOUT_DATE_DIFF
+				, O.REMARKS_1 AS REMARKS_1
+				, O.REMARKS_2 AS REMARKS_2
+				, SR.CHUTE_NO AS CHUTE_NO
+				, SR.OUT_CMPT_DT AS OUT_CMPT_DT
+				, O.TIC_OUT_SEQ AS TIC_OUT_SEQ
+				, O.TIC_OUT_FTP_SEND_YN AS TIC_OUT_FTP_SEND_YN
+				, O.TIC_OUT_SCAN_YN AS TIC_OUT_SCAN_YN
+				, P.EX_CT AS EX_CT
+				, P.EX_WT AS EX_WT
+				, I.XRAY_SCAN_CT AS XRAY_SCAN_CT
+				, I.XRAY_IMAGE_CT AS XRAY_IMAGE_CT
+				, I.CT AS CT
+				, I.WT AS WT
+				, OP.APPROVAL_CT AS APPROVAL_CT
+				, OP.APPROVAL_WT AS APPROVAL_WT
+				, O.OUT_CT AS OUT_CT
+				, O.OUT_WT AS OUT_WT
+				, I.STOCK_CT AS STOCK_CT
+				, I.STOCK_WT AS STOCK_WT
+				, BS.SAMPLE_PIECES AS SAMPLE_PIECES
+				, P.AMOUNT_USD AS AMOUNT_USD
+				, P.CD_USE_TYPE AS CD_USE_TYPE
+				, P.ECM_TYPE AS ECM_TYPE
+				, P.BIG_SIZE_YN AS BIG_SIZE_YN
+				, P.SE_INSPECTION_CODE AS SE_INSPECTION_CODE
+				, P.INTELLECTUAL_PROP_YN AS INTELLECTUAL_PROP_YN
+				, P.INSPECTION_CUSTOMS_YN AS INSPECTION_CUSTOMS_YN
+				, P.INSPECTION_TYPE AS INSPECTION_TYPE
+				, I.XRAY_INSPECTION_CODE AS XRAY_INSPECTION_CODE
+				, P.PALN5EM_INSPECTION_CODE AS PALN5EM_INSPECTION_CODE
+				, I.COMMODITY_ITEM_LOC AS COMMODITY_ITEM_LOC
+				, P.REFERENCE_NO AS REFERENCE_NO
+				, P.CONSIGNEE_CODE AS CONSIGNEE_CODE
+				, P.CONSIGNEE_NAME AS CONSIGNEE_NAME
+				, CONCAT(P.CONSIGNEE_ADDRESS_1, P.CONSIGNEE_ADDRESS_2) AS CONSIGNEE_ADDRESS1
+				, dbo.Cryptography(P.OD_JOB_NO, P.CONSIGNEE_TEL, 1) AS CONSIGNEE_TEL
+				, P.SHIPPER_CODE AS SHIPPER_CODE
+				, P.SHIPPER_NAME AS SHIPPER_NAME
+				, P.SHIPPER_ADDRESS_1 AS SHIPPER_ADDRESS1
+				, dbo.Cryptography(P.OD_JOB_NO, P.SHIPPER_TEL, 1) AS SHIPPER_TEL
+				, P.NOTIFY_NAME AS NOTIFY_NAME
+				, P.DELIVERY_CODE AS DELIVERY_CODE
+				, P.DELIVERY_NAME AS DELIVERY_NAME
+				, I.IN_APPROVAL_NO AS IN_APPROVAL_NO
+				, I.TRANS_PERIOD_DATE AS TRANS_PERIOD_DATE
+				, P.IN_PLAN_NO AS IN_PLAN_NO
+				, I.IN_NO AS IN_NO
+				, OP.OUT_PLAN_NO AS OUT_PLAN_NO
+				, O.OUT_NO AS OUT_NO
+				, I.OD_JOB_NO AS OD_JOB_NO
+				, I.ORIG_IN_PLAN_NO AS ORIG_IN_PLAN_NO
+				, CASE WHEN ISNULL(P.IN_PLAN_NO, '') <![CDATA[<>]]> '' AND ISNULL(I.CT, '') = '' THEN '반입예정'
+					WHEN ISNULL(P.IN_PLAN_NO, '') <![CDATA[<>]]> '' AND ISNULL(P.EX_CT, 0) <![CDATA[>]]> ISNULL(I.CT, '') THEN '반입중'
+					WHEN ISNULL(P.IN_PLAN_NO, '') <![CDATA[<>]]> '' AND ISNULL(P.EX_CT, 0) <![CDATA[<=]]> ISNULL(I.CT, '') THEN '반입완료'
+					WHEN ISNULL(P.IN_PLAN_NO, '') <![CDATA[<>]]> '' AND ISNULL(I.CT, 0) <![CDATA[>]]> ISNULL(O.OUT_CT, '') THEN '반출중'
+					WHEN ISNULL(P.IN_PLAN_NO, '') <![CDATA[<>]]> '' AND ISNULL(I.CT, 0) <![CDATA[<=]]> ISNULL(O.OUT_CT, '') THEN '반출중'
+				END AS LAST_POD_STATUS
+				, STUFF(( SELECT ','+ PACKING_NO FROM TB_BMS_IN_PLAN_PKG PKG WHERE PKG.BL_NO = P.BL_NO AND PKG.IN_CT > 0 FOR XML PATH('') ), 1, 1, '') AS IN_PKG_NO
+				, STUFF(( SELECT ','+ PACKING_NO FROM TB_BMS_IN_PLAN_PKG PKG WHERE PKG.BL_NO = P.BL_NO AND PKG.OUT_CT > 0 FOR XML PATH('') ), 1, 1, '') AS OUT_PKG_NO
+				, STUFF(( SELECT ','+ PACKING_NO FROM TB_BMS_IN_PLAN_PKG PKG WHERE PKG.BL_NO = P.BL_NO AND PKG.SAMPLE_IN_CT > 0 FOR XML PATH('') ), 1, 1, '') AS SAMPLE_PKG_NO
+				, STUFF(( SELECT ','+ PACKING_NO FROM TB_BMS_IN_PLAN_PKG PKG WHERE PKG.BL_NO = P.BL_NO AND PKG.RETURN_IN_CT > 0 FOR XML PATH('') ), 1, 1, '') AS TIC_OUT_PKG_NO
+				, CASE WHEN BS.SAMPLE_PIECES <![CDATA[>]]> 0  THEN 'Y' ELSE 'N' END AS SAMPLE_OUT_YN
+				, CASE WHEN BS.RETURN_DATE <![CDATA[<>]]> '' AND ISNULL(BS.RETURN_DATE, '') <![CDATA[<>]]> '' THEN 'Y' ELSE 'N' END AS SAMPLE_RETURN_YN
+				, CASE WHEN O.OUT_CLASS = '61' AND O.OUT_SCAN_DATE_TIME <![CDATA[<>]]> '1900-01-01 00:00:00.000' THEN 'Y' ELSE 'N' END AS TIC_OUT_YN
+				, CASE WHEN I.IN_CLASS = '21' THEN 'Y' ELSE 'N' END AS TIC_IN_YN
+				, CASE WHEN 
+					P.BIG_SIZE_YN = 'Y' 
+					OR P.CRIME_SELECTION_YN = 'Y' 
+					OR (P.SE_INSPECTION_CODE = '01' OR I.XRAY_INSPECTION_CODE = '01' OR P.PALN5EM_INSPECTION_CODE = '01')
+					OR (P.SE_INSPECTION_CODE = '02' OR I.XRAY_INSPECTION_CODE = '02' OR P.PALN5EM_INSPECTION_CODE = '02')
+					OR P.INTELLECTUAL_PROP_YN = 'Y' 
+					OR P.INSPECTION_CUSTOMS_YN = 'Y'
+				THEN 'Y' ELSE 'N' END AS TIC_YN
+				, ISNULL(#{srchHouseCdTypeGbnName, jdbcType=VARCHAR},'')  AS HOUSE_CD_TYPE_GBN_NAME
+				, STUFF( 
+				  (CASE WHEN P.SE_INSPECTION_CODE = '01' OR I.XRAY_INSPECTION_CODE = '01' OR P.PALN5EM_INSPECTION_CODE = '01' THEN ',마약' ELSE '' END)
+				  +
+				  (CASE WHEN P.SE_INSPECTION_CODE = '02' OR I.XRAY_INSPECTION_CODE = '02' OR P.PALN5EM_INSPECTION_CODE = '02' THEN ',총기' ELSE '' END)
+				  +
+				  (CASE WHEN P.BIG_SIZE_YN = 'Y' THEN ',거대,' ELSE '' END)
+				  +
+				  (CASE WHEN P.INTELLECTUAL_PROP_YN = 'Y' THEN ',지재권' ELSE '' END) 
+				  +
+				  (CASE WHEN P.INSPECTION_CUSTOMS_YN = 'Y' THEN ',집중' ELSE '' END)
+				  , 1, 1, ''
+				 ) AS CHECK_TYPE_TYPES_STR
+			FROM
+				TB_BMS_IN_PLAN P WITH(NOLOCK)
+				LEFT JOIN TB_BMS_IN I WITH(NOLOCK) ON I.IN_PLAN_NO = P.IN_PLAN_NO
+				LEFT JOIN TB_BMS_OUT_PLAN OP WITH(NOLOCK) ON OP.IN_NO = I.IN_NO
+				LEFT JOIN TB_BMS_OUT O WITH(NOLOCK) ON O.IN_NO = I.IN_NO
+				LEFT JOIN TB_BMS_SAMPLE BS WITH(NOLOCK) ON BS.IN_NO = I.IN_NO
+				LEFT JOIN TB_BMS_SORT_RESULT SR WITH(NOLOCK) ON SR.BOX_ID IN (SELECT PACKING_NO FROM TB_BMS_IN_PLAN_PKG PP WHERE PP.IN_PLAN_NO = P.IN_PLAN_NO)
+			WHERE
+				1=1
+				<include refid="org.yht.exps.express.mapper.bms.BmsTotalManageMapper.searchMaster_main_info"/>
+				<if test="srchRowMblNo != null and srchRowMblNo != ''">
+					AND P.MBL_NO = #{srchRowMblNo}
+				</if>
+				<!-- Master조회 MBL_NO 그룹바이로 수정 2025.12.04 2sowell -->
+				<!-- <if test="srchRowArDate != null and srchRowArDate != ''">
+					AND P.AR_DATE = #{srchRowArDate}
+				</if>
+				<if test="srchRowArTime != null and srchRowArTime != ''">
+					AND P.AR_TIME = #{srchRowArTime}
+				</if>
+				<if test="srchRowVesselFlight != null and srchRowVesselFlight != ''">
+					AND P.VESSEL_FLIGHT = #{srchRowVesselFlight}
+				</if> -->
+				<if test='checkTypeTab != null and checkTypeTab.size > 0'>
+					AND (
+					<foreach collection="checkTypeTab" item="item" separator="OR">
+						<choose>
+							<when test='item == "Y"'>
+								P.BIG_SIZE_YN = 'Y' /* 거대 */
+							</when>
+							<when test='item == "N"'>
+								P.CRIME_SELECTION_YN = 'Y' /* 우범화물 */
+							</when>
+							<when test='item == "01"'>
+								(P.SE_INSPECTION_CODE = '01' OR I.XRAY_INSPECTION_CODE = '01' OR P.PALN5EM_INSPECTION_CODE = '01') /* 마약 */
+							</when>
+							<when test='item == "02"'>
+								(P.SE_INSPECTION_CODE = '02' OR I.XRAY_INSPECTION_CODE = '02' OR P.PALN5EM_INSPECTION_CODE = '02') /* 총기 */
+							</when>
+							<when test='item == "a1"'>
+								P.INTELLECTUAL_PROP_YN = 'Y' /* 지재권 */
+							</when>
+							<when test='item == "a2"'>
+								P.INSPECTION_CUSTOMS_YN = 'Y' /* 집중검사 */
+							</when>
+						</choose>
+					</foreach>
+					)
+				</if>
+				<if test="srchHouseCdTypeGbn != null and srchHouseCdTypeGbn != ''">
+					<choose>
+						<when test='srchHouseCdTypeGbn == "02"'>
+							AND NOT EXISTS (SELECT CARGO_REFERENCE_NO FROM TB_BMS_OUT BO WITH(NOLOCK) WHERE BO.CARGO_REFERENCE_NO = I.CARGO_REFERENCE_NO AND BO.OUT_CLASS = '61')
+						</when>
+						<when test='srchHouseCdTypeGbn == "03"'>
+							AND O.TIC_OUT_SCAN_YN = 'Y'
+						</when>
+						<when test='srchHouseCdTypeGbn == "04"'>
+							AND O.OUT_SCAN_DATE_TIME <![CDATA[<>]]> '1900-01-01 00:00:00.000'
+						</when>
+						<when test='srchHouseCdTypeGbn == "05"'>
+							AND I.IN_CLASS = '10'
+							AND O.OUT_CLASS = '61'
+							AND O.TIC_OUT_SCAN_YN = 'Y'
+							AND NOT EXISTS (SELECT CARGO_REFERENCE_NO FROM TB_BMS_IN IR WITH(NOLOCK) WHERE IR.CARGO_REFERENCE_NO = I.CARGO_REFERENCE_NO AND IR.IN_CLASS = '21')
+						</when>
+						<when test='srchHouseCdTypeGbn == "06"'>
+							AND I.IN_CLASS = '10'
+							AND O.OUT_CLASS = '61'
+							AND O.TIC_OUT_SCAN_YN = 'Y'
+							AND EXISTS (SELECT CARGO_REFERENCE_NO FROM TB_BMS_IN IR WITH(NOLOCK) WHERE IR.CARGO_REFERENCE_NO = I.CARGO_REFERENCE_NO AND IR.IN_CLASS = '21')
+						</when>
+					</choose>
+				</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+
+	<select id="selectEmDeliveryCount" parameterType="HashMap" resultType="Integer">
+		/* BmsTotalManageMapper.selectEmDeliveryCount : 택배 차수 조회 */
+		SELECT
+			CAST(EMP_ID AS INT)
+		FROM
+			TB_BMS_OUT_DELIVERY WITH (NOLOCK)
+		WHERE
+			DELIVERY_CODE = #{srchDeliveryTypeGbn}
+			AND APPROVAL_CLASS = '31'
+			AND FORMAT(CAST(REGISTER_DATE_TIME AS DATETIME), 'yyyy-MM-dd') = #{srchDeliveryDate}
+		GROUP BY EMP_ID
+	</select>
+
+	<select id="selectEmDeliveryListExcel" parameterType="HashMap" resultType="HashMap">
+		/* BmsTotalManageMapper.selectEmDeliveryListExcel : 우체국 택배 Excel 조회 */
+		WITH LastStatus AS (
+			SELECT 
+				PACKING_NO,
+				APPROVAL_CLASS,
+				ROW_NUMBER() OVER (PARTITION BY PACKING_NO ORDER BY REGISTER_DATE_TIME DESC) AS RN
+			FROM TB_BMS_OUT_DELIVERY WITH (NOLOCK)
+			WHERE 
+				DELIVERY_CODE = 'EM'
+				AND FORMAT(CAST(REGISTER_DATE_TIME AS DATETIME), 'yyyy-MM-dd') = #{srchDeliveryDate}
+				<if test='empId != null and empId != "" and empId != "ALL"'>
+					AND EMP_ID = #{empId}
+				</if>
+		),
+		Valid AS (
+			SELECT PACKING_NO
+			FROM LastStatus
+			WHERE 
+				RN = 1
+				AND APPROVAL_CLASS = '31'
+		),
+		Latest AS (
+			SELECT 
+				D.*,
+				ROW_NUMBER() OVER (
+					PARTITION BY D.PACKING_NO
+					ORDER BY D.REGISTER_DATE_TIME DESC
+				) AS RN2
+			FROM TB_BMS_OUT_DELIVERY D WITH (NOLOCK)
+			INNER JOIN Valid V ON D.PACKING_NO = V.PACKING_NO
+		),
+		Filtered AS (
+			SELECT 
+				L.PACKING_NO,
+				L.REGISTER_DATE_TIME,
+				CASE WHEN TBIPP.WEIGHING_WT <![CDATA[>]]> 0 THEN TBIPP.WEIGHING_WT
+					 WHEN L.EMP_ID <![CDATA[>]]> 0 THEN L.EMP_ID
+					 ELSE CAST(ROUND(ISNULL(TBIP.EX_WT, 0) * 1000 / ISNULL(TBIP.EX_CT, 1), 0) AS INT)
+				END AS EX_WT,
+				--TBIP.EX_WT,
+				TBIPP.DIM_WIDTH,
+				TBIPP.DIM_LENGTH,
+				TBIPP.DIM_HEIGHT
+			FROM Latest L
+			<!-- LEFT JOIN TB_BMS_IN_PLAN TBIP WITH (NOLOCK) ON L.CARGO_REFERENCE_NO = TBIP.CARGO_REFERENCE_NO
+			LEFT JOIN TB_BMS_IN_PLAN_PKG TBIPP WITH (NOLOCK) ON TBIP.IN_PLAN_NO = TBIPP.IN_PLAN_NO -->
+			LEFT JOIN TB_BMS_IN_PLAN_PKG TBIPP WITH (NOLOCK) ON L.PACKING_NO = TBIPP.PACKING_NO
+			LEFT JOIN TB_BMS_IN_PLAN TBIP WITH (NOLOCK) ON TBIP.IN_PLAN_NO = TBIPP.IN_PLAN_NO
+			WHERE L.RN2 = 1
+		)
+		SELECT 
+			ROW_NUMBER() OVER (ORDER BY REGISTER_DATE_TIME) AS num,
+			PACKING_NO AS packingNo,
+			'0' AS idenNum,
+			'식별번호 없음' AS countryName,
+			'CH7' AS ipsNum,
+			CONVERT(VARCHAR(21), REGISTER_DATE_TIME, 120) AS scanDate,
+			<!-- CAST(ROUND(EX_WT * 1000, 1) AS FLOAT) AS gWt, -->
+			<!-- CAST(ROUND((DIM_WIDTH * DIM_LENGTH * DIM_HEIGHT) / 6000.0, 1) AS FLOAT) AS vWt -->
+			EX_WT AS gWt,
+			CAST(ROUND((DIM_WIDTH + DIM_LENGTH + DIM_HEIGHT) / 10.0, 0) AS INT) AS vWt
+		FROM Filtered
+		ORDER BY REGISTER_DATE_TIME
+	</select>
+	
+	<select id="selectCjDeliveryListExcel" parameterType="HashMap" resultType="HashMap">
+		/* BmsTotalManageMapper.selectCjDeliveryListExcel : CJ 택배 Excel 조회 */
+		WITH LastStatus AS (
+			SELECT 
+				PACKING_NO,
+				APPROVAL_CLASS,
+				REGISTER_DATE_TIME,
+				ROW_NUMBER() OVER (PARTITION BY PACKING_NO ORDER BY REGISTER_DATE_TIME DESC) AS RN
+			FROM TB_BMS_OUT_DELIVERY WITH (NOLOCK)
+			WHERE 
+				DELIVERY_CODE = #{srchDeliveryTypeGbn}
+				AND FORMAT(CAST(REGISTER_DATE_TIME AS DATETIME), 'yyyy-MM-dd') = #{srchDeliveryDate}
+		),
+		Valid AS (
+			SELECT PACKING_NO, REGISTER_DATE_TIME
+			FROM LastStatus
+			WHERE 
+				RN = 1
+				AND APPROVAL_CLASS = '31'
+		)
+		SELECT 
+			PACKING_NO AS packingNo
+		FROM Valid
+		ORDER BY REGISTER_DATE_TIME
+	</select>
+	
+	<select id="selectClDeliveryListExcel" parameterType="HashMap" resultType="HashMap">
+		/* BmsTotalManageMapper.selectClDeliveryListExcel : 쿠팡 택배 Excel 조회 */
+		WITH LastStatus AS (
+			SELECT 
+				PACKING_NO,
+				APPROVAL_CLASS,
+				REGISTER_DATE_TIME,
+				ROW_NUMBER() OVER (PARTITION BY PACKING_NO ORDER BY REGISTER_DATE_TIME DESC) AS RN
+			FROM TB_BMS_OUT_DELIVERY WITH (NOLOCK)
+			WHERE 
+				DELIVERY_CODE = 'CL'
+				AND FORMAT(CAST(REGISTER_DATE_TIME AS DATETIME), 'yyyy-MM-dd') = #{srchDeliveryDate}
+		),
+		Valid AS (
+			SELECT PACKING_NO, REGISTER_DATE_TIME
+			FROM LastStatus
+			WHERE 
+				RN = 1
+				AND APPROVAL_CLASS = '31'
+		)
+		SELECT 
+			ROW_NUMBER() OVER (ORDER BY REGISTER_DATE_TIME) AS num,
+			PACKING_NO AS packingNo,
+			CONVERT(VARCHAR(21), REGISTER_DATE_TIME, 120) AS scanDate
+		FROM Valid
+		ORDER BY REGISTER_DATE_TIME
+	</select>
+</mapper>

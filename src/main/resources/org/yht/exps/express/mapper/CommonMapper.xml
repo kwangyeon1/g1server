@@ -1,0 +1,2362 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.CommonMapper">
+<!-- 
+	<select id="checkClosedOrderInfo" parameterType="HashMap" resultType="HashMap">
+		SELECT
+			  FINISH_YN
+			, PROFIT_FINISH_YN
+		FROM TB_COM_OD
+		WHERE ENT_CODE = #{srchEntCode}
+		AND ENT_BUSINESS_CODE = #{srchEntBusinessCode}
+		AND OBL_JOB_NO = #{srchJobNo}
+	</select>
+	
+	<select id="getNextStockMaxNo" parameterType="HashMap" resultType="string">
+        SELECT  
+			GET_NEXT_STOCK_MAX (
+				 #{entCode}
+				,#{entBusinessCode}	                          
+				,#{stockType}
+				,#{stockSign}
+				,#{stockSeqLength}
+				<choose>
+					<when test="dateLength != null and dateLength != ''">
+						,SUBSTR(DATE_FORMAT(SYSDATE(), '%y%m%d'), 1, #{dateLength})
+					</when>
+					<otherwise>
+						,DATE_FORMAT(SYSDATE(), '%y%m%d')
+					</otherwise>
+				</choose>
+				<choose>
+					<when test='solution != null and solution != ""'>
+						,#{solution}
+					</when>
+					<otherwise>
+						,'EMS'
+					</otherwise>
+				</choose>	 							   
+				,DATE_FORMAT(DATE_ADD(SYSDATE(), INTERVAL #{gmtTime} HOUR), '%Y%m%d')
+				,'DEFAULT'
+				,#{updateUserId}
+				,#{stockRemark}
+				<choose>
+					<when test="subSeq != null and subSeq != ''">
+						,#{subSeq}
+					</when>
+					<otherwise>
+						,0
+					</otherwise>
+				</choose>
+			) AS stockNo<if test="index != null and index != ''">, ${index}</if> 
+		FROM DUAL
+	</select>
+	
+	<select id="selectMessage" parameterType="HashMap" resultType="message">
+		SELECT
+			  MESSAGE_ID
+			, NAME_${lang} AS MESSAGE_NAME 
+		FROM  exps_master_v2.TB_SMS_MESSAGE
+		WHERE MESSAGE_ID IN (${messageIdList})
+	</select>
+ -->
+ 
+ 
+			 <sql id="pageTopBms">
+				<if test="filter != null">
+				SELECT X.* FROM(
+				</if>
+			</sql>
+ 
+ 
+			 <sql id="pageBottomBms">
+			 
+				<choose>
+				<when test='srchMode == "listCount"'>
+				<if test="filter != null">
+				) X
+				</if>
+				</when>
+				<otherwise>
+				<if test="filter != null">
+				) X
+				<include refid="org.yht.exps.express.mapper.CommonMapper.filter"/>
+				</if>
+				
+				</otherwise>
+				</choose>
+				
+			 </sql>
+	
+	
+	<!-- 공통 Filter -->
+	<sql id="filterBms">
+	<if test="filter != null">
+	
+	<foreach item="item" collection="filter.filters">
+	<choose>
+	<when test="item.operator == 'eq'">
+	${filter.logic} ${item.field} = REPLACE(#{item.value}, '-', '')  
+	</when>
+	<when test="item.operator == 'neq'">
+	${filter.logic} ${item.field} != REPLACE(#{item.value}, '-', '')
+	</when>
+	<when test="item.operator == 'startswith'">
+	${filter.logic} ${item.field} LIKE  CONCAT(REPLACE(#{item.value}, '-', ''), '%')
+	</when>
+	<when test="item.operator == 'contains'">
+	${filter.logic} ${item.field} LIKE CONCAT('%', REPLACE(#{item.value}, '-', ''), '%')  
+	</when>
+	<when test="item.operator == 'doesnotcontain'">
+	${filter.logic} (${item.field} NOT LIKE CONCAT('%', REPLACE(#{item.value}, '-', ''), '%') OR ${item.field} IS NULL)
+	</when>
+	<when test="item.operator == 'endswith'">
+	${filter.logic} ${item.field} LIKE CONCAT('%', REPLACE(#{item.value}, '-', ''))
+	</when>
+	<when test="item.operator == 'gte'">
+	${filter.logic} ${item.field} >= #{item.value}
+	</when>
+	<when test="item.operator == 'gt'">
+	${filter.logic} ${item.field} > #{item.value}
+	</when>
+	<when test="item.operator == 'lte'">
+	${filter.logic} ${item.field} <![CDATA[<=]]> #{item.value}
+	</when>
+	<when test="item.operator == 'lt'">
+	${filter.logic} ${item.field} <![CDATA[<]]> #{item.value}
+	</when>
+	<when test="item.operator == 'eqDate'">
+	${filter.logic} ${item.field} = CONVERT(DATE, #{item.value}, ${srchDateFormat})
+	</when>
+	<when test="item.operator == 'neqDate'">
+	${filter.logic} ${item.field} != CONVERT(DATE, #{item.value}, ${srchDateFormat})
+	</when>
+	<when test="item.operator == 'gteDate'">
+	${filter.logic} ${item.field} >= CONVERT(DATE, #{item.value}, ${srchDateFormat})
+	</when>
+	<when test="item.operator == 'gtDate'">
+	${filter.logic} ${item.field} > CONVERT(DATE, #{item.value}, ${srchDateFormat})
+	</when>
+	<when test="item.operator == 'lteDate'">
+	${filter.logic} ${item.field} <![CDATA[<=]]> CONVERT(DATE, #{item.value}, ${srchDateFormat})
+	</when>
+	<when test="item.operator == 'ltDate'">
+	${filter.logic} ${item.field} <![CDATA[<]]> CONVERT(DATE, #{item.value}, ${srchDateFormat})
+	</when>
+	<otherwise>
+	${filter.logic} ${item.field} = #{item.value}
+	</otherwise>
+	</choose>
+	</foreach>
+	</if>
+	
+	</sql>
+	
+	<sql id="pageTop">
+	WITH Main_CTE AS(
+		<if test="filter != null">
+		SELECT X.* FROM(
+		</if>
+	</sql>
+	
+	
+	
+	<sql id="pageBottom">
+	<choose>
+	<when test='srchMode == "listCount"'>
+		<if test="filter != null">
+		) X
+		</if>
+	)
+	SELECT *
+	FROM Main_CTE
+	</when>
+	<otherwise>
+		<if test="filter != null">
+		) X
+		<include refid="org.yht.exps.express.mapper.CommonMapper.filter"/>
+		</if>
+	)
+	, Count_CTE AS (
+	    SELECT COUNT(*) AS TOTAL
+	    FROM Main_CTE
+	)
+	SELECT *
+<!-- 	<if test="srchMode == 'excel'"> -->
+	, ROW_NUMBER() OVER(<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+		<if test="defaultSort2 != null and defaultSort2 != ''">
+		, ${defaultSort2}
+		</if>
+	) AS NUM
+<!-- 	</if> -->
+	FROM Count_CTE, Main_CTE
+	<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+	<if test="defaultSort2 != null and defaultSort2 != ''">
+	, ${defaultSort2}
+	</if>
+	<if test="srchMode != 'excel' and srchMode != 'client' and page != null and page != 0">
+	OFFSET ${startNum} ROWS FETCH NEXT ${pageSize} ROWS ONLY
+	</if>
+	</otherwise>
+	</choose>
+	</sql>
+	
+	<!-- 공통 Filter -->
+	<sql id="filter">
+	<!-- <foreach item="item" collection="filter.filters" separator="AND" open="AND"> -->
+	<choose>
+	<when test="filter.logic == 'or'">
+	WHERE 1 = 0
+	</when>
+	<otherwise>
+	WHERE 1 = 1
+	</otherwise>
+	</choose>
+	<foreach item="item" collection="filter.filters">
+	<choose>
+<!-- 	<when test='srchGroupCode == "BOUND"'> -->
+<!-- 	${filter.logic} ${item.field} LIKE CONCAT('%', #{item.value}, '%') -->
+<!-- 	</when> -->
+	<when test="item.operator == 'eq'">
+	${filter.logic} ${item.field} = REPLACE(#{item.value}, '-', '')  
+	</when>
+	<when test="item.operator == 'neq'">
+	${filter.logic} ${item.field} != REPLACE(#{item.value}, '-', '')
+	</when>
+	<when test="item.operator == 'startswith'">
+	${filter.logic} ${item.field} LIKE  CONCAT(REPLACE(#{item.value}, '-', ''), '%')
+	</when>
+	<when test="item.operator == 'contains'">
+	${filter.logic} ${item.field} LIKE CONCAT('%', REPLACE(#{item.value}, '-', ''), '%')  
+	</when>
+	<when test="item.operator == 'doesnotcontain'">
+	${filter.logic} (${item.field} NOT LIKE CONCAT('%', REPLACE(#{item.value}, '-', ''), '%') OR ${item.field} IS NULL)
+	</when>
+	<when test="item.operator == 'endswith'">
+	${filter.logic} ${item.field} LIKE CONCAT('%', REPLACE(#{item.value}, '-', ''))
+	</when>
+	<when test="item.operator == 'gte'">
+	${filter.logic} ${item.field} >= #{item.value}
+	</when>
+	<when test="item.operator == 'gt'">
+	${filter.logic} ${item.field} > #{item.value}
+	</when>
+	<when test="item.operator == 'lte'">
+	${filter.logic} ${item.field} <![CDATA[<=]]> #{item.value}
+	</when>
+	<when test="item.operator == 'lt'">
+	${filter.logic} ${item.field} <![CDATA[<]]> #{item.value}
+	</when>
+	<when test="item.operator == 'eqDate'">
+	${filter.logic} ${item.field} = CONVERT(DATE, #{item.value}, ${srchDateFormat})
+	</when>
+	<when test="item.operator == 'neqDate'">
+	${filter.logic} ${item.field} != CONVERT(DATE, #{item.value}, ${srchDateFormat})
+	</when>
+	<when test="item.operator == 'gteDate'">
+	${filter.logic} ${item.field} >= CONVERT(DATE, #{item.value}, ${srchDateFormat})
+	</when>
+	<when test="item.operator == 'gtDate'">
+	${filter.logic} ${item.field} > CONVERT(DATE, #{item.value}, ${srchDateFormat})
+	</when>
+	<when test="item.operator == 'lteDate'">
+	${filter.logic} ${item.field} <![CDATA[<=]]> CONVERT(DATE, #{item.value}, ${srchDateFormat})
+	</when>
+	<when test="item.operator == 'ltDate'">
+	${filter.logic} ${item.field} <![CDATA[<]]> CONVERT(DATE, #{item.value}, ${srchDateFormat})
+	</when>
+	<otherwise>
+	${filter.logic} ${item.field} = #{item.value}
+	</otherwise>
+	</choose>
+	</foreach>
+	</sql>
+	
+	<!-- 공통 Order -->
+	<sql id="orderBy">
+	<trim prefix="ORDER BY ">
+		<choose>
+			<when test="sort != null and sort.size > 0 ">
+				<foreach item="orderItem" index="index" collection="sort" separator=",">
+				${orderItem.field} ${orderItem.dir}
+				</foreach>
+			</when>
+			<otherwise>
+	 			${defaultSort}
+			</otherwise>
+		</choose>
+	</trim>	
+	</sql>
+	
+	<update id="updateNextStockMaxNo" parameterType="HashMap">
+		/* CommonMapper.updateNextStockMaxNo : updateNextStockMaxNo */
+			<include refid="org.yht.exps.express.mapper.CommonMapper.selectNextStockMaxNoVariable"/>
+			UPDATE TB_COM_STOCK_MAX SET
+				   MAX_NO = #{updateMaxNo}
+				  <choose>
+				  <when test='resultCode == "FIXED_SIGN_AND_SEQ_NO"'>
+				  ,STOCK_NO = CONCAT(@STOCK_SIGN, 
+				  </when>
+				  <when test='resultCode == "FIXED_SIGN_DATE_SEQ_NO"'>
+				  ,STOCK_NO = CONCAT(@STOCK_SIGN, @DATE1, 
+				  </when>
+				  <otherwise>
+				  ,STOCK_NO = CONCAT(SUBSTRING(#{entBusinessCode}, 7, 2), '-', @STOCK_SIGN, @DATE1, '-', 
+				  </otherwise>
+				  </choose>
+				  	REPLICATE('0', #{stockSeqLength} - LEN(CONVERT(VARCHAR, #{updateMaxNo}))) + CONVERT(VARCHAR, #{updateMaxNo}))
+				  	
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = GETDATE()
+			WHERE ENT_CODE = #{entCode}
+			AND ENT_BUSINESS_CODE = #{entBusinessCode}
+			AND SOLUTION = #{solution}
+			AND STOCK_TYPE = #{stockType}
+			AND STOCK_SIGN = @STOCK_SIGN
+			AND STOCK_SEQ_LENGTH = #{stockSeqLength}
+			AND STOCK_ISSUE_YYMM = @DATE1
+			AND MAX_NO <![CDATA[<]]> #{updateMaxNo}
+	</update>
+	
+	<select id="selectBmsCdType" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectBmsCdType : ECM CD_TYPE 변경시 변경전 데이터 조회 */
+			SELECT
+				 od.OD_JOB_NO
+				,od.BOUND
+				,od.ENT_CODE
+				,od.ENT_BUSINESS_CODE
+				,od.BOUND_TYPE
+				,od.CUSTOMS_CODE
+				,ad.LAST_POD_STATUS
+				,od.MASTER_OD_JOB_NO
+				,od.MBL_NO
+				,od.HBL_NO
+				,od.AR_DATE
+				,CASE ad.DROP_YN WHEN 'Y' THEN 'Y' ELSE 'N' END AS DROP_YN
+				,od.DEST_CODE
+				,od.DEST_PORT
+				,od.MRN
+				,od.CD_TYPE
+				,(SELECT MAX(subAd.BMS_IN_PLAN_YN) FROM TB_ECM_OD subOd INNER JOIN TB_ECM_OD_ADDITIONAL subAd ON subAd.OD_JOB_NO = subOd.OD_JOB_NO WHERE subOd.MASTER_OD_JOB_NO = od.MASTER_OD_JOB_NO) AS BMS_IN_PLAN_YN
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.OD_JOB_NO = #{odJobNo}
+	</select>
+	
+	<select id="selectBmsCdTypeList" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectBmsCdTypeList : ECM CD_TYPE 변경시 변경전 데이터 조회 */
+			SELECT
+				 od.OD_JOB_NO
+				,od.BOUND
+				,od.ENT_CODE
+				,od.ENT_BUSINESS_CODE
+				,od.BOUND_TYPE
+				,od.CUSTOMS_CODE
+				,ad.LAST_POD_STATUS
+				,od.MASTER_OD_JOB_NO
+				,od.MBL_NO
+				,od.HBL_NO
+				,od.AR_DATE
+				,CASE ad.DROP_YN WHEN 'Y' THEN 'Y' ELSE 'N' END AS DROP_YN
+				,od.DEST_CODE
+				,od.DEST_PORT
+				,od.MRN
+				<choose>
+				<when test='action == "updateExclusion"'>
+				,#{cdType} AS cdType
+				,'Y' AS CD_TYPE
+				</when>
+				<otherwise>
+				,od.CD_TYPE
+				</otherwise>
+				</choose>
+				,(SELECT MAX(subAd.BMS_IN_PLAN_YN) FROM TB_ECM_OD subOd INNER JOIN TB_ECM_OD_ADDITIONAL subAd ON subAd.OD_JOB_NO = subOd.OD_JOB_NO WHERE subOd.MASTER_OD_JOB_NO = od.MASTER_OD_JOB_NO) AS BMS_IN_PLAN_YN
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.OD_JOB_NO IN (<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+	</select>
+	
+	<update id="updateBmsCdType" parameterType="consolOrder">
+		/* CommonMapper.updateBmsCdType : ECM CD_TYPE 변경시 BMS CD_TYPE 업데이트 */
+			<choose>
+			<when test="odJobNoList == null">
+			UPDATE TB_BMS_IN_PLAN SET CD_TYPE = #{cdType} WHERE OD_JOB_NO = #{odJobNo};
+			UPDATE TB_BMS_IN SET CD_TYPE = #{cdType} WHERE OD_JOB_NO = #{odJobNo};
+			</when>
+			<otherwise>
+			UPDATE TB_BMS_IN_PLAN SET CD_TYPE = #{cdType} WHERE OD_JOB_NO IN (<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>);
+			UPDATE TB_BMS_IN SET CD_TYPE = #{cdType} WHERE OD_JOB_NO IN (<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>);
+			</otherwise>
+			</choose>
+	</update>
+	
+	<update id="updatePackingErrorYn" parameterType="HashMap">
+		/* CommonMapper.updatePackingErrorYn */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.updatePackingErrorYnSql" />
+	</update>
+	
+	<sql id="updatePackingErrorYnSql">
+		UPDATE ad SET
+    		   ad.PACKING_ERROR_YN = (
+    		   		SELECT CASE WHEN od.PIECES = COUNT(OD_JOB_NO) AND (od.PIECES = COUNT(CASE WHEN LEN(PACKING_NO) = 11 THEN 1 END) OR od.PIECES = COUNT(CASE WHEN LEN(PACKING_NO) = 18 THEN 1 END)) THEN 'N' ELSE 'Y' END
+    		   		FROM TB_ECM_OD_PACKING
+    		   		WHERE OD_JOB_NO = od.OD_JOB_NO
+    		   )
+    	FROM TB_ECM_OD_ADDITIONAL ad
+    		 INNER JOIN TB_ECM_OD od
+    		 			ON od.OD_JOB_NO = ad.OD_JOB_NO
+    	WHERE ad.OD_JOB_NO = #{odJobNo};
+    </sql>
+	
+	<update id="insertStockMaxNo" parameterType="HashMap">
+		/* CommonMapper.insertStockMaxNo : insertStockMaxNo */
+			<include refid="org.yht.exps.express.mapper.CommonMapper.selectNextStockMaxNoVariable"/>
+			INSERT INTO TB_COM_STOCK_MAX(
+				   ENT_CODE
+				  ,ENT_BUSINESS_CODE
+				  ,STOCK_TYPE
+				  ,STOCK_SIGN
+				  ,STOCK_SEQ_LENGTH
+				  ,STOCK_ISSUE_YYMM
+				  ,SOLUTION
+				  ,INPUT_DATE
+				  ,MAX_NO
+				  ,STOCK_NO
+				  ,REMARKS
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{entCode}
+				  ,#{entBusinessCode}
+				  ,#{stockType}
+				  ,@STOCK_SIGN
+				  ,#{stockSeqLength}
+				  ,@DATE1
+				  ,#{solution}
+				  ,@DATE2
+				  ,#{updateMaxNo}
+				  
+				  <choose>
+				  <when test='resultCode == "FIXED_SIGN_AND_SEQ_NO"'>
+				  ,CONCAT(@STOCK_SIGN, 
+				  </when>
+				  <when test='resultCode == "FIXED_SIGN_DATE_SEQ_NO"'>
+				  ,CONCAT(@STOCK_SIGN, @DATE1, 
+				  </when>
+				  <otherwise>
+				  ,CONCAT(SUBSTRING(#{entBusinessCode}, 7, 2), '-', @STOCK_SIGN, @DATE1, '-', 
+				  </otherwise>
+				  </choose>
+				  	REPLICATE('0', #{stockSeqLength} - LEN(CONVERT(VARCHAR, #{updateMaxNo}))) + CONVERT(VARCHAR, #{updateMaxNo}))
+				  	
+				  ,#{stockRemark}
+				  ,#{updateUserId}
+				  ,GETDATE()
+				  ,#{updateUserId}
+				  ,GETDATE()
+			);
+	</update>
+	
+	<select id="selectStockMaxNo" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectStockMaxNo : TB_COM_STOCK_MAX 조회 */
+			<include refid="org.yht.exps.express.mapper.CommonMapper.selectNextStockMaxNoVariable"/>
+			SELECT ENT_CODE
+			FROM TB_COM_STOCK_MAX
+			WHERE ENT_CODE = #{entCode}
+			AND ENT_BUSINESS_CODE = #{entBusinessCode}
+			AND SOLUTION = #{solution}
+			AND STOCK_TYPE = #{stockType}
+			AND STOCK_SIGN = @STOCK_SIGN
+			AND STOCK_SEQ_LENGTH = #{stockSeqLength}
+			AND STOCK_ISSUE_YYMM = @DATE1
+	</select>
+	
+	<select id="selectNextStockMaxNo" parameterType="HashMap" resultType="string">
+		/* CommonMapper.selectNextStockMaxNo : JOB_NO조회 */
+			<include refid="org.yht.exps.express.mapper.CommonMapper.selectNextStockMaxNo"/>
+			SELECT @RES_STOCK_NO;
+	</select>
+	
+	<select id="selectNextStockNo" parameterType="HashMap" resultType="string">
+		/* CommonMapper.selectNextStockNo : 신규 Stock No 가져오기 */
+			DECLARE @RES_STOCK_NO VARCHAR(100);
+			DECLARE @DATE1 VARCHAR(20) = #{index};
+			IF #{stockDate} != ''
+				SET @DATE1 = CONVERT(VARCHAR(10), CONVERT(DATE, #{stockDate}, ${dateFormat}), 23);
+			ELSE
+				SET @DATE1 = CONVERT(VARCHAR(10), DATEADD(HOUR, ${gmtTime}, GETDATE()), 23);
+			
+			EXEC GET_NEXT_STOCK
+				 #{entCode}
+				,#{entBusinessCode}
+				<choose>
+					<when test='solution != null and solution != ""'>
+					,#{solution}
+					</when>
+					<otherwise>
+					,'EMS'
+					</otherwise>
+				</choose>			
+				,#{bound}
+				,#{boundType}
+				,#{stockType}
+				 <choose>
+					<when test='stockDate != null and stockDate != ""'>
+					,@DATE1
+					</when>
+					<otherwise>
+					,@DATE1
+					</otherwise>
+				</choose>			
+				,#{inputUserId}
+				,#{statusSbi}
+				,#{stockSign}
+				,#{stockNo}
+				,#{portPrefix}
+				,#{customerCode}
+				,#{customerPrefix}
+				,#{saveYn}
+				<choose>
+					<when test='expsYn != null and expsYn != "" and expsYn == "Y"'>
+					,#{expsYn}
+					</when>
+					<otherwise>
+					,'N'
+					</otherwise>
+				</choose>
+				,@RES_STOCK_NO OUTPUT;
+				SELECT @RES_STOCK_NO;
+	</select>
+
+	<select id="selectEntCode" parameterType="String" resultType="String">
+		/* CommonMapper.selectEntCode : 도입사코드 조회 */
+			SELECT TOP 1 ENT_CODE
+			FROM exps_master.dbo.TB_SMS_ENTERPRISE
+			WHERE ENT_CODE = #{entCode}
+			OR ENT_MAPPING_CODE = #{entCode}
+	</select>
+
+	<sql id="selectNextStockMaxNoVariable">
+		DECLARE @RES_STOCK_NO VARCHAR(100);
+		DECLARE @DATE1 VARCHAR(20);
+		DECLARE @DATE2 VARCHAR(20) = CONVERT(VARCHAR(10), DATEADD(HOUR, ${gmtTime}, GETDATE()), 112);
+		DECLARE @SEQNO VARCHAR(20) = #{seqNo};	<!-- parameter내용 변경없이 반복호출시 정상작동하지않아서 추가 -->
+		
+		<choose>
+		<when test="stockDateFormat != null and stockDateFormat != ''">
+		IF #{dateLength} != ''
+			SET @DATE1 = SUBSTRING(CONVERT(VARCHAR(10), GETDATE(), CONVERT(INT, #{stockDateFormat})), 1, CONVERT(INT, #{dateLength}));
+		ELSE
+			SET @DATE1 = CONVERT(VARCHAR(10), GETDATE(), CONVERT(INT, #{stockDateFormat}));
+		</when>
+		<when test="stockDateStr != null and stockDateStr != ''">
+		SET @DATE1 = #{stockDateStr};
+		</when>
+		<otherwise>
+		IF #{dateLength} != ''
+			SET @DATE1 = SUBSTRING(CONVERT(VARCHAR(10), GETDATE(), 12), 1, CONVERT(INT, #{dateLength}));
+		ELSE
+			SET @DATE1 = CONVERT(VARCHAR(10), GETDATE(), 12);
+		</otherwise>
+		</choose>
+		
+		<choose>
+		<when test='resultCode == "FIXED_SIGN_AND_SEQ_NO"'>
+			<choose>
+			<when test='signType == "dateFirst"'>
+			DECLARE @STOCK_SIGN VARCHAR(20) = CONCAT(@DATE1, #{stockSign});
+			</when>
+			<when test='signType == "noHyphen"'>
+			DECLARE @STOCK_SIGN VARCHAR(20) = CONCAT(#{stockSign}, @DATE1);
+			</when>
+			<otherwise>
+			DECLARE @STOCK_SIGN VARCHAR(20) = CONCAT(#{stockSign}, @DATE1, '-');
+			</otherwise>
+			</choose>
+		</when>
+		<otherwise>
+			DECLARE @STOCK_SIGN VARCHAR(20) = #{stockSign};
+		</otherwise>
+		</choose>
+		
+		<if test="appendStockSign != null and appendStockSign != ''">
+		SET @STOCK_SIGN = CONCAT(@STOCK_SIGN, #{appendStockSign})
+		</if>
+	</sql>
+	
+	<sql id="selectNextStockMaxNo">
+		<include refid="org.yht.exps.express.mapper.CommonMapper.selectNextStockMaxNoVariable"/>
+		
+		EXEC GET_NEXT_STOCK_MAX
+			 #{entCode}
+			,#{entBusinessCode}
+			,#{stockType}
+			,@STOCK_SIGN
+			,#{stockSeqLength}
+			,@DATE1
+			<choose>
+				<when test='solution != null and solution != ""'>
+				,#{solution}
+				</when>
+				<otherwise>
+				,'ECM'
+				</otherwise>
+			</choose>	 							   
+			,@DATE2
+			,#{resultCode}
+			,#{updateUserId}
+			,#{stockRemark}
+			<choose>
+				<when test="subSeq != null and subSeq != ''">
+				,#{subSeq}
+				</when>
+				<otherwise>
+				,0
+				</otherwise>
+			</choose>
+			,@RES_STOCK_NO OUTPUT;
+	</sql>
+	
+	<select id="selectCustomsList" parameterType="HashMap" resultType="HashMap">
+		SELECT OD_JOB_NO AS odJobNo 
+		   , CONSIGNEE_NAME_LOC AS consigneeNameLoc
+		   <choose>
+			<when test='cryptographyYn == "Y"'>
+			,dbo.Cryptography(OD_JOB_NO, CUSTOMS_ID_ENC, 1) AS customsId
+			</when>
+			<otherwise>
+			, CUSTOMS_ID AS customsId
+			</otherwise>
+			</choose>
+		FROM TB_ECM_OD
+		WHERE 1=1
+		<if test="odJobNo != null and odJobNo != ''">
+			AND OD_JOB_NO = #{odJobNo}
+		</if>
+		<if test="masterOdJobNo != null and masterOdJobNo != ''">
+			AND MASTER_OD_JOB_NO = #{masterOdJobNo}
+		</if>
+		<if test="hblNo != null and hblNo != ''">
+			AND HBL_NO = LTRIM(RTRIM(#{hblNo}))
+		</if>
+		<if test="mblNo != null and mblNo != ''">
+			AND MBL_NO = LTRIM(RTRIM(#{mblNo}))
+		</if>
+		  
+	</select>
+	
+	<select id="selectCustCode" parameterType="HashMap" resultType="String">
+		/* CommonMapper.selectCustCode : 상위업체조회 */
+		WITH tree_query AS ( 
+			SELECT
+				 cus.CUSTOMER_CODE
+				,cus.PARENT_CUSTOMER_CODE
+				,cus.CUSTOMER_LEVEL
+			FROM TB_SMS_CUSTOMER cus
+			WHERE cus.ENT_CODE = #{entCode}
+			AND cus.CUSTOMER_CODE = #{customerCode}	
+			UNION ALL
+			SELECT
+				 B.CUSTOMER_CODE
+				,B.PARENT_CUSTOMER_CODE
+				,B.CUSTOMER_LEVEL
+			FROM TB_SMS_CUSTOMER B, tree_query C 
+			WHERE B.CUSTOMER_CODE = C.PARENT_CUSTOMER_CODE
+		) 
+		SELECT A.CUSTOMER_CODE FROM tree_query A
+		ORDER BY A.CUSTOMER_LEVEL ASC
+	</select>
+	
+	<update id="updateCustoms" parameterType="HashMap">
+		/* CommonMapper.updateCustoms : updateCustoms */
+			UPDATE TB_ECM_OD_ADDITIONAL
+			SET CUSTOMS_ID_VERIFY = #{consigneeIdCardNo_IF_YN}
+				,CUSTOMS_ID_ERROR = #{consigneeIdCardNoFailRemark}
+			WHERE OD_JOB_NO = #{odJobNo};
+	</update>
+	
+	<select id="getCodeDetail" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.getCodeDetail : 코드 조회 */
+			SELECT
+				<if test='srchEtcFieldOnly == "Y"'>
+				TOP 1
+				</if>
+				 CODE
+				<choose>
+				<when test="userLanguage != null and userLanguage != ''">
+				,NAME_${userLanguage} AS CODE_NAME
+				</when>
+				<otherwise>
+				,NAME_DEFAULT AS CODE_NAME
+				</otherwise>
+				</choose>
+				,ETC1
+				,ETC2
+				,ETC3
+				,ETC10
+				,ETC11
+			FROM TB_SMS_CODE_DETAIL
+			WHERE ENT_CODE = #{entCode}
+			AND GROUP_CODE = #{groupCode}
+			<choose>
+			<when test='srchEtcFieldOnly == "Y"'>
+			AND ${srchEtcField} = #{srchEtcFieldValue}
+			</when>
+			<otherwise>
+			AND CODE = #{srchCode}
+			</otherwise>
+			</choose>
+			AND USE_YN = 'Y'
+	</select>
+	
+	<select id="selectSystemOption" parameterType="HashMap" resultType="string">
+		/* CommonMapper.selectSystemOption : selectSystemOption */
+			SELECT
+				 CASE WHEN ISNULL(opt.SET_VALUE, '') = '' THEN main.DEFAULT_VALUE ELSE opt.SET_VALUE END AS OPTION_VALUE
+			FROM(
+				SELECT
+					 #{entCode} AS ENT_CODE
+					,#{entBusinessCode} AS ENT_BUSINESS_CODE
+					,SOLUTION
+					,OPTION_CODE
+					,DEFAULT_VALUE
+				FROM exps_master.dbo.TB_SMS_ENT_BUS_OPTION
+				WHERE SOLUTION = #{solution}
+				AND OPTION_CODE = #{optionCode}
+			) main
+				LEFT JOIN TB_SMS_ENT_BUS_OPTION opt 
+						  ON opt.ENT_CODE = main.ENT_CODE
+						  AND opt.ENT_BUSINESS_CODE = main.ENT_BUSINESS_CODE
+						  AND opt.SOLUTION = main.SOLUTION 
+						  AND opt.OPTION_CODE = main.OPTION_CODE
+	</select>
+	
+	<select id="selectSystemOption2" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectSystemOption2 : selectSystemOption */
+			SELECT
+				 main.DEFAULT_VALUE
+				,opt.SET_VALUE
+			FROM(
+				SELECT
+					 #{entCode} AS ENT_CODE
+					,#{entBusinessCode} AS ENT_BUSINESS_CODE
+					,SOLUTION
+					,OPTION_CODE
+					,DEFAULT_VALUE
+				FROM exps_master.dbo.TB_SMS_ENT_BUS_OPTION
+				WHERE SOLUTION = #{solution}
+				AND OPTION_CODE = #{optionCode}
+			) main
+				LEFT JOIN TB_SMS_ENT_BUS_OPTION opt 
+						  ON opt.ENT_CODE = main.ENT_CODE
+						  AND opt.ENT_BUSINESS_CODE = main.ENT_BUSINESS_CODE
+						  AND opt.SOLUTION = main.SOLUTION 
+						  AND opt.OPTION_CODE = main.OPTION_CODE
+	</select>
+	
+	<select id="selectExcelItemList" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectExcelItemList : 엑셀관리조회 */
+			SELECT
+	 			 item.TITLE_COL
+	 			,item.TITLE_ROW
+	 			,item.VALUE_COL
+	 			,item.VALUE_ROW
+	 			,(SELECT ETC1 FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = item.ENT_CODE AND  GROUP_CODE = 'EXCEL_DOWN_FIELD' AND CODE = item.DB_FIELD) AS DB_FIELD
+	 			,item.DB_FIELD_NAME
+	 			,CONVERT(INT, item.FIELD_LENGTH) AS FIELD_LENGTH
+	 			,LEN(item.TITLE_COL) TITLE_COL_LENGTH
+	 		FROM TB_SMS_FORMAT_ITEM item
+			WHERE item.ENT_CODE = #{srchEntCode}
+			AND item.DOCUMENT_CODE = #{documentCode}
+			ORDER BY TITLE_COL_LENGTH, TITLE_COL
+	</select>
+	
+	<select id="selectBusEdiEcmInfo" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectBusEdiEcmInfo : TB_SMS_ENT_BUS_EDI_ECM 조회 */
+			SELECT TOP 1
+	 			 ENT_CODE
+	 			,ENT_BUSINESS_CODE
+	 			,SEQ_NO
+	 			,BOUND
+	 			,BOUND_TYPE
+	 			,EDI_CITY_PORT
+	 			,EDI_EXPRESS_SIGN
+	 			,EDI_PORTAL_LOGIN_ID
+	 			,EDI_PORTAL_LOGIN_PW
+	 			,EDI_PORTAL_MAILBOX_ID
+	 			,EDI_CERTIFICATE_PW
+	 		FROM TB_SMS_ENT_BUS_EDI_ECM
+			WHERE ENT_CODE = #{srchEntCode}
+			<choose>
+			<when test ="srchSeqNo !=null and srchSeqNo !=''">
+			 AND SEQ_NO = #{srchSeqNo}
+			</when>
+			<otherwise>
+			AND ENT_BUSINESS_CODE = #{srchEntBusinessCode}
+			AND BOUND = #{srchBound}
+			AND BOUND_TYPE = #{srchBoundType}
+			AND EDI_CITY_PORT = #{srchEdiCityPort}
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectAlarmGroupKakaoInfo" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectAlarmGroupKakaoInfo : 카카오톡 전송정보 조회 */
+			SELECT TOP 1
+				 mng.TEMPLATE_CODE
+				,mng.RESEND_MSG_TYPE
+				,mng.LABEL_NAME
+				,mng.MSG_TYPE
+				,mng.RESEND_MSG_TYPE
+				,mng.TEMPLATE_TYPE
+				,tmp.SUBJECT
+				,tmp.TEMPLATE
+				,tmp.RESEND_TEMPLATE
+<!-- 				,tmp.BUTTON1_URL -->
+<!-- 				,tmp.BUTTON1_NAME -->
+<!-- 				,tmp.BUTTON1_TYPE -->
+<!-- 				,tmp.BUTTON2_URL -->
+<!-- 				,tmp.BUTTON2_NAME -->
+<!-- 				,tmp.BUTTON2_TYPE -->
+<!-- 				,tmp.BUTTON3_URL -->
+<!-- 				,tmp.BUTTON3_NAME -->
+<!-- 				,tmp.BUTTON3_TYPE -->
+<!-- 				,tmp.BUTTON4_URL -->
+<!-- 				,tmp.BUTTON4_NAME -->
+<!-- 				,tmp.BUTTON4_TYPE -->
+<!-- 				,tmp.BUTTON5_URL -->
+<!-- 				,tmp.BUTTON5_NAME -->
+<!-- 				,tmp.BUTTON5_TYPE -->
+			FROM TB_MMS_MANAGEMENT mng
+				 INNER JOIN exps_master.dbo.TB_MMS_TEMPLATE tmp
+				 			ON tmp.TEMPLATE_TYPE = mng.TEMPLATE_TYPE
+				 			AND tmp.TEMPLATE_SEQ_NO = mng.TEMPLATE_SEQ_NO
+			WHERE mng.ENT_CODE = #{entCode}
+			AND mng.TEMPLATE_TYPE = (SELECT ETC2 FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND CODE = #{groupId} AND GROUP_CODE = 'ALARM_GROUP')
+	</select>
+	
+	<select id="selectAlarmGroupUser" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectAlarmGroupUser : 전송대상 사용자 조회 */
+			SELECT
+				 ALARM_TYPE
+				,TEL
+				,EMAIL
+				,NAME
+			FROM TB_SMS_ALARM_GROUP_USER
+			WHERE GROUP_ID = #{groupId}
+			ORDER BY ALARM_TYPE DESC
+	</select>
+	
+	<select id="selectMailSeqNoId" parameterType="int" resultType="String">
+		/* CommonMapper.selectMailSeqNoId : 이메일 SEQ_NO_ID 조회 */
+			DECLARE @SEQNO VARCHAR(20) = #{seqNo};	<!-- parameter내용 변경없이 반복호출시 정상작동하지않아서 추가 -->
+			SELECT NEXT VALUE FOR TB_SMS_MAIL_LOG__SEQ_NO_ID
+	</select>
+	
+	<insert id="insertAlarmGroupKakaoResult" parameterType="HashMap">
+		/* CommonMapper.insertAlarmGroupKakaoResult : 카카오톡배치 데이터 저장 */
+		INSERT INTO TB_SMS_ALARM(
+			   SEQ_NO_ID
+			  ,ENT_CODE
+			  ,ENT_BUSINESS_CODE
+			  ,SOLUTION
+			  ,REF_JOB_NO
+			  ,JOB_TYPE
+			  ,JOB_CODE
+			  ,MSG_KEY
+			  ,ALARM_ATTN_ID
+			  ,ALARM_ATTN_HP
+			  ,SEND_DATE_TIME
+			  ,BEFORE_VALUE
+			  ,STATUS
+			  ,RESULT_TYPE
+			  ,RESULT_LOG
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{seqNoId}
+			  ,#{entCode}
+			  ,#{entBusinessCode}
+			  ,#{solution}
+			  ,#{odJobNo}
+			  ,#{templateType}
+			  ,#{templateCode}
+			  ,#{msgKey}
+			  ,#{attnId}
+			  ,#{attnHp}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{beforeValue}
+			  <choose>
+			  <when test="msgKey != null and msgKey != ''">
+			  ,'R'
+			  ,NULL
+			  ,NULL
+			  </when>
+			  <otherwise>
+			  ,'E'
+			  ,'E'
+			  ,CASE WHEN #{returnMessageDetail} IS NULL THEN '' ELSE #{returnMessageDetail} END
+			  </otherwise>
+			  </choose>
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</insert>
+	
+	<insert id="insertMailLog" parameterType="HashMap">
+		/* CommonMapper.insertMailLog */
+		INSERT INTO TB_SMS_MAIL_LOG(
+			   SEQ_NO_ID
+			  ,ENT_CODE
+			  ,ENT_BUSINESS_CODE
+			  ,SOLUTION
+			  ,BOUND
+			  ,BOUND_TYPE
+			  ,SEND_TYPE
+			  ,SEND_YN
+			  ,SEND_STATUS
+			  ,MAIL_TYPE
+			  ,MAIL_CODE_REF
+			  ,MAIL_SENDER_ID
+			  ,MAIL_SENDER_NAME
+			  ,MAIL_RECEIVER_ID
+			  ,MAIL_CARBON_COPY_ID
+			  ,MAIL_SUBJECT
+			  ,MAIL_CONTENTS_PREFIX
+			  ,MAIL_CONTENTS
+			  ,MAIL_CONTENTS_SUFFIX
+			  ,SEND_STATUS_REMARK
+			  ,SEND_DATE_TIME
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{seqNoId}
+			  ,#{entCode}
+			  ,#{entBusinessCode}
+			  ,#{solution}
+			  ,#{bound}
+			  ,#{boundType}
+			  ,#{sendType}
+			  ,#{sendYn}
+			  ,#{sendStatus}
+			  ,#{mailType}
+			  ,#{mailCodeRef}
+			  ,#{MAIL_SENDER_ID}
+			  ,#{MAIL_SENDER_NAME}
+			  ,#{MAIL_RECEIVER_ID}
+			  ,#{mailCarbonCopyId}
+			  ,#{MAIL_SUBJECT}
+			  ,#{MAIL_CONTENTS_PREFIX}
+			  ,#{MAIL_CONTENTS}
+			  ,#{MAIL_CONTENTS_SUFFIX}
+			  ,#{sendStatusRemark}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{userId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</insert>
+	
+	<insert id="insertMailLogDetail" parameterType="HashMap">
+		/* mail.insertMailLogDetail : 이메일 전송정보 저장 */
+			INSERT INTO TB_SMS_MAIL_LOG_D(
+				   SEQ_NO_ID
+				  ,SEQ_NO
+				  ,RPT_SUB_PATH
+				  ,RPT_FILENAME
+				  ,ATT_FILENAME
+				  ,RPT_ARG1
+				  <!-- ,RPT_ARG2 -->
+				  ,RPT_TYPE
+			)VALUES(
+				   #{seqNoId}
+				  ,(SELECT  ISNULL(MAX(SEQ_NO), 0) + 1 FROM TB_SMS_MAIL_LOG_D AS log WHERE SEQ_NO_ID = #{seqNoId}) 
+			      ,#{rptSubPath}
+			      ,#{rptFilename}
+			      ,#{attFilename}
+			      ,#{rptArg1}
+			      <!-- ,#{rptArg2} -->
+			      ,#{rptType}
+			)
+	</insert>
+	
+	<select id="selectMailLogList" parameterType="HashMap" resultType="HashMap">
+		/* mail.selectMailLogList : 이메일 로그 조회 */
+			SELECT 
+				log.*
+				,(SELECT LANGUAGE_CODE FROM TB_SMS_ENT_BUSINESS BUS 
+				  WHERE BUS.ENT_CODE = log.ENT_CODE AND BUS.ENT_BUSINESS_CODE = log.ENT_BUSINESS_CODE) AS LANGUAGE_CODE
+			FROM TB_SMS_MAIL_LOG log
+			WHERE SEND_YN = #{sendYn}
+			AND SEND_STATUS = #{sendStatus}
+			AND SEND_TYPE = #{sendType}
+	</select>
+	
+	<select id="selectMailAttchList" parameterType="HashMap" resultType="HashMap">
+		/* mail.selectMailAttchList : 이메일 로그디테일 조회 */
+			SELECT
+				*
+			FROM TB_SMS_MAIL_LOG_D
+			WHERE SEQ_NO_ID = #{seqNoId}
+	</select>
+	
+	<update id="updateMailLog" parameterType="HashMap">
+		/* mail.updateMailLog : 이메일 로그 업데이트 */
+			UPDATE TB_SMS_MAIL_LOG SET
+				   SEND_YN = #{sendYn}
+				  ,SEND_DATE_TIME = DATEADD(HOUR, CONVERT(INT, #{gmtTime}), GETDATE())
+				  ,SEND_STATUS = #{sendStatus}
+				  ,SEND_STATUS_REMARK = #{sendStatusRemark}  
+			WHERE SEQ_NO_ID = #{seqNoId}
+	</update>
+	
+	<select id="selectEnterpriseInfo" parameterType="String" resultType="HashMap">
+		/* CommonMapper.selectEnterpriseInfo : 도입사정보 조회 */
+			SELECT
+				 CUS_SEND_TYPE
+				,ENCRYPTION_YN
+				,SMS_USER_ID
+	 			,SMS_CID_NUM
+	 			,SMS_SEND_TEL_NO
+	 			,ENT_CODE
+	 			,ENT_NAME
+	 			,ENT_MAPPING_CODE
+			FROM exps_master.dbo.TB_SMS_ENTERPRISE
+			WHERE ENT_CODE = #{entCode}
+	</select>
+	
+	
+	<select id="selectBusEdiCodeInfo" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectBusEdiCodeInfo : TB_SMS_ENT_BUS_EDI_CODE 조회 */
+			SELECT TOP 1
+	 			 ENT_CODE
+	 			,MAX(ENT_BUSINESS_CODE) AS ENT_BUSINESS_CODE
+	 			,MAX(BOUND) AS BOUND
+	 			,MAX(EDI_CITY_PORT) AS EDI_CITY_PORT
+	 			,LTRIM(RTRIM(MAX(EDI_EXPRESS_SIGN))) AS EDI_EXPRESS_SIGN
+	 			,MAX(EDI_WH_CODE) AS EDI_WH_CODE
+	 			,MAX(EDI_ASSIGNMENT_WH_CODE) AS EDI_ASSIGNMENT_WH_CODE
+	 			,MAX(EDI_DISC_WH_CODE) AS EDI_DISC_WH_CODE
+	 			,MAX(EDI_SELECTOR_USER_ID) AS EDI_SELECTOR_USER_ID
+	 			,MAX(EDI_CONFIRMER_USER_ID) AS EDI_CONFIRMER_USER_ID
+	 			,MAX(CASE DOCUMENT_YN WHEN 'Y' THEN EDI_EXPRESS_SIGN END) AS EDI_EXPRESS_SIGN_DOCUMENT_Y
+	 			,MAX(CASE DOCUMENT_YN WHEN 'N' THEN EDI_EXPRESS_SIGN END) AS EDI_EXPRESS_SIGN_DOCUMENT_N
+	 			<if test="stockDateFormat != null and stockDateFormat != '' and dateLength != null and dateLength != ''">
+	 			,SUBSTRING(CONVERT(VARCHAR(10), GETDATE(), ${stockDateFormat}), 1, CONVERT(INT, #{dateLength})) AS STOCK_ISSUE_YYMM
+	 			</if>
+	 		FROM TB_SMS_ENT_BUS_EDI_CODE
+			WHERE ENT_CODE = #{srchEntCode}
+			AND ENT_BUSINESS_CODE = #{srchEntBusinessCode}
+			AND BOUND = #{srchBound}
+			AND EDI_CITY_PORT = #{srchEdiCityPort}
+			GROUP BY ENT_CODE
+	</select>
+	
+	<update id="insertGovSend" parameterType="HashMap">
+		/* CommonMapper.insertGovSend : insertGovSend */
+			<include refid="org.yht.exps.express.mapper.CommonMapper.selectNextStockMaxNo"/>
+			INSERT INTO TB_EDI_GOV_SEND(
+				  EDI_JOB_NO
+				 ,ENT_CODE
+				 ,TYPE_CODE
+				 ,DECLARATION_ID
+				 ,EDI_DESC
+				 ,REGISTER_USER_ID
+				 ,REGISTER_DATE_TIME
+				 ,SEND_STATUS
+				 ,SEND_DATE_TIME
+				 ,EDI_PORTAL_MAILBOX_ID
+			)VALUES(
+				  @RES_STOCK_NO
+				 ,#{entCode}
+				 ,#{typeCode}
+				 ,#{declarationId}
+				 ,CONVERT(VARBINARY(MAX), #{ediDesc})
+				 ,#{registerUserId}
+				 ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				 ,#{sendStatus}
+				 ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				 ,#{ediPortalMailboxId}
+			)
+	</update>
+	
+	<update id="insertInterfaceLog" parameterType="HashMap">
+		/* CommonMapper.insertInterfaceLog : 송신결과 로그기록(송신 원본파일 저장) */
+			INSERT INTO TB_SMS_INTERFACE_LOG (
+				   REFERENCE_NO_ID
+				  ,ENT_CODE
+				  ,ENT_BUSINESS_CODE
+				  ,SOLUTION
+				  ,BOUND
+				  ,BOUND_TYPE
+				  ,IF_SEND_DOC_YN
+				  ,IF_STATUS
+				  ,IF_STATUS_INFO
+				  ,IF_SERVICE_CODE
+				  ,IF_VENDER
+				  ,IF_S_R_TYPE
+				  ,IF_INFO
+				  ,IF_DOC_CODE
+				  ,IF_DOC_NAME
+				  ,IF_DOC_CODE_REF
+				  ,IF_SENDER_ID
+				  ,IF_SENDER_NAME
+				  ,IF_RECEIVER_ID
+				  ,IF_RECEIVER_NAME
+				  ,IF_MESSAGE_ID
+				  ,IF_MESSAGE_NAME
+				  ,IF_MESSAGE_NO
+				  ,IF_MESSAGE_FUNCTION_CODE
+				  ,IF_DOC_REFERENCE_NO
+				  ,IF_DATE
+				  ,IF_DATE_TIME
+				  ,IF_MESSAGE_ORIGINAL
+				  ,IF_MESSAGE_ORIGINAL_ACK
+				  ,IF_MESSAGE_ORIGINAL_ACK_INFO
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   NEXT VALUE FOR TB_SMS_INTERFACE_LOG__REF_NO_ID
+				  ,#{entCode}
+				  ,#{entBusinessCode}
+				  ,#{solution}
+				  ,#{bound}
+				  ,#{boundType}
+				  ,#{ifSendDocYn}
+				  ,#{ifStatus}
+				  ,#{ifStatusInfo}
+				  ,#{ifServiceCode}
+				  ,#{ifVender}
+				  ,#{ifSRType}
+				  ,#{ifInfo}
+				  ,#{ifDocCode}
+				  ,#{ifDocName}
+				  ,#{ifDocCodeRef}
+				  ,#{ifSenderId}
+				  ,#{ifSenderName}
+				  ,#{ifReceiverId}
+				  ,#{ifReceiverName}
+				  ,#{ifMessageId}
+				  ,#{ifMessageName}
+				  ,#{ifMessageNo}
+				  ,#{ifMessageFunctionCode}
+				  ,#{ifDocReferenceNo}
+				  ,#{ifDate}	<!-- STR_TO_DATE(#{ifDate}, #{dbFormat}) -->
+				  ,#{ifDateTime}
+				  ,#{ifMessageOriginal}
+				  ,#{ifMessageOriginalAck}
+				  ,#{ifMessageOriginalAckInfo}
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE()) 
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE()) 
+			)
+	</update>
+	
+	<select id="selectExcelOrderCount" parameterType="searchExcelList" resultType="int">
+ 		/* CommonMapper.selectExcelOrderCount : 포멧별 엑셀 다운로드시 필요한 데이터 count  */	
+			SELECT  COUNT(*)
+			FROM TB_ECM_OD od
+			LEFT JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO
+				 <if test='srchNo != null and srchNo != "" and srchNoType == "multi.DELIVERY_NO"'>
+				 LEFT JOIN TB_ECM_OD_MULTI multi
+				 		   ON multi.OD_JOB_NO = od.OD_JOB_NO
+				 </if>
+			<choose>
+			<when test='srchQueryType == "DELIVERY"'>
+				<!-- parameter 추가시 SearchDeliveryMList/SearchExcelList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.eCommerce.DeliveryMapper.selectDeliveryHListWhere"/>
+			</when>
+			<when test='srchQueryType == "BROKER_SUB"'>
+				<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerMasterSubListWhere"/>
+			</when>
+			<when test='srchQueryType == "BROKER"'>
+				<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerHouseListWhere"/>
+			</when>
+			<when test='srchQueryType == "ORDER"'>
+				<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.eCommerce.OrderMapper.searchOrderList"/>
+			</when>
+			<when test='srchQueryType == "ORDER_CUSTOMER"'>
+				<!-- parameter 추가시 SearchOrderCustomerList/SearchOrderList/SearchExcelList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.consumerService.OrderCustomerMapper.selectOrderListWhere"/>
+			</when>
+			<when test='srchQueryType == "CONSOL"'>
+				<!-- 콘솔은 화면상의 그리드 내용과 엑셀다운로드내용이 일치하지 않아서 같은 조건절 사용하지 않음 -->
+				<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.eCommerce.OrderMapper.searchOrderList"/>
+			</when>
+			<otherwise>
+			WHERE 1 = 0
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectMakeExcelDownload" parameterType="searchExcelList" resultType="HashMap" fetchSize="1000">
+ 		/* CommonMapper.selectMakeExcelDownload : 포멧별 엑셀 다운로드시 필요한 데이터 조회 */	
+ 		   <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+ 		   <if test='srchHoldTableYn != null and srchHoldTableYn != "" and srchHoldTableYn == "Y"'>
+ 		   SELECT A.*
+			    ,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode} AND GROUP_CODE = 'HOLD_CODE' AND CODE = A.HOLD) AS HOLD_CODE
+			 FROM (
+ 		   </if>
+			SELECT    od.OD_JOB_NO
+ 					, od.MBL_NO
+					, od.HBL_NO
+					, od.PO_DATE
+					, od.AR_DATE
+					, od.OB_DATE
+					, ad.CARRYOUT_DATE 
+					, ad.CARRYIN_DATE
+					, ad.DELIVERY_DATE
+					, ad.CLEARANCE_RECEIPT_DATE
+					, ad.CLEARANCE_DATE
+					, ad.DELIVERY_RECV_DATE
+					, (SELECT MAX(CONCAT(pod3.POD_DATE, ' ', pod3.POD_TIME)) FROM TB_ECM_POD_03 pod3 WHERE pod3.OD_JOB_NO = od.OD_JOB_NO AND pod3.POD_STATUS = 'ECM251') AS CLEARANCE_VIOLATION_DATE
+					, (SELECT MAX(CONCAT(pod4.POD_DATE, ' ', pod4.POD_TIME)) FROM TB_ECM_POD_04 pod4 WHERE pod4.OD_JOB_NO = od.OD_JOB_NO AND pod4.POD_STATUS = 'ECM400') AS UNDELIVERY_DATE
+					, (SELECT MAX(CONCAT(pod4.POD_DATE, ' ', pod4.POD_TIME)) FROM TB_ECM_POD_04 pod4 WHERE pod4.OD_JOB_NO = od.OD_JOB_NO AND pod4.POD_STATUS = 'ECM361') AS PICKUP_DATE
+					,ad.MF_CORRECTION_DATE
+					,ad.CUSTOMS_ID_START_DATE
+					,ad.CUSTOMS_ID_END_DATE	
+					
+					<if test="odColumnList != null">
+					<foreach collection="odColumnList" item="item">
+						<choose>
+						<when test='item == "AMOUNT_CUR"'>
+						, CAST(CONVERT(DECIMAL(11,2), AMOUNT_CUR) AS VARCHAR) AS AMOUNT_CUR
+						</when> 
+						<when test='item == "HSN"'> <!-- od, ad 중복 컬럼 -->
+						, od.HSN
+						</when>
+						<when test='item == "CD_TYPE"'> <!-- od, ad 중복 컬럼 -->
+						, od.CD_TYPE
+						</when>
+						<when test='item == "PO_NO"'> <!-- od, poinfo 중복 컬럼 -->
+						, od.PO_NO
+						</when>
+						<when test='item == "DIM_LENGTH"'> <!-- od, multi 중복 컬럼 -->
+						, od.DIM_LENGTH
+						</when>
+						<when test='item == "DIM_WIDTH"'> <!-- od, multi 중복 컬럼 -->
+						, od.DIM_WIDTH
+						</when>
+						<when test='item == "DIM_HEIGHT"'> <!-- od, multi 중복 컬럼 -->
+						, od.DIM_HEIGHT
+						</when>
+						<when test='item == "PIECES"'> <!-- od, multi 중복 컬럼 -->
+						, od.PIECES
+						</when>
+						<when test='item == "REMARKS"'> <!-- od, multi 중복 컬럼 -->
+						, od.REMARKS
+						</when>
+						<when test='item == "DELIVERY_CODE"'> <!-- od, multi 중복 컬럼 -->
+						, od.DELIVERY_CODE
+						</when>
+						<when test='item == "UNDELIVERY_REMARKS"'> <!-- 미배송 사유 컬럼 -->
+						, (SELECT MAX(REMARKS) FROM TB_ECM_POD_04 pod4 WHERE pod4.OD_JOB_NO = od.OD_JOB_NO AND pod4.POD_STATUS = 'ECM400') AS UNDELIVERY_REMARKS
+						</when>
+						<when test='item == "MOD_TYPE"'>
+						,(SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'MOD_TYPE' AND CODE = (
+								SELECT TOP 1 MOD_TYPE FROM TB_EDI_MOD_HBL WHERE OD_JOB_NO = od.OD_JOB_NO ORDER BY REGISTER_DATE_TIME DESC
+							)
+						  ) AS MOD_TYPE	
+						</when>
+						<when test='item == "DROP_REASON"'>
+						,(SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'DROP_CODE' AND CODE = ad.DROP_CODE) AS DROP_REASON
+						</when>
+						<when test='item == "CUST_CODE_LV1"'>
+							<choose>
+							<when test="loginCustomerUpperLev != null and loginCustomerUpperLev != ''">
+							<if test='loginCustomerUpperLev != "0"'>
+							,od.CUST_CODE_LV${loginCustomerUpperLev} AS CUST_CODE_LV1
+							</if>
+							<if test='loginCustomerUpperLev == "0"'>
+							,od.CUST_CODE_LV1
+							</if>
+							</when>
+							<otherwise>
+							,od.CUST_CODE_LV1
+							</otherwise>
+							</choose>
+						</when>
+						<when test='item == "CUST_CODE_LV2"'>
+							<choose>
+							<when test="loginCustomerLowLev != null and loginCustomerLowLev != ''">
+							<if test='loginCustomerLowLev != "8"'>
+							,od.CUST_CODE_LV${loginCustomerLowLev} AS CUST_CODE_LV2
+							</if>
+							<if test='loginCustomerLowLev == "8"'>
+							,od.CUST_CODE_LV2
+							</if>
+							</when>
+							<otherwise>
+							,od.CUST_CODE_LV2
+							</otherwise>
+							</choose>
+						</when>
+						<when test='item == "CONSIGNEE_BUSINESS_ID"'> <!-- 수하인 사업장번호 복호화 -->
+							, dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+						</when>
+						<when test='item == "SHIPPER_BUSINESS_ID"'> <!-- 송하인 사업장번호 복호화 -->
+							, dbo.Cryptography(od.OD_JOB_NO, od.SHIPPER_BUSINESS_ID, 1) AS SHIPPER_BUSINESS_ID
+						</when>
+						<when test='item == "CUSTOMS_ID" or item == "CONSIGNEE_TEL" or item == "CONSIGNEE_HP"'>
+							<choose>
+							<when test='cryptographyYn == "Y"'>
+							, dbo.Cryptography(od.OD_JOB_NO, od.${item}_ECN, 1) AS ${item}
+							</when>
+							<otherwise>
+							, ${item}
+							</otherwise>
+							</choose>
+						</when>
+						<when test='item == "HOLD_CODE"'> <!-- hold 컬럼 -->
+						,(SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') AS HOLD
+						</when>
+						<when test='item == "HOLD_REASON"'> <!-- hold 컬럼-->
+						,(SELECT TOP 1 HOLD_REASON FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') AS HOLD_REASON
+						</when>
+						<when test='item == "HOLD_RELEASE_YN"'> <!-- hold 컬럼-->
+						,(SELECT TOP 1 HOLD_RELEASE_YN FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO) AS HOLD_RELEASE_YN
+						</when>
+						<when test='item == "HOLD_RELEASE_REASON"'> <!-- hold 컬럼-->
+						,(SELECT TOP 1 HOLD_RELEASE_REASON FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO) AS HOLD_RELEASE_REASON
+						</when>
+						<when test='item == "SUSPECTED_TRADEMARK"'> <!-- 상표권 침해의심-->
+						, CASE WHEN EXISTS (SELECT 1 FROM TB_ECM_OD_TRDMARK_INFG_INFO WHERE OD_JOB_NO = od.OD_JOB_NO AND DOC_TYPE = '01') THEN 'Y' ELSE 'N' END AS SUSPECTED_TRADEMARK
+						</when>
+						<when test='item == "TRADEMARK_INFRINGING"'> <!-- 상표권 침해보류-->
+						, CASE WHEN EXISTS (SELECT 1 FROM TB_ECM_OD_TRDMARK_INFG_INFO WHERE OD_JOB_NO = od.OD_JOB_NO AND DOC_TYPE = '02') THEN 'Y' ELSE 'N' END AS TRADEMARK_INFRINGING
+						</when>
+						<otherwise>
+						, ${item}
+						</otherwise>
+						</choose>
+					</foreach>
+					</if>
+					
+					<if test="srchCostTableList != null">
+					<foreach collection="srchCostTableList" item="item">
+					, (SELECT SUM(AP_AMOUNT) FROM TB_ECM_OD_COST WHERE OD_JOB_NO = od.OD_JOB_NO AND CHARGE_CODE = #{item.chargeCode}) AS ${item.column}
+					</foreach>
+					</if>
+					
+					<if test="codeNameColumnList != null">
+					<foreach collection="codeNameColumnList" item="item">
+						<choose>
+						<when test='item.printCodeAndNameYn == "Y"'>
+						, (SELECT CONCAT(${item.codeAlias}${item.field}, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = #{item.groupCode} AND CODE = ${item.codeAlias}${item.field}) AS ${item.column}
+						</when>
+						<otherwise>
+						, (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = #{item.groupCode} AND CODE = ${item.codeAlias}${item.field}) AS ${item.column}
+						</otherwise>
+						</choose>
+					</foreach>
+					</if>
+					
+					
+					<foreach collection="notOdAdColumnList" item="item">
+						<choose>
+						<when test='item == "ORDER_NO"'>
+						,STUFF((SELECT ',' + PO_NO FROM TB_ECM_OD_PO_INFO WHERE OD_JOB_NO = od.OD_JOB_NO FOR XML PATH('')), 1, 1, '') AS ORDER_NO
+						</when>
+						<when test='item == "MULTI_DELIVERY_NO"'>
+						, STUFF((SELECT ',' + DELIVERY_NO FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO FOR XML PATH('')), 1, 1, '') AS MULTI_DELIVERY_NO
+						</when>
+						<when test='item == "GWT_TYPE"'>
+						, '' AS GWT_TYPE
+						</when>
+						<when test='item == "SHIPPER_ADDRESS"'>
+						,CONCAT(ISNULL(od.SHIPPER_ADDRESS, ''), ISNULL(od.SHIPPER_ADDRESS_A, ''), ISNULL(od.SHIPPER_ADDRESS_B, ''), ISNULL(od.SHIPPER_ADDRESS_C, ''), ISNULL(od.SHIPPER_ADDRESS_D, '')) AS SHIPPER_ADDRESS
+						</when>
+						<when test='item == "CONSIGNEE_ADDRESS"'>
+						,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS CONSIGNEE_ADDRESS
+						</when>
+						</choose>
+					</foreach>
+
+<!-- 					<if test='srchMultiTableYn == "Y"'>	 -->
+<!-- 					 ,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE='ECM_DELIVERY_CODE' AND CODE = (SELECT MAX(DELIVERY_CODE) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO)) AS DELIVERY_NAME_CHANGED -->
+<!-- 					 ,(SELECT MAX(DELIVERY_NO_CHANGED) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO) AS DELIVERY_NO_CHANGED -->
+<!-- 					 ,(ISNULL((SELECT SUM(DELIVERY_FEE) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO),0) + ISNULL(od.DELIVERY_FEE,0)) AS DELIVERY_FEE -->
+<!-- 					 ,ISNULL((SELECT MAX(PAYMENT_GUBN) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO), od.DELIVERY_PAYMENT_TYPE) AS PAYMENT_GUBN					 -->
+<!-- 					</if> -->
+					<if test='srchItemTableYn == "Y"'>	
+  					, (SELECT '[' +      STUFF(      (SELECT ',{DIN:"' + ISNULL(REPLACE(DETAIL_ITEM_NAME, '"',''), '')  
+					 												+ '",DINL:"' + ISNULL(REPLACE(DETAIL_ITEM_NAME_LOC, '"',''), '')    
+																	+ '",CC:"' + ISNULL(CURRENCY_CODE, '')       
+																	+ '",EU:"' + ISNULL(ECM_URL, '')
+																	+ '",GWT:"' + CAST(CAST(ISNULL(GWT,0) AS FLOAT) AS VARCHAR)
+																	+ '",VWT:"' + CAST(CAST(ISNULL(VWT,0) AS FLOAT) AS VARCHAR) 
+																	+ '",DW:"' + CAST(CAST(ISNULL(DIM_WIDTH,0) AS INT) AS VARCHAR) 
+																	+ '",DL:"' + CAST(CAST(ISNULL(DIM_LENGTH,0) AS INT) AS VARCHAR) 
+																	+ '",DH:"' + CAST(CAST(ISNULL(DIM_HEIGHT,0) AS INT) AS VARCHAR) 
+																	+ '",DN:"' + ISNULL(DELIVERY_NO, '')
+																	+ '",OC:"' +
+																		<choose>
+																		<when test='srchNameItemOriginCountryYn == "Y"'>
+																			<choose>
+																			<when test='srchCodeNameItemOriginCountryYn == "Y"'>
+																			ISNULL((SELECT CONCAT(items.ORIGIN_COUNTRY, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'COUNTRY' AND CODE = items.ORIGIN_COUNTRY), '')
+																			</when>
+																			<otherwise>
+																			ISNULL((SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'COUNTRY' AND CODE = items.ORIGIN_COUNTRY), '')
+																			</otherwise>
+																			</choose>
+																		</when>
+																		<otherwise>
+																		ISNULL(ORIGIN_COUNTRY, '')
+																		</otherwise>
+																		</choose>
+																	+ '",BR:"' + ISNULL(BRAND, '')       
+																	+ '",RE:"' + ISNULL(REMARKS, '')   
+																	+ '",UPI:"' + ISNULL(UNIT_PIECES, '1')   
+																	+ '",UPR:"' + CAST(CONVERT(DECIMAL(11,2), ISNULL(UNIT_PRICE,'0')) AS VARCHAR)
+																	+ '",AM:"' + CAST(CONVERT(DECIMAL(11,2), AMOUNT) AS VARCHAR)										
+																	+ '",PI:"' + CAST(CAST(ISNULL(PIECES,1) AS INT) AS VARCHAR)   												 
+																	+ '",HC:"' + ISNULL(HS_CODE, '') 
+																	+ '",SEQ:"' + CAST(CAST(ISNULL(SEQ_NO_ID,0) AS INT) AS VARCHAR)
+																	+ '",NUM:"' + CAST(CAST(ISNULL(SEQ_NO_ID,0) AS INT) AS VARCHAR)            
+																	+ '"}'																	
+						FROM TB_ECM_OD_ITEM items   
+						WHERE od.OD_JOB_NO = items.OD_JOB_NO   ORDER BY items.SEQ_NO_ID   FOR XML PATH ('')      ) + ']'     , 1, 1, '')     ) AS itemsInfo
+						, (SELECT '[' + STUFF(
+						(SELECT ',{SEQ:"' + CAST(CAST(ISNULL(SEQ_NO_ID,0) AS INT) AS VARCHAR)
+						+ '",NUM:"' + CAST(CAST(ISNULL(SEQ_NO_ID,0) AS INT) AS VARCHAR)
+						+ '",CI:"' + ISNULL(CUSTOMS_ID, '')
+						+ '",CT:"' + ISNULL(CUSTOMS_TEMP_NO, '')
+						+ '",ON2:"' + ISNULL(ORDER_NO, '')
+						+ '",CN1:"' + ISNULL(CATEGORY_NAME_1, '')
+						+ '",CN2:"' + ISNULL(CATEGORY_NAME_2, '')
+						+ '",CN3:"' + ISNULL(CATEGORY_NAME_3, '')
+						+ '",CN4:"' + ISNULL(CATEGORY_NAME_4, '')
+						+ '",CN5:"' + ISNULL(CATEGORY_NAME_5, '')
+						+ '",CN6:"' + ISNULL(CATEGORY_NAME_6, '')
+						+ '",CN7:"' + ISNULL(CATEGORY_NAME_7, '')
+						+ '",CN8:"' + ISNULL(CATEGORY_NAME_8, '')
+						+ '",CN9:"' + ISNULL(CATEGORY_NAME_9, '')
+						+ '",OPN:"' + ISNULL(OPTION_NAME, '')
+						+ '",SN:"' + ISNULL(SELLER_NAME, '')
+						+ '",SI:"' + ISNULL(SELLER_ID, '')
+						+ '",SC:"' + ISNULL(SELLER_CODE, '')
+						+ '",IID:"' + ISNULL(ITEM_ID, '')
+						+ '",IMN:"' + ISNULL(ITEM_MAF_NAME, '')
+						+ '",IMM:"' + ISNULL(ITEM_MAF_MODEL_NO, '')
+						+ '",IBN:"' + ISNULL(ITEM_BRAND_NAME, '')
+						+ '",OED:"' + ISNULL(CONVERT(varchar(19), ORDER_END_DATETIME, 120), '')
+						+ '",INO:"' + ISNULL(ITEM_NO, '')
+						+ '"}'
+						FROM TB_ECM_OD_ITEM items
+						WHERE od.OD_JOB_NO = items.OD_JOB_NO
+						ORDER BY items.SEQ_NO_ID
+						FOR XML PATH ('')
+						) + ']', 1, 1, '')
+						) AS itemsInfo2
+					</if>	
+					<if test='srchContTableYn == "Y"'>				
+  					, (SELECT '[' +      STUFF(      (SELECT ',{CN:"' + ISNULL(REPLACE(CNTR_NO, '"',''), '')          
+																	+ '",CSN1:"' + ISNULL(CNTR_SEAL_NO_1, '')   
+																	+ '",CSN2:"' + ISNULL(CNTR_SEAL_NO_2, '')   
+																	+ '",CSN3:"' + ISNULL(CNTR_SEAL_NO_3, '') 
+																	+ '",CC:"' + 
+																		<choose>
+																		<when test='srchNameCntrCodeYn == "Y"'>
+																			<choose>
+																			<when test='srchCodeNameCntrCodeYn == "Y"'>
+																			ISNULL((SELECT CONCAT(cntr.CNTR_CODE, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CONTAINER' AND CODE = cntr.CNTR_CODE), '')
+																			</when>
+																			<otherwise>
+																			ISNULL((SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CONTAINER' AND CODE = cntr.CNTR_CODE), '')
+																			</otherwise>
+																			</choose>
+																		</when>
+																		<otherwise>
+																		ISNULL(CNTR_CODE, '')
+																		</otherwise>
+																		</choose>
+																	+ '",CEC:"' + ISNULL(CNTR_EDI_CODE, '')  
+																	+ '",CS:"' + ISNULL(CNTR_SIZE, '')      
+																	+ '",CSC:"' + ISNULL(CNTR_SUB_CODE, '')   
+																	+ '",CLT:"' + ISNULL(CNTR_LOAD_TYPE_EL, '')
+																	+ '",PI:"' + CAST(CAST(ISNULL(PIECES,1) AS INT) AS VARCHAR)   												 
+																	+ '",UPI:"' + ISNULL(UNIT_PIECES, '1')   
+																	+ '",GWT:"' + CAST(CAST(ISNULL(GWT,0) AS FLOAT) AS VARCHAR) 
+																	+ '",UWE:"' + CAST(ISNULL(UNIT_WEIGHT,'0') AS VARCHAR) 
+																	+ '",CBM:"' + CAST(ISNULL(CBM,'0') AS VARCHAR) 
+																	+ '",GWTL:"' + CAST(ISNULL(GWT_LBS,'0') AS VARCHAR) 
+																	+ '",CBMC:"' + CAST(ISNULL(CBM_CFT,'0') AS VARCHAR) 
+																	+ '",CPY:"' + ISNULL(CNTR_PART_YN, '') 		
+																	+ '",NUM:"' + CAST(ISNULL(ROW_NUMBER() OVER(ORDER BY OD_JOB_NO),'0') AS VARCHAR) 
+																	+ '"}'																		
+						FROM TB_ECM_OD_CONTAINER cntr    
+						WHERE od.OD_JOB_NO = cntr.OD_JOB_NO      FOR XML PATH ('')      ) + ']'     , 1, 1, '')     ) AS containerInfo 								
+					</if>
+					<if test='srchMultiTableYn == "Y"'>	
+  					, (SELECT '[' +      STUFF(      (SELECT ',{A:"' + 
+  																		<choose>
+																		<when test='srchNameMultiCustomerCodeYn == "Y"'>
+																			<choose>
+																			<when test='srchCodeNameMultiCustomerCodeYn == "Y"'>
+																			ISNULL((SELECT CONCAT(multi.CUSTOMER_CODE, '.', CUSTOMER_NAME) FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = multi.CUSTOMER_CODE), '')
+																			</when>
+																			<otherwise>
+																			ISNULL((SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = multi.CUSTOMER_CODE), '')
+																			</otherwise>
+																			</choose>
+																		</when>
+																		<otherwise>
+																		ISNULL(CUSTOMER_CODE, '')
+																		</otherwise>
+																		</choose>
+					 												+ '",B:"' + 
+					 													<choose>
+																		<when test='srchNameMultiDeliveryCodeYn == "Y"'>
+																			<choose>
+																			<when test='srchCodeNameMultiDeliveryCodeYn == "Y"'>
+																			ISNULL((SELECT CONCAT(multi.DELIVERY_CODE, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = multi.DELIVERY_CODE), '')
+																			</when>
+																			<otherwise>
+																			ISNULL((SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = multi.DELIVERY_CODE), '')
+																			</otherwise>
+																			</choose>
+																		</when>
+																		<otherwise>
+																		ISNULL(DELIVERY_CODE, '')
+																		</otherwise>
+																		</choose>
+																	+ '",C:"' + CAST(CAST(ISNULL(DELIVERY_FEE,0) AS FLOAT) AS VARCHAR)
+																	+ '",D:"' + ISNULL(DELIVERY_NO, '')
+																	+ '",E:"' + ISNULL(DELIVERY_NO_CHANGED, '')
+																	+ '",F:"' + CAST(CAST(ISNULL(DIM_HEIGHT,'0') AS INT) AS VARCHAR)
+																	+ '",G:"' + CAST(CAST(ISNULL(DIM_LENGTH,'0') AS INT) AS VARCHAR)
+																	+ '",H:"' + CAST(CAST(ISNULL(DIM_WIDTH,'0') AS INT) AS VARCHAR)
+																	+ '",I:"' + 
+																		<choose>
+																		<when test='srchNameMultiPaymentGubnYn == "Y"'>
+																			<choose>
+																			<when test='srchCodeNameMultiPaymentGubnYn == "Y"'>
+																			ISNULL((SELECT CONCAT(multi.PAYMENT_GUBN, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'ECM_PAYMENT_GUBN' AND CODE = multi.PAYMENT_GUBN), '')
+																			</when>
+																			<otherwise>
+																			ISNULL((SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'ECM_PAYMENT_GUBN' AND CODE = multi.PAYMENT_GUBN), '')
+																			</otherwise>
+																			</choose>
+																		</when>
+																		<otherwise>
+																		ISNULL(PAYMENT_GUBN, '')
+																		</otherwise>
+																		</choose>
+																	+ '",J:"' + CAST(CAST(ISNULL(PIECES,'0') AS INT) AS VARCHAR)
+																	+ '",K:"' + ISNULL(REPLACE(REMARKS, '"',''), '')
+																	+ '",NUM:"' + CAST(CAST(ISNULL(SEQ_NO_ID,0) AS INT) AS VARCHAR)
+																	+ '"}'
+						FROM TB_ECM_OD_MULTI multi   
+						WHERE od.OD_JOB_NO = multi.OD_JOB_NO   ORDER BY multi.SEQ_NO_ID   FOR XML PATH ('')      ) + ']'     , 1, 1, '')     ) AS multiInfo  
+					</if>
+					<if test='srchLicenseTableYn == "Y"'>				
+  					, (SELECT '[' +      STUFF(      (SELECT ',{LN:"' + ISNULL(REPLACE(LICENSE_NO, '"',''), '')          
+																	+ '",PI:"' + CAST(CAST(ISNULL(PIECES,0) AS INT) AS VARCHAR)   												 
+																	+ '",UPI:"' + ISNULL(UNIT_PIECES, '')   
+																	+ '",GWT:"' + CAST(ISNULL(GWT,'0') AS VARCHAR) 
+																	+ '",PY:"' + ISNULL(PARTIAL_YN, 'N')   
+																	+ '",PS:"' + CAST(CAST(ISNULL(PARTIAL_SEQ,0) AS INT) AS VARCHAR)
+																	+ '",CY:"' + ISNULL(COMBINE_YN, 'N') 
+																	+ '",CTA:"' + ISNULL(COMBINE_TYPE_A_Z, '') 
+																	+ '",CP:"' +  CAST(CAST(ISNULL(COMBINE_PIECES,0) AS INT) AS VARCHAR) 
+																	+ '",ESC:"' + ISNULL(EFN_SENDER_CODE, '')
+																	+ '",EPN:"' + ISNULL(EFN_PO_NO, '') 	
+																	+ '",EDN:"' + ISNULL(EFN_DELIVERY_NO, '') 	
+																	+ '",NUM:"' + CAST(ISNULL(ROW_NUMBER() OVER(ORDER BY OD_JOB_NO),'0') AS VARCHAR) 
+																	+ '"}'																		
+						FROM TB_ECM_OD_LICENSE license    
+						WHERE od.OD_JOB_NO = license.OD_JOB_NO      FOR XML PATH ('')      ) + ']'     , 1, 1, '')     ) AS licenseInfo 								
+					</if>
+				FROM TB_ECM_OD od
+				LEFT JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO
+					 <if test='srchNo != null and srchNo != "" and srchNoType == "multi.DELIVERY_NO"'>
+					 LEFT JOIN TB_ECM_OD_MULTI multi
+					 		   ON multi.OD_JOB_NO = od.OD_JOB_NO
+					 </if>
+				<choose>
+				<when test='srchQueryType == "DELIVERY"'>
+					<!-- parameter 추가시 SearchDeliveryMList/SearchExcelList에 추가 -->
+					<include refid="org.yht.exps.express.mapper.eCommerce.DeliveryMapper.selectDeliveryHListWhere"/>
+				</when>
+				<when test='srchQueryType == "BROKER_SUB"'>
+					<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+					<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerMasterSubListWhere"/>
+				</when>
+				<when test='srchQueryType == "BROKER"'>
+					<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+					<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerHouseListWhere"/>
+				</when>
+				<when test='srchQueryType == "ORDER"'>
+					<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+					<include refid="org.yht.exps.express.mapper.eCommerce.OrderMapper.searchOrderList"/>
+				</when>
+				<when test='srchQueryType == "ORDER_CUSTOMER"'>
+					<!-- parameter 추가시 SearchOrderCustomerList/SearchOrderList/SearchExcelList에 추가 -->
+					<include refid="org.yht.exps.express.mapper.consumerService.OrderCustomerMapper.selectOrderListWhere"/>
+				</when>
+				<when test='srchQueryType == "CONSOL"'>
+					<!-- 콘솔은 화면상의 그리드 내용과 엑셀다운로드내용이 일치하지 않아서 같은 조건절 사용하지 않음 -->
+					<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+					<include refid="org.yht.exps.express.mapper.eCommerce.OrderMapper.searchOrderList"/>
+				</when>
+				<otherwise>
+				WHERE 1 = 0
+				</otherwise>
+				</choose>
+		   <if test='srchHoldTableYn != null and srchHoldTableYn != "" and srchHoldTableYn == "Y"'>
+ 		   ) A
+ 		   </if>
+ 		   <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />	
+ 	</select>
+ 	
+ 	<select id="selectEdiGovRecvList" parameterType="HashMap" resultType="batchDataLogs">
+		/* CommonMapper.selectEdiGovRecvList : TB_EDI_GOV_RECV 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 EDI_SEQ_NO
+			,ENT_CODE
+			,TYPE_CODE
+			,RECV_STATUS
+			,RECV_DATE_TIME
+		FROM TB_EDI_GOV_RECV
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+ 	<select id="selectHeadEntBusinessInfo" parameterType="HashMap" resultType="HashMap">
+    	/* CommonMapper.selectHeadEntBusinessInfo : 대표사업장정보조회  */
+    	SELECT TOP 1 ENT_BUSINESS_CODE
+    	FROM TB_SMS_ENT_BUSINESS
+    	WHERE ENT_CODE = #{srchEntCode}
+    	AND HEAD_BUSINESS_YN = 'Y'
+    </select>
+
+	<select id="selectUserInfo" parameterType="HashMap" resultType="HashMap">
+    	/* CommonMapper.selectUserInfo : 사용자정보조회  */
+    	SELECT TOP 1
+    		 bus.ENT_BUSINESS_CODE AS HEAD_ENT_BUSINESS_CODE
+    		<choose>
+    		<when test='boundType == "EXP"'>
+    		,ISNULL(edi.ETC1, '') AS CUSTOMS_CODE
+    		,ISNULL(edi.ETC2, '') AS CUSTOMS_DPT_CODE
+    		</when>
+    		<when test='boundType == "IMP"'>
+    		,ISNULL(edi.ETC5, '') AS CUSTOMS_CODE
+    		,ISNULL(edi.ETC6, '') AS CUSTOMS_DPT_CODE
+    		</when>
+    		</choose>
+    		,(SELECT TOP 1 SEQ_NO FROM TB_SMS_ENT_BUS_EDI_ECM WHERE ENT_CODE = usr.ENT_CODE AND ENT_BUSINESS_CODE = bus.ENT_BUSINESS_CODE AND BOUND = #{bound} AND BOUND_TYPE = #{boundType} AND EDI_CITY_PORT = #{ediCityPort}) AS EDI_MAILBOX_SEQ_NO
+<!--     		,(SELECT EDI_EXPRESS_SIGN FROM TB_SMS_ENT_BUS_EDI_ECM WHERE ENT_CODE = usr.ENT_CODE AND ENT_BUSINESS_CODE = bus.ENT_BUSINESS_CODE AND BOUND = #{bound} AND EDI_CITY_PORT = #{ediCityPort}) AS EDI_EXPRESS_SIGN -->
+    		,(
+    			SELECT CASE WHEN ISNULL(opt.SET_VALUE, '') = '' THEN optMaster.DEFAULT_VALUE ELSE opt.SET_VALUE END
+			 	FROM exps_master.dbo.TB_SMS_ENT_BUS_OPTION optMaster
+			 		 LEFT JOIN TB_SMS_ENT_BUS_OPTION opt
+			 		 		   ON opt.SOLUTION = optMaster.SOLUTION
+			 		 		   AND opt.OPTION_CODE = optMaster.OPTION_CODE
+			 		 		   AND opt.ENT_CODE = usr.ENT_CODE
+			 		 		   AND opt.ENT_BUSINESS_CODE = bus.ENT_BUSINESS_CODE
+			 	WHERE optMaster.SOLUTION = 'ECM'
+			 	AND optMaster.OPTION_CODE = 'C01'
+			 ) AS ECM_ITEM_NAME_ALL_YN
+			,(
+    			SELECT CASE WHEN ISNULL(opt.SET_VALUE, '') = '' THEN optMaster.DEFAULT_VALUE ELSE opt.SET_VALUE END
+			 	FROM exps_master.dbo.TB_SMS_ENT_BUS_OPTION optMaster
+			 		 LEFT JOIN TB_SMS_ENT_BUS_OPTION opt
+			 		 		   ON opt.SOLUTION = optMaster.SOLUTION
+			 		 		   AND opt.OPTION_CODE = optMaster.OPTION_CODE
+			 		 		   AND opt.ENT_CODE = usr.ENT_CODE
+			 		 		   AND opt.ENT_BUSINESS_CODE = bus.ENT_BUSINESS_CODE
+			 	WHERE optMaster.SOLUTION = 'ECM'
+			 	<choose>
+			 	<when test='bound == "SEA"'>
+			 	AND optMaster.OPTION_CODE = 'D02'
+			 	</when>
+			 	<otherwise>
+			 	AND optMaster.OPTION_CODE = 'D01'
+			 	</otherwise>
+			 	</choose>
+			 ) AS DIVIDE_VALUE
+			,(
+    			SELECT CASE WHEN ISNULL(opt.SET_VALUE, '') = '' THEN optMaster.DEFAULT_VALUE ELSE opt.SET_VALUE END
+			 	FROM exps_master.dbo.TB_SMS_ENT_BUS_OPTION optMaster
+			 		 LEFT JOIN TB_SMS_ENT_BUS_OPTION opt
+			 		 		   ON opt.SOLUTION = optMaster.SOLUTION
+			 		 		   AND opt.OPTION_CODE = optMaster.OPTION_CODE
+			 		 		   AND opt.ENT_CODE = usr.ENT_CODE
+			 		 		   AND opt.ENT_BUSINESS_CODE = bus.ENT_BUSINESS_CODE
+			 	WHERE optMaster.SOLUTION = 'ECM'
+			 	AND optMaster.OPTION_CODE = 'C06'
+			 ) AS MULTI_FREIGHT_YN
+			<if test='bound == "AIR"'>
+    		,(SELECT ETC2 FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = usr.ENT_CODE AND GROUP_CODE = 'AIRLINE_CODE' AND CODE = SUBSTRING(LTRIM(RTRIM(#{mblNo})), 1, 3)) AS LINE_CODE
+    		</if>
+    		<if test="origCode != null and origCode != ''">
+    		,(SELECT ETC2 FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = usr.ENT_CODE AND GROUP_CODE = 'CITY_PORT' AND CODE = #{origCode}) AS ORIG_COUNTRY
+    		</if>
+    		<if test="destCode != null and destCode != ''">
+    		,(SELECT ETC2 FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = usr.ENT_CODE AND GROUP_CODE = 'CITY_PORT' AND CODE = #{destCode}) AS DEST_COUNTRY
+    		</if>
+    	FROM TB_SMS_USER usr
+    		 LEFT JOIN TB_SMS_CUSTOMER cus
+    		 		   ON cus.ENT_CODE = usr.ENT_CODE
+    		 		   AND cus.CUSTOMER_CODE = usr.CUSTOMER_CODE
+    		 LEFT JOIN TB_SMS_ENT_BUSINESS bus
+    		 		   ON bus.ENT_CODE = usr.ENT_CODE
+    		 		   AND bus.HEAD_BUSINESS_YN = 'Y'
+    		 LEFT JOIN TB_SMS_CODE_DETAIL edi
+    		 		   ON edi.ENT_CODE = usr.ENT_CODE
+    		 		   AND edi.GROUP_CODE = 'ECM_CUSTOMS_DPT'
+    		 		   AND edi.CODE = #{ediCityPort}
+    	WHERE usr.ENT_CODE = #{entCode}
+    	AND usr.USER_ID = #{userId}
+    </select>
+    
+    <select id="selectHblNoStock" parameterType="HashMap" resultType="HashMap">
+		/* 하우스비엘번호스탁 odJobNo : ${odJobNo} / createCnt : ${createCnt} */
+		DECLARE @DELIVERY_CODE VARCHAR(20) = #{deliveryCode};
+		EXEC P_CREATE_EXPRESS_STOCK #{bound}, #{boundType}, '', #{agentCode}, @DELIVERY_CODE, 1, '';
+	</select>
+	
+	<select id="selectLastPodInfo" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectLastPodInfo : POD테이블의 lastPod정보 조회 */
+			SELECT TOP 1
+				 A.POD_STATUS
+				,A.POD_DATE
+				,A.POD_TIME
+				,CASE WHEN A.POD_DATE IS NULL THEN NULL ELSE CONCAT(A.POD_DATE, ' ' , A.POD_TIME) END AS POD_DATE_TIME
+		 	FROM(
+		 		SELECT POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_01 WHERE OD_JOB_NO = #{OD_JOB_NO}
+		 		UNION ALL
+		 		SELECT POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_02 WHERE OD_JOB_NO = #{OD_JOB_NO}
+		 		UNION ALL
+		 		SELECT POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_03 WHERE OD_JOB_NO = #{OD_JOB_NO}
+		 		UNION ALL
+		 		SELECT POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_04 WHERE OD_JOB_NO = #{OD_JOB_NO}
+		 	) A
+		 	ORDER BY A.POD_STATUS DESC
+	</select>
+	
+	<select id="selectManifestLastPodInfo" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectManifestLastPodInfo : POD테이블의 lastPod정보 조회 */
+			SELECT TOP 1
+				 A.POD_STATUS
+				,A.POD_DATE
+				,A.POD_TIME
+				,CASE WHEN A.POD_DATE IS NULL THEN NULL ELSE CONCAT(A.POD_DATE, ' ' , A.POD_TIME) END AS POD_DATE_TIME
+		 	FROM(
+		 		SELECT POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_01 WHERE OD_JOB_NO = #{OD_JOB_NO}
+		 		UNION ALL
+		 		SELECT POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_02 WHERE OD_JOB_NO = #{OD_JOB_NO}
+		 	) A
+		 	ORDER BY A.POD_STATUS DESC
+	</select>
+	
+	<select id="getDomesticCodeList" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.getDomesticCodeList : Order List(Detail) */
+			SELECT
+				 CODE
+				,NAME_DEFAULT AS NAME
+			FROM TB_SMS_CODE_DETAIL
+			WHERE ENT_CODE = #{entCode}
+			AND GROUP_CODE = #{groupCode}
+			<if test="strFixedAMS_AMS_CountryCode != null and strFixedAMS_AMS_CountryCode != ''">
+			AND ETC4 = #{strFixedAMS_AMS_CountryCode}
+			</if>
+	</select>
+	
+	<select id="selectExchangeRate" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectExchangeRate : 환율조회 */
+			SELECT
+				ISNULL(MAX(CASE CURRENCY_CODE WHEN 'AED' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_AED
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'ARS' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_ARS
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'AUD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_AUD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'BDT' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_BDT
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'BHD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_BHD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'BND' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_BND
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'BRL' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_BRL
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'CAD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_CAD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'CHF' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_CHF
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'CLP' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_CLP
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'CNY' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_CNY
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'COP' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_COP
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'CZK' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_CZK
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'DKK' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_DKK
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'EGP' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_EGP
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'ETB' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_ETB
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'EUR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_EUR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'FJD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_FJD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'GBP' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_GBP
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'HKD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_HKD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'HUF' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_HUF
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'IDR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_IDR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'ILS' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_ILS
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'INR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_INR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'JOD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_JOD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'JPY' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_JPY
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'KES' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_KES
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'KHR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_KHR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'KRW' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_KRW
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'KWD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_KWD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'KZT' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_KZT
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'LKR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_LKR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'LYD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_LYD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'MMK' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_MMK
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'MNT' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_MNT
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'MOP' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_MOP
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'MXN' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_MXN
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'MYR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_MYR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'NOK' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_NOK
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'NPR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_NPR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'NZD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_NZD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'OMR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_OMR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'PHP' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_PHP
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'PKR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_PKR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'PLN' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_PLN
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'QAR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_QAR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'RON' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_RON
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'RUB' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_RUB
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'SAR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_SAR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'SEK' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_SEK
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'SGD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_SGD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'THB' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_THB
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'TRY' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_TRY
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'TWD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_TWD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'USD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_USD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'UZS' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_UZS
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'VND' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_VND
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'ZAR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_ZAR
+				,COUNT(ENT_CODE) AS CNT
+			FROM TB_SMS_EXCHANGE_RATE
+			WHERE ENT_CODE = #{srchEntCode}
+			AND ENT_BUSINESS_CODE = #{entBusinessCode}
+			AND EXRATE_DATE = CONVERT(DATE, #{srchDate}, ${srchDateFormat})
+	</select>
+	
+	<select id="selectExchangeRate2" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectExchangeRate2 : 환율조회 */
+			SELECT ISNULL(${exrateType}, 0) AS EXCHANGE_RATE
+			FROM TB_SMS_EXCHANGE_RATE
+			WHERE ENT_CODE = #{srchEntCode}
+			AND ENT_BUSINESS_CODE = #{entBusinessCode}
+			AND EXRATE_DATE = CONVERT(DATE, #{srchDate}, ${srchDateFormat})
+			AND CURRENCY_CODE = #{srchCurrencyCode}
+	</select>
+	
+	<select id="selectChkDupBlNo" parameterType="HashMap" resultType="int">
+		/* CommonMapper.selectChkDupBlNo : 비엘번호 중복체크 */
+			SELECT COUNT(OD_JOB_NO) AS CNT
+			FROM TB_ECM_OD
+			WHERE ENT_CODE = #{entCode}
+			AND BL_TYPE_MH = #{blTypeMh}
+			<choose>
+			<when test='blTypeMh == "M"'>
+			AND MBL_NO = LTRIM(RTRIM(REPLACE(#{blNo},char(9),'')))
+			<if test='entCode == "UPSXK"'>
+			AND BOUND = #{bound}
+			AND BOUND_TYPE = #{boundType}
+			</if>
+			</when>
+			<otherwise>
+			AND HBL_NO = LTRIM(RTRIM(REPLACE(#{blNo},char(9),'')))
+				<choose>
+				<when test="masterOdJobNo != null and masterOdJobNo != ''">
+				AND MASTER_OD_JOB_NO = #{masterOdJobNo}
+				</when>
+				<otherwise>
+				AND CONSOL_YN = 'N'
+				</otherwise>
+				</choose>
+			</otherwise>
+			</choose>
+			<if test="odJobNo != null and odJobNo != ''">
+			AND OD_JOB_NO != #{odJobNo}
+			</if>
+			<if test='chkHsn == "Y"'>
+			<!-- COPY(일반/배제) : 같은 하우스번호라도 HSN이 다르면 중복 아님 -->
+			AND ISNULL(HSN, '') = #{hsn}
+			</if>
+	</select>
+	
+	<select id="selectChkOrderClose" parameterType="HashMap" resultType="int">
+		/* CommonMapper.selectChkOrderClose : 오더마감체크 */
+			SELECT COUNT(OD_JOB_NO) AS CNT
+			FROM TB_ECM_OD
+			WHERE OD_JOB_NO IN(#{odJobNo}, #{masterOdJobNo})
+			AND FINISH_YN = 'Y'
+	</select>
+	
+	<select id="selectCustomerInfo" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectCustomerInfo : 거래처정보조회 */
+			SELECT
+				 AMS_COUNTRY_CODE
+				,DELIVERY_CODE
+				,CB_CODE
+				,CUSTOMER_NAME_ENG
+				,CUSTOMER_CODE
+				,ADDRESS_ENG
+				,ADDRESS_A_ENG
+				,ADDRESS_B_ENG
+				,ATTN_ENG
+				,TEL_ENG
+				,FAX_ENG
+				,CUSTOMER_LEVEL
+				,ECM_INVOICE_YN
+			FROM TB_SMS_CUSTOMER
+			WHERE ENT_CODE = #{entCode}
+			AND CUSTOMER_CODE = #{customerCode}
+	</select>
+	
+	<select id="selectCustomerInfoList" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectCustomerInfoList : 거래처정보조회 */
+			SELECT
+				 CUSTOMER_CODE
+			FROM TB_SMS_CUSTOMER
+			WHERE ENT_CODE = #{entCode}
+			AND CUSTOMER_LEVEL = #{customerLevel}
+	</select>
+ 	
+	<select id="selectCodeName" parameterType="HashMap" resultType="HashMap">
+ 		/* CommonMapper.selectCodeName : 코드명 조회  */
+ 			<choose>
+ 			<when test="srchCodeList != null and !srchCodeList.isEmpty()">
+ 			SELECT
+ 				 <foreach collection="srchCodeList" item="item" separator=",">
+ 				 MAX(CASE CODE WHEN #{item} THEN NAME_${userLanguage} END) AS CODE_NAME_${item}
+ 				 </foreach>
+ 			FROM TB_SMS_CODE_DETAIL
+ 			WHERE ENT_CODE = #{entCode}
+ 			AND GROUP_CODE = #{srchGroupCode}
+ 			AND CODE IN(<foreach collection="srchCodeList" item="item" separator=",">#{item}</foreach>)
+ 			GROUP BY ENT_CODE
+ 			</when>
+ 			<otherwise>
+ 			SELECT NAME_${userLanguage} AS CODE_NAME
+ 			FROM TB_SMS_CODE_DETAIL
+ 			WHERE ENT_CODE = #{entCode}
+ 			AND GROUP_CODE = #{srchGroupCode}
+ 			AND CODE = #{srchCode}
+ 			</otherwise>
+ 			</choose>
+ 	</select>
+	
+ 	<select id="selectExcelDownFormatItem" parameterType="HashMap" resultType="HashMap">
+ 		/* CommonMapper.selectExcelDownFormatItem : ExcelDownFormatItem  */
+	 		SELECT
+	 			 item.TITLE_COL
+	 			,item.TITLE_ROW
+	 			,item.VALUE_COL
+	 			,item.VALUE_ROW
+	 			,item.DB_FIELD
+	 			,item.DB_FIELD_NAME
+	 			,item.FIELD_LENGTH
+	 			,item.ITEM_TYPE
+	 			,LEN(item.TITLE_COL) AS TITLE_COL_LENGTH
+	 			,CASE WHEN det.ETC1 = 'CUSTOMER_CODE' AND det.ETC6 = 'ECM_HOUSE' THEN
+	 				<choose>
+	 				<when test="loginCustomerLev != null and loginCustomerLev != ''">
+	 				CONCAT('CUST_CODE_LV', #{loginCustomerLev})
+	 				</when>
+	 				<otherwise>
+	 				'CUST_CODE_LV1'
+	 				</otherwise>
+	 				</choose> 
+	 			 ELSE det.ETC1 END AS ETC1
+	 			,det.ETC6
+	 			,det.ETC13
+	 			,det.ETC16
+	 			,det.ETC18
+				,fmt.V_H_TYPE
+				,fmt.ITEM_CNT
+				,fmt.MENU_ID
+				,fmt.VERTICAL_DOWN_TYPE
+				,CASE WHEN item.ITEM_TYPE = 'ETC' THEN item.DESC_MESSAGE ELSE NULL END AS DESC_MESSAGE
+	 		FROM TB_SMS_FORMAT_ITEM item
+	 			 INNER JOIN TB_SMS_FORMAT fmt
+	 			 			ON fmt.DOCUMENT_CODE = item.DOCUMENT_CODE
+	 			 LEFT JOIN TB_SMS_CODE_DETAIL det
+	 			 		   ON det.ENT_CODE = item.ENT_CODE
+	 			 		   AND det.CODE = item.DB_FIELD
+	 			 		   AND det.GROUP_CODE = 'BL_FIELD'
+			WHERE item.ENT_CODE = #{srchEntCode}
+			AND item.ENT_BUSINESS_CODE = #{srchEntBusinessCode}
+			AND item.DOCUMENT_CODE = #{documentCode}
+			ORDER BY TITLE_ROW, TITLE_COL_LENGTH, TITLE_COL
+ 	</select>	
+ 	
+ 	<select id="selectSimpleDocSendYn" parameterType="HashMap" resultType="HashMap">
+ 		/* CommonMapper.selectSimpleDocSendYn : 통관목록신고여부 */
+ 			SELECT
+ 				 MAX(CASE WHEN ISNULL(ad.SIMPLE_EDI_STATUS, '') NOT IN ('', 'ERROR') THEN 'Y' END) AS SEND_YN
+ 				,MAX(od.OD_JOB_NO) AS OD_JOB_NO
+ 				,MAX(od.FINISH_YN) AS FINISH_YN
+ 				<if test="simpleDocNo != null and simpleDocNo != ''">
+ 				,MAX(CASE WHEN ISNULL(simpleDocNoAd.SIMPLE_EDI_STATUS, '') NOT IN ('', 'ERROR') THEN 'Y' END) AS SIMPLE_DOC_NO_SEND_YN
+ 				</if>
+ 				<if test="searchType != null and searchType == 'simpleDocNo'">
+ 				,COUNT(DISTINCT CASE WHEN ad.SIMPLE_DOC_NO LIKE 'AE%' THEN ad.SIMPLE_DOC_NO END) AS AE_DOC_CNT
+				,MAX(CASE WHEN ad.SIMPLE_DOC_NO LIKE 'AE%' THEN ad.SIMPLE_DOC_NO END) AS AE_DOC_NO
+    			,COUNT(DISTINCT CASE WHEN ad.SIMPLE_DOC_NO LIKE 'AD%' THEN ad.SIMPLE_DOC_NO END) AS AD_DOC_CNT
+    			,MAX(CASE WHEN ad.SIMPLE_DOC_NO LIKE 'AD%' THEN ad.SIMPLE_DOC_NO END) AS AD_DOC_NO
+ 				</if>
+ 			<choose>
+ 			<when test="masterOdJobNo != null and masterOdJobNo != ''">
+ 			FROM TB_ECM_OD od
+ 				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+ 				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+ 				 <if test="simpleDocNo != null and simpleDocNo != ''">
+ 				 LEFT JOIN TB_ECM_OD_ADDITIONAL simpleDocNoAd
+ 				 		   ON simpleDocNoAd.OD_JOB_NO = od.OD_JOB_NO
+ 				 		   AND simpleDocNoAd.SIMPLE_DOC_NO = #{simpleDocNo}
+ 				 </if>
+	 		WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+ 			</when>
+ 			<otherwise>
+ 			FROM TB_ECM_OD od2
+ 				 INNER JOIN TB_ECM_OD od
+ 				 			ON od.MASTER_OD_JOB_NO = od2.MASTER_OD_JOB_NO
+ 				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+ 				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+ 				 <if test="simpleDocNo != null and simpleDocNo != ''">
+ 				 LEFT JOIN TB_ECM_OD_ADDITIONAL simpleDocNoAd
+ 				 		   ON simpleDocNoAd.OD_JOB_NO = od.OD_JOB_NO
+ 				 		   AND simpleDocNoAd.SIMPLE_DOC_NO = #{simpleDocNo}
+ 				 </if>
+	 			WHERE od2.OD_JOB_NO = #{odJobNo}
+ 			</otherwise>
+ 			</choose>
+ 	</select>
+ 	
+ 	<select id="selectSimpleDocNoInfo" parameterType="HashMap" resultType="HashMap">
+ 		/* CommonMapper.selectSimpleDocNoInfo */
+ 			SELECT
+ 				 MAX(CASE WHEN od.DOCUMENT_YN = 'Y' THEN 'Y' ELSE 'N' END) AS DOCUMENT_YN_MAX
+ 				,MIN(CASE WHEN od.DOCUMENT_YN = 'Y' THEN 'Y' ELSE 'N' END) AS DOCUMENT_YN_MIN
+ 				,MAX(CASE WHEN ISNULL(ad.SIMPLE_EDI_STATUS, '') NOT IN ('', 'ERROR') THEN 'Y' END) AS SIMPLE_DOC_NO_SEND_YN
+ 			FROM TB_ECM_OD od
+ 				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+ 				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+ 				 			<choose>
+ 				 			<when test="simpleDocNo != null and simpleDocNo != ''">
+ 				 			AND ad.SIMPLE_DOC_NO = #{simpleDocNo}
+ 				 			</when>
+ 				 			<otherwise>
+ 				 			AND ad.SIMPLE_DOC_NO IS NULL
+ 				 			</otherwise>
+ 				 			</choose>
+	 		WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+	 			  AND od.BL_TYPE_MH != 'M'
+ 	</select>
+ 	
+	<update id="updateLastPodStatus" parameterType="HashMap">
+		/* CommonMapper.updateLastPodStatus : updateLastPodStatus */
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   LAST_POD_STATUS = #{lastPodStatus}
+				  <!-- <choose>
+				  <when test="lastPodDate != null and lastPodDate != ''">
+				  ,LAST_POD_DATE = #{lastPodDate}
+				  </when>
+				  <otherwise>
+				  ,LAST_POD_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  </otherwise>
+				  </choose> -->
+			<choose>
+			<when test='updateType == "odJobNo"'>
+			WHERE OD_JOB_NO = #{odJobNo}
+			</when>
+			<otherwise>
+			WHERE OD_JOB_NO = #{odJobNo}
+			</otherwise>
+			</choose>
+			<!-- 목록전송실패 건 / 오류통보받은 건 / 취하전송실패 건 / 취하오류통보받은 건 목록 재전송 시 마스터 진행상태 무조건 '목록 전송', '취하 전송' 으로 업데이트
+				 이외의 건은 기존 로직대로 처리 -->
+			AND ( CASE WHEN ISNULL(LAST_POD_STATUS, '') IN('ECM111', 'ECM115', 'ECM122', 'ECM134', 'ECM135') 
+				 THEN 1 
+				 ELSE 
+					CASE WHEN ISNULL(LAST_POD_STATUS, '') <![CDATA[<]]> #{lastPodStatus} 
+					THEN 1 
+					ELSE 0 
+					END 
+				 END) = 1
+	</update>
+	
+ 	<insert id="insertPod" parameterType="HashMap">
+		/* CommonMapper.insertPod : 전자상거래 POD 저장 */
+<!-- 			<if test='podChkeckYn != "N"'> -->
+<!-- 			UPDATE TB_ECM_POD SET -->
+<!-- 				   UPDATE_USER_ID = #{updateUserId} -->
+<!-- 				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE()) -->
+<!-- 				  <choose> -->
+<!-- 				  <when test="podDate != null and podDate != ''"> -->
+<!-- 				  ,POD_DATE = CONVERT(DATE, #{podDate}, ${dateFormat}) -->
+<!-- 				  </when> -->
+<!-- 				  <otherwise> -->
+<!-- 				  ,POD_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE()) -->
+<!-- 				  </otherwise> -->
+<!-- 				  </choose> -->
+<!-- 				  <choose> -->
+<!-- 				  <when test="podTime != null and podTime != ''"> -->
+<!-- 				  ,POD_TIME = #{podTime} -->
+<!-- 				  </when> -->
+<!-- 				  <otherwise> -->
+<!-- 				  ,POD_TIME = CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108) -->
+<!-- 				  </otherwise> -->
+<!-- 				  </choose> -->
+<!-- 			WHERE OD_JOB_NO = #{odJobNo} -->
+<!-- 			AND POD_STATUS = #{podStatus} -->
+						
+<!-- 			IF @@ROWCOUNT = 0 -->
+			
+<!-- 			BEGIN -->
+<!-- 			</if> -->
+			INSERT INTO ${podTableName}(
+				   POD_JOB_NO
+				  ,ENT_CODE
+				  ,OD_JOB_NO
+				  ,POD_STATUS
+				  ,POD_DATE
+				  ,POD_TIME
+				  ,BL_NO
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{podJobNo}
+				  ,#{entCode}
+				  ,#{odJobNo}
+				  ,#{podStatus}
+				  <choose>
+				  <when test="podDate != null and podDate != ''">
+				  ,CONVERT(DATE, #{podDate}, ${dateFormat})
+				  </when>
+				  <otherwise>
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  </otherwise>
+				  </choose>
+				  <choose>
+				  <when test="podTime != null and podTime != ''">
+				  ,#{podTime}
+				  </when>
+				  <otherwise>
+				  ,CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+				  </otherwise>
+				  </choose>
+				  ,LTRIM(RTRIM(REPLACE(#{blNo},char(9),'')))
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			);
+<!-- 			<if test='podChkeckYn != "N"'> -->
+<!-- 			END -->
+<!-- 			</if> -->
+	</insert>
+	
+	<update id="updatePod" parameterType="HashMap">
+		/* CommonMapper."updatePod" : 전자상거래 POD 저장 */
+			UPDATE TB_ECM_POD SET
+				   UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  <choose>
+				  <when test="podDate != null and podDate != ''">
+				  ,POD_DATE = CONVERT(DATE, #{podDate}, ${dateFormat})
+				  </when>
+				  <otherwise>
+				  ,POD_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  </otherwise>
+				  </choose>
+				  <choose>
+				  <when test="podTime != null and podTime != ''">
+				  ,POD_TIME = #{podTime}
+				  </when>
+				  <otherwise>
+				  ,POD_TIME = CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+				  </otherwise>
+				  </choose>
+			WHERE OD_JOB_NO = #{odJobNo}
+			AND POD_STATUS = #{podStatus};
+			
+			UPDATE ${podTableName} SET
+				   UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  <choose>
+				  <when test="podDate != null and podDate != ''">
+				  ,POD_DATE = CONVERT(DATE, #{podDate}, ${dateFormat})
+				  </when>
+				  <otherwise>
+				  ,POD_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  </otherwise>
+				  </choose>
+				  <choose>
+				  <when test="podTime != null and podTime != ''">
+				  ,POD_TIME = #{podTime}
+				  </when>
+				  <otherwise>
+				  ,POD_TIME = CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+				  </otherwise>
+				  </choose>
+			WHERE OD_JOB_NO = #{odJobNo}
+			AND POD_STATUS = #{podStatus};
+	</update>
+	
+		<select id="selectOrderChk" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectOrderChk : 오더저장체크 */
+			SELECT
+				 od.OD_JOB_NO
+				,od.MASTER_OD_JOB_NO
+				,od.CB_CODE
+				,od.CD_TYPE
+				,od.HSN
+				,od.FINISH_YN
+				,od.CONSOL_YN
+				,ad.CLEARANCE_STATUS
+				,ad.SIMPLE_DOC_NO
+				,CASE WHEN ISNULL(ad.SIMPLE_EDI_STATUS, '') NOT IN ('', 'ERROR') THEN 'Y' END AS SIMPLE_EDI_SEND_YN
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.OD_JOB_NO = #{odJobNo}
+	</select>
+	
+	<select id="selectSimpleDocNoCount" parameterType="HashMap" resultType="int">
+		/* CommonMapper.selectSimpleDocNoCount */
+			SELECT COUNT(OD_JOB_NO) AS CNT
+			FROM TB_ECM_OD_ADDITIONAL
+			WHERE SIMPLE_DOC_NO = #{simpleDocNo}
+			<if test='srchType == "sendCnt"'>
+			AND ISNULL(SIMPLE_EDI_STATUS, '') NOT IN ('', 'ERROR')
+			</if>
+	</select>
+	
+ 	<select id="getOdJobNo" parameterType="searchOdJobNo" resultType="HashMap">
+ 		/* CommonMapper.getOdJobNo : 하우스번호, 오더번호로 스캔시 OD_JOB_NO 조회  */
+	 		SELECT TOP 1 od.OD_JOB_NO, odAdd.PRINT_YN, odAdd.PRINT_DATE
+	 			,od.CONSIGNEE_NAME_LOC ,od.CONSIGNEE_ADDRESS_LOC ,od.CONSIGNEE_ZIPCODE
+	 			,od.PIECES, od.MULTI_YN
+	 		FROM TB_ECM_OD od
+	 		LEFT JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+	 		WHERE od.ENT_CODE = #{srchEntCode} <!-- AND od.BL_TYPE_MH = 'H' -->
+			<if test="srchScanNo != null and srchScanNo != ''">
+				<choose>
+					<when test="searchNoList != null and searchNoList != ''">
+					AND ${srchScanNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<otherwise>
+					AND ${srchScanNoType} = #{srchScanNo}
+					</otherwise>
+				</choose>
+			</if>	
+ 			<choose>
+				<when test='srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+				<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+				<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+			</choose>		
+			ORDER BY od.PO_DATE DESC			 
+ 	</select>	 	
+ 	
+ 	<select id="selectEnterPriseEmsYn" parameterType="String" resultType="String">
+		/* CommonMapper.selectEnterPriseEmsYn */
+			SELECT ISNULL(EMS_YN, 'N') AS EMS_YN 
+			FROM TB_SMS_ENTERPRISE 
+			WHERE ENT_CODE = #{entCode};
+	</select>	
+	
+	<select id="selectUpsExchangeRate" parameterType="HashMap" resultType="HashMap">
+		/* CommonMapper.selectUpsExchangeRate : UPS 환율조회 */
+			SELECT
+				ISNULL(MAX(CASE CURRENCY_CODE WHEN 'AED' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_AED
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'ARS' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_ARS
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'AUD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_AUD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'BDT' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_BDT
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'BHD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_BHD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'BND' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_BND
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'BRL' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_BRL
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'CAD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_CAD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'CHF' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_CHF
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'CLP' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_CLP
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'CNY' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_CNY
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'COP' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_COP
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'CZK' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_CZK
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'DKK' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_DKK
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'EGP' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_EGP
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'ETB' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_ETB
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'EUR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_EUR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'FJD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_FJD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'GBP' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_GBP
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'HKD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_HKD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'HUF' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_HUF
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'IDR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_IDR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'ILS' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_ILS
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'INR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_INR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'JOD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_JOD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'JPY' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_JPY
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'KES' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_KES
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'KHR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_KHR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'KRW' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_KRW
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'KWD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_KWD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'KZT' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_KZT
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'LKR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_LKR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'LYD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_LYD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'MMK' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_MMK
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'MNT' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_MNT
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'MOP' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_MOP
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'MXN' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_MXN
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'MYR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_MYR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'NOK' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_NOK
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'NPR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_NPR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'NZD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_NZD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'OMR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_OMR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'PHP' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_PHP
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'PKR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_PKR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'PLN' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_PLN
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'QAR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_QAR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'RON' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_RON
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'RUB' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_RUB
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'SAR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_SAR
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'SEK' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_SEK
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'SGD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_SGD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'THB' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_THB
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'TRY' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_TRY
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'TWD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_TWD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'USD' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_USD
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'UZS' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_UZS
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'VND' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_VND
+				,ISNULL(MAX(CASE CURRENCY_CODE WHEN 'ZAR' THEN ${exrateType} END), 0) AS EXCHANGE_RATE_ZAR
+				,COUNT(ENT_CODE) AS CNT
+			FROM TB_SMS_EXCHANGE_RATE
+			WHERE ENT_CODE = #{srchEntCode}
+			AND ENT_BUSINESS_CODE = #{entBusinessCode}
+			AND EXRATE_DATE = CONVERT(DATE, #{srchDate}, ${srchDateFormat})
+	</select>
+	
+	<update id="updateItemCustoms" parameterType="HashMap">
+		/* CommonMapper.updateItemCustoms : updateItemCustoms */
+			UPDATE TB_ECM_OD_ITEM
+			SET CUSTOMS_ID_VERIFY = #{consigneeIdCardNo_IF_YN}
+				,CUSTOMS_ID_ERROR = #{consigneeIdCardNoFailRemark}
+			WHERE OD_JOB_NO = #{odJobNo} 
+			AND ISNULL(ORDER_NO,'') = '';
+	</update>
+</mapper>

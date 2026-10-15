@@ -1,0 +1,20 @@
+// No existing test class is registered by default. JUnit 5 for new reviewed tests.
+allprojects { project ->
+    project.plugins.withId('java') {
+        project.tasks.register('harnessSelectedTest', org.gradle.api.tasks.testing.Test) {
+            description = 'Run one explicitly registered, reviewed JUnit 5 class'
+            group = 'verification'
+            testClassesDirs = project.sourceSets.test.output.classesDirs
+            classpath = project.sourceSets.test.runtimeClasspath
+            useJUnitPlatform()
+            filter {
+                includeTestsMatching project.property('harnessTestClass').toString()
+                failOnNoMatchingTests = true
+            }
+            reports.junitXml.required.set(true)
+            reports.junitXml.outputLocation.set(project.file(project.property('harnessResults').toString()))
+            reports.html.required.set(false)
+            maxParallelForks = 1
+        }
+    }
+}

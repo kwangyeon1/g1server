@@ -1,0 +1,491 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsAbnormalCorrMapper">
+    <sql id="searchAbnormalCorr">
+        WHERE 1 = 1
+        <if test='srchDateGbn != "noDateChk"'>
+            <choose>
+                <when test='srchDateType == "dateTime"'>
+                    AND A.${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+                    AND A.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+                </when>
+                <otherwise>
+                    AND A.${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+                    AND A.${srchDateGbn} <![CDATA[<=]]> CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat})
+                </otherwise>
+            </choose>
+        </if>
+        <if test="srchNo != null and srchNo != ''">
+            <choose>
+                <when test='srchInEntry == "Y"'>
+                    AND IP.${srchNoType} = #{srchNo}
+                </when>
+                <otherwise>
+                    <!-- AND IP.${srchNoType} LIKE CONCAT('%', #{srchNo}, '%') -->
+                    <choose>
+						<when test='searchType == "multi"'>
+						AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND ${srchNoType} = #{srchNo}
+						</otherwise>
+					</choose>
+                </otherwise>
+            </choose>
+        </if>
+        <if test="srchLastPodStatus != null and srchLastPodStatus != ''">
+            AND LAST_POD_STATUS = #{srchLastPodStatus}
+        </if>
+        <if test="srchCdType != null and srchCdType != ''">
+            AND CD_TYPE = #{srchCdType}
+        </if>
+        <if test="srchEtcContent != null and srchEtcContent != ''">
+            <if test='srchEtcType == "VESSEL_FLIGHT"'>
+                AND IP.${srchEtcType} LIKE CONCAT('%', #{srchEtcContent}, '%')
+            </if>
+            <if test='srchEtcType == "CHANGE_REASON"'>
+                AND A.${srchEtcType} LIKE CONCAT('%', #{srchEtcContent}, '%')
+            </if>
+        </if>
+    </sql>
+
+    <sql id="searchAbnormal">
+        WHERE 1 = 1
+        <if test='srchDateGbn != "noDateChk"'>
+            <choose>
+                <when test='srchDateType == "dateTime"'>
+                    AND A.${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+                    AND A.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+                </when>
+                <otherwise>
+                    AND A.${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+                    AND A.${srchDateGbn} <![CDATA[<=]]> CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat})
+                </otherwise>
+            </choose>
+        </if>
+        <if test="srchNo != null and srchNo != ''">
+            <!-- AND A.${srchNoType} LIKE CONCAT('%', #{srchNo}, '%') -->
+            <choose>
+				<when test='searchType == "multi"'>
+				AND A.${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<otherwise>
+				AND A.${srchNoType} = #{srchNo}
+				</otherwise>
+			</choose>
+        </if>
+        <if test="srchCdType != null and srchCdType != ''">
+            AND CD_TYPE = #{srchCdType}
+        </if>
+        <if test="srchEtcContent != null and srchEtcContent != ''">
+            AND A.${srchEtcType} LIKE CONCAT('%', #{srchEtcContent}, '%')
+        </if>
+        AND A.LAST_POD_STATUS = 'BMS04'
+    </sql>
+
+    <select id="selectAbnormalList" parameterType="searchCarryInAbnormalCorr" resultType="carryInAbnormal">
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+        , COUNT(*) OVER() AS TOTAL_CNT
+        FROM (
+        SELECT
+        A.ABN_NO
+        , A.CUSTOMS_REPORT_NO
+        , A.MRN
+        , A.MSN
+        , A.MBL_NO
+        , A.LAST_POD_DATE
+        <choose>
+            <when test='srchMode == "excel"'>
+                , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = A.LAST_POD_STATUS) AS LAST_POD_STATUS
+            </when>
+            <otherwise>
+                , A.LAST_POD_STATUS
+            </otherwise>
+        </choose>
+        , A.LAST_POD_RAQ_DATE
+        , A.VESSEL_FLIGHT
+        , A.VOYAGE
+        , A.AR_DATE
+        , A.AR_TIME
+        , A.ABN_REQ_DATE
+        , A.REGISTER_USER_ID
+        , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+        , A.REGISTER_DATE_TIME
+        , A.UPDATE_USER_ID
+        , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+        , A.UPDATE_DATE_TIME
+        , (SELECT BMS_CUSTOMS_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_CODE =#{entCode} AND ENT_BUSINESS_CODE = #{entBusinessCode}) AS CUSTOMS_CODE
+        , (SELECT BMS_CUSTOMS_DPT_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_CODE =#{entCode} AND ENT_BUSINESS_CODE = #{entBusinessCode}) AS CUSTOMS_DPT_CODE
+        FROM  TB_BMS_ABNORMAL A
+        <include refid="org.yht.exps.express.mapper.bms.BmsAbnormalCorrMapper.searchAbnormal"/>
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+
+    <select id="selectAbnormalCorrList" parameterType="searchCarryInAbnormalCorr" resultType="carryInAbnormalCorr">
+        /* bmsInab.selectAbnormalCorrList  : 반입이상정정 리스트 조회 */
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+        , COUNT(*) OVER() AS TOTAL_CNT
+        , SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+        , SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+        FROM (
+            SELECT
+                A.SIMPLE_CNT
+              , A.GENERAL_CNT
+              , A.FILE_SHARE
+              , A.LAST_POD_STATUS
+              , A.CHANGE_CLASS
+              , A.ABN_CHANGE_NO
+              , A.SEQ_NO
+              , A.CARGO_REFERENCE_NO
+              , A.CARGO_REFERENCE_NO_DISP
+              , A.HSN
+              , A.BL_NO
+              , A.PKG_TYPE
+              , A.EX_CT
+              , A.EX_WT
+              , A.CT
+              , A.WT
+              , A.ACCIDENT_CLASS
+              , A.ACCIDENT_CT
+              , A.ACCIDENT_WT
+              , A.REJECT_REASON
+              , A.REGISTER_USER_ID
+              , A.REGISTER_USER_NAME
+              , A.REGISTER_DATE_TIME
+              , A.UPDATE_USER_ID
+              , A.UPDATE_USER_NAME
+              , A.UPDATE_DATE_TIME
+              , A.CUSTOMS_REPORT_NO
+              , A.MRN
+              , A.MSN
+              , A.MBL_NO
+              , A.LAST_POD_DATE
+              , A.LAST_POD_RAQ_DATE
+              , A.VESSEL_FLIGHT
+              , A.VOYAGE
+              , A.AR_DATE
+              , A.AR_TIME
+              , A.CHANGE_DATE
+              , A.CHANGE_COUNT
+              , A.CHANGE_REASON
+              , A.OD_JOB_NO
+            FROM (
+        SELECT
+          IIF(IP.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+        , IIF(IP.CD_TYPE = 'N', 1, 0) AS GENERAL_CNT
+        , CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE FUNC_JOB_NO = IP.OD_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+        <choose>
+            <when test='srchMode == "excel"'>
+                , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = A.LAST_POD_STATUS) AS LAST_POD_STATUS
+                , CASE
+                WHEN CB.CHANGE_CLASS = '01'  THEN '01.추가'
+                WHEN CB.CHANGE_CLASS = '02'  THEN '02.삭제'
+                WHEN CB.CHANGE_CLASS = '03'  THEN '03.변경'
+                END AS CHANGE_CLASS
+            </when>
+            <otherwise>
+                , A.LAST_POD_STATUS
+                , CB.CHANGE_CLASS
+            </otherwise>
+        </choose>
+        , CB.ABN_CHANGE_NO
+        , CB.SEQ_NO
+        , CB.CARGO_REFERENCE_NO
+        , CASE
+        WHEN LEN(CB.CARGO_REFERENCE_NO) > 15 THEN (
+        SUBSTRING(CB.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(CB.CARGO_REFERENCE_NO, 12, 4) + '-' + SUBSTRING(CB.CARGO_REFERENCE_NO, 16, 4)
+        )
+        ELSE SUBSTRING(CB.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(CB.CARGO_REFERENCE_NO, 12, 4)
+        END AS CARGO_REFERENCE_NO_DISP
+        , CB.HSN
+        , CB.BL_NO
+        , CB.PKG_TYPE
+        , CB.EX_CT
+        , CB.EX_WT
+        , CB.CT
+        , CB.WT
+        , CB.ACCIDENT_CLASS
+        , CB.ACCIDENT_CT
+        , CB.ACCIDENT_WT
+        , CB.REJECT_REASON
+        , CB.REGISTER_USER_ID
+        , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = CB.REGISTER_USER_ID) AS REGISTER_USER_NAME
+        , CB.REGISTER_DATE_TIME
+        , CB.UPDATE_USER_ID
+        , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = CB.UPDATE_USER_ID) AS UPDATE_USER_NAME
+        , CB.UPDATE_DATE_TIME
+        , A.CUSTOMS_REPORT_NO
+        , A.MRN
+        , A.MSN
+        , A.MBL_NO
+        , A.LAST_POD_DATE
+        , A.LAST_POD_RAQ_DATE
+        , A.VESSEL_FLIGHT
+        , A.VOYAGE
+        , A.AR_DATE
+        , A.AR_TIME
+        , A.CHANGE_DATE
+        , A.CHANGE_COUNT
+        , A.CHANGE_REASON
+        , IP.OD_JOB_NO
+        , ROW_NUMBER() OVER (PARTITION BY A.ABN_CHANGE_NO, A.CHANGE_COUNT ORDER BY A.ABN_CHANGE_NO DESC) AS RN
+        FROM TB_BMS_ABNORMAL_CHANGE_BL CB
+        LEFT JOIN TB_BMS_ABNORMAL_CHANGE A
+        ON  A.ABN_CHANGE_NO = CB.ABN_CHANGE_NO
+        LEFT JOIN TB_BMS_IN_PLAN IP WITH (NOLOCK)
+        ON IP.CARGO_REFERENCE_NO = CB.CARGO_REFERENCE_NO
+        <include refid="org.yht.exps.express.mapper.bms.BmsAbnormalCorrMapper.searchAbnormalCorr"/>
+        ) A
+        WHERE
+        A.RN = 1
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+
+
+    <select id="checkExistAbnormal" parameterType="searchCarryInAbnormalCorr" resultType="Integer">
+        SELECT COUNT(*) FROM TB_BMS_ABNORMAL WHERE ABN_NO = #{abnNo}
+    </select>
+
+    <select id="checkExistAbnormalCorr" parameterType="searchCarryInAbnormalCorr" resultType="Integer">
+        SELECT
+            COUNT(*)
+        FROM TB_BMS_ABNORMAL_CHANGE
+        WHERE 1 = 1
+        <if test="abnChangeNo != null and abnChangeNo != ''">
+            AND ABN_CHANGE_NO = #{abnChangeNo}
+        </if>
+        <if test="customsReportNo != null and customsReportNo != ''">
+            AND CUSTOMS_REPORT_NO = #{customsReportNo}
+        </if>
+    </select>
+
+    <insert id="insertAbnormalCorr" parameterType="carryInAbnormalCorr">
+        INSERT INTO TB_BMS_ABNORMAL_CHANGE (
+              CUSTOMS_REPORT_NO
+            , MRN
+            , MSN
+            , MBL_NO
+            , LAST_POD_DATE
+            , LAST_POD_STATUS
+            , LAST_POD_RAQ_DATE
+            , VESSEL_FLIGHT
+            , VOYAGE
+            , AR_DATE
+            , AR_TIME
+            , CHANGE_DATE
+            , CHANGE_COUNT
+            , CHANGE_REASON
+            , REGISTER_USER_ID
+            , REGISTER_DATE_TIME
+            , UPDATE_USER_ID
+            , UPDATE_DATE_TIME )
+        VALUES (
+              #{customsReportNo}
+            , #{mrn}
+            , #{msn}
+            , #{mblNo}
+            , ''
+            , 'BMS01'
+            , ''
+            , #{vesselFlight}
+            , #{voyage}
+            , #{arDate}
+            , #{arTime}
+            , #{changeDate}
+            , #{changeCount}
+            , #{changeReason}
+            , #{registerUserId}
+            , GETDATE()
+            , #{updateUserId}
+            , GETDATE()
+            )
+    </insert>
+
+    <insert id="insertAbnormalHblCorr" parameterType="carryInAbnormalHblCorr">
+        INSERT INTO TB_BMS_ABNORMAL_CHANGE_BL (
+              ABN_CHANGE_NO
+            , SEQ_NO
+            , CARGO_REFERENCE_NO
+            , HSN
+            , BL_NO
+            , CHANGE_CLASS
+            , PKG_TYPE
+            , EX_CT
+            , EX_WT
+            , CT
+            , WT
+            , ACCIDENT_CLASS
+            , ACCIDENT_CT
+            , ACCIDENT_WT
+            , REJECT_REASON
+            , REGISTER_USER_ID
+            , REGISTER_DATE_TIME
+            , UPDATE_USER_ID
+            , UPDATE_DATE_TIME )
+        VALUES (
+              #{abnChangeNo}
+            , (SELECT ISNULL(MAX(SEQ_NO),0) + 1 FROM TB_BMS_ABNORMAL_CHANGE_BL WHERE ABN_CHANGE_NO = #{abnChangeNo})
+            , #{cargoReferenceNo}
+            , #{hsn}
+            , #{blNo}
+            , #{changeClass}
+            , #{pkgType}
+            , #{exCt}
+            , #{exWt}
+            , #{ct}
+            , #{wt}
+            , #{accidentClass}
+            , #{accidentCt}
+            , #{accidentWt}
+            , #{rejectReason}
+            , #{registerUserId}
+            , GETDATE()
+            , #{updateUserId}
+            , GETDATE()
+                )
+    </insert>
+
+    <select id="selectAbnChangeNo" resultType="Integer">
+        SELECT MAX(ABN_CHANGE_NO) FROM TB_BMS_ABNORMAL_CHANGE
+    </select>
+
+    <select id="selectDetailAbnormalCorr" parameterType="searchCarryInAbnormalCorr" resultType="carryInAbnormalCorr">
+        SELECT
+               A.ABN_CHANGE_NO
+             , A.CUSTOMS_REPORT_NO
+             , A.MRN
+             , A.MSN
+             , A.MBL_NO
+             , A.LAST_POD_DATE
+             , A.LAST_POD_STATUS
+             , A.LAST_POD_RAQ_DATE
+             , A.VESSEL_FLIGHT
+             , A.VOYAGE
+             , A.AR_DATE
+             , A.AR_TIME
+             , A.CHANGE_DATE
+             , A.CHANGE_COUNT
+             , A.CHANGE_CLASS
+             , A.CHANGE_REASON
+             , A.REGISTER_USER_ID
+             , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+             , A.REGISTER_DATE_TIME
+             , A.UPDATE_USER_ID
+             , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+             , A.UPDATE_DATE_TIME
+             , (SELECT BMS_CUSTOMS_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_CODE =#{entCode} AND ENT_BUSINESS_CODE = #{entBusinessCode}) AS CUSTOMS_CODE
+             , (SELECT BMS_CUSTOMS_DPT_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_CODE =#{entCode} AND ENT_BUSINESS_CODE = #{entBusinessCode}) AS CUSTOMS_DPT_CODE
+        FROM TB_BMS_ABNORMAL_CHANGE A
+        WHERE 1 = 1
+        <choose>
+            <when test="abnChangeNo != null and abnChangeNo != ''">
+                AND A.ABN_CHANGE_NO = #{abnChangeNo}
+            </when>
+            <otherwise>
+                <if test="customsReportNo != null and customsReportNo != ''">
+                    AND ABN_CHANGE_NO = (SELECT MAX(ABN_CHANGE_NO) FROM TB_BMS_ABNORMAL_CHANGE WHERE CUSTOMS_REPORT_NO = #{customsReportNo})
+                </if>
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectAbnormalHblCorrList" parameterType="searchCarryInAbnormalCorr" resultType="carryInAbnormalHblCorr" fetchSize="1000">
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+        , COUNT(*) OVER() AS TOTAL_CNT
+        FROM (
+        SELECT
+          AC.CUSTOMS_REPORT_NO
+        , AC.MRN
+        , AC.MSN
+        , AC.MBL_NO
+        , AC.LAST_POD_DATE
+        , AC.LAST_POD_STATUS
+        , AC.LAST_POD_RAQ_DATE
+        , AC.VESSEL_FLIGHT
+        , AC.VOYAGE
+        , AC.AR_DATE
+        , AC.AR_TIME
+        , AC.CHANGE_DATE
+        , AC.CHANGE_COUNT
+        , AC.CHANGE_REASON
+        , CB.ABN_CHANGE_NO
+        , CB.SEQ_NO
+        , CB.CARGO_REFERENCE_NO
+        , CASE
+            WHEN LEN(CB.CARGO_REFERENCE_NO) > 15 THEN (
+            SUBSTRING(CB.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(CB.CARGO_REFERENCE_NO, 12, 4) + '-' + SUBSTRING(CB.CARGO_REFERENCE_NO, 16, 4)
+            )
+            ELSE SUBSTRING(CB.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(CB.CARGO_REFERENCE_NO, 12, 4)
+          END AS CARGO_REFERENCE_NO_DISP
+        , CB.HSN
+        , CB.BL_NO
+        , CB.CHANGE_CLASS
+        , CB.PKG_TYPE
+        , CB.EX_CT
+        , CB.EX_WT
+        , CB.CT
+        , CB.WT
+        , CB.ACCIDENT_CLASS
+        , CB.ACCIDENT_CT
+        , CB.ACCIDENT_WT
+        , CB.REJECT_REASON
+        , CB.REGISTER_USER_ID
+        , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = CB.REGISTER_USER_ID) AS REGISTER_USER_NAME
+        , CB.REGISTER_DATE_TIME
+        , CB.UPDATE_USER_ID
+        , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = CB.UPDATE_USER_ID) AS UPDATE_USER_NAME
+        , CB.UPDATE_DATE_TIME
+        , IP.OD_JOB_NO
+        , 'Y' AS ABN_YN
+        FROM  TB_BMS_ABNORMAL_CHANGE_BL CB
+        LEFT JOIN TB_BMS_ABNORMAL_CHANGE AC
+        ON  AC.ABN_CHANGE_NO = CB.ABN_CHANGE_NO
+        LEFT JOIN TB_BMS_IN_PLAN IP WITH (NOLOCK)
+        ON  IP.BL_NO = CB.BL_NO
+        WHERE 1 = 1
+        AND AC.MBL_NO = #{mblNo}
+        AND AC.AR_DATE = #{arDate}
+        AND CB.ABN_CHANGE_NO = #{abnChangeNo}
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+
+    <delete id="deleteAbnormalCorr" parameterType="Integer">
+        DELETE FROM TB_BMS_ABNORMAL_CHANGE WHERE ABN_CHANGE_NO = #{abnChangeNo}
+    </delete>
+
+    <delete id="deleteAbnormalHBLCorr" parameterType="Integer">
+        DELETE FROM TB_BMS_ABNORMAL_CHANGE_BL WHERE ABN_CHANGE_NO = #{abnChangeNo}
+    </delete>
+
+    <update id="updateAbnormalCorr" parameterType="carryInAbnormalCorr">
+        UPDATE TB_BMS_ABNORMAL_CHANGE
+        SET
+            CHANGE_DATE = #{changeDate}
+          , CHANGE_REASON = #{changeReason}
+          , UPDATE_USER_ID = #{updateUserId}
+          , UPDATE_DATE_TIME = GETDATE()
+        <if test='lastPodStatus == "BMS02" or lastPodStatus == "BMS05" '>
+          , LAST_POD_STATUS = 'BMS01'
+          , LAST_POD_DATE = ''
+          , LAST_POD_RAQ_DATE = ''
+        </if>
+        WHERE 1 = 1
+          AND ABN_CHANGE_NO = #{abnChangeNo}
+    </update>
+
+    <select id="selectMaxChangeCount" parameterType="searchCarryInAbnormalCorr" resultType="Integer">
+        SELECT ISNULL(MAX(CHANGE_COUNT),0) FROM TB_BMS_ABNORMAL_CHANGE WHERE CUSTOMS_REPORT_NO = #{customsReportNo}
+    </select>
+</mapper>
+

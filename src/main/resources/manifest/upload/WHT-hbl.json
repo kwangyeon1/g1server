@@ -1,0 +1,114 @@
+[
+	{
+		"size": 4,
+		"func": "setHsn"
+	},
+	{
+		"size": 20,
+		"func": "setHawb"
+	},
+	{
+		"size": 1,
+		"func": "setCargoClass"
+	},
+	{
+		"size": 10,
+		"func": "setPiecesNo"
+	},
+	{
+		"size": 17,
+		"func": "setGrossWeight"
+	},
+	{
+		"size": 100,
+		"func": "setShipperName"
+	},
+	{
+		"size": 2,
+		"func": "setShipperNationCode"
+	},
+	{
+		"size": 5,
+		"func": "setShipperCityCode"
+	},
+	{
+		"size": 150,
+		"func": "setShipperAddr"
+	},
+	{
+		"size": 25,
+		"func": "setShipperTelFax"
+	},
+	{
+		"size": 15,
+		"func": "setConsigneeCode"
+	},
+	{
+		"size": 100,
+		"func": "setConsigneeName"
+	},
+	{
+		"size": 2,
+		"func": "setConsigneeNationCode"
+	},
+	{
+		"size": 5,
+		"func": "setConsigneeCityCode"
+	},
+	{
+		"size": 150,
+		"func": "setConsigneeAddr"
+	},
+	{
+		"size": 25,
+		"func": "setConsigneeTelFax"
+	},
+	{
+		"size": 15,
+		"func": "setNotifyCode"
+	},
+	{
+		"size": 100,
+		"func": "setNotifyName"
+	},
+	{
+		"size": 2,
+		"func": "setNotifyNationCode"
+	},
+	{
+		"size": 5,
+		"func": "setNotifyCityCode"
+	},
+	{
+		"size": 150,
+		"func": "setNotifyAddr"
+	},
+	{
+		"size": 25,
+		"func": "setNotifyTelFax"
+	},
+	{
+		"size": 8,
+		"func": "setWarehouseCode"
+	},
+	{
+		"size": 6,
+		"func": "setTrCoCode"
+	},
+	{
+		"size": 200,
+		"func": "setGoodsDescript"
+	},
+	{
+		"size": 8,
+		"func": "setUnloadLoCode"
+	},
+	{
+		"size": 2,
+		"func": "setUnloadType"
+	},
+	{
+		"size": 1,
+		"func": "setAcceptCode"
+	}
+]

@@ -1,0 +1,70 @@
+[
+	{
+		"size": 4,
+		"func": "setHsn"
+	},
+	{
+		"size": 20,
+		"func": "setHawb"
+	},
+	{
+		"size": 1,
+		"func": "setCargoClass"
+	},
+	{
+		"size": 10,
+		"func": "setPiecesNo"
+	},
+	{
+		"size": 17,
+		"func": "setGrossWeight"
+	},
+	{
+		"size": 15,
+		"func": "setConsigneeCode"
+	},
+	{
+		"size": 100,
+		"func": "setConsigneeName"
+	},
+	{
+		"size": 2,
+		"func": "setConsigneeNationCode"
+	},
+	{
+		"size": 5,
+		"func": "setConsigneeCityCode"
+	},
+	{
+		"size": 150,
+		"func": "setConsigneeAddr"
+	},
+	{
+		"size": 25,
+		"func": "setConsigneeTelFax"
+	},
+	{
+		"size": 8,
+		"func": "setWarehouseCode"
+	},
+	{
+		"size": 6,
+		"func": "setTrCoCode"
+	},
+	{
+		"size": 200,
+		"func": "setGoodsDescript"
+	},
+	{
+		"size": 8,
+		"func": "setUnloadLoCode"
+	},
+	{
+		"size": 2,
+		"func": "setUnloadType"
+	},
+	{
+		"size": 1,
+		"func": "setAcceptCode"
+	}
+]

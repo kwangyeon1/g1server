@@ -1,0 +1,3209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+		"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsChargeMapper">
+	<!-- 공통 검색조건 (TB_BMS_IN) -->
+	<sql id="searchCommonCondi">
+		<if test='srchDateGbn != "noDateChk"'>
+			<choose>
+				<when test='srchDateType == "dateTime"'>
+					AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+					AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+				</when>
+				<otherwise>
+					AND ${srchDateGbn} >= #{srchStartDate}
+					AND ${srchDateGbn} <![CDATA[<=]]> #{srchEndDate}
+				</otherwise>
+			</choose>
+		</if>
+	</sql>
+
+	<!-- 반출 검색조건 -->
+	<sql id="searchBmsOutListCondi">
+		AND ESTIMATE_YN = 'N'
+		<if test="srchOutApprovalStatus != null and srchOutApprovalStatus != '' and srchOutApprovalStatus == 'OUT'">
+			<if test="srchCarryOutType != null and srchCarryOutType != ''">
+				AND A.OUT_CLASS = #{srchCarryOutType} /* 반출구분 */
+			</if>
+		</if>
+		<if test="srchCdType != null and srchCdType != ''">
+			AND B.CD_TYPE = #{srchCdType} /* 목록구분(통관구분) */
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<when test='srchNoLikeYn == "N"'>
+					AND ${srchNoType} = #{srchNo}
+				</when>
+				<otherwise>
+					<!-- AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%') -->
+					<choose>
+						<when test='searchType == "multi"'>
+						AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND ${srchNoType} = #{srchNo}
+						</otherwise>
+					</choose>
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchCustomerType != null and srchCustomerType != ''">
+			<if test="srchCustomerCode != null and srchCustomerCode != ''">
+				AND A.CUSTOMER_CODE = #{srchCustomerCode}
+			</if>
+			<if test="srchCustomerName != null and srchCustomerName != ''">
+				AND A.CUSTOMER_NAME LIKE CONCAT('%', #{srchCustomerName}, '%')
+			</if>
+			<if test="srchShipperCode != null and srchShipperCode != ''">
+				AND B.SHIPPER_CODE = #{srchShipperCode}
+			</if>
+			<if test="srchShipperName != null and srchShipperName != ''">
+				AND B.SHIPPER_NAME LIKE CONCAT('%', #{srchShipperName}, '%')
+			</if>
+			<if test="srchConsigneeCode != null and srchConsigneeCode != ''">
+				AND B.CONSIGNEE_CODE = #{srchConsigneeCode}
+			</if>
+			<if test="srchConsigneeName != null and srchConsigneeName != ''">
+				AND B.CONSIGNEE_NAME LIKE CONCAT('%', #{srchConsigneeName}, '%')
+			</if>
+			<if test="srchNotifyCode != null and srchNotifyCode != ''">
+				AND B.NOTIFY_CODE = #{srchNotifyCode}
+			</if>
+			<if test="srchNotifyName != null and srchNotifyName != ''">
+				AND B.NOTIFY_NAME LIKE CONCAT('%', #{srchNotifyName}, '%')
+			</if>
+			<if test="srchFwdCode != null and srchFwdCode != ''">
+				AND B.FWD_CODE = #{srchFwdCode}
+			</if>
+			<if test="srchFwdName != null and srchFwdName != ''">
+				AND B.FWD_NAME LIKE CONCAT('%', #{srchFwdName}, '%')
+			</if>
+			<if test="srchDeliveryCode != null and srchDeliveryCode != ''">
+				AND B.DELIVERY_CODE = #{srchDeliveryCode}
+			</if>
+			<if test="srchDeliveryName != null and srchDeliveryName != ''">
+				AND B.DELIVERY_NAME LIKE CONCAT('%', #{srchDeliveryName}, '%')
+			</if>
+			<if test="srchBrokerCode != null and srchBrokerCode != ''">
+				AND A.BROKER_CODE = #{srchBrokerCode}
+			</if>
+			<if test="srchBrokerName != null and srchBrokerName != ''">
+				AND A.BROKER_NAME LIKE CONCAT('%', #{srchBrokerName}, '%')
+			</if>
+			<if test="srchLocationPlaceName != null and srchLocationPlaceName != ''">
+				AND B.LOCATION_PLACE LIKE CONCAT('%', #{srchLocationPlaceName}, '%')
+			</if>
+			<if test="srchRemarks1Name != null and srchRemarks1Name != ''">
+				AND B.REMARKS_1 LIKE CONCAT('%', #{srchRemarks1Name}, '%')
+			</if>
+			<if test="srchRemarks2Name != null and srchRemarks2Name != ''">
+				AND B.REMARKS_2 LIKE CONCAT('%', #{srchRemarks2Name}, '%')
+			</if>
+			<if test="srchRemarks3Name != null and srchRemarks3Name != ''">
+				AND B.REMARKS_3 LIKE CONCAT('%', #{srchRemarks3Name}, '%')
+			</if>
+			<if test="srchCommodityItemLoc != null and srchCommodityItemLoc != ''">
+				AND B.COMMODITY_ITEM_LOC LIKE CONCAT('%', #{srchCommodityItemLoc}, '%')
+			</if>
+		</if>
+	</sql>
+
+	<!-- 재고 검색조건 -->
+	<sql id="searchInventoryListCondi">
+		<if test="srchCdType != null and srchCdType != ''">
+			AND A.CD_TYPE = #{srchCdType}
+		</if>
+		<if test="srchCarryInType != null and srchCarryInType != ''">
+			AND A.IN_CLASS = #{srchCarryInType} /* 반입구분 */
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<!-- 선택한 selectbox option 값(컬럼)이 재고조회 조인 테이블에 없는 경우 -->
+				<when test='srchNoType == "X.CUSTOMS_REPORT_NO"'>
+					<choose>
+						<when test='searchType == "multi"'>
+						AND A.IN_NO IN (SELECT IN_NO FROM TB_BMS_OUT WITH (NOLOCK) WHERE CUSTOMS_REPORT_NO IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>))
+						</when>
+						<otherwise>
+						AND A.IN_NO IN (SELECT IN_NO FROM TB_BMS_OUT WITH (NOLOCK) WHERE CUSTOMS_REPORT_NO = #{srchNo})
+						</otherwise>
+					</choose>
+				</when>
+				<when test='srchNoType == "X.OUT_APPROVAL_NO"'>
+					<choose>
+						<when test='searchType == "multi"'>
+						AND A.IN_NO IN (SELECT IN_NO FROM TB_BMS_OUT_PLAN WITH (NOLOCK) WHERE OUT_APPROVAL_NO IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>))
+						</when>
+						<otherwise>
+						AND A.IN_NO IN (SELECT IN_NO FROM TB_BMS_OUT_PLAN WITH (NOLOCK) WHERE OUT_APPROVAL_NO = #{srchNo})
+						</otherwise>
+					</choose>
+				</when>
+				<when test='srchNoLikeYn == "N"'>
+					<if test="srchNoType == '(1=0)' "> <!--- 조회 하지 않을 경우 -->
+						AND (1=0)
+					</if>
+					<if test="srchNoType != '(1=0)' ">
+						AND ${srchNoType} = #{srchNo}
+					</if>
+				</when>
+				<otherwise>
+					<!-- AND ${srchNoType}  LIKE CONCAT('%', #{srchNo}, '%') -->
+					<choose>
+						<when test='searchType == "multi"'>
+						AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND ${srchNoType} = #{srchNo}
+						</otherwise>
+					</choose>
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchCustomerType != null and srchCustomerType != ''">
+			<if test="srchCustomerCode != null and srchCustomerCode != ''">
+				AND CUSTOMER_CODE = #{srchCustomerCode}
+			</if>
+			<if test="srchCustomerName != null and srchCustomerName != ''">
+				AND CUSTOMER_NAME LIKE CONCAT('%', #{srchCustomerName}, '%')
+			</if>
+			<if test="srchShipperCode != null and srchShipperCode != ''">
+				AND SHIPPER_CODE = #{srchShipperCode}
+			</if>
+			<if test="srchShipperName != null and srchShipperName != ''">
+				AND SHIPPER_NAME LIKE CONCAT('%', #{srchShipperName}, '%')
+			</if>
+			<if test="srchConsigneeCode != null and srchConsigneeCode != ''">
+				AND CONSIGNEE_CODE = #{srchConsigneeCode}
+			</if>
+			<if test="srchConsigneeName != null and srchConsigneeName != ''">
+				AND CONSIGNEE_NAME LIKE CONCAT('%', #{srchConsigneeName}, '%')
+			</if>
+			<if test="srchNotifyCode != null and srchNotifyCode != ''">
+				AND NOTIFY_CODE = #{srchNotifyCode}
+			</if>
+			<if test="srchNotifyName != null and srchNotifyName != ''">
+				AND NOTIFY_NAME LIKE CONCAT('%', #{srchNotifyName}, '%')
+			</if>
+			<if test="srchFwdCode != null and srchFwdCode != ''">
+				AND FWD_CODE = #{srchFwdCode}
+			</if>
+			<if test="srchFwdName != null and srchFwdName != ''">
+				AND FWD_NAME LIKE CONCAT('%', #{srchFwdName}, '%')
+			</if>
+			<if test="srchDeliveryCode != null and srchDeliveryCode != ''">
+				AND DELIVERY_CODE = #{srchDeliveryCode}
+			</if>
+			<if test="srchDeliveryName != null and srchDeliveryName != ''">
+				AND DELIVERY_NAME LIKE CONCAT('%', #{srchDeliveryName}, '%')
+			</if>
+			<if test="srchBrokerCode != null and srchBrokerCode != ''">
+				AND BROKER_CODE = #{srchBrokerCode}
+			</if>
+			<if test="srchBrokerName != null and srchBrokerName != ''">
+				AND BROKER_NAME LIKE CONCAT('%', #{srchBrokerName}, '%')
+			</if>
+			<if test="srchDeliveryCode != null and srchDeliveryCode != ''">
+				AND DELIVERY_CODE = #{srchDeliveryCode}
+			</if>
+			<if test="srchDeliveryName != null and srchDeliveryName != ''">
+				AND DELIVERY_NAME LIKE CONCAT('%', #{srchDeliveryName}, '%')
+			</if>
+			<if test="srchLocationPlaceName != null and srchLocationPlaceName != ''">
+				AND LOCATION_PLACE LIKE CONCAT('%', #{srchLocationPlaceName}, '%')
+			</if>
+			<if test="srchRemarks1Name != null and srchRemarks1Name != ''">
+				AND REMARKS_1 LIKE CONCAT('%', #{srchRemarks1Name}, '%')
+			</if>
+			<if test="srchRemarks2Name != null and srchRemarks2Name != ''">
+				AND REMARKS_2 LIKE CONCAT('%', #{srchRemarks2Name}, '%')
+			</if>
+			<if test="srchRemarks3Name != null and srchRemarks3Name != ''">
+				AND REMARKS_3 LIKE CONCAT('%', #{srchRemarks3Name}, '%')
+			</if>
+			<if test="srchCommodityItemLoc != null and srchCommodityItemLoc != ''">
+				AND COMMODITY_ITEM_LOC LIKE CONCAT('%', #{srchCommodityItemLoc}, '%')
+			</if>
+		</if>
+	</sql>
+	<!-- 반출승인/승인취하 검색조건 -->
+	<sql id="searchBmsOutPlanListCondi">
+		AND A.OUT_YN = 'N'
+		<if test="srchOutApprovalStatus != null and srchOutApprovalStatus != ''">
+			<choose>
+				<when test="srchOutApprovalStatus == 'PLAN'">
+					AND APPROVAL_CLASS = '31' /* 승인통보(31.승인,1:취하) */
+				</when>
+				<when test="srchOutApprovalStatus == 'CANCEL'">
+					AND APPROVAL_CLASS = '1' /* 승인통보(31.승인,1:취하) */
+				</when>
+			</choose>
+		</if>
+		<if test="srchCarryOutType != null and srchCarryOutType != ''">
+			AND A.OUT_CLASS = #{srchCarryOutType} /* 반출구분 */
+		</if>
+		<if test="srchCdType != null and srchCdType != ''">
+			AND B.CD_TYPE = #{srchCdType} /* 목록구분(통관구분) */
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<!-- 선택한 selectbox option 값(컬럼)이 재고조회 조인 테이블에 없는 경우 -->
+				<when test='srchNoType == "X.CUSTOMS_REPORT_NO"'>
+					<choose>
+						<when test='searchType == "multi"'>
+						AND B.IN_NO IN (SELECT IN_NO FROM TB_BMS_OUT WITH (NOLOCK) WHERE CUSTOMS_REPORT_NO IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>))
+						</when>
+						<otherwise>
+						AND B.IN_NO IN (SELECT IN_NO FROM TB_BMS_OUT WITH (NOLOCK) WHERE CUSTOMS_REPORT_NO = #{srchNo})
+						</otherwise>
+					</choose>
+				</when>
+				<when test='srchNoLikeYn == "N"'>
+					<if test="srchNoType == '(1=0)' "> <!--- 조회 하지 않을 경우 -->
+						AND (1=0)
+					</if>
+					<if test="srchNoType != '(1=0)' ">
+						AND ${srchNoType} = #{srchNo}
+					</if>
+				</when>
+				<otherwise>
+					<!-- AND ${srchNoType}  LIKE CONCAT('%', #{srchNo}, '%') -->
+					<choose>
+						<when test='searchType == "multi"'>
+						AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND ${srchNoType} = #{srchNo}
+						</otherwise>
+					</choose>
+				</otherwise>
+			</choose>
+		</if>
+		<if test='srchOutYn != null and srchOutYn != ""'>
+			AND OUT_YN = #{srchOutYn} /* 반출등록여부 */
+		</if>
+		<if test="srchCustomerType != null and srchCustomerType != ''">
+			<if test="srchCustomerCode != null and srchCustomerCode != ''">
+				AND B.CUSTOMER_CODE = #{srchCustomerCode}
+			</if>
+			<if test="srchCustomerName != null and srchCustomerName != ''">
+				AND B.CUSTOMER_NAME LIKE CONCAT('%', #{srchCustomerName}, '%')
+			</if>
+			<if test="srchShipperCode != null and srchShipperCode != ''">
+				AND B.SHIPPER_CODE = #{srchShipperCode}
+			</if>
+			<if test="srchShipperName != null and srchShipperName != ''">
+				AND B.SHIPPER_NAME LIKE CONCAT('%', #{srchShipperName}, '%')
+			</if>
+			<if test="srchConsigneeCode != null and srchConsigneeCode != ''">
+				AND B.CONSIGNEE_CODE = #{srchConsigneeCode}
+			</if>
+			<if test="srchConsigneeName != null and srchConsigneeName != ''">
+				AND B.CONSIGNEE_NAME LIKE CONCAT('%', #{srchConsigneeName}, '%')
+			</if>
+			<if test="srchNotifyCode != null and srchNotifyCode != ''">
+				AND B.NOTIFY_CODE = #{srchNotifyCode}
+			</if>
+			<if test="srchNotifyName != null and srchNotifyName != ''">
+				AND B.NOTIFY_NAME LIKE CONCAT('%', #{srchNotifyName}, '%')
+			</if>
+			<if test="srchFwdCode != null and srchFwdCode != ''">
+				AND B.FWD_CODE = #{srchFwdCode}
+			</if>
+			<if test="srchFwdName != null and srchFwdName != ''">
+				AND B.FWD_NAME LIKE CONCAT('%', #{srchFwdName}, '%')
+			</if>
+			<if test="srchDeliveryCode != null and srchDeliveryCode != ''">
+				AND B.DELIVERY_CODE = #{srchDeliveryCode}
+			</if>
+			<if test="srchDeliveryName != null and srchDeliveryName != ''">
+				AND B.DELIVERY_NAME LIKE CONCAT('%', #{srchDeliveryName}, '%')
+			</if>
+			<if test="srchLocationPlaceName != null and srchLocationPlaceName != ''">
+				AND B.LOCATION_PLACE LIKE CONCAT('%', #{srchLocationPlaceName}, '%')
+			</if>
+			<if test="srchRemarks1Name != null and srchRemarks1Name != ''">
+				AND B.REMARKS_1 LIKE CONCAT('%', #{srchRemarks1Name}, '%')
+			</if>
+			<if test="srchRemarks2Name != null and srchRemarks2Name != ''">
+				AND B.REMARKS_2 LIKE CONCAT('%', #{srchRemarks2Name}, '%')
+			</if>
+			<if test="srchRemarks3Name != null and srchRemarks3Name != ''">
+				AND B.REMARKS_3 LIKE CONCAT('%', #{srchRemarks3Name}, '%')
+			</if>
+			<if test="srchCommodityItemLoc != null and srchCommodityItemLoc != ''">
+				AND B.COMMODITY_ITEM_LOC LIKE CONCAT('%', #{srchCommodityItemLoc}, '%')
+			</if>
+		</if>
+	</sql>
+	<sql id="selectEstiBmsOutList_sql" >
+		SELECT A.OUT_NO
+		, A.CUSTOMS_REPORT_NO
+		, A.LAST_POD_DATE
+		, A.LAST_POD_STATUS
+		, A.LAST_POD_RAQ_DATE
+		, A.APPROVAL_DATE
+		, A.OUT_CLASS
+		, A.OUT_APPROVAL_NO
+		, A.OD_JOB_NO
+		, A.IN_NO
+		, A.OUT_PLAN_NO
+		, A.CARGO_REFERENCE_NO
+		, A.BL_NO
+		, A.MBL_NO
+		, A.DO_NO
+		, A.DO_DATE
+		, A.CUSTOMS_CODE
+		, A.CUSTOMS_DPT_CODE
+		, A.CUSTOMER_CODE
+		, A.CUSTOMER_NAME
+		, A.BROKER_CODE
+		, A.BROKER_NAME
+		, A.PKG_TYPE
+		, A.APPROVAL_CT
+		, A.APPROVAL_WT
+		, A.APPROVAL_CBM
+		, A.OUT_CT
+		, A.OUT_WT
+		, A.OUT_CBM
+		, A.CARRYOUT_DATE
+		, A.CARRYOUT_TIME
+		, A.APPROVAL_DUTY
+		, A.APPROVAL_APPRAISE_VALUE
+		, A.INS_PAYMENT_TYPE
+		, A.CURRENCY_CODE
+		, A.INS_PAYMENT_YN
+		, A.INSPECT_YN
+		, A.HS_CODE
+		, A.CRITERIA_CODE
+		, A.INOUT_DATE_DIFF
+		, A.REMARKS_1
+		, A.REMARKS_2
+		, A.REMARKS_3
+		, A.REFERENCE_NO
+		, A.REGISTER_USER_ID
+		, A.REGISTER_DATE_TIME
+		, A.UPDATE_USER_ID
+		, A.UPDATE_DATE_TIME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		, 'OUT' AS SD_TYPE <!-- STOCK, PLAN,OUT 유형-->
+		, B.CARRYIN_DATE
+		, B.CARRYIN_TIME
+		, B.CD_TYPE
+		, IIF(B.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+		, IIF(ISNULL(B.CD_TYPE, '') != 'Y', 1, 0) AS GENERAL_CNT
+		, B.ECM_TYPE
+		, B.CD_USE_TYPE
+		, B.IMPORT_EXPORT_CLASS
+		, B.VESSEL_FLIGHT
+		, B.VOYAGE
+		, B.AR_DATE
+		, B.AR_TIME
+		, B.COMMODITY_ITEM_LOC
+		, B.LOCATION_PLACE
+		, B.BIG_SIZE_YN
+		, B.SE_INSPECTION_CODE
+		, B.INSPECTION_TYPE
+		, B.INSPECTION_TYPE_A
+		, B.INSPECTION_TYPE_B
+		, B.XRAY_INSPECTION_CODE
+		, B.XRAY_LINE_NO
+		, B.SPECIAL_CODE_1
+		, B.SPECIAL_CODE_2
+		, B.SPECIAL_CODE_3
+		, B.ORIG_COUNTRY
+		, C.DELIVERY_TERMS
+		, dbo.Cryptography(C.CARGO_REFERENCE_NO, C.COMPANY_BUSINESS_NO, 1) AS COMPANY_BUSINESS_NO
+		, C.COMPANY_NAME
+		, C.COMPANY_PRESIDENT
+		, C.CNTR_NO_APP
+		, ISNULL(D.HOLD_YN,'N') AS HOLD_YN
+		, D.HOLD_CODE
+		, D.HOLD_REASON
+		, D.HOLD_RELEASE_YN
+		, D.HOLD_RELEASE_ATTN
+		, D.HOLD_RELEASE_DATE
+		, CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE FUNC_JOB_NO = A.OD_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+		FROM TB_BMS_OUT A WITH (NOLOCK)
+		LEFT JOIN TB_BMS_IN B WITH (NOLOCK)
+		ON A.IN_NO = B.IN_NO
+		LEFT JOIN TB_BMS_OUT_PLAN C WITH (NOLOCK)
+		ON A.OUT_PLAN_NO = C.OUT_PLAN_NO
+		LEFT JOIN (SELECT
+		'Y' AS HOLD_YN
+		,   MAX(OD_JOB_NO) AS OD_JOB_NO
+		,   MAX(HOLD_CODE) AS HOLD_CODE
+		,   MAX(HOLD_REASON) AS HOLD_REASON
+		,	MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+		,	MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+		,	MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+		FROM TB_ECM_OD_HOLD
+		GROUP BY OD_JOB_NO) D
+		ON A.OD_JOB_NO = D.OD_JOB_NO
+		WHERE 1 = 1
+		<if test='srchMode == "notSearch"'>
+		AND 1 = 0
+		</if>
+	</sql>
+	<select id="selectEstiBmsOutList" parameterType="searchBmsOut" resultType="BmsOut" fetchSize="1000">
+		/* BmsChargeMapper.selectEstiBmsOutList : 반출 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+	         , COUNT(*) OVER() AS TOTAL_CNT
+		 	 , SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+	 		 , SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+		  FROM (
+					<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.selectEstiBmsOutList_sql"/>
+					<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchCommonCondi"/>
+					<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchBmsOutListCondi"/>
+				) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	<select id="selectEstiBmsOutListExcel" parameterType="searchBmsOut" resultType="BmsOut" fetchSize="1000">
+		/* BmsChargeMapper.selectEstiBmsOutListExcel : 반출 리스트 엑셀 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+<!-- 		ROW_NUMBER() OVER(<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/> -->
+<!-- 		<if test="defaultSort2 != null and defaultSort2 != ''"> -->
+<!-- 			, ${defaultSort2} -->
+<!-- 		</if> -->
+<!-- 		) AS NUM -->
+<!-- 		,  -->
+		  OUT_NO
+		, CUSTOMS_REPORT_NO
+		, LAST_POD_DATE
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='STATUS_ORDER_CARGO'
+		                                                        AND CODE =  LAST_POD_STATUS) AS LAST_POD_STATUS
+		, LAST_POD_RAQ_DATE
+		, APPROVAL_DATE
+    	, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='CARRYOUT_TYPE'
+		                                                        AND CODE =  OUT_CLASS) AS OUT_CLASS
+		, OUT_APPROVAL_NO
+		, OD_JOB_NO
+		, IN_NO
+		, OUT_PLAN_NO
+		, CARGO_REFERENCE_NO
+		, BL_NO
+		, MBL_NO
+		, DO_NO
+		, DO_DATE
+		, CUSTOMS_CODE
+		, CUSTOMS_DPT_CODE
+		, CUSTOMER_CODE
+		, CUSTOMER_NAME
+		, BROKER_CODE
+		, BROKER_NAME
+		, (SELECT CODE  FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='UNIT_PIECES'
+								AND CODE =  PKG_TYPE) AS PKG_TYPE
+		, APPROVAL_CT
+		, APPROVAL_WT
+		, APPROVAL_CBM
+		, OUT_CT
+		, OUT_WT
+		, OUT_CBM
+		, CARRYOUT_DATE
+		, CARRYOUT_TIME
+		, APPROVAL_DUTY
+		, APPROVAL_APPRAISE_VALUE
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='PAYMENT_TYPE'
+		                                                        AND CODE =  INS_PAYMENT_TYPE) AS INS_PAYMENT_TYPE
+		, CURRENCY_CODE
+		, INS_PAYMENT_YN
+		, INSPECT_YN
+		, HS_CODE
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='IMPORT_REQUIREMENT_LAW_CODE'
+		                                                        AND CODE =  CRITERIA_CODE) AS CRITERIA_CODE
+		, INOUT_DATE_DIFF
+		, REMARKS_1
+		, REMARKS_2
+		, REMARKS_3
+		, REFERENCE_NO
+		, REGISTER_USER_ID
+		, REGISTER_DATE_TIME
+		, UPDATE_USER_ID
+		, UPDATE_DATE_TIME
+		, REGISTER_USER_NAME
+		, UPDATE_USER_NAME
+		, SD_TYPE
+		, CARRYIN_DATE
+		, CARRYIN_TIME
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='CD_TYPE'
+		                                                        AND CODE =  CD_TYPE) AS CD_TYPE
+		, SIMPLE_CNT
+		, GENERAL_CNT
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='CCL_ECOMMERCE_TYPE'
+																AND CODE =  ECM_TYPE) AS ECM_TYPE
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='USE_GUBN'
+																AND CODE =  CD_USE_TYPE) AS CD_USE_TYPE
+		, IMPORT_EXPORT_CLASS
+		, VESSEL_FLIGHT
+		, VOYAGE
+		, AR_DATE
+		, AR_TIME
+		, COMMODITY_ITEM_LOC
+		, LOCATION_PLACE
+		, BIG_SIZE_YN
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='SE_INSPECTION_CODE'
+							AND CODE =  SE_INSPECTION_CODE ) AS SE_INSPECTION_CODE
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='INSPECTION_TYPE'
+							AND CODE =  INSPECTION_TYPE ) AS INSPECTION_TYPE
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='INSPECTION_TYPE'
+							AND CODE =  INSPECTION_TYPE_A ) AS INSPECTION_TYPE_A
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='INSPECTION_TYPE'
+							AND CODE =  INSPECTION_TYPE_B ) AS INSPECTION_TYPE_B
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='SE_INSPECTION_CODE'
+							AND CODE =  XRAY_INSPECTION_CODE ) AS XRAY_INSPECTION_CODE
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='XRAY_LINE_NO'
+							AND CODE =  XRAY_LINE_NO ) AS XRAY_LINE_NO
+		, SPECIAL_CODE_1
+		, SPECIAL_CODE_2
+		, SPECIAL_CODE_3
+		, ORIG_COUNTRY
+		, DELIVERY_TERMS
+		, COMPANY_BUSINESS_NO
+		, COMPANY_NAME
+		, COMPANY_PRESIDENT
+		, CNTR_NO_APP
+		, HOLD_YN
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='HOLD_CODE'
+							AND CODE =  HOLD_CODE ) AS HOLD_CODE
+		, HOLD_REASON
+		, HOLD_RELEASE_YN
+		, HOLD_RELEASE_ATTN
+		, HOLD_RELEASE_DATE
+		, FILE_SHARE
+		FROM (
+			<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.selectEstiBmsOutList_sql"/>
+			<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchCommonCondi"/>
+			<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchBmsOutListCondi"/>
+		) AA
+<!-- 		<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/> -->
+<!-- 		<if test="defaultSort2 != null and defaultSort2 != ''"> -->
+<!-- 			, ${defaultSort2} -->
+<!-- 		</if> -->
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+		<sql id="selectEstiBmsInventoryInList_sql">
+			SELECT A.IN_NO
+				 , A.CUSTOMS_REPORT_NO
+				 , A.LAST_POD_DATE
+				 , A.LAST_POD_STATUS
+				 , A.LAST_POD_5TL_STATUS
+				 , A.LAST_POD_RAQ_DATE
+				 , A.LAST_POD_R48_DATE
+				 , A.IN_CLASS
+				 , A.IN_APPROVAL_NO
+				 , A.TRANS_PERIOD_DATE
+				 , A.OD_JOB_NO
+				 , A.IN_PLAN_NO
+				 , A.CARGO_REFERENCE_NO
+				 , A.BL_NO
+				 , A.MBL_NO
+				 , A.CUSTOMS_CODE
+				 , A.CUSTOMS_DPT_CODE
+				 , A.INSPECT_YN
+				 , A.NOTICE_INSPECT_YN
+				 , A.LOCATION_PLACE
+				 , A.IMPORT_EXPORT_CLASS
+				 , A.VESSEL_FLIGHT
+				 , A.VOYAGE
+				 , A.AR_DATE
+				 , A.AR_TIME
+				 , A.COMMODITY_ITEM_LOC
+				 , A.SHIPPER_CODE
+				 , A.SHIPPER_NAME
+				 , A.SHIPPER_ADDRESS_1
+				 , A.SHIPPER_ADDRESS_2
+				 , A.CONSIGNEE_CODE
+				 , A.CONSIGNEE_NAME
+				 , A.CONSIGNEE_ADDRESS_1
+				 , A.CONSIGNEE_ADDRESS_2
+				 , dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+				 , dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_TEL, 1) AS CONSIGNEE_TEL
+				 , A.NOTIFY_CODE
+				 , A.NOTIFY_NAME
+				 , A.NOTIFY_ADDRESS_1
+				 , A.NOTIFY_ADDRESS_2
+				 , dbo.Cryptography(A.OD_JOB_NO, A.NOTIFY_TEL, 1) AS NOTIFY_TEL
+				 , A.SPECIAL_CODE_1
+				 , A.SPECIAL_CODE_2
+				 , A.SPECIAL_CODE_3
+				 , A.CARRIER_CODE
+				 , A.CNTR_NO
+				 , A.ORIG_COUNTRY
+				 , A.SE_INSPECTION_CODE
+				 , A.SIMPLE_AUTH_NAME
+				 , A.INSPECTION_TYPE
+				 , A.INSPECTION_TYPE_A
+				 , A.INSPECTION_TYPE_B
+				 , A.XRAY_INSPECTION_CODE
+				 , A.XRAY_LINE_NO
+				 , A.XRAY_CHECK
+				 , A.PALN5EM_INSPECTION_CODE
+				 , A.CD_TYPE
+				 , IIF(A.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+				 , IIF(ISNULL(A.CD_TYPE, '') != 'Y', 1, 0) AS GENERAL_CNT
+				 , A.ECM_TYPE
+				 , A.CD_USE_TYPE
+				 , A.BIG_SIZE_YN
+				 , A.AMOUNT_USD
+				 , A.XRAY_SCAN_CT
+				 , A.XRAY_IMAGE_CT
+				 , A.CARRYIN_DATE
+				 , A.CARRYIN_TIME
+				 , A.OUT_NOTICE_DATE
+				 , A.PERIOD_OVER_DATE
+				 , A.CUSTOMER_CODE
+				 , A.CUSTOMER_NAME
+				 , A.FWD_CODE
+				 , A.FWD_NAME
+				 , A.PKG_TYPE
+				 , A.EX_CT
+				 , A.EX_WT
+				 , A.EX_CBM
+				 , A.CT
+				 , A.WT
+				 , A.CBM
+				 , A.ACCIDENT_CLASS
+				 , A.ACCIDENT_CT
+				 , A.ACCIDENT_WT
+				 , A.ACCIDENT_CBM
+				 , A.STOCK_CT
+				 , A.STOCK_WT
+				 , A.STOCK_CBM
+				 , A.CARRYOUT_DATE
+				 , A.CARRYOUT_TIME
+				 , A.REMARKS_1
+				 , A.REMARKS_2
+				 , A.REMARKS_3
+				 , A.REFERENCE_NO
+				 , A.MGN_ISSUE_YN
+				 , A.REGISTER_USER_ID
+				 , A.REGISTER_DATE_TIME
+				 , A.UPDATE_USER_ID
+				 , A.UPDATE_DATE_TIME
+				 , A.ASSIGN_YN
+				 , A.CRIME_SELECTION_YN
+				 ,  'STOCK' AS SD_TYPE
+				 , (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				 , (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+				 , CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE FUNC_JOB_NO = A.OD_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+				 , ISNULL(B.HOLD_YN,'N') AS HOLD_YN
+				 , B.HOLD_CODE
+				 , B.HOLD_REASON
+				 , B.HOLD_RELEASE_YN
+				 , B.HOLD_RELEASE_ATTN
+				 , B.HOLD_RELEASE_DATE
+			FROM TB_BMS_IN A WITH (NOLOCK)
+					 LEFT JOIN (SELECT
+									'Y' AS HOLD_YN
+									 ,   MAX(OD_JOB_NO) AS OD_JOB_NO
+									 ,   MAX(HOLD_CODE) AS HOLD_CODE
+									 ,   MAX(HOLD_REASON) AS HOLD_REASON
+									 ,	MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+									 ,	MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+									 ,	MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+								FROM TB_ECM_OD_HOLD
+								GROUP BY OD_JOB_NO) B
+							   ON A.OD_JOB_NO = B.OD_JOB_NO
+			WHERE 1 = 1
+			<if test='srchMode == "notSearch"'>
+			AND 1 = 0
+			</if>
+			  AND STOCK_WT > 0
+		</sql>
+	<select id="selectEstiBmsInventoryInList" parameterType="searchBmsOut" resultType="InventoryIn" fetchSize="1000">
+		/* BmsChargeMapper.selectEstiBmsInventoryInList : 재고 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+	         , COUNT(*) OVER() AS TOTAL_CNT
+		 	 , SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+	 		 , SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+		  FROM (
+					<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.selectEstiBmsInventoryInList_sql"/>
+					<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchCommonCondi"/>
+					<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchInventoryListCondi"/>
+				) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	<select id="selectEstiBmsInventoryInListExcel" parameterType="searchDisposal" resultType="InventoryIn" fetchSize="1000">
+		/* bmsDisposal.selectEstiBmsInventoryInListExcel  : 재고 리스트 엑셀다운 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+<!-- 			ROW_NUMBER() OVER(<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/> -->
+<!-- 			<if test="defaultSort2 != null and defaultSort2 != ''"> -->
+<!-- 				, ${defaultSort2} -->
+<!-- 			</if> -->
+<!-- 			) AS NUM -->
+<!-- 			,  -->
+			IN_NO
+			, CUSTOMS_REPORT_NO
+			, LAST_POD_DATE
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='STATUS_ORDER_CARGO'
+		                                                        AND CODE =  LAST_POD_STATUS) AS LAST_POD_STATUS
+			, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='STATUS_ORDER_CARGO'
+																AND CODE =  LAST_POD_5TL_STATUS) AS LAST_POD_5TL_STATUS
+			, LAST_POD_RAQ_DATE
+			, LAST_POD_R48_DATE
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='CARRYIN_TYPE'
+																AND CODE =  IN_CLASS) AS IN_CLASS
+			, IN_APPROVAL_NO
+			, TRANS_PERIOD_DATE
+			, OD_JOB_NO
+			, IN_PLAN_NO
+			, CARGO_REFERENCE_NO
+			, BL_NO
+			, MBL_NO
+			, CUSTOMS_CODE
+			, CUSTOMS_DPT_CODE
+			, INSPECT_YN
+			, NOTICE_INSPECT_YN
+			, LOCATION_PLACE
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='BOUND_TYPE_UNION'
+								AND CODE =  IMPORT_EXPORT_CLASS ) AS IMPORT_EXPORT_CLASS
+			, VESSEL_FLIGHT
+			, VOYAGE
+			, AR_DATE
+			, AR_TIME
+			, COMMODITY_ITEM_LOC
+			, SHIPPER_CODE
+			, SHIPPER_NAME
+			, SHIPPER_ADDRESS_1
+			, SHIPPER_ADDRESS_2
+			, CONSIGNEE_CODE
+			, CONSIGNEE_NAME
+			, CONSIGNEE_ADDRESS_1
+			, CONSIGNEE_ADDRESS_2
+			, CONSIGNEE_BUSINESS_ID
+			, CONSIGNEE_TEL
+			, NOTIFY_CODE
+			, NOTIFY_NAME
+			, NOTIFY_ADDRESS_1
+			, NOTIFY_ADDRESS_2
+			, NOTIFY_TEL
+			, SPECIAL_CODE_1
+			, SPECIAL_CODE_2
+			, SPECIAL_CODE_3
+			, CARRIER_CODE
+			, CNTR_NO
+			, ORIG_COUNTRY
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='SE_INSPECTION_CODE'
+								AND CODE =  SE_INSPECTION_CODE ) AS SE_INSPECTION_CODE
+			, SIMPLE_AUTH_NAME
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='INSPECTION_TYPE'
+								AND CODE =  INSPECTION_TYPE ) AS INSPECTION_TYPE
+		     , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='INSPECTION_TYPE'
+								AND CODE =  INSPECTION_TYPE_A ) AS INSPECTION_TYPE_A
+		     , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='INSPECTION_TYPE'
+								AND CODE =  INSPECTION_TYPE_B ) AS INSPECTION_TYPE_B
+			 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='SE_INSPECTION_CODE'
+								AND CODE =  XRAY_INSPECTION_CODE ) AS XRAY_INSPECTION_CODE
+		     , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='XRAY_LINE_NO'
+								AND CODE =  XRAY_LINE_NO ) AS XRAY_LINE_NO
+		     , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='XRAY_INSPECTION_TYPE'
+								AND CODE =  XRAY_CHECK ) AS XRAY_CHECK
+		     , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='SE_INSPECTION_CODE'
+								AND CODE =  PALN5EM_INSPECTION_CODE ) AS PALN5EM_INSPECTION_CODE
+			, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='CD_TYPE'
+								AND CODE =  CD_TYPE) AS CD_TYPE
+			, SIMPLE_CNT
+			, GENERAL_CNT
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='CCL_ECOMMERCE_TYPE'
+																AND CODE =  ECM_TYPE) AS ECM_TYPE
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='USE_GUBN'
+																AND CODE =  CD_USE_TYPE) AS CD_USE_TYPE
+			, BIG_SIZE_YN
+			, AMOUNT_USD
+			, XRAY_SCAN_CT
+			, XRAY_IMAGE_CT
+			, CARRYIN_DATE
+			, CARRYIN_TIME
+			, OUT_NOTICE_DATE
+			, PERIOD_OVER_DATE
+			, CUSTOMER_CODE
+			, CUSTOMER_NAME
+			, FWD_CODE
+			, FWD_NAME
+		     , (SELECT CODE  FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='UNIT_PIECES'
+								AND CODE =  PKG_TYPE) AS PKG_TYPE
+			, EX_CT
+			, EX_WT
+			, EX_CBM
+			, CT
+			, WT
+			, CBM
+		    , (SELECT CODE FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='ABNORMALITY_CODE'
+																AND CODE =  ACCIDENT_CLASS) AS ACCIDENT_CLASS
+			, ACCIDENT_CT
+			, ACCIDENT_WT
+			, ACCIDENT_CBM
+			, STOCK_CT
+			, STOCK_WT
+			, STOCK_CBM
+			, CARRYOUT_DATE
+			, CARRYOUT_TIME
+			, REMARKS_1
+			, REMARKS_2
+			, REMARKS_3
+			, REFERENCE_NO
+			, MGN_ISSUE_YN
+			, ASSIGN_YN
+			, CRIME_SELECTION_YN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME
+			, FILE_SHARE
+			, REGISTER_USER_NAME
+			, UPDATE_USER_NAME
+		FROM (
+			<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.selectEstiBmsInventoryInList_sql" />
+			<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchCommonCondi"/>
+			<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchInventoryListCondi"/>
+		) AA
+<!-- 		<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/> -->
+<!-- 		<if test="defaultSort2 != null and defaultSort2 != ''"> -->
+<!-- 			, ${defaultSort2} -->
+<!-- 		</if> -->
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	<sql id ="selectEstiBmsOutPlanList_sql">
+		SELECT
+		    	A.OUT_PLAN_NO
+			, A.NOTIFY_DATE_TIME
+			, A.APPROVAL_CLASS
+			, A.OUT_CLASS
+			, A.OUT_APPROVAL_NO
+			, A.APPROVAL_DATE
+			, A.APPROVAL_CANCEL_DATE
+			, A.BONDED_WAREHOUSE_NO
+			, A.LOCATION_CONFIRM_NO
+			, A.IN_NO
+			, A.CARGO_REFERENCE_NO
+			, A.BL_NO
+			, A.MBL_NO
+			, A.DUTY
+			, A.APPRAISE_VALUE
+			, A.DELIVERY_TERMS
+			, A.VESSEL_FLIGHT
+			, A.VOYAGE
+			, A.AR_DATE
+			, A.COMMODITY_ITEM_LOC
+			, dbo.Cryptography(A.CARGO_REFERENCE_NO, A.COMPANY_BUSINESS_NO, 1) AS COMPANY_BUSINESS_NO
+			, A.COMPANY_NAME
+			, A.COMPANY_PRESIDENT
+			, A.PKG_TYPE
+			, A.APPROVAL_CT
+			, A.APPROVAL_WT
+			, A.APPROVAL_CBM
+			, A.INS_PAYMENT_TYPE
+			, A.CURRENCY_CODE
+			, A.INS_PAYMENT_YN
+			, A.CNTR_NO_APP
+			, A.OUT_YN
+			, A.INSPECT_YN
+			, A.HS_CODE
+			, A.CRITERIA_CODE
+			, A.APPCANCEL_DATE_DIFF
+			, A.INAPP_DATE_DIFF
+			, A.OUT_SCAN_DATE_TIME
+			, A.REGISTER_USER_ID
+			, A.REGISTER_DATE_TIME
+			, A.UPDATE_USER_ID
+			, A.UPDATE_DATE_TIME
+			, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			,  'PLAN' AS SD_TYPE <!-- STOCK, PLAN,OUT 유형-->
+			, CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE FUNC_JOB_NO = B.OD_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+			, B.CARRYIN_DATE
+			, B.CARRYIN_TIME
+			, B.CD_TYPE
+			, IIF(B.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+			, IIF(ISNULL(B.CD_TYPE, '') != 'Y', 1, 0) AS GENERAL_CNT
+			, ISNULL(B.AMOUNT_USD, 0) AS AMOUNT_USD
+			, B.CD_USE_TYPE
+			, B.ECM_TYPE
+			, B.BIG_SIZE_YN
+			, B.SE_INSPECTION_CODE
+			, B.INSPECTION_TYPE
+			, B.INSPECTION_TYPE_A
+			, B.INSPECTION_TYPE_B
+			, B.XRAY_INSPECTION_CODE
+			, B.AR_TIME
+			, B.XRAY_LINE_NO
+			, B.XRAY_SCAN_CT
+			, B.XRAY_IMAGE_CT
+			, B.OD_JOB_NO
+			, ISNULL(C.HOLD_YN,'N') AS HOLD_YN
+			, C.HOLD_CODE
+			, C.HOLD_REASON
+			, C.HOLD_RELEASE_YN
+			, C.HOLD_RELEASE_ATTN
+			, C.HOLD_RELEASE_DATE
+			, B.CUSTOMER_CODE
+			, B.CUSTOMER_NAME
+			, B.SPECIAL_CODE_1
+			, B.SPECIAL_CODE_2
+			, B.SPECIAL_CODE_3
+			, B.ORIG_COUNTRY
+			, B.REFERENCE_NO
+			, 'BMS06' AS LAST_POD_STATUS
+		FROM TB_BMS_OUT_PLAN A WITH (NOLOCK)
+		LEFT JOIN TB_BMS_IN B WITH (NOLOCK)
+		ON A.IN_NO = B.IN_NO
+		LEFT JOIN (SELECT
+		'Y' AS HOLD_YN
+		,   MAX(OD_JOB_NO) AS OD_JOB_NO
+		,   MAX(HOLD_CODE) AS HOLD_CODE
+		,   MAX(HOLD_REASON) AS HOLD_REASON
+		,	MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+		,	MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+		,	MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+		FROM TB_ECM_OD_HOLD
+		GROUP BY OD_JOB_NO) C
+		ON B.OD_JOB_NO = C.OD_JOB_NO
+		WHERE 1 = 1
+		<if test='srchMode == "notSearch"'>
+		AND 1 = 0
+		</if>
+	</sql>
+	<select id="selectEstiBmsOutPlanList" parameterType="searchBmsOut" resultType="BmsOutPlan" fetchSize="1000">
+		/* BmsChargeMapper.selectEstiBmsOutPlanList : 반출승인/승인취하 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+	         , COUNT(*) OVER() AS TOTAL_CNT
+		 	 , SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+	 		 , SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+		  FROM (
+					<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.selectEstiBmsOutPlanList_sql"/>
+					<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchCommonCondi"/>
+					<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchBmsOutPlanListCondi"/>
+				) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectEstiBmsOutPlanListExcel" parameterType="searchBmsOut" resultType="BmsOutPlan" fetchSize="1000">
+		/* BmsChargeMapper.selectEstiBmsOutPlanListExcel : 반출승인/승인취하 엑셀다운 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+<!-- 		ROW_NUMBER() OVER(<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/> -->
+<!-- 		<if test="defaultSort2 != null and defaultSort2 != ''"> -->
+<!-- 			, ${defaultSort2} -->
+<!-- 		</if> -->
+<!-- 		) AS NUM -->
+<!-- 		,  -->
+		  (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		AND GROUP_CODE ='STATUS_ORDER_CARGO'
+		AND CODE =  LAST_POD_STATUS) AS LAST_POD_STATUS
+		, OUT_PLAN_NO
+		, NOTIFY_DATE_TIME
+		, APPROVAL_CLASS
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='CARRYOUT_TYPE'
+		                                                        AND CODE =  OUT_CLASS) AS OUT_CLASS
+		, OUT_APPROVAL_NO
+		, APPROVAL_DATE
+		, APPROVAL_CANCEL_DATE
+		, BONDED_WAREHOUSE_NO
+		, LOCATION_CONFIRM_NO
+		, IN_NO
+		, CARGO_REFERENCE_NO
+		, BL_NO
+		, MBL_NO
+		, DUTY
+		, APPRAISE_VALUE
+		, DELIVERY_TERMS
+		, VESSEL_FLIGHT
+		, VOYAGE
+		, AR_DATE
+		, COMMODITY_ITEM_LOC
+		, COMPANY_BUSINESS_NO
+		, COMPANY_NAME
+		, COMPANY_PRESIDENT
+		, (SELECT CODE  FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='UNIT_PIECES'
+								AND CODE =  PKG_TYPE) AS PKG_TYPE
+		, APPROVAL_CT
+		, APPROVAL_WT
+		, APPROVAL_CBM
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='PAYMENT_TYPE'
+		                                                        AND CODE =  INS_PAYMENT_TYPE) AS INS_PAYMENT_TYPE
+		, CURRENCY_CODE
+		, INS_PAYMENT_YN
+		, CNTR_NO_APP
+		, OUT_YN
+		, INSPECT_YN
+		, HS_CODE
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='IMPORT_REQUIREMENT_LAW_CODE'
+		                                                        AND CODE =  CRITERIA_CODE) AS CRITERIA_CODE
+		, APPCANCEL_DATE_DIFF
+		, INAPP_DATE_DIFF
+		, OUT_SCAN_DATE_TIME
+		, REGISTER_USER_ID
+		, REGISTER_DATE_TIME
+		, UPDATE_USER_ID
+		, UPDATE_DATE_TIME
+		, REGISTER_USER_NAME
+		, UPDATE_USER_NAME
+		, SD_TYPE
+		, FILE_SHARE
+		, CARRYIN_DATE
+		, CARRYIN_TIME
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='CD_TYPE'
+		                                                        AND CODE =  CD_TYPE) AS CD_TYPE
+		, SIMPLE_CNT
+		, GENERAL_CNT
+		, AMOUNT_USD
+	    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='CCL_ECOMMERCE_TYPE'
+																AND CODE =  ECM_TYPE) AS ECM_TYPE
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='USE_GUBN'
+																AND CODE =  CD_USE_TYPE) AS CD_USE_TYPE
+		, BIG_SIZE_YN
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='SE_INSPECTION_CODE'
+							AND CODE =  SE_INSPECTION_CODE ) AS SE_INSPECTION_CODE
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='INSPECTION_TYPE'
+							AND CODE =  INSPECTION_TYPE ) AS INSPECTION_TYPE
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='INSPECTION_TYPE'
+							AND CODE =  INSPECTION_TYPE_A ) AS INSPECTION_TYPE_A
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='INSPECTION_TYPE'
+							AND CODE =  INSPECTION_TYPE_B ) AS INSPECTION_TYPE_B
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='SE_INSPECTION_CODE'
+							AND CODE =  XRAY_INSPECTION_CODE ) AS XRAY_INSPECTION_CODE
+		, AR_TIME
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+					AND GROUP_CODE ='XRAY_LINE_NO'
+					AND CODE =  XRAY_LINE_NO ) AS XRAY_LINE_NO
+		, XRAY_SCAN_CT
+		, XRAY_IMAGE_CT
+		, OD_JOB_NO
+		, HOLD_YN
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='HOLD_CODE'
+							AND CODE =  HOLD_CODE ) AS HOLD_CODE
+		, HOLD_REASON
+		, HOLD_RELEASE_YN
+		, HOLD_RELEASE_ATTN
+		, HOLD_RELEASE_DATE
+		, CUSTOMER_CODE
+		, CUSTOMER_NAME
+		, SPECIAL_CODE_1
+		, SPECIAL_CODE_2
+		, SPECIAL_CODE_3
+		, ORIG_COUNTRY
+		, REFERENCE_NO
+		FROM (
+				<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.selectEstiBmsOutPlanList_sql"/>
+				<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchCommonCondi"/>
+				<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchBmsOutPlanListCondi"/>
+		) AA
+<!-- 		<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/> -->
+<!-- 		<if test="defaultSort2 != null and defaultSort2 != ''"> -->
+<!-- 			, ${defaultSort2} -->
+<!-- 		</if> -->
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	<sql id="selectEstiBmsEstimateList_sql" >
+			SELECT
+				A.ESTIMATE_NO
+				 , A.APPROVAL_DATE
+				 , A.OUT_CLASS
+				 , A.OUT_APPROVAL_NO
+				 , A.OD_JOB_NO
+				 , A.OUT_NO
+				 , A.IN_NO
+				 , A.OUT_PLAN_NO
+				 , A.CARGO_REFERENCE_NO
+				 , A.BL_NO
+				 , A.MBL_NO
+				 , A.DO_NO
+				 , A.CARRYIN_DATE
+				 , A.CARRYIN_TIME
+				 , A.CARRYOUT_DATE
+				 , A.CARRYOUT_TIME
+				 , A.ESTIMATE_DATE
+				 , A.OUT_CT
+				 , A.OUT_WT
+				 , A.OUT_CBM
+				 , A.CUSTOMER_CODE
+				 , A.CUSTOMER_NAME
+				 , A.BROKER_CODE
+				 , A.BROKER_NAME
+				 , A.REMARKS
+				 , A.APPLY_CLASS
+				 , A.APPLY_NO
+				 , A.ASSIGN_YN
+				 , A.FREE_YNC
+				 , A.APPROVAL_DUTY
+				 , A.APPROVAL_APPRAISE_VALUE
+				 , A.STORAGE_APPLY_DATE
+				 , A.STORAGE_WT
+				 , A.STORAGE_DAYS
+				 , A.STORAGE_DAY_BASIC
+				 , A.STORAGE_DAY_BASIC_AMOUNT
+				 , A.STORAGE_DAY_OVER
+				 , A.STORAGE_DAY_OVER_AMOUNT
+				 , A.STORAGE_DAY_RATE
+				 , A.STORAGE_DAY_RATE_AMOUNT
+				 , A.STORAGE_WEIGHT_BASIC
+				 , A.STORAGE_WEIGHT_BASIC_AMOUNT
+				 , A.STORAGE_WEIGHT_OVER
+				 , A.STORAGE_WEIGHT_OVER_AMOUNT
+				 , A.STORAGE_WEIGHT_RATE
+				 , A.STORAGE_WEIGHT_RATE_AMOUNT
+				 , A.STORAGE_OVER_PER
+				 , A.STORAGE_OVER_AMOUNT
+				 , A.STORAGE_DISCOUNT_PER
+				 , A.STORAGE_DISCOUNT_AMOUNT
+				 , A.STORAGE_AMOUNT
+				 , A.WORK_APPLY_DATE
+				 , A.WORK_WT
+				 , A.WORK_PAY_BASIC
+				 , A.WORK_PAY_RATE
+				 , A.WORK_AMOUNT
+				 , A.VAT_YN
+				 , A.AMOUNT_LOC
+				 , A.AMOUNT_VAT_LOC
+				 , A.AMOUNT_TOTAL_LOC
+				 , A.AMOUNT_RCV
+				 , A.RCV_YN
+				 , A.INVOICE_YN
+				 , A.REGISTER_USER_ID
+				 , A.REGISTER_DATE_TIME
+				 , A.UPDATE_USER_ID
+				 , A.UPDATE_DATE_TIME
+				 , (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				 , (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+				 ,  'ESTIMATE' AS SD_TYPE
+				 , B.CD_TYPE
+				 , IIF(B.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+				 , IIF(ISNULL(B.CD_TYPE, '') != 'Y', 1, 0) AS GENERAL_CNT
+				 , B.ECM_TYPE
+				 , B.CD_USE_TYPE
+				 , B.IMPORT_EXPORT_CLASS
+				 , B.VESSEL_FLIGHT
+				 , B.VOYAGE
+				 , B.AR_DATE
+				 , B.AR_TIME
+				 , B.COMMODITY_ITEM_LOC
+				 , B.LOCATION_PLACE
+				 , B.BIG_SIZE_YN
+				 , B.SE_INSPECTION_CODE
+				 , B.INSPECTION_TYPE
+				 , B.INSPECTION_TYPE_A
+				 , B.INSPECTION_TYPE_B
+				 , B.XRAY_INSPECTION_CODE
+				 , B.XRAY_LINE_NO
+				 , B.SPECIAL_CODE_1
+				 , B.SPECIAL_CODE_2
+				 , B.SPECIAL_CODE_3
+				 , B.ORIG_COUNTRY
+				 , B.REFERENCE_NO
+				 , B.AMOUNT_USD
+				 , C.DELIVERY_TERMS
+				 , dbo.Cryptography(C.CARGO_REFERENCE_NO, C.COMPANY_BUSINESS_NO, 1) AS COMPANY_BUSINESS_NO
+				 , C.COMPANY_NAME
+				 , C.COMPANY_PRESIDENT
+				 , C.CNTR_NO_APP
+				 , ISNULL(D.HOLD_YN,'N') AS HOLD_YN
+				 , D.HOLD_CODE
+				 , D.HOLD_REASON
+				 , D.HOLD_RELEASE_YN
+				 , D.HOLD_RELEASE_ATTN
+				 , D.HOLD_RELEASE_DATE
+				 , E.INSPECT_YN   /* out.승인검사대상 */
+				 , E.DO_DATE
+				 , ISNULL(E.PKG_TYPE,B.PKG_TYPE) AS PKG_TYPE
+				 , CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE FUNC_JOB_NO = A.OD_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+				 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='CARRYOUT_TYPE'
+		                                                        AND CODE =  A.OUT_CLASS) AS OUT_CLASS_NAME
+				 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='WAREHOUSE_RATES'
+		                                                        AND CODE =  A.APPLY_CLASS) AS APPLY_CLASS_NAME
+
+				 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='CD_TYPE'
+		                                                        AND CODE =  B.CD_TYPE) AS CD_TYPE_NAME
+			FROM TB_BMS_ESTIMATE  A
+					 LEFT JOIN TB_BMS_IN B WITH (NOLOCK)
+							   ON A.IN_NO = B.IN_NO
+					 LEFT JOIN TB_BMS_OUT_PLAN C WITH (NOLOCK)
+							   ON A.OUT_PLAN_NO = C.OUT_PLAN_NO
+					 LEFT JOIN (SELECT
+									'Y' AS HOLD_YN
+									 ,   MAX(OD_JOB_NO) AS OD_JOB_NO
+									 ,   MAX(HOLD_CODE) AS HOLD_CODE
+									 ,   MAX(HOLD_REASON) AS HOLD_REASON
+									 ,	MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+									 ,	MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+									 ,	MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+								FROM TB_ECM_OD_HOLD
+								GROUP BY OD_JOB_NO) D
+							   ON A.OD_JOB_NO = D.OD_JOB_NO
+					 LEFT JOIN TB_BMS_OUT E WITH (NOLOCK)
+							   ON A.OUT_NO = E.OUT_NO
+			WHERE (1=1)
+			<if test='srchMode == "notSearch"'>
+			AND 1 = 0
+			</if>
+	</sql>
+	<select id="selectEstiBmsEstimateList" parameterType="searchBmsOut" resultType="gridBmsEstimate" fetchSize="1000">
+		/* BmsChargeMapper.selectEstiBmsEstimateList : 창고료 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+		, COUNT(*) OVER() AS TOTAL_CNT
+		, SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+		, SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+		FROM (
+			<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.selectEstiBmsEstimateList_sql"/>
+			<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchBmsEstimateListCondi"/>
+		) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	<select id="selectEstimateListByInNoList" parameterType="HashMap" resultType="BmsEstimate" fetchSize="1000">
+		/* BmsChargeMapper.selectEstimateListByInNoList : 메뉴_창고료정산, 프린트시, 반입번호로 창고료 리스트 조회 */
+		SELECT
+			esti.*
+			, code.NAME AS APPLY_CLASS_NAME
+		FROM TB_BMS_ESTIMATE esti
+		LEFT JOIN (
+			SELECT 
+			<choose>
+				<when test="userLanguage != null and userLanguage != ''">
+					NAME_${userLanguage}
+				</when>
+				<otherwise>
+					NAME_DEFAULT
+				</otherwise>
+			</choose> 
+				AS NAME
+				, CODE
+			FROM TB_SMS_CODE_DETAIL
+			WHERE ENT_CODE = #{srchEntCode} 
+		    	AND GROUP_CODE = #{groupCode}
+		) code ON code.CODE = esti.APPLY_CLASS
+		WHERE esti.ESTIMATE_DATE >= CONVERT(CHAR(10), #{startEstimateDate}, 23)
+			AND esti.ESTIMATE_DATE <![CDATA[<=]]> CONVERT(CHAR(10), #{endEstimateDate}, 23)
+			AND esti.CUSTOMER_CODE <![CDATA[<>]]> '1098302763'
+		<!-- WHERE esti.IN_NO IN (<foreach collection="inNoList" item="_inNo" separator=",">#{_inNo}</foreach>) -->
+	</select>
+	
+	<select id="selectBmsOutListByMrnMsnOfCargoNo" parameterType="HashMap" resultType="HashMap">
+		/* BmsChargeMapper.selectBmsOutListByMrnMsnOfCargoNo : MRN + MSN 으로 화물관리번호 반출 리스트 조회 */
+		SELECT 
+			OUT_CT
+			, OUT_WT
+		FROM TB_BMS_OUT WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO LIKE #{mrn} + #{msn} + '%';
+	</select>
+	
+	<select id="selectApplyClassNameList" parameterType="HashMap" resultType="HashMap">
+		/* BmsChargeMapper.selectApplyClassNameList : 메뉴_창고료정산, 프린트시, 창고료조회시 요율구분 리스트 조회 */
+		SELECT
+		<choose>
+			<when test="userLanguage != null and userLanguage != ''">
+				NAME_${userLanguage}
+			</when>
+			<otherwise>
+				NAME_DEFAULT
+			</otherwise>
+		</choose>
+			, CODE
+		FROM TB_SMS_CODE_DETAIL
+		WHERE ENT_CODE = #{srchEntCode} 
+		    AND GROUP_CODE = #{groupCode}
+	</select>
+	
+	<select id="selectTcrNoFromEntBusOtion" parameterType="SearchTcrNo" resultType="String">
+		/* BmsChargeMapper.selectTcrNoFromEntBusOtion : TCR_NO 조회 */
+		SELECT
+			SET_VALUE AS TCR_NO
+		FROM TB_SMS_ENT_BUS_OPTION
+		WHERE ENT_CODE = #{srchEntCode}
+			AND ENT_BUSINESS_CODE = #{srchEntBusinessCode}
+			AND SOLUTION = 'BMS'
+		    AND OPTION_CODE = 'A08'
+	</select>
+	
+	<update id="updateTcrNoFromEntBusOtion" parameterType="SearchTcrNo" >
+		/* BmsChargeMapper.updateTcrNoFromEntBusOtion  : TCR_NO 업데이트 */
+		UPDATE TB_SMS_ENT_BUS_OPTION
+		<set>
+		    SET_VALUE    = #{tcrNo},
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = GETDATE()
+		</set>
+		WHERE ENT_CODE = #{srchEntCode}
+			AND ENT_BUSINESS_CODE = #{srchEntBusinessCode}
+			AND SOLUTION = 'BMS'
+		    AND OPTION_CODE = 'A08'
+
+	</update>
+	
+	<select id="selectEstiBmsEstimateListExcel" parameterType="searchBmsOut" resultType="gridBmsEstimate" fetchSize="1000">
+		/* BmsChargeMapper.selectEstiBmsEstimateListExcel : 창고료 엑셀 다운로드 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+<!-- 		ROW_NUMBER() OVER(<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/> -->
+<!-- 		<if test="defaultSort2 != null and defaultSort2 != ''"> -->
+<!-- 			, ${defaultSort2} -->
+<!-- 		</if> -->
+<!-- 		) AS NUM -->
+<!-- 		,  -->
+		  ESTIMATE_NO
+		, APPROVAL_DATE
+		, OUT_CLASS
+		, OUT_CLASS_NAME
+		, OUT_APPROVAL_NO
+		, OD_JOB_NO
+		, OUT_NO
+		, IN_NO
+		, OUT_PLAN_NO
+		, CARGO_REFERENCE_NO
+		, BL_NO
+		, MBL_NO
+		, DO_NO
+		, CARRYIN_DATE
+		, CARRYIN_TIME
+		, CARRYOUT_DATE
+		, CARRYOUT_TIME
+		, ESTIMATE_DATE
+		, OUT_CT
+		, OUT_WT
+		, OUT_CBM
+		, CUSTOMER_CODE
+		, CUSTOMER_NAME
+		, BROKER_CODE
+		, BROKER_NAME
+		, REMARKS
+		, APPLY_CLASS
+		, APPLY_CLASS_NAME
+		, APPLY_NO
+		, ASSIGN_YN
+		, FREE_YNC
+		, APPROVAL_DUTY
+		, APPROVAL_APPRAISE_VALUE
+		, STORAGE_APPLY_DATE
+		, STORAGE_WT
+		, STORAGE_DAYS
+		, STORAGE_DAY_BASIC
+		, STORAGE_DAY_BASIC_AMOUNT
+		, STORAGE_DAY_OVER
+		, STORAGE_DAY_OVER_AMOUNT
+		, STORAGE_DAY_RATE
+		, STORAGE_DAY_RATE_AMOUNT
+		, STORAGE_WEIGHT_BASIC
+		, STORAGE_WEIGHT_BASIC_AMOUNT
+		, STORAGE_WEIGHT_OVER
+		, STORAGE_WEIGHT_OVER_AMOUNT
+		, STORAGE_WEIGHT_RATE
+		, STORAGE_WEIGHT_RATE_AMOUNT
+		, STORAGE_OVER_PER
+		, STORAGE_OVER_AMOUNT
+		, STORAGE_DISCOUNT_PER
+		, STORAGE_DISCOUNT_AMOUNT
+		, STORAGE_AMOUNT
+		, WORK_APPLY_DATE
+		, WORK_WT
+		, WORK_PAY_BASIC
+		, WORK_PAY_RATE
+		, WORK_AMOUNT
+		, VAT_YN
+		, AMOUNT_LOC
+		, AMOUNT_VAT_LOC
+		, AMOUNT_TOTAL_LOC
+		, AMOUNT_RCV
+		, RCV_YN
+		, (CASE WHEN INVOICE_YN ='Y' THEN '정산' ELSE '매출' END) AS INVOICE_YN
+		, REGISTER_USER_ID
+		, REGISTER_DATE_TIME
+		, UPDATE_USER_ID
+		, UPDATE_DATE_TIME
+		, REGISTER_USER_NAME
+		, UPDATE_USER_NAME
+		, SD_TYPE
+		, CD_TYPE
+		, CD_TYPE_NAME
+		, SIMPLE_CNT
+		, GENERAL_CNT
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='CCL_ECOMMERCE_TYPE'
+																AND CODE =  ECM_TYPE) AS ECM_TYPE
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='USE_GUBN'
+																AND CODE =  CD_USE_TYPE) AS CD_USE_TYPE
+
+		, IMPORT_EXPORT_CLASS
+		, VESSEL_FLIGHT
+		, VOYAGE
+		, AR_DATE
+		, AR_TIME
+		, COMMODITY_ITEM_LOC
+		, LOCATION_PLACE
+		, BIG_SIZE_YN
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='SE_INSPECTION_CODE'
+							AND CODE =  SE_INSPECTION_CODE ) AS SE_INSPECTION_CODE
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='INSPECTION_TYPE'
+							AND CODE =  INSPECTION_TYPE ) AS INSPECTION_TYPE
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='INSPECTION_TYPE'
+							AND CODE =  INSPECTION_TYPE_A ) AS INSPECTION_TYPE_A
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='INSPECTION_TYPE'
+							AND CODE =  INSPECTION_TYPE_B ) AS INSPECTION_TYPE_B
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='SE_INSPECTION_CODE'
+							AND CODE =  XRAY_INSPECTION_CODE ) AS XRAY_INSPECTION_CODE
+		 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='XRAY_LINE_NO'
+							AND CODE =  XRAY_LINE_NO ) AS XRAY_LINE_NO
+		, SPECIAL_CODE_1
+		, SPECIAL_CODE_2
+		, SPECIAL_CODE_3
+		, ORIG_COUNTRY
+		, REFERENCE_NO
+		, AMOUNT_USD
+		, DELIVERY_TERMS
+		, COMPANY_BUSINESS_NO
+		, COMPANY_NAME
+		, COMPANY_PRESIDENT
+		, CNTR_NO_APP
+		, HOLD_YN
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE ='HOLD_CODE'
+							AND CODE =  HOLD_CODE ) AS HOLD_CODE
+		, HOLD_REASON
+		, HOLD_RELEASE_YN
+		, HOLD_RELEASE_ATTN
+		, HOLD_RELEASE_DATE
+		, INSPECT_YN
+		, DO_DATE
+		, (SELECT CODE  FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='UNIT_PIECES'
+								AND CODE =  PKG_TYPE) AS PKG_TYPE
+		, FILE_SHARE
+		FROM (
+			<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.selectEstiBmsEstimateList_sql"/>
+			<include refid="org.yht.exps.express.mapper.bms.BmsChargeMapper.searchBmsEstimateListCondi"/>
+		) AA
+<!-- 		<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/> -->
+<!-- 		<if test="defaultSort2 != null and defaultSort2 != ''"> -->
+<!-- 			, ${defaultSort2} -->
+<!-- 		</if> -->
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	<sql id="searchBmsEstimateListCondi">
+
+
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<when test='srchNoLikeYn == "N"'>
+					AND ${srchNoType} = #{srchNo}
+				</when>
+				<otherwise>
+					<!-- AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%') -->
+					<choose>
+						<when test='searchType == "multi"'>
+						AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND ${srchNoType} = #{srchNo}
+						</otherwise>
+					</choose>
+				</otherwise>
+			</choose>
+		</if>
+
+		<if test='srchDateGbn != "noDateChk"'>
+			<choose>
+				<when test='srchDateType == "dateTime"'>
+					AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+					AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+				</when>
+				<otherwise>
+					AND ${srchDateGbn} >= #{srchStartDate}
+					AND ${srchDateGbn} <![CDATA[<=]]> #{srchEndDate}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchCarryOutType != null and srchCarryOutType != ''">
+			AND E.OUT_CLASS = #{srchCarryOutType} /* 반출구분 */
+		</if>
+		<if test="srchCdType != null and srchCdType != ''">
+			AND CD_TYPE = #{srchCdType} /* 목록구분(통관구분) */
+		</if>
+		<if test="srchCustomerType != null and srchCustomerType != ''">
+			<if test="srchCustomerCode != null and srchCustomerCode != ''">
+				AND B.CUSTOMER_CODE = #{srchCustomerCode}
+			</if>
+			<if test="srchCustomerName != null and srchCustomerName != ''">
+				AND B.CUSTOMER_NAME LIKE CONCAT('%', #{srchCustomerName}, '%')
+			</if>
+			<if test="srchShipperCode != null and srchShipperCode != ''">
+				AND B.SHIPPER_CODE = #{srchShipperCode}
+			</if>
+			<if test="srchShipperName != null and srchShipperName != ''">
+				AND B.SHIPPER_NAME LIKE CONCAT('%', #{srchShipperName}, '%')
+			</if>
+			<if test="srchConsigneeCode != null and srchConsigneeCode != ''">
+				AND B.CONSIGNEE_CODE = #{srchConsigneeCode}
+			</if>
+			<if test="srchConsigneeName != null and srchConsigneeName != ''">
+				AND B.CONSIGNEE_NAME LIKE CONCAT('%', #{srchConsigneeName}, '%')
+			</if>
+			<if test="srchNotifyCode != null and srchNotifyCode != ''">
+				AND B.NOTIFY_CODE = #{srchNotifyCode}
+			</if>
+			<if test="srchNotifyName != null and srchNotifyName != ''">
+				AND B.NOTIFY_NAME LIKE CONCAT('%', #{srchNotifyName}, '%')
+			</if>
+			<if test="srchFwdCode != null and srchFwdCode != ''">
+				AND B.FWD_CODE = #{srchFwdCode}
+			</if>
+			<if test="srchFwdName != null and srchFwdName != ''">
+				AND B.FWD_NAME LIKE CONCAT('%', #{srchFwdName}, '%')
+			</if>
+			<if test="srchDeliveryCode != null and srchDeliveryCode != ''">
+				AND B.DELIVERY_CODE = #{srchDeliveryCode}
+			</if>
+			<if test="srchDeliveryName != null and srchDeliveryName != ''">
+				AND B.DELIVERY_NAME LIKE CONCAT('%', #{srchDeliveryName}, '%')
+			</if>
+			<if test="srchBrokerCode != null and srchBrokerCode != ''">
+				AND A.BROKER_CODE = #{srchBrokerCode}
+			</if>
+			<if test="srchBrokerName != null and srchBrokerName != ''">
+				AND A.BROKER_NAME LIKE CONCAT('%', #{srchBrokerName}, '%')
+			</if>
+			<if test="srchLocationPlaceName != null and srchLocationPlaceName != ''">
+				AND B.LOCATION_PLACE LIKE CONCAT('%', #{srchLocationPlaceName}, '%')
+			</if>
+			<if test="srchRemarks1Name != null and srchRemarks1Name != ''">
+				AND B.REMARKS_1 LIKE CONCAT('%', #{srchRemarks1Name}, '%')
+			</if>
+			<if test="srchRemarks2Name != null and srchRemarks2Name != ''">
+				AND B.REMARKS_2 LIKE CONCAT('%', #{srchRemarks2Name}, '%')
+			</if>
+			<if test="srchRemarks3Name != null and srchRemarks3Name != ''">
+				AND B.REMARKS_3 LIKE CONCAT('%', #{srchRemarks3Name}, '%')
+			</if>
+			<if test="srchCommodityItemLoc != null and srchCommodityItemLoc != ''">
+				AND B.COMMODITY_ITEM_LOC LIKE CONCAT('%', #{srchCommodityItemLoc}, '%')
+			</if>
+		</if>
+		<if test='srchEtcGubn != null and srchEtcGubn == "N"'>
+			AND NOT EXISTS (SELECT 1 FROM TB_BMS_OUT O WITH (NOLOCK) WHERE O.CARGO_REFERENCE_NO = A.CARGO_REFERENCE_NO) /* 기타구분(반출전) */
+		</if>
+	</sql>
+
+	<select id="selectEstimateCargoAndOutApprovalCount" resultType="Integer" parameterType="bmsOut" >
+		/* BmsChargeMapper.selectEstimateCargoAndOutApprovalCount  : 1 보다 크면 중복되어서 추가 등록여부 묻음 */
+		SELECT count(*) FROM TB_BMS_ESTIMATE
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+		<if test="outApprovalNo != null and outApprovalNo != ''">
+			AND OUT_APPROVAL_NO = #{outApprovalNo}
+		</if>
+	</select>
+	<select id="selectBmsEstimateDetail"  parameterType="searchBmsOut" resultType="bmsEstimate" >
+		/* BmsChargeMapper.selectBmsEstimateDetail  : 반출 상세 조회 */
+		SELECT TOP 1
+		  ESTIMATE_NO
+		, APPROVAL_DATE
+		, OUT_CLASS
+		, OUT_APPROVAL_NO
+		, OD_JOB_NO
+		, OUT_NO
+		, IN_NO
+		, OUT_PLAN_NO
+		, CARGO_REFERENCE_NO
+		, BL_NO
+		, MBL_NO
+		, DO_NO
+		, CARRYIN_DATE
+		, CARRYIN_TIME
+		, CARRYOUT_DATE
+		, CARRYOUT_TIME
+		, ESTIMATE_DATE
+		, OUT_CT
+		, OUT_WT
+		, OUT_CBM
+		, CUSTOMER_CODE
+		, CUSTOMER_NAME
+		, BROKER_CODE
+		, BROKER_NAME
+		, REMARKS
+		, APPLY_CLASS
+		, APPLY_NO
+		, ASSIGN_YN
+		, FREE_YNC
+		, APPROVAL_DUTY
+		, APPROVAL_APPRAISE_VALUE
+		, STORAGE_APPLY_DATE
+		, STORAGE_WT
+		, STORAGE_DAYS
+		, STORAGE_DAY_BASIC
+		, STORAGE_DAY_BASIC_AMOUNT
+		, STORAGE_DAY_OVER
+		, STORAGE_DAY_OVER_AMOUNT
+		, STORAGE_DAY_RATE
+		, STORAGE_DAY_RATE_AMOUNT
+		, STORAGE_WEIGHT_BASIC
+		, STORAGE_WEIGHT_BASIC_AMOUNT
+		, STORAGE_WEIGHT_OVER
+		, STORAGE_WEIGHT_OVER_AMOUNT
+		, STORAGE_WEIGHT_RATE
+		, STORAGE_WEIGHT_RATE_AMOUNT
+		, STORAGE_OVER_PER
+		, STORAGE_OVER_AMOUNT
+		, STORAGE_DISCOUNT_PER
+		, STORAGE_DISCOUNT_AMOUNT
+		, STORAGE_AMOUNT
+		, WORK_APPLY_DATE
+		, WORK_WT
+		, WORK_PAY_BASIC
+		, WORK_PAY_RATE
+		, WORK_AMOUNT
+		, VAT_YN
+		, AMOUNT_LOC
+		, AMOUNT_VAT_LOC
+		, AMOUNT_TOTAL_LOC
+		, AMOUNT_RCV
+		, RCV_YN
+		, INVOICE_YN
+		, COM_OD_JOB_NO
+		, ULD_YN
+		, REGISTER_USER_ID
+		, REGISTER_DATE_TIME
+		, UPDATE_USER_ID
+		, UPDATE_DATE_TIME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM
+		TB_BMS_ESTIMATE A
+		where (1=1)
+		<choose>
+			<when test="srchInNo != null and srchInNo != ''">
+				AND IN_NO = #{srchInNo}
+			</when>
+			<when test="srchOutPlanNo != null and srchOutPlanNo != ''">
+				AND OUT_PLAN_NO = #{srchOutPlanNo}
+			</when>
+			<when test="srchOutNo != null and srchOutNo != ''">
+				AND OUT_NO = #{srchOutNo}
+			</when>
+			<otherwise>
+				AND ESTIMATE_NO = #{srchEstimateNo}
+			</otherwise>
+		</choose>
+		ORDER BY ESTIMATE_NO DESC
+	</select>
+	
+	<update id="updateBmsEstimateField"  parameterType="bmsEstimate">
+		/* BmsChargeMapper.updateBmsEstimateField  : 정산료 일부필드 수정 조회 */
+		UPDATE TB_BMS_ESTIMATE
+		<set>
+			REMARKS = #{remarks},
+			APPLY_CLASS = #{applyClass},
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = GETDATE()
+		</set>
+		WHERE ESTIMATE_NO = #{estimateNo}
+	</update>
+
+	<update id="updateBmsOutEstimateYn_Y" parameterType="bmsOut" >
+		/* BmsChargeMapper.updateBmsOutEstimateYn_Y  : 정산 등록후 OUT 테이블에 계산여부 Y로 변경 */
+		UPDATE TB_BMS_OUT
+		<set>
+		    ESTIMATE_YN    = 'Y',
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = GETDATE()
+		</set>
+	WHERE OUT_NO = #{outNo}
+
+	</update>
+
+	<update id="updateBmsOutEstimateYn_N" parameterType="bmsOut" >
+		/* BmsChargeMapper.updateBmsOutEstimateYn_N  : 정산 삭제후 OUT 테이블에 계산여부 N으로 변경 */
+		UPDATE TB_BMS_OUT
+		<set>
+			ESTIMATE_YN    = 'N',
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = GETDATE()
+		</set>
+		WHERE OUT_NO = #{outNo}
+
+	</update>
+	<!--정산료 입력-->
+	<insert id="insertBmsEstimate" parameterType="BmsEstimate" useGeneratedKeys="true" keyProperty="estimateNo">
+		<!-- BmsChargeMapper.insertBmsEstimate 정산료 입력 -->
+		INSERT INTO TB_BMS_ESTIMATE (
+		   APPROVAL_DATE
+		,  OUT_CLASS
+		,  OUT_APPROVAL_NO
+		,  OD_JOB_NO
+		,  COM_OD_JOB_NO
+		,  OUT_NO
+		,  IN_NO
+		,  OUT_PLAN_NO
+		,  CARGO_REFERENCE_NO
+		,  BL_NO
+		,  MBL_NO
+		,  DO_NO
+		,  CARRYIN_DATE
+		,  CARRYIN_TIME
+		,  CARRYOUT_DATE
+		,  CARRYOUT_TIME
+		,  ESTIMATE_DATE
+		,  OUT_CT
+		,  OUT_WT
+		,  OUT_CBM
+		,  CUSTOMER_CODE
+		,  CUSTOMER_NAME
+		,  BROKER_CODE
+		,  BROKER_NAME
+		,  REMARKS
+		,  APPLY_CLASS
+		,  APPLY_NO
+		,  ASSIGN_YN
+		,  FREE_YNC
+		,  APPROVAL_DUTY
+		,  APPROVAL_APPRAISE_VALUE
+		,  STORAGE_APPLY_DATE
+		,  STORAGE_WT
+		,  STORAGE_DAYS
+		,  STORAGE_DAY_BASIC
+		,  STORAGE_DAY_BASIC_AMOUNT
+		,  STORAGE_DAY_OVER
+		,  STORAGE_DAY_OVER_AMOUNT
+		,  STORAGE_DAY_RATE
+		,  STORAGE_DAY_RATE_AMOUNT
+		,  STORAGE_WEIGHT_BASIC
+		,  STORAGE_WEIGHT_BASIC_AMOUNT
+		,  STORAGE_WEIGHT_OVER
+		,  STORAGE_WEIGHT_OVER_AMOUNT
+		,  STORAGE_WEIGHT_RATE
+		,  STORAGE_WEIGHT_RATE_AMOUNT
+		,  STORAGE_OVER_PER
+		,  STORAGE_OVER_AMOUNT
+		,  STORAGE_DISCOUNT_PER
+		,  STORAGE_DISCOUNT_AMOUNT
+		,  STORAGE_AMOUNT
+		,  WORK_APPLY_DATE
+		,  WORK_WT
+		,  WORK_PAY_BASIC
+		,  WORK_PAY_RATE
+		,  WORK_AMOUNT
+		,  VAT_YN
+		,  AMOUNT_LOC
+		,  AMOUNT_VAT_LOC
+		,  AMOUNT_TOTAL_LOC
+		,  AMOUNT_RCV
+		,  RCV_YN
+		,  INVOICE_YN
+		,  REGISTER_USER_ID
+		,  REGISTER_DATE_TIME
+		,  UPDATE_USER_ID
+		,  UPDATE_DATE_TIME
+		,  ULD_YN
+		)
+		VALUES (
+		  #{approvalDate}
+		, #{outClass}
+		, #{outApprovalNo}
+		, #{odJobNo}
+		, #{comOdJobNo}
+		, #{outNo}
+		, #{inNo}
+		, #{outPlanNo}
+		, #{cargoReferenceNo}
+		, #{blNo}
+		, #{mblNo}
+		, #{doNo}
+		, #{carryinDate}
+		, #{carryinTime}
+		, #{carryoutDate}
+		, #{carryoutTime}
+		, #{estimateDate}
+		, #{outCt}
+		, #{outWt}
+		, #{outCbm}
+		, #{customerCode}
+		, #{customerName}
+		, #{brokerCode}
+		, #{brokerName}
+		, #{remarks}
+		, #{applyClass}
+		, #{applyNo}
+		, #{assignYn}
+		, #{freeYnc}
+		, #{approvalDuty}
+		, #{approvalAppraiseValue}
+		, #{storageApplyDate}
+		, #{storageWt}
+		, #{storageDays}
+		, #{storageDayBasic}
+		, #{storageDayBasicAmount}
+		, #{storageDayOver}
+		, #{storageDayOverAmount}
+		, #{storageDayRate}
+		, #{storageDayRateAmount}
+		, #{storageWeightBasic}
+		, #{storageWeightBasicAmount}
+		, #{storageWeightOver}
+		, #{storageWeightOverAmount}
+		, #{storageWeightRate}
+		, #{storageWeightRateAmount}
+		, #{storageOverPer}
+		, #{storageOverAmount}
+		, #{storageDiscountPer}
+		, #{storageDiscountAmount}
+		, #{storageAmount}
+		, #{workApplyDate}
+		, #{workWt}
+		, #{workPayBasic}
+		, #{workPayRate}
+		, #{workAmount}
+		, #{vatYn}
+		, #{amountLoc}
+		, #{amountVatLoc}
+		, #{amountTotalLoc}
+		, #{amountRcv}
+		, #{rcvYn}
+		, #{invoiceYn}
+		, #{registerUserId}
+		, GETDATE()
+		, #{updateUserId}
+		,  GETDATE()
+		, #{uldYn}
+		)
+	</insert>
+
+	<update id="updateBmsEstimate"  parameterType="bmsEstimate">
+		/* BmsChargeMapper.updateBmsEstimate  : 정산료 수정 조회 */
+		UPDATE TB_BMS_ESTIMATE
+		<set>
+			APPROVAL_DATE = #{approvalDate},
+			OUT_CLASS = #{outClass},
+			OUT_APPROVAL_NO = #{outApprovalNo},
+			OD_JOB_NO = #{odJobNo},
+			OUT_NO = #{outNo},
+			IN_NO = #{inNo},
+			OUT_PLAN_NO = #{outPlanNo},
+			CARGO_REFERENCE_NO = #{cargoReferenceNo},
+			BL_NO = #{blNo},
+			MBL_NO = #{mblNo},
+			DO_NO = #{doNo},
+			CARRYIN_DATE = #{carryinDate},
+			CARRYIN_TIME = #{carryinTime},
+			CARRYOUT_DATE = #{carryoutDate},
+			CARRYOUT_TIME = #{carryoutTime},
+			ESTIMATE_DATE = #{estimateDate},
+			OUT_CT = #{outCt},
+			OUT_WT = #{outWt},
+			OUT_CBM = #{outCbm},
+			CUSTOMER_CODE = #{customerCode},
+			CUSTOMER_NAME = #{customerName},
+			BROKER_CODE = #{brokerCode},
+			BROKER_NAME = #{brokerName},
+			REMARKS = #{remarks},
+			APPLY_CLASS = #{applyClass},
+			APPLY_NO = #{applyNo},
+			ASSIGN_YN = #{assignYn},
+			FREE_YNC = #{freeYnc},
+			APPROVAL_DUTY = #{approvalDuty},
+			APPROVAL_APPRAISE_VALUE = #{approvalAppraiseValue},
+			STORAGE_APPLY_DATE = #{storageApplyDate},
+			STORAGE_WT = #{storageWt},
+			STORAGE_DAYS = #{storageDays},
+			STORAGE_DAY_BASIC = #{storageDayBasic},
+			STORAGE_DAY_BASIC_AMOUNT = #{storageDayBasicAmount},
+			STORAGE_DAY_OVER = #{storageDayOver},
+			STORAGE_DAY_OVER_AMOUNT = #{storageDayOverAmount},
+			STORAGE_DAY_RATE = #{storageDayRate},
+			STORAGE_DAY_RATE_AMOUNT = #{storageDayRateAmount},
+			STORAGE_WEIGHT_BASIC = #{storageWeightBasic},
+			STORAGE_WEIGHT_BASIC_AMOUNT = #{storageWeightBasicAmount},
+			STORAGE_WEIGHT_OVER = #{storageWeightOver},
+			STORAGE_WEIGHT_OVER_AMOUNT = #{storageWeightOverAmount},
+			STORAGE_WEIGHT_RATE = #{storageWeightRate},
+			STORAGE_WEIGHT_RATE_AMOUNT = #{storageWeightRateAmount},
+			STORAGE_OVER_PER = #{storageOverPer},
+			STORAGE_OVER_AMOUNT = #{storageOverAmount},
+			STORAGE_DISCOUNT_PER = #{storageDiscountPer},
+			STORAGE_DISCOUNT_AMOUNT = #{storageDiscountAmount},
+			STORAGE_AMOUNT = #{storageAmount},
+			WORK_APPLY_DATE = #{workApplyDate},
+			WORK_WT = #{workWt},
+			WORK_PAY_BASIC = #{workPayBasic},
+			WORK_PAY_RATE = #{workPayRate},
+			WORK_AMOUNT = #{workAmount},
+			VAT_YN = #{vatYn},
+			AMOUNT_LOC = #{amountLoc},
+			AMOUNT_VAT_LOC = #{amountVatLoc},
+			AMOUNT_TOTAL_LOC = #{amountTotalLoc},
+			AMOUNT_RCV = #{amountRcv},
+			RCV_YN = #{rcvYn},
+			INVOICE_YN = 'N',
+			ULD_YN = #{uldYn},
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = GETDATE()
+		</set>
+		WHERE ESTIMATE_NO = #{estimateNo}
+	</update>
+	<update id="updateBmsEstimateInvoiceYnYes"  parameterType="bmsEstimate">
+		/* BmsChargeMapper.updateBmsEstimateInvoiceYnYes  : 정산료 처리여부 Y 조회 */
+		UPDATE TB_BMS_ESTIMATE
+		<set>
+			INVOICE_YN = 'Y',
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = GETDATE()
+		</set>
+		WHERE ESTIMATE_NO = #{estimateNo}
+	</update>
+	<update id="updateBmsEstimateComOdJobNo"  parameterType="bmsEstimate">
+		/* BmsChargeMapper.updateBmsEstimateComOdJobNo  : tb_com_od의 od_job_no업데이트 */
+		UPDATE TB_BMS_ESTIMATE
+		<set>
+			COM_OD_JOB_NO = #{comOdJobNo},
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = GETDATE()
+		</set>
+		WHERE ESTIMATE_NO = #{estimateNo}
+	</update>
+	<update id="updateBmsEstimateCustomer"  parameterType="bmsEstimate">
+		/* BmsChargeMapper.updateBmsEstimateCustomer  : 세금 계산서 계산시, CUSTOMER_CODE, CUSTOMER_NAME을 업데이트 */
+		UPDATE TB_BMS_ESTIMATE
+		<set>
+			CUSTOMER_CODE = #{customerCode},
+			CUSTOMER_NAME = #{customerName},
+			UPDATE_DATE_TIME = GETDATE()
+		</set>
+		WHERE ESTIMATE_NO = #{estimateNo}
+	</update>
+	<!--정산료 신청 삭제 1개-->
+	<delete id="deleteBmsEstimate" parameterType="bmsEstimate">
+		/* BmsChargeMapper.deleteBmsEstimate  : 정산료 신청 */
+		delete from TB_BMS_ESTIMATE where  ESTIMATE_NO = #{estimateNo}
+	</delete>
+
+
+
+	<select id="selectBmsStorageRateList" parameterType="searchBmsRate" resultType="bmsStorageRate">
+		/* BmsChargeMapper.selectBmsStorageRateList :  창고료 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+	         , COUNT(*) OVER() AS TOTAL_CNT
+		  FROM (
+	     	     SELECT
+	     	          A.STORAGE_RATE_NO
+					, A.APPLY_DATE
+					, A.APPLY_CLASS
+					, A.STORAGE_START_DAYS
+					, A.STORAGE_END_DAYS
+					, A.AMOUNT_BASIC
+					, A.AMOUNT_OVER
+					, A.WEIGHT_BASIC
+					, A.WEIGHT_OVER
+					, A.PAY_MIN
+					, A.WT_MIN
+					, A.REGISTER_USER_ID
+					, A.REGISTER_DATE_TIME
+					, A.UPDATE_USER_ID
+					, A.UPDATE_DATE_TIME
+					, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+					, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			  	   FROM TB_BMS_STORAGE_RATE A
+			  	  WHERE 1=1
+			  	  <if test='srchMode == "notSearch"'>
+			  	  AND 1 = 0
+			  	  </if>
+				 <if test="srchApplyDate != null and srchApplyDate != ''">
+				    AND A.APPLY_DATE = #{srchApplyDate}
+				 </if>
+				<if test="srchApplyClass != null and srchApplyClass != ''">
+					AND A.APPLY_CLASS = #{srchApplyClass}
+				</if>
+			   ) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectBmsStorageRateDetailList" parameterType="searchBmsRate" resultType="bmsStorageRate">
+		/* BmsChargeMapper.selectBmsStorageRateDetailList :  창고료 조회 날짜,요율에 따른 구분 리스 */
+		SELECT
+		A.STORAGE_RATE_NO
+		, A.APPLY_DATE
+		, A.APPLY_CLASS
+		, A.STORAGE_START_DAYS
+		, A.STORAGE_END_DAYS
+		, A.AMOUNT_BASIC
+		, A.AMOUNT_OVER
+		, A.WEIGHT_BASIC
+		, A.WEIGHT_OVER
+		, A.PAY_MIN
+		, A.WT_MIN
+		, A.REGISTER_USER_ID
+		, A.REGISTER_DATE_TIME
+		, A.UPDATE_USER_ID
+		, A.UPDATE_DATE_TIME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM TB_BMS_STORAGE_RATE A
+		WHERE 1=1
+		AND A.APPLY_DATE = #{srchApplyDate}
+		AND A.APPLY_CLASS = #{srchApplyClass}
+		ORDER BY A.STORAGE_START_DAYS ASC
+	</select>
+
+	<insert id="insertBmsStorageRate" parameterType="bmsStorageRate" useGeneratedKeys="true" keyProperty="storageRateNo">
+		/* BmsChargeMapper.insertBmsStorageRate  : 보관료 입력 */
+		INSERT INTO TB_BMS_STORAGE_RATE (
+			   APPLY_DATE
+			,  APPLY_CLASS
+			,  STORAGE_START_DAYS
+			,  STORAGE_END_DAYS
+			,  AMOUNT_BASIC
+			,  AMOUNT_OVER
+			,  WEIGHT_BASIC
+			,  WEIGHT_OVER
+			,  PAY_MIN
+			,  WT_MIN
+			,  REGISTER_USER_ID
+			,  REGISTER_DATE_TIME
+			,  UPDATE_USER_ID
+			,  UPDATE_DATE_TIME
+		)
+		VALUES (
+				  #{applyDate}
+			   , #{applyClass}
+			   , #{storageStartDays}
+			   , #{storageEndDays}
+			   , #{amountBasic}
+			   , #{amountOver}
+			   , #{weightBasic}
+			   , #{weightOver}
+			   , #{payMin}
+			   , #{wtMin}
+			   , #{registerUserId}
+			   , getdate()
+			   , #{updateUserId}
+			   , getdate()
+			   )
+	</insert>
+	<update id="updateBmsStorageRate"  parameterType="bmsStorageRate">
+		/* BmsChargeMapper.updateBmsStorageRate  : 보관료 수정 */
+		UPDATE TB_BMS_STORAGE_RATE
+		<set>
+			APPLY_DATE = #{applyDate},
+			APPLY_CLASS = #{applyClass},
+			STORAGE_START_DAYS = #{storageStartDays},
+			STORAGE_END_DAYS = #{storageEndDays},
+			AMOUNT_BASIC = #{amountBasic},
+			AMOUNT_OVER = #{amountOver},
+			WEIGHT_BASIC = #{weightBasic},
+			WEIGHT_OVER = #{weightOver},
+			PAY_MIN = #{payMin},
+			WT_MIN = #{wtMin},
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = getdate()
+		</set>
+		WHERE STORAGE_RATE_NO = #{storageRateNo}
+	</update>
+	<delete id="deleteBmsStorageRate" parameterType="bmsStorageRate">
+		/* BmsChargeMapper.deleteBmsStorageRate  : 보관료 삭제 */
+		delete from TB_BMS_STORAGE_RATE  WHERE STORAGE_RATE_NO = #{storageRateNo}
+	</delete>
+
+	<select id="selectBmsWorkRateList" parameterType="searchBmsRate" resultType="bmsWorkRate">
+		/* BmsChargeMapper.selectBmsWorkRateList :  작업료 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+		, COUNT(*) OVER() AS TOTAL_CNT
+		FROM (
+		SELECT
+		  A.WORK_RATE_NO
+		, A.APPLY_DATE
+		, A.APPLY_CLASS
+		, A.PAY_BASIC
+		, A.PAY_MIN
+		, A.OVER_WEIGHT
+		, A.OVER_PRICE
+		, A.WT_MIN
+		, A.ASSIGN_OVER_PRICE
+		, A.REGISTER_USER_ID
+		, A.REGISTER_DATE_TIME
+		, A.UPDATE_USER_ID
+		, A.UPDATE_DATE_TIME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM TB_BMS_WORK_RATE A
+		WHERE 1=1
+		<if test='srchMode == "notSearch"'>
+		AND 1 = 0
+		</if>
+		<if test="srchApplyDate != null and srchApplyDate != ''">
+			AND A.APPLY_DATE = #{srchApplyDate}
+		</if>
+		<if test="srchApplyClass != null and srchApplyClass != ''">
+			AND A.APPLY_CLASS = #{srchApplyClass}
+		</if>
+		) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	<select id="selectBmsWorkRateDetailList" parameterType="searchBmsRate" resultType="bmsWorkRate">
+		/* BmsChargeMapper.selectBmsWorkRateDetailList :  작업료 조회 */
+		SELECT
+		A.WORK_RATE_NO
+		, A.APPLY_DATE
+		, A.APPLY_CLASS
+		, A.PAY_BASIC
+		, A.PAY_MIN
+		, A.OVER_WEIGHT
+		, A.OVER_PRICE
+		, A.WT_MIN
+		, A.ASSIGN_OVER_PRICE
+		, A.REGISTER_USER_ID
+		, A.REGISTER_DATE_TIME
+		, A.UPDATE_USER_ID
+		, A.UPDATE_DATE_TIME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM TB_BMS_WORK_RATE A
+		WHERE 1=1
+			AND A.APPLY_DATE = #{srchApplyDate}
+			AND A.APPLY_CLASS = #{srchApplyClass}
+	</select>
+	<insert id="insertBmsWorkRate" parameterType="bmsWorkRate" useGeneratedKeys="true" keyProperty="workRateNo">
+		/* BmsChargeMapper.insertBmsWorkRate  : 작업료 입력 */
+		INSERT INTO TB_BMS_WORK_RATE (
+					APPLY_DATE
+				 ,  APPLY_CLASS
+				 ,  PAY_BASIC
+				 ,  PAY_MIN
+				 ,  OVER_WEIGHT
+				 ,  OVER_PRICE
+				 ,  WT_MIN
+			     ,  ASSIGN_OVER_PRICE
+				 ,  REGISTER_USER_ID
+				 ,  REGISTER_DATE_TIME
+				 ,  UPDATE_USER_ID
+				 ,  UPDATE_DATE_TIME
+		)
+		VALUES (
+				  #{applyDate}
+			   , #{applyClass}
+			   , #{payBasic}
+			   , #{payMin}
+			   , #{overWeight}
+			   , #{overPrice}
+			   , #{wtMin}
+			   , #{assignOverPrice}
+			   , #{registerUserId}
+			   , getdate()
+			   , #{updateUserId}
+			   , getdate()
+			   )
+	</insert>
+	<update id="updateBmsWorkRate"  parameterType="bmsWorkRate">
+		/* BmsChargeMapper.updateBmsWorkRate  : 작업료 수정 */
+		UPDATE TB_BMS_WORK_RATE
+		<set>
+			APPLY_DATE = #{applyDate},
+			APPLY_CLASS = #{applyClass},
+			PAY_BASIC = #{payBasic},
+			PAY_MIN = #{payMin},
+			OVER_WEIGHT = #{overWeight},
+			OVER_PRICE = #{overPrice},
+			WT_MIN = #{wtMin},
+			ASSIGN_OVER_PRICE  = #{assignOverPrice},
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = getdate()
+		</set>
+		WHERE WORK_RATE_NO = #{workRateNo}
+	</update>
+	<delete id="deleteBmsWorkRate" parameterType="bmsWorkRate">
+		/* BmsChargeMapper.deleteBmsWorkRate  : 작업료 삭제 */
+		delete from TB_BMS_WORK_RATE where   WORK_RATE_NO = #{workRateNo}
+	</delete>
+
+	<select id="selectBmsStorageRateDetail"  parameterType="searchBmsRate" resultType="bmsStorageRate" >
+		/* BmsChargeMapper.selectBmsStorageRateDetail  : 보관료 상세 조회 */
+		SELECT TOP 1
+			 STORAGE_RATE_NO
+		   , APPLY_DATE
+		   , APPLY_CLASS
+		   , STORAGE_START_DAYS
+		   , STORAGE_END_DAYS
+		   , AMOUNT_BASIC
+		   , AMOUNT_OVER
+		   , WEIGHT_BASIC
+		   , WEIGHT_OVER
+		   , PAY_MIN
+		   , WT_MIN
+		   , REGISTER_USER_ID
+		   , REGISTER_DATE_TIME
+		   , UPDATE_USER_ID
+		   , UPDATE_DATE_TIME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM
+			TB_BMS_STORAGE_RATE A
+		where (1=1)
+				AND STORAGE_RATE_NO = #{srchStorageRateNo}
+	</select>
+
+	<select id="selectBmsWorkRateDetail"  parameterType="searchBmsRate" resultType="bmsWorkRate" >
+		/* BmsChargeMapper.selectBmsWorkRateDetail  : 작업료 상세 조회 */
+		SELECT TOP 1
+				WORK_RATE_NO
+				   ,  APPLY_DATE
+				   ,  APPLY_CLASS
+				   ,  PAY_BASIC
+				   ,  PAY_MIN
+				   ,  OVER_WEIGHT
+				   ,  OVER_PRICE
+				   ,  WT_MIN
+				   , ASSIGN_OVER_PRICE
+				   , REGISTER_USER_ID
+				   , REGISTER_DATE_TIME
+				   , UPDATE_USER_ID
+				   , UPDATE_DATE_TIME
+				   , (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				   , (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM
+			dbo.TB_BMS_WORK_RATE A
+		where (1=1)
+		  AND  A.APPLY_DATE = #{srchApplyDate}
+		  AND  A.APPLY_CLASS = #{srchApplyClass}
+	</select>
+
+	<select id="selectBmsApplyNoAndWorkDays"  parameterType="searchBmsRate" resultType="BmsRateBase" >
+		/* BmsChargeMapper.selectBmsApplyNoByEstimateDate  : 발행번호 Max 매출일자 기준 조회 */
+		SELECT  FORMAT( ISNULL(MAX(APPLY_NO),0) +1,'0000') AS  APPLY_NO
+		     <!--, dbo.GET_DATE_DIFF_WORK_DAYS(#{srchCarryinDate}, #{srchCarryoutDate}) AS STORAGE_DAYS
+		     , DATEDIFF(DAY, #{srchCarryinDate}, #{srchCarryoutDate}) AS STORAGE_ALL_DAYS-->
+		     <!-- 보관일수 매출일자 기준으로 변경 2025.11.03 2sowell -->
+		     , dbo.GET_DATE_DIFF_WORK_DAYS(#{srchCarryinDate}, #{srchEstimateDate}) AS STORAGE_DAYS
+		     , DATEDIFF(DAY, #{srchCarryinDate}, #{srchEstimateDate}) AS STORAGE_ALL_DAYS
+		FROM TB_BMS_ESTIMATE
+		WHERE APPLY_CLASS =#{srchApplyClass} AND ESTIMATE_DATE =#{srchEstimateDate} AND ESTIMATE_NO <![CDATA[<>]]> #{srchEstimateNo}
+	</select>
+
+	<select id="selectBmsStorageRateBase"  parameterType="searchBmsRate" resultType="bmsStorageRate" >
+		/* BmsChargeMapper.selectBmsStorageRateBase  : 작업료 반입일자, 보관일수, 요율구분에 따른  조회 */
+		SELECT TOP 1
+					 STORAGE_RATE_NO
+				   , APPLY_DATE
+				   , APPLY_CLASS
+				   , STORAGE_START_DAYS
+				   , STORAGE_END_DAYS
+				   , AMOUNT_BASIC
+				   , AMOUNT_OVER
+				   , WEIGHT_BASIC
+				   , WEIGHT_OVER
+				   , PAY_MIN
+				   , WT_MIN
+				   , CASE WHEN #{srchStorgeDays} BETWEEN A.STORAGE_START_DAYS AND A.STORAGE_END_DAYS THEN 'A' ELSE 'B' END AS STORAGE_DAYS_CHECK
+		FROM
+				TB_BMS_STORAGE_RATE A
+				WHERE A.APPLY_DATE = (
+								 SELECT MAX(APPLY_DATE)
+                                      FROM TB_BMS_STORAGE_RATE
+                                      WHERE APPLY_DATE <![CDATA[<=]]> #{srchCarryinDate}
+										AND  APPLY_CLASS = #{srchApplyClass}
+                                      )/* 반입일자 작은것중에 MAX */
+<!-- 					AND (CASE WHEN (#{srchStorgeDays} > 999) THEN 999 ELSE #{srchStorgeDays} END) BETWEEN A.STORAGE_START_DAYS AND A.STORAGE_END_DAYS /* 보관일수 */ -->
+					AND A.APPLY_CLASS = #{srchApplyClass}
+		ORDER BY STORAGE_DAYS_CHECK, STORAGE_END_DAYS DESC	<!-- 조회하는 적용일자에 보관일수와 맞는 데이터가 없으면 종료일이 가장 큰값으로 처리 -->
+	</select>
+	<select id="selectBmsWorkRateBase"  parameterType="searchBmsRate" resultType="bmsWorkRate" >
+		/* BmsChargeMapper.selectBmsWorkRateBase  : 작업료 상세 조회 */
+		SELECT TOP 1
+					  WORK_RATE_NO
+				   ,  APPLY_DATE
+				   ,  APPLY_CLASS
+				   ,  PAY_BASIC
+				   ,  PAY_MIN
+				   ,  OVER_WEIGHT
+				   ,  OVER_PRICE
+				   ,  WT_MIN
+                   , ASSIGN_OVER_PRICE
+		FROM
+			TB_BMS_WORK_RATE  A
+			WHERE
+				  A.APPLY_DATE = ( SELECT MAX(APPLY_DATE) FROM TB_BMS_WORK_RATE
+								   WHERE APPLY_DATE <![CDATA[<=]]> #{srchCarryinDate}
+									 AND  APPLY_CLASS = #{srchApplyClass}
+								  )   /* 반입일자 작은것중에 MAX */
+					AND A.APPLY_CLASS = #{srchApplyClass} /* 요율구분  */
+	</select>
+	<select id="selectBmsInvoiceNo" parameterType="bmsOut" resultType="String">
+		/* BmsChargeMapper.selectBmsInvoiceNo  : 계산서 정산 번호 리턴 */
+		          
+     		SELECT
+				  odChgInv.INVOICE_NO
+
+			FROM TB_COM_OD_CHG_INVOICE odChgInv
+			
+			INNER JOIN TB_COM_OD od
+			ON odChgInv.OD_JOB_NO = od.OD_JOB_NO
+
+			INNER JOIN TB_SAS_INVOICE inv
+			ON inv.INVOICE_JOB_NO = odChgInv.INVOICE_JOB_NO
+				
+			WHERE  1=1
+			
+			AND odChgInv.OD_JOB_NO = #{odJobNo}
+			AND inv.BL_NO = #{blNo}
+			
+			
+	<!-- 	SELECT TOP 1 
+		       INVOICE_NO 
+		FROM TB_SAS_INVOICE A
+		WHERE A.OD_JOB_NO = #{odJobNo}
+		 AND A.BL_NO =#{blNo}
+		 ORDER BY A.INVOICE_JOB_NO DESC -->
+	</select>
+
+	<select id="selectBmsCustomerInfo" parameterType="bmsOut" resultType="bmsCustomerInfo">
+		/* BmsChargeMapper.selectBmsCustomerInfo  : 계산서 정산 번호 리턴 */
+		SELECT TOP 1
+			   A.CUSTOMER_CODE
+			 , A.CUSTOMER_NAME
+			 , C.ATTN
+			 , A.ATTN_HP
+			 , C.TEL
+			 , C.EMAIL
+			 , dbo.Cryptography(A.REGISTRATION_CODE,  B.BUSINESS_ID , 1) AS BUSINESS_NO  /* 확정시 이곳 변경 예정 */
+		from TB_SMS_CUSTOMER A
+		LEFT JOIN VTB_SMS_BUSINESS_REG_INFO B
+			ON B.REGISTRATION_CODE = A.REGISTRATION_CODE
+			AND B.ENT_CODE = A.ENT_CODE
+		LEFT JOIN TB_SMS_CUSTOMER_ATTN C
+			ON C.ENT_CODE = A.ENT_CODE
+			AND C.CUSTOMER_CODE = A.CUSTOMER_CODE
+			AND C.EBILL_YN = 'Y'
+			AND C.EMAIL_USE_YN = 'Y'
+		WHERE A.ENT_CODE = #{entCode}
+		<choose>
+			<when test="companyBusinessNo != null and companyBusinessNo != ''">
+				AND dbo.Cryptography(A.REGISTRATION_CODE,  B.BUSINESS_ID , 1) = #{companyBusinessNo}
+			</when>
+			<otherwise>
+				AND A.CUSTOMER_CODE  = #{customerCode}
+			</otherwise>
+		</choose>
+
+	</select>
+	<insert id="insertBmsHoliday" parameterType="bmsHoliday" >
+		INSERT INTO TB_SMS_HOLIDAY(HOLIDAY_DATE)
+		VALUES (#{holidayDate})
+	</insert>
+
+	<update id="updateBmsHoliday" parameterType="bmsHoliday" >
+		UPDATE TB_SMS_HOLIDAY
+		SET HOLIDAY_DATE = #{holidayDate}
+		WHERE HOLIDAY_DATE = #{oldHolidayDate}
+	</update>
+
+	<delete id="deleteBmsHoliday" parameterType="bmsHoliday" >
+		DELETE  TB_SMS_HOLIDAY
+		WHERE HOLIDAY_DATE = #{oldHolidayDate}
+
+	</delete>
+
+	<select id="selectBmsHolidayList" parameterType="searchBmsRate" resultType="bmsHoliday">
+		/* BmsChargeMapper.selectBmsHolidayList : 창고료 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+		, COUNT(*) OVER() AS TOTAL_CNT
+		, 0 AS TOTAL_SIMPLE_CNT
+		, 0 AS TOTAL_GENERAL_CNT
+		FROM (
+				SELECT
+					HOLIDAY_DATE
+				  , HOLIDAY_DATE AS OLD_HOLIDAY_DATE
+				  , 'R' AS CRUD_MODE
+				FROM TB_SMS_HOLIDAY
+				  WHERE HOLIDAY_DATE  LIKE CONCAT( #{srchYyyy}, '%')
+		) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	<insert id="insertTbSasInvoiceTax" parameterType="HashMap">
+		INSERT INTO TB_SAS_INVOICE (
+					  INVOICE_JOB_NO
+				   ,  ENT_CODE
+				   ,  ENT_BUSINESS_CODE
+				   ,  INVOICE_NO
+				   ,  INVOICE_NO_CUSTOMER
+				   ,  INVOICE_NO_GROUP
+				   ,  PRINT_GROUP_NO
+				   ,  SOLUTION
+				   ,  BOUND
+				   ,  BOUND_TYPE
+				   ,  LOCAL_OVERSEA
+				   ,  AR_AP
+				   ,  DOC_ISSUE_TYPE
+				   ,  HBL_INV_YN
+				   ,  PREPAID_YN
+				   ,  OD_JOB_NO
+				   ,  BL_NO
+				   ,  INVOICE_DATE
+				   ,  ACCOUNT_CODE
+				   ,  ACCOUNT_NAME
+				   ,  ACCOUNT_ATTN_ID
+				  	<if test="attn != null and attn != ''">
+				   ,  ACCOUNT_ATTN
+				   </if>
+				   <if test="tel != null and tel != ''">
+				   ,  ACCOUNT_TEL
+				   </if>
+				   ,  ACCOUNT_FAX
+				   ,  PAYMENT_ACCOUNT_CODE
+				   ,  CURRENCY_CODE_CUR
+				   ,  EXRATE_TYPE
+				   ,  EXRATE_DATE
+				   ,  EXCHANGE_RATE
+				   ,  AMOUNT_CUR
+				   ,  AMOUNT_VAT_CUR
+				   ,  AMOUNT_TOTAL_CUR
+				   ,  DR_AMOUNT_TOTAL_CUR
+				   ,  CR_AMOUNT_TOTAL_CUR
+				   ,  CURRENCY_CODE_LOC
+				   ,  AMOUNT_LOC
+				   ,  AMOUNT_VAT_LOC
+				   ,  AMOUNT_TOTAL_LOC
+				   ,  DR_AMOUNT_TOTAL_LOC
+				   ,  CR_AMOUNT_TOTAL_LOC
+				   ,  CURRENCY_TOTAL
+				   ,  EXRATE_USD
+				   ,  AMOUNT_TOTAL_USD
+				   ,  REGISTER_USER_ID
+				   ,  REGISTER_DATE_TIME
+				   ,  UPDATE_USER_ID
+				   ,  UPDATE_DATE_TIME
+		)
+		VALUES
+		(
+			    #{invoiceJobNo}
+			 ,  #{entCode}
+			 ,  #{entBusinessCode}
+			 ,  #{invoiceNo}
+			 ,  ''
+			 ,  NULL
+			 ,  ''
+			 ,  'BMS'
+			 ,  'AIR'
+			 ,  'IMP'
+			 ,  'LOCAL'
+			 ,  #{arAp}
+			 ,  'OP-GENERAL'
+			 ,  'Y'
+			 ,  'N'
+			 ,  #{comOdJobNo}
+			 ,  #{blNo}
+			 ,  #{invoiceDate}
+			 ,  #{accountCode}
+			 ,  #{accountName}
+			 ,  ''
+			 <if test="attn != null and attn != ''">
+			 ,  #{attn}
+			 </if>
+			 <if test="tel != null and tel != ''">
+			 ,  #{tel}
+			 </if>
+			 ,  ''
+			 ,  ''
+			 ,  #{currencyCodeCur}
+			 ,  ''
+			 ,  ''
+			 ,  #{exchangeRate}
+			 ,  #{amountCur}
+			 ,  #{amountVatCur}
+			 ,  #{amountTotalCur}
+			 ,  0
+			 ,  0
+			 ,  #{currencyCodeLoc}
+			 ,  #{amountLoc}
+			 ,  #{amountVatLoc} 
+			 ,  #{amountTotalLoc}
+			 ,  #{amountTotalLoc}
+			 ,  0
+			 ,  #{currencyTotal}
+			 ,  0
+			 ,  0
+			 ,  #{updateUserId}
+			 ,  GETDATE()
+			 ,  #{updateUserId}
+			 ,  GETDATE()
+		)
+	</insert>
+	<insert id="insertTbSasInvoiceItemTax" parameterType="HashMap">
+         INSERT TB_SAS_INVOICE_ITEM
+         (    INVOICE_JOB_NO
+			, CHARGE_SEQ_NO
+			, OD_JOB_NO
+			, AR_AP
+			, CHARGE_CODE
+			, CHARGE_NAME
+			, FREIGHT_TERM
+			, VAT_YNX
+			, VAT_PERCENT
+			, CURRENCY_CODE_CUR
+			, EXCHANGE_RATE
+			, RATE_MULTIPLY
+			, RATE_QTY_WT
+			, RATE_CUR
+			, AMOUNT_CUR
+			, AMOUNT_VAT_CUR
+			, AMOUNT_TOTAL_CUR
+			, CURRENCY_CODE_LOC
+			, RATE_LOC
+			, AMOUNT_LOC
+			, AMOUNT_VAT_LOC
+			, AMOUNT_TOTAL_LOC
+			, INV_CUR_YN
+			, VAT_JOB_NO
+			, VAT_ISSUE_YN
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME
+			, EXRATE_USD
+			, AMOUNT_USD
+			, AMOUNT_VAT_USD
+			, AMOUNT_TOTAL_USD
+		 )
+		 VALUES (
+			 #{invoiceJobNo}
+			  , #{chargeSeqNo}
+			  , #{comOdJobNo}
+			  , #{arAp}
+			  , 'WHC'
+			  , #{chargeName}	<!-- '창고료' .. 기존 하드코딩삭제 후 요율구분에 따른 운임명 넣기 2026.02.25 2sowell-->
+			  , ''
+			  , 'Y'
+			  , #{vatPercent}
+			  , #{currencyCodeCur}
+			  , #{exchangeRate}
+			  , ''
+			  , 0
+			  , #{rateCur}
+			  , #{amountCur}
+			  , #{amountVatCur}
+			  , #{amountTotalCur}
+			  , #{currencyCodeLoc}
+			  , #{rateLoc}
+			  , #{amountLoc}
+			  , #{amountVatLoc}
+			  , #{amountTotalLoc}
+			  , 'N'
+			  , ''
+			  , 'N'
+			  , #{updateUserId}
+			  , GETDATE()
+			  , 1
+			  , 0
+			  , 0
+			  , 0
+		 )
+	</insert>
+	<select id="selectChargeStorageDupCount"  resultType="Integer" parameterType="bmsStorageRate" >
+		SELECT COUNT(*) AS CNT FROM TB_BMS_STORAGE_RATE
+		WHERE
+			APPLY_DATE = #{applyDate}
+			AND APPLY_CLASS =#{applyClass}
+	</select>
+	<select id="selectChargeWorkDupCount"  resultType="Integer" parameterType="bmsWorkRate" >
+		SELECT COUNT(*) AS CNT FROM TB_BMS_WORK_RATE
+		WHERE
+			APPLY_DATE = #{applyDate}
+		  AND APPLY_CLASS =#{applyClass}
+	</select>
+	<select id="selectChargeStorageRateCombo"  resultType="bmsStorageRate" >
+		SELECT APPLY_DATE
+			 ,  APPLY_NAME
+		FROM (
+				 SELECT '1' AS SEQ_SORT
+					  ,  '적용일자' AS APPLY_NAME
+					  ,'' AS APPLY_DATE
+				 UNION
+				 SELECT  '2' AS SEQ_SORT
+					  , APPLY_DATE AS APPLY_NAME
+					  , APPLY_DATE  from TB_BMS_STORAGE_RATE TBSR
+				 group by APPLY_DATE
+			 )T
+		order by SEQ_SORT ASC, APPLY_DATE DESC
+	</select>
+	<select id="selectChargeWorkRateCombo"  resultType="bmsWorkRate" >
+		SELECT APPLY_DATE
+			 ,  APPLY_NAME
+		FROM (
+				 SELECT '1' AS SEQ_SORT
+					  ,  '적용일자' AS APPLY_NAME
+					  ,'' AS APPLY_DATE
+				 UNION
+				 SELECT  '2' AS SEQ_SORT
+					  , APPLY_DATE AS APPLY_NAME
+					  , APPLY_DATE  from TB_BMS_WORK_RATE TBWR
+				 group by APPLY_DATE
+			 )T
+		order by SEQ_SORT ASC, APPLY_DATE DESC
+	</select>
+	
+	<select id="selectOneEstimate"  parameterType="HashMap" resultType="bmsEstimate" >
+		/* BmsChargeMapper.selectOneEstimate  : 창고료 상세 조회 */
+		SELECT TOP 1
+		*
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+		, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM
+		TB_BMS_ESTIMATE A
+		where (1=1)
+		<choose>
+			<when test="inNo != null and inNo != ''">
+				AND IN_NO = #{inNo}
+			</when>
+			<when test="outPlanNo != null and outPlanNo != ''">
+				AND OUT_PLAN_NO = #{outPlanNo}
+			</when>
+			<when test="outNo != null and outNo != ''">
+				AND OUT_NO = #{outNo}
+			</when>
+			<otherwise>
+				AND ESTIMATE_NO = #{estimateNo}
+			</otherwise>
+		</choose>
+		ORDER BY ESTIMATE_NO DESC
+	</select>
+	
+	<select id="selectCustomerOfInOut"  parameterType="HashMap" resultType="HashMap" >
+		/* BmsChargeMapper.selectCustomerOfInOut  : 반입(with 반출)의 화주 조회 */
+		SELECT TOP 1
+			_in.CUSTOMER_CODE AS IN_CUSTOMER_CODE
+			, (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER cus
+			   INNER JOIN VTB_SMS_BUSINESS_REG_INFO tbri ON tbri.ENT_CODE = cus.ENT_CODE AND tbri.REGISTRATION_CODE = cus.REGISTRATION_CODE
+			   		WHERE cus.ENT_CODE = #{entCode} AND cus.CUSTOMER_CODE = _in.CUSTOMER_CODE) AS IN_CUSTOMER_NAME
+			, _out.CUSTOMER_CODE AS OUT_CUSTOMER_CODE
+			, (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER cus
+			   INNER JOIN VTB_SMS_BUSINESS_REG_INFO tbri ON tbri.ENT_CODE = cus.ENT_CODE AND tbri.REGISTRATION_CODE = cus.REGISTRATION_CODE
+			   		WHERE cus.ENT_CODE = #{entCode} AND cus.CUSTOMER_CODE = _out.CUSTOMER_CODE) AS OUT_CUSTOMER_NAME
+			, _in.*
+		FROM TB_BMS_IN AS _in WITH (NOLOCK) 
+		LEFT JOIN TB_BMS_OUT AS _out WITH (NOLOCK)
+			ON _out.IN_NO = _in.IN_NO
+		where (1=1)
+		<choose>
+			<when test="inNo != null and inNo != ''">
+				AND _in.IN_NO = #{inNo}
+			</when>
+			<when test="outPlanNo != null and outPlanNo != ''">
+				AND _out.OUT_PLAN_NO = #{outPlanNo}
+			</when>
+			<when test="outNo != null and outNo != ''">
+				AND _out.OUT_NO = #{outNo}
+			</when>
+			<otherwise>
+				AND 1 = 0
+			</otherwise>
+		</choose>
+	</select>
+	
+	<select id="checkCustomerInfo"  parameterType="HashMap" resultType="Integer" >
+		/* BmsChargeMapper.checkCustomerInfo  : 사업자정보 조회 */
+		SELECT count(*) 
+		FROM TB_SMS_CUSTOMER cus
+	   	INNER JOIN TB_SMS_BUSINESS_REG_INFO tbri ON tbri.ENT_CODE = cus.ENT_CODE AND tbri.REGISTRATION_CODE = cus.REGISTRATION_CODE
+	   	WHERE cus.ENT_CODE = #{entCode}
+	   		AND cus.CUSTOMER_CODE = #{customerCode}
+	</select>
+	
+	<update id="updateCustomerInfoForTax" parameterType="SearchTcrNo" >
+		/* BmsChargeMapper.updateCustomerInfoForTax  : 계산서 거래처정보 업데이트 */
+		UPDATE TB_SMS_CUSTOMER
+		<set>
+		    ATTN = #{attn},
+			TEL = #{tel},
+			EMAIL = #{email},
+			UPDATE_DATE_TIME = GETDATE()
+		</set>
+		WHERE ENT_CODE = #{entCode}
+	   		AND CUSTOMER_CODE = #{customerCode}
+	</update>
+	
+	<select id="selectBmsCustomerChargeInfo" parameterType="bmsCustomerChargeInfo" resultType="bmsCustomerChargeInfo">
+		/* BmsChargeMapper.selectBmsCustomerChageInfo  : 창고료정산 > 화주정보 팝업 > 화주 조회 */
+		SELECT TOP 1
+			   cus.CUSTOMER_CODE
+			 , cus.CUSTOMER_NAME
+			 , cus.TEL
+			 , attn.ATTN_ID
+			 , attn.ATTN
+			 , attn.TEL AS EBILL_TEL
+			 , attn.EMAIL
+			 , cus.ADDRESS
+			 , cus.ADDRESS_A
+			 , reg.BUSINESS_ID AS BUSINESS_NO
+			 , reg.BUSINESS_CONDITION
+			 , reg.BUSINESS_TYPE
+			 , reg.BUSINESS_PRESIDENT
+			 , cus.REGISTRATION_CODE
+		FROM TB_SMS_CUSTOMER cus
+		
+		LEFT JOIN TB_SMS_CUSTOMER_BUSINESS cbus
+		ON cbus.ENT_CODE = cus.ENT_CODE
+		AND cbus.CUSTOMER_CODE = cus.CUSTOMER_CODE
+		
+		LEFT JOIN TB_SMS_CUSTOMER_ATTN attn
+		ON attn.ENT_CODE = cus.ENT_CODE
+		AND attn.CUSTOMER_CODE = cus.CUSTOMER_CODE
+		AND attn.EBILL_YN = 'Y'
+		AND attn.EMAIL_USE_YN = 'Y'
+		
+		LEFT JOIN VTB_SMS_BUSINESS_REG_INFO reg
+		ON reg.REGISTRATION_CODE = cus.REGISTRATION_CODE
+		AND reg.ENT_CODE = cus.ENT_CODE
+		
+		WHERE cus.ENT_CODE = #{entCode}
+		<choose>
+			<when test="customerCode != null and customerCode != ''">
+				<if test="customerCode != null and customerCode != ''">
+					AND cus.CUSTOMER_CODE = #{customerCode}
+				</if>
+			</when>
+			<otherwise>
+				<if test="businessNo != null and businessNo != ''">
+				AND (reg.BUSINESS_ID = #{businessNo} OR cus.CUSTOMER_CODE = #{businessNo})
+				</if>
+			</otherwise>
+		</choose>
+		
+		ORDER BY attn.ATTN_ID
+	</select>
+	
+	<select id="selectBmsBusRegistrationCode" parameterType="bmsCustomerChargeInfo" resultType="String">
+		/* BmsChargeMapper.selectBmsBusRegistrationCode : 사업자정보 관리코드 조회 */
+		SELECT
+			TOP 1 REGISTRATION_CODE
+		FROM VTB_SMS_BUSINESS_REG_INFO
+		WHERE ENT_CODE = #{entCode}
+		AND BUSINESS_ID = #{businessNo}
+	</select>
+	
+	<select id="selectBmsCustomerRegistrationCode" parameterType="bmsCustomerChargeInfo" resultType="String">
+		/* BmsChargeMapper.selectBmsCustomerRegistrationCode : 화주사업자정보 관리코드 생성 */
+		SELECT
+			 CONCAT(#{entCode},REPLICATE('0',5-LEN(ISNULL(SUBSTRING(MAX(REGISTRATION_CODE),6,5),0)+1)) ,ISNULL(SUBSTRING(MAX(REGISTRATION_CODE),6,5),0)+1) AS REGISTRATION_CODE
+		FROM TB_SMS_BUSINESS_REG_INFO
+		WHERE ENT_CODE = #{entCode}
+	</select>
+	
+	<insert id="insertBmsCustomerChargeInfo" parameterType="bmsCustomerChargeInfo">
+		/* BmsChargeMapper.insertBmsCustomerChargeInfo : 화주 생성 */
+		INSERT INTO TB_SMS_CUSTOMER (
+			 ENT_CODE
+			,CUSTOMER_CODE
+			,CUSTOMER_GROUP
+			,CUSTOMER_TYPE
+			,CUSTOMER_BUS_TYPE
+			,REGISTRATION_CODE
+			,HEAD_OFFICE_YN
+			,LANGUAGE_CODE
+			,CUSTOMER_NAME
+			,CUSTOMER_NAME_ENG
+			,ADDRESS
+			,ADDRESS_A
+			,TEL
+			,INVOICE_PERIOD
+			,PRICE_SETTLEMENT_TYPE
+			,PRICE_SETTLEMENT_DAY
+			,PRICE_PREPAID_YN
+			,CREDIT_RATING
+			,CREDIT_DAY
+			,CREDIT_LIMIT_AMOUNT
+			,CURRENCY_CODE
+			,EXRATE_TYPE
+			,EXRATE_ROUND_TYPE
+			,AMOUNT_ROUND_TYPE
+			,EBILL_SEND_YN
+			,EMBARGO_YN
+			,USE_YN
+			,BUSINESS_SETTLEMENT_YEAR
+			,USE_CONFIRM_YN
+			,INVOICE_SLIP_TRANS_YN
+			,CREATE_TYPE
+			,L_AR_YN
+			,L_AP_YN
+			,O_AR_YN
+			,O_AP_YN
+			,FSC_YN
+			,SCC_YN
+			,AR_DC_RATE
+			,CONSOL_USE_YN
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)
+		VALUES (
+			 #{entCode}
+			,#{customerCode}
+			,#{customerCode}
+			,'CU'
+			,'1'
+			,#{registrationCode}
+			,'N'
+			,'KOR'
+			,#{customerName}
+			,#{customerName}
+			,#{address}
+			,#{addressA}
+			,#{tel}
+			,'TO-D'
+			,'CASH'
+			,0
+			,'N'
+			,'C'
+			,0
+			,0
+			,'KRW'
+			,'BUYING'
+			,1
+			,1
+			,'Y'
+			,'N'
+			,'Y'
+			,0
+			,'Y'
+			,'Y'
+			,'G1'
+			,'Y'
+			,'Y'
+			,'Y'
+			,'Y'
+			,'Y'
+			,'Y'
+			,0
+			,'N'
+			,#{userId}
+			,GETDATE()
+			,#{userId}
+			,GETDATE()
+		);
+		
+		INSERT INTO TB_SMS_CUSTOMER_BUSINESS (
+			 ENT_CODE
+			,CUSTOMER_CODE
+			,ENT_BUSINESS_CODE
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		) VALUES(
+			 #{entCode}
+			,#{customerCode}
+			,#{entBusinessCode}
+			,#{userId}
+			,GETDATE()
+			,#{userId}
+			,GETDATE()
+		);
+		
+		INSERT INTO TB_SMS_CUSTOMER_ATTN (
+			 ENT_CODE
+			,CUSTOMER_CODE
+			,ATTN_ID
+			,SOLUTION
+			,BOUND
+			,BOUND_TYPE
+			,ATTN_JOB_TYPE
+			,ATTN
+			,TEL
+			,EMAIL
+			,SMS_USE_YN
+			,EMAIL_USE_YN
+			,EBILL_YN
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		) VALUES(
+			 #{entCode}
+			,#{customerCode}
+			,#{customerCode}
+			,'SAS'
+			,'COM'
+			,'COM'
+			,'03'
+			,'.'
+			,#{ebillTel}
+			,#{email}
+			,'N'
+			,'Y'
+			,'Y'
+			,#{userId}
+			,GETDATE()
+			,#{userId}
+			,GETDATE()
+		);
+		
+		MERGE INTO TB_SMS_BUSINESS_REG_INFO AS A
+		USING (
+			SELECT
+				 #{registrationCode} AS registrationCode
+				,#{entCode} AS entCode
+		) AS B
+		ON A.REGISTRATION_CODE = B.registrationCode
+		AND A.ENT_CODE = B.entCode
+		WHEN MATCHED THEN
+			UPDATE SET
+				 A.CUSTOMER_YN			= 'Y'
+				,A.CORPORATE_YN			= 'Y'
+				,A.BUSINESS_COMPANY_NAME= #{customerName}
+				,A.BUSINESS_PRESIDENT 	= #{businessPresident}
+				,A.BUSINESS_OPEN_DATE	= CASE WHEN A.BUSINESS_OPEN_DATE IS NULL THEN CAST(GETDATE() AS DATE) ELSE BUSINESS_OPEN_DATE END
+				,A.BUSINESS_CONDITION	= #{businessCondition}
+				,A.BUSINESS_TYPE		= #{businessType}
+				,A.ADDRESS				= #{address}
+				,A.ADDRESS_A			= #{addressA}
+				,A.COMPANY_NAME_ENG		= #{customerName}
+				,A.ADDRESS_ENG			= #{address}
+				,A.UPDATE_USER_ID		= #{userId}
+				,A.UPDATE_DATE_TIME		= GETDATE()
+		WHEN NOT MATCHED THEN
+			INSERT (
+				 REGISTRATION_CODE
+				,ENT_CODE
+				,ENT_BUSINESS_CODE
+				,PARENT_REG_CODE
+				,REG_SEQ_NO
+				,CUSTOMER_YN
+				,CORPORATE_YN
+				,BUSINESS_ID
+				,BUSINESS_COMPANY_NAME
+				,BUSINESS_PRESIDENT
+				,BUSINESS_OPEN_DATE
+				,BUSINESS_CONDITION
+				,BUSINESS_TYPE
+				,ADDRESS
+				,ADDRESS_A
+				,COMPANY_NAME_ENG
+				,ADDRESS_ENG
+				,REGISTER_USER_ID
+				,REGISTER_DATE_TIME
+				,UPDATE_USER_ID
+				,UPDATE_DATE_TIME
+			) VALUES(
+				 #{registrationCode}
+				,#{entCode}
+				,#{entBusinessCode}
+				,''
+				,1
+				,'Y'
+				,'Y'
+				,dbo.Cryptography(#{registrationCode}, #{businessNo}, 0)
+				,#{customerName}
+				,#{businessPresident}
+				,CAST(GETDATE() AS DATE)
+				,#{businessCondition}
+				,#{businessType}
+				,#{address}
+				,#{addressA}
+				,#{customerName}
+				,#{address}
+				,#{userId}
+				,GETDATE()
+				,#{userId}
+				,GETDATE()
+			);
+		
+	</insert>
+	
+	<update id="updateBmsCustomerChargeInfo"  parameterType="bmsEstimate">
+		/* BmsChargeMapper.updateBmsCustomerChargeInfo  : 화주 정보 변경 */
+		UPDATE TB_SMS_CUSTOMER
+		<set>
+			 CUSTOMER_NAME		= #{customerName}
+			,CUSTOMER_NAME_ENG	= #{customerName}
+			,REGISTRATION_CODE	= #{registrationCode}
+			,ADDRESS			= #{address}
+			,ADDRESS_A			= #{addressA}
+			,TEL				= #{tel}
+			,UPDATE_USER_ID		= #{userId}
+			,UPDATE_DATE_TIME	= GETDATE()
+		</set>
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+		
+		MERGE INTO TB_SMS_CUSTOMER_ATTN AS A
+		USING (
+			SELECT
+				 #{entCode} AS entCode
+				,#{customerCode} AS customerCode
+				,#{attnId} AS attnId
+		) AS B
+		ON A.ENT_CODE = B.entCode
+		AND A.CUSTOMER_CODE = B.customerCode
+		AND A.ATTN_ID = B.attnId
+		WHEN MATCHED THEN
+			UPDATE SET
+				 A.ATTN_ID			= #{customerCode}
+				,A.TEL				= #{ebillTel}
+				,A.EMAIL			= #{email}
+				,A.UPDATE_USER_ID	= #{userId}
+				,A.UPDATE_DATE_TIME	= GETDATE()
+		WHEN NOT MATCHED THEN
+			INSERT (
+				 ENT_CODE
+				,CUSTOMER_CODE
+				,ATTN_ID
+				,SOLUTION
+				,BOUND
+				,BOUND_TYPE
+				,ATTN_JOB_TYPE
+				,ATTN
+				,TEL
+				,EMAIL
+				,SMS_USE_YN
+				,EMAIL_USE_YN
+				,EBILL_YN
+				,REGISTER_USER_ID
+				,REGISTER_DATE_TIME
+				,UPDATE_USER_ID
+				,UPDATE_DATE_TIME
+			) VALUES(
+				 #{entCode}
+				,#{customerCode}
+				,#{customerCode}
+				,'SAS'
+				,'COM'
+				,'COM'
+				,'03'
+				,'.'
+				,#{ebillTel}
+				,#{email}
+				,'N'
+				,'Y'
+				,'Y'
+				,#{userId}
+				,GETDATE()
+				,#{userId}
+				,GETDATE()
+			);
+		
+		MERGE INTO TB_SMS_BUSINESS_REG_INFO AS A
+		USING (
+			SELECT
+				 #{registrationCode} AS registrationCode
+				,#{entCode} AS entCode
+		) AS B
+		ON A.REGISTRATION_CODE = B.registrationCode
+		AND A.ENT_CODE = B.entCode
+		WHEN MATCHED THEN
+			UPDATE SET
+				 A.CUSTOMER_YN			= 'Y'
+				,A.CORPORATE_YN			= 'Y'
+				,A.BUSINESS_COMPANY_NAME= #{customerName}
+				,A.BUSINESS_PRESIDENT 	= #{businessPresident}
+				,A.BUSINESS_OPEN_DATE	= CASE WHEN A.BUSINESS_OPEN_DATE IS NULL THEN CAST(GETDATE() AS DATE) ELSE BUSINESS_OPEN_DATE END
+				,A.BUSINESS_CONDITION	= #{businessCondition}
+				,A.BUSINESS_TYPE		= #{businessType}
+				,A.ADDRESS				= #{address}
+				,A.ADDRESS_A			= #{addressA}
+				,A.COMPANY_NAME_ENG		= #{customerName}
+				,A.ADDRESS_ENG			= #{address}
+				,A.UPDATE_USER_ID		= #{userId}
+				,A.UPDATE_DATE_TIME		= GETDATE()
+		WHEN NOT MATCHED THEN
+			INSERT (
+				 REGISTRATION_CODE
+				,ENT_CODE
+				,ENT_BUSINESS_CODE
+				,PARENT_REG_CODE
+				,REG_SEQ_NO
+				,CUSTOMER_YN
+				,CORPORATE_YN
+				,BUSINESS_ID
+				,BUSINESS_COMPANY_NAME
+				,BUSINESS_PRESIDENT
+				,BUSINESS_OPEN_DATE
+				,BUSINESS_CONDITION
+				,BUSINESS_TYPE
+				,ADDRESS
+				,ADDRESS_A
+				,COMPANY_NAME_ENG
+				,ADDRESS_ENG
+				,REGISTER_USER_ID
+				,REGISTER_DATE_TIME
+				,UPDATE_USER_ID
+				,UPDATE_DATE_TIME
+			) VALUES(
+				 #{registrationCode}
+				,#{entCode}
+				,#{entBusinessCode}
+				,''
+				,1
+				,'Y'
+				,'Y'
+				,dbo.Cryptography(#{registrationCode}, #{businessNo}, 0)
+				,#{customerName}
+				,#{businessPresident}
+				,CAST(GETDATE() AS DATE)
+				,#{businessCondition}
+				,#{businessType}
+				,#{address}
+				,#{addressA}
+				,#{customerName}
+				,#{address}
+				,#{userId}
+				,GETDATE()
+				,#{userId}
+				,GETDATE()
+			);
+		
+	</update>
+</mapper>

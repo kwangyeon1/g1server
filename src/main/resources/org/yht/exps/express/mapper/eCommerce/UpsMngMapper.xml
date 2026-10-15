@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.UpsMngMapper">
+	<select id="selectUpsGroupDup" parameterType="manifestFile" resultType="int">
+		SELECT
+			COUNT(ups.GROUP_NAME)
+		FROM TB_UPS_BOUND ups
+		WHERE ups.BOUND = #{bound}
+		  AND ups.BOUND_TYPE = #{boundType}
+		  AND ups.GROUP_NAME = #{groupName}
+		  AND ups.COUNTRY_CODE = #{countryCode}
+		  AND ups.CITY_PORT = #{cityPort}
+	</select>
+</mapper>

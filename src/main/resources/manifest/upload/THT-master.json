@@ -1,0 +1,22 @@
+[
+	{
+		"size": 11,
+		"func": "setMrn"
+	},
+	{
+		"size": 3,
+		"func": "setOwnerOperator"
+	},
+	{
+		"size": 7,
+		"func": "setFlightNo"
+	},
+	{
+		"size": 8,
+		"func": "setDateArrive"
+	},
+	{
+		"size": 4,
+		"func": "setMawbNo"
+	}
+]

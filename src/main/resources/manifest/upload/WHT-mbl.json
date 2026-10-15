@@ -1,0 +1,26 @@
+[
+	{
+		"size": 4,
+		"func": "setMsn"
+	},
+	{
+		"size": 20,
+		"func": "setMawb"
+	},
+	{
+		"size": 4,
+		"func": "setFwdCode"
+	},
+	{
+		"size": 100,
+		"func": "setFwdName"
+	},
+	{
+		"size": 4,
+		"func": "setHawbNo"
+	},
+	{
+		"size": 10,
+		"func": "setUnloadSpot"
+	}
+]

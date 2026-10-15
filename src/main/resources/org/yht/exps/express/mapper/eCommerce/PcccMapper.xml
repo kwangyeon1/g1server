@@ -1,0 +1,1237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.PcccMapper">
+	
+	<select id="selectPcccList" parameterType="pcccList" resultType="pccc">
+		/* PcccMapper.selectPcccList : Pccc  List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			A.*
+			, COUNT(A.HBL_NO) OVER() AS TOTAL_COUNT
+			, COUNT(CASE WHEN A.STATUS = '01' THEN A.HBL_NO END) OVER() AS TOTAL_PASS_COUNT
+			, COUNT(CASE WHEN A.STATUS = '03' THEN A.HBL_NO END) OVER() AS STOP_COUNT
+			, COUNT(CASE WHEN A.STATUS = '03' THEN A.HBL_NO END) OVER() AS ERROR_COUNT
+			, COUNT(CASE WHEN (A.STATUS = '04' or A.STATUS = '05' or A.STATUS = '06') and A.PCCC_DATE_TIME IS NOT NULL THEN A.HBL_NO END) OVER() AS TOTAL_COMPLETE
+		FROM
+		(
+			SELECT
+				 cusId.CUSTOMS_ID_JOB_NO AS CUSTOMS_ID_JOB_NO
+				 , cusId.ENT_CODE AS ENT_CODE
+				 , cusId.REQUEST_ID AS REQUEST_ID
+				 , CASE WHEN cusId.INPUT_METHOD = 'COUPANG' THEN 'COUPANG' ELSE 'POST' END AS INPUT_METHOD
+				 , CASE WHEN cusId.INPUT_METHOD = 'COUPANG' THEN 'PRE' ELSE 'POST' END AS INPUT_METHOD_EXCEL
+				 , cusId.STATUS AS STATUS
+				 , CASE WHEN cusId.STATUS = '01' THEN 'X' ELSE '' END AS STATUS_EXCEL
+				 , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = cusId.ENT_CODE AND CODE = cusId.STATUS AND GROUP_CODE = 'PCCC_STATUS') AS STATUS_NAME
+				 , cusId.CUST_CODE_LV1 AS CUST_CODE_LV1
+				 , (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = cusId.ENT_CODE AND CUSTOMER_CODE = cusId.CUST_CODE_LV1) AS CUST_NAME_LV1	  
+				 , CONVERT(VARCHAR(10), CONVERT(DATE, cusId.PO_DATE_TIME), 120) AS PO_DATE_TIME
+				 , cusId.HBL_NO AS HBL_NO
+				 , cusId.PO_NO AS PO_NO
+				 , cusId.AUTO_SEND_CNT AS ELAPSE_DATE
+				 , ISNULL(alarm.SEND_CNT, 0) AS SEND_CNT
+				 , cusId.ORIG_CUSTOMS_ID AS ORIG_CUSTOMS_ID
+				 , cusId.ORIG_CONSIGNEE_NAME AS ORIG_CONSIGNEE_NAME
+				 , cusId.ORIG_CONSIGNEE_F_NAME AS ORIG_CONSIGNEE_F_NAME
+				 , cusId.ORIG_CONSIGNEE_L_NAME AS ORIG_CONSIGNEE_L_NAME
+				 , cusId.ORIG_CONSIGNEE_HP AS ORIG_CONSIGNEE_HP
+				 , cusId.ORIG_CONSIGNEE_ZIPCODE AS ORIG_CONSIGNEE_ZIPCODE
+				 , CONVERT(VARCHAR(16), cusId.COUPANG_SEND_DATE_TIME, 120) AS COUPANG_SEND_DATE_TIME
+				 , rst.ERROR_CODE AS ERROR_CODE
+				 , rst.ERROR_DESC AS ERROR_DESC
+				 , CASE WHEN (cusId.STATUS = '04' or cusId.STATUS = '05' or cusId.STATUS = '06') and cusId.PCCC_DATE_TIME IS NOT NULL THEN CONVERT(VARCHAR(10), CONVERT(DATE, cusId.PCCC_DATE_TIME), 120) ELSE '' END AS PCCC_DATE_TIME
+				 , CONVERT(VARCHAR(10), CONVERT(DATE, cusId.OUT_CALL1), 120) AS OUT_CALL1
+				 , CONVERT(VARCHAR(10), CONVERT(DATE, cusId.OUT_CALL2), 120) AS OUT_CALL2
+				 , cusId.OUT_CALL_TYPE AS OUT_CALL_TYPE
+				 , alarm.RECENT_SEND_TIME AS RECENT_SEND_TIME
+				 , alarm.SEND_TIME_1 AS SEND_TIME_1
+				 , alarm.SEND_TIME_2 AS SEND_TIME_2
+				 , alarm.SEND_TIME_3 AS SEND_TIME_3
+				 , alarm.SEND_TIME_4 AS SEND_TIME_4
+				 , alarm.SEND_TIME_5 AS SEND_TIME_5
+				 , (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CB_CODE) AS CB_CODE
+				 , (SELECT TEL FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CB_CODE) AS CB_TEL
+				 , (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV2) AS CUST_NAME_LV2	  
+				 , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = cusId.ENT_CODE AND CODE = cusId.OUT_CALL_TYPE AND GROUP_CODE = 'PCCC_OUT_CALL_TYPE') AS OUT_CALL_TYPE_NAME
+				 , cusId.REGISTER_USER_ID AS REGISTER_USER_ID
+				 , CONVERT(VARCHAR(10), CONVERT(DATE, cusId.REGISTER_DATE_TIME), 120) AS REGISTER_DATE_TIME
+				 , cusId.UPDATE_USER_ID AS UPDATE_USER_ID
+				 , cusId.UPDATE_DATE_TIME AS UPDATE_DATE_TIME
+			FROM TB_ECM_CUSTOMS_ID_INFO cusId
+			LEFT JOIN TB_ECM_CUSTOMS_ID_INFO_RESULT rst 
+			ON rst.TB_ECM_CUSTOMS_ID_INFO = cusId.CUSTOMS_ID_JOB_NO
+			AND rst.REGISTER_DATE_TIME = (	SELECT MAX(REGISTER_DATE_TIME)  FROM TB_ECM_CUSTOMS_ID_INFO_RESULT sub WHERE sub.TB_ECM_CUSTOMS_ID_INFO = cusId.CUSTOMS_ID_JOB_NO)
+			LEFT JOIN (
+				SELECT 
+					REF_JOB_NO
+					, COUNT(*) AS SEND_CNT
+					, MAX(CASE WHEN RN_DESC = 1 THEN CONVERT(VARCHAR(19), SEND_DATE_TIME, 120) END) AS RECENT_SEND_TIME
+					, MAX(CASE WHEN RN_ASC = 1 THEN CONVERT(VARCHAR(19), SEND_DATE_TIME, 120) END) AS SEND_TIME_1
+					, MAX(CASE WHEN RN_ASC = 2 THEN CONVERT(VARCHAR(19), SEND_DATE_TIME, 120) END) AS SEND_TIME_2
+					, MAX(CASE WHEN RN_ASC = 3 THEN CONVERT(VARCHAR(19), SEND_DATE_TIME, 120) END) AS SEND_TIME_3
+					, MAX(CASE WHEN RN_ASC = 4 THEN CONVERT(VARCHAR(19), SEND_DATE_TIME, 120) END) AS SEND_TIME_4
+					, MAX(CASE WHEN RN_ASC = 5 THEN CONVERT(VARCHAR(19), SEND_DATE_TIME, 120) END) AS SEND_TIME_5
+				FROM (
+					SELECT 
+						REF_JOB_NO, SEND_DATE_TIME,
+						ROW_NUMBER() OVER(PARTITION BY REF_JOB_NO ORDER BY SEND_DATE_TIME ASC) AS RN_ASC,
+						ROW_NUMBER() OVER(PARTITION BY REF_JOB_NO ORDER BY SEND_DATE_TIME DESC) AS RN_DESC
+					FROM TB_SMS_ALARM
+				) ranked
+				GROUP BY REF_JOB_NO
+			) alarm
+			ON alarm.REF_JOB_NO = cusId.CUSTOMS_ID_JOB_NO
+			LEFT JOIN TB_ECM_OD od
+			ON od.OD_JOB_NO = cusId.CUSTOMS_ID_JOB_NO
+			WHERE 1=1
+			-- AND cusId.VERIFY_RESULT = 'E'
+			<if test="dataType != null and dataType == 'OUTCALL'">
+				AND (cusId.INPUT_METHOD = 'COUPANG' OR cusId.INPUT_METHOD = 'CPO') 
+				AND cusId.AUTO_SEND_CNT >= '2'
+			</if>
+			<if test="srchInputMethod != null and srchInputMethod != ''">
+				<choose>
+						<when test="srchInputMethod == 'COUPANG'">
+						AND cusId.INPUT_METHOD = 'COUPANG'
+						</when>
+						<otherwise>
+						AND cusId.INPUT_METHOD != 'COUPANG'
+						</otherwise>
+				</choose>
+			</if>
+			<if test="srchPcccStatus != null and srchPcccStatus.size > 0">
+				AND cusId.status IN (<foreach collection="srchPcccStatus" item="item" separator=",">#{item}</foreach>)
+			</if>
+			<if test="srchNo != null and srchNo != ''">
+				<choose>
+				<when test='searchType == "multi"'>
+				AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<otherwise>
+				AND ${srchNoType} LIKE CONCAT(#{srchNo},'%')
+				</otherwise>
+				</choose>
+			</if>
+			<if test="srchCuslv1 != null and srchCuslv1 != ''">
+				AND ${srchCusType} = #{srchCuslv1}
+			</if>
+			<if test='srchDateGbn != "noDateChk"'>
+				<choose>
+					<when test='srchMode == "listCount" or srchMode == "selectCodeName"'>
+					AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+					AND ${srchDateGbn} <![CDATA[<]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+					</when>
+					<otherwise>
+					AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+					AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})) 
+					</otherwise>
+				</choose>
+			</if>
+			<if test="srchOdJobNoList != null and srchOdJobNoList.size > 0">
+				AND cusId.CUSTOMS_ID_JOB_NO IN (<foreach collection="srchOdJobNoList" item="item" separator=",">#{item}</foreach>)
+			</if>
+		)A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectPcccDetail" parameterType="pcccList" resultType="pccc">
+		/* PcccMapper.selectPcccDetail : Pccc  Detail */
+		SELECT
+			 cusId.CUSTOMS_ID_JOB_NO AS CUSTOMS_ID_JOB_NO
+			 , cusId.ENT_CODE AS ENT_CODE
+			 , cusId.REQUEST_ID AS REQUEST_ID
+			 , cusId.INPUT_METHOD AS INPUT_METHOD
+			 , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = cusId.ENT_CODE AND CODE = cusId.STATUS AND GROUP_CODE = 'PCCC_STATUS') AS STATUS_NAME
+			 , cusId.HBL_NO AS HBL_NO
+			 , cusId.PO_NO AS PO_NO
+			 , CONVERT(VARCHAR(10), CONVERT(DATE, cusId.PO_DATE_TIME), 120) AS PO_DATE_TIME
+			 ,(SELECT COUNT(REF_JOB_NO) FROM TB_SMS_ALARM WHERE REF_JOB_NO = cusId.CUSTOMS_ID_JOB_NO) AS SEND_CNT
+			 , cusId.AUTO_SEND_CNT AS ELAPSE_DATE
+			 , CONVERT(VARCHAR(16), cusId.PCCC_DATE_TIME, 120) AS PCCC_DATE_TIME
+			 , cusId.ORIG_CUSTOMS_ID AS ORIG_CUSTOMS_ID
+			 , cusId.ORIG_CONSIGNEE_NAME AS ORIG_CONSIGNEE_NAME
+			 , cusId.ORIG_CONSIGNEE_F_NAME AS ORIG_CONSIGNEE_F_NAME
+			 , cusId.ORIG_CONSIGNEE_L_NAME AS ORIG_CONSIGNEE_L_NAME
+			 , cusId.ORIG_CONSIGNEE_HP AS ORIG_CONSIGNEE_HP
+			 , cusId.ORIG_CONSIGNEE_ZIPCODE AS ORIG_CONSIGNEE_ZIPCODE
+			 , cusId.AFTER_CUSTOMS_ID AS AFTER_CUSTOMS_ID
+			 , cusId.AFTER_CONSIGNEE_NAME AS AFTER_CONSIGNEE_NAME
+			 , cusId.AFTER_CONSIGNEE_F_NAME AS AFTER_CONSIGNEE_F_NAME
+			 , cusId.AFTER_CONSIGNEE_L_NAME AS AFTER_CONSIGNEE_L_NAME
+			 , cusId.AFTER_CONSIGNEE_HP AS AFTER_CONSIGNEE_HP
+			 , cusId.AFTER_CONSIGNEE_ZIPCODE AS AFTER_CONSIGNEE_ZIPCODE
+			 , CONVERT(VARCHAR(16), cusId.COUPANG_SEND_DATE_TIME, 120) AS COUPANG_SEND_DATE_TIME
+			 , CONVERT(VARCHAR(16), cusId.OUT_CALL1, 120) AS OUT_CALL1
+			 , CONVERT(VARCHAR(16), cusId.OUT_CALL2, 120) AS OUT_CALL2
+			 , (SELECT MAX(CONVERT(VARCHAR(16), SEND_DATE_TIME, 120)) FROM TB_SMS_ALARM WHERE ENT_CODE = cusId.ENT_CODE AND REF_JOB_NO = cusId.CUSTOMS_ID_JOB_NO) AS RECENT_SEND_TIME
+			 , cusId.OUT_CALL_TYPE AS OUT_CALL_TYPE
+			 , cusId.REGISTER_DATE_TIME AS REGISTER_DATE_TIME
+			 , rst.ERROR_CODE AS ERROR_CODE
+		FROM TB_ECM_CUSTOMS_ID_INFO cusId
+		LEFT JOIN TB_ECM_CUSTOMS_ID_INFO_RESULT rst
+		ON rst.TB_ECM_CUSTOMS_ID_INFO = cusId.CUSTOMS_ID_JOB_NO
+		WHERE 1=1
+		-- AND cusId.VERIFY_RESULT = 'E'
+		<if test="srchEntCode != null and srchEntCode != ''">
+			AND  cusId.ENT_CODE = #{srchEntCode}
+		</if>
+		<if test="odJobNo != null and odJobNo != ''">
+			AND  cusId.CUSTOMS_ID_JOB_NO = #{odJobNo}
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+			AND  cusId.HBL_NO = #{srchNo}
+		</if>
+	</select>
+	<select id="selectUnipassCustomsVerifyKey" parameterType="String" resultType="String">
+		/* PcccMapper.selectUnipassCustomsVerifyKey : 관세청 개인통관고유부호 인증키 조회 */
+		SELECT UNIPASS_CUSTOMS_VERIFY_KEY
+		FROM exps_master.dbo.TB_SMS_ENTERPRISE 
+		WHERE ENT_CODE = #{entCode}
+	</select>
+	<update id="updatePccc" parameterType="HashMap">
+		/* PcccMapper.updatePccc : PCCC정보 업데이트 */
+		UPDATE TB_ECM_CUSTOMS_ID_INFO SET
+				UPDATE_USER_ID = #{updateUserId}
+			   ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			   ,AFTER_CUSTOMS_ID = #{customsId}
+			   ,AFTER_CONSIGNEE_NAME  = #{consigneeName}
+			   ,AFTER_CONSIGNEE_HP = #{consigneeHp}
+			   ,PCCC_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			   <if test="zipCode != null and zipCode !=''">
+			   ,AFTER_CONSIGNEE_ZIPCODE = #{zipCode}
+			   </if>
+			   <if test="consigneeFName != null and consigneeFName !=''">
+			   ,AFTER_CONSIGNEE_F_NAME = #{consigneeFName}
+			   </if>
+			   <if test="consigneeLName != null and consigneeLName !=''">
+			   ,AFTER_CONSIGNEE_L_NAME = #{consigneeLName}
+			   </if>
+			   ,STATUS = #{status}
+		WHERE
+			ENT_CODE = #{entCode}
+			AND CUSTOMS_ID_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updateAlarmSendStop" parameterType="java.util.List">
+		/* PcccMapper.updateAlarmSendStop : PCCC 알람톡 발송금지 */
+		UPDATE TB_ECM_CUSTOMS_ID_INFO SET
+				UPDATE_USER_ID = #{userId}
+			   ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			   ,STATUS = CASE WHEN STATUS = '03' THEN NULL ELSE '03' END
+		WHERE
+		 <foreach collection="pcccList" item="item" separator=" OR ">
+		 (CUSTOMS_ID_JOB_NO = #{item.customsIdJobNo} AND ENT_CODE = #{item.entCode})
+		 </foreach>
+			AND (STATUS NOT IN ('01','04','05','06') OR STATUS IS NULL)
+	</update>
+	
+	<select id="selectPcccBatchList" parameterType="pcccList" resultType="pcccBatch">
+		/* PcccMapper.selectPcccBatchList : Pccc Batch List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			A.*
+		FROM
+		(
+			SELECT
+				 smsPc.PCCC_SET_JOB_NO AS PCCC_SET_JOB_NO
+				 , smsPc.ENT_CODE AS ENT_CODE
+				 , smsPc.CUST_CODE_LV1 AS CUST_CODE_LV1
+				 , cust.CUSTOMER_NAME AS CUST_CODE_LV1_NAME
+				 , smsPc.REPEAT_COUNT AS REPEAT_COUNT
+				 , smsPc.SEND_TIME_TYPE AS SEND_TIME_TYPE
+				 , smsPc.SEND_TIME AS SEND_TIME
+				 , CONCAT(CASE WHEN ISNULL(smsPc.SEND_TIME_TYPE, '') = 'AM' THEN '오전' ELSE '오후' END, ' ',ISNULL(smsPc.SEND_TIME, ''),'시') AS SEND_TIME_CONVERT 
+				 , smsPc.REGISTER_USER_ID AS REGISTER_USER_ID
+				 , smsPc.REGISTER_DATE_TIME AS REGISTER_DATE_TIME
+				 , smsPc.UPDATE_USER_ID AS UPDATE_USER_ID
+				 , smsPc.UPDATE_DATE_TIME AS UPDATE_DATE_TIME
+			FROM TB_SMS_PCCC_SET_INFO smsPc
+			LEFT JOIN TB_SMS_CUSTOMER cust
+			ON cust.CUSTOMER_CODE = smsPc.CUST_CODE_LV1 
+			AND cust.ENT_CODE = smsPc.ENT_CODE
+			WHERE 1=1
+			<if test="srchEntCode != null and srchEntCode != ''">
+				AND  smsPc.ENT_CODE = #{srchEntCode}
+			</if>
+		)A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectPcccBatch" parameterType="pcccBatch" resultType="pcccBatch">
+		/* PcccMapper.selectPcccBatch : Pccc Batch */
+		SELECT
+			 smsPc.PCCC_SET_JOB_NO AS PCCC_SET_JOB_NO
+			 , smsPc.ENT_CODE AS ENT_CODE
+			 , smsPc.CUST_CODE_LV1 AS CUST_CODE_LV1
+			 , cust.CUSTOMER_NAME AS CUST_CODE_LV1_NAME
+			 , smsPc.REPEAT_COUNT AS REPEAT_COUNT
+			 , smsPc.SEND_TIME_TYPE AS SEND_TIME_TYPE
+			 , smsPc.SEND_TIME AS SEND_TIME
+			 , CONCAT(CASE WHEN ISNULL(smsPc.SEND_TIME_TYPE, '') = 'AM' THEN '오전' ELSE '오후' END, ' ',ISNULL(smsPc.SEND_TIME, ''),'시') AS SEND_TIME_CONVERT 
+			 , smsPc.REGISTER_USER_ID AS REGISTER_USER_ID
+			 , smsPc.REGISTER_DATE_TIME AS REGISTER_DATE_TIME
+			 , smsPc.UPDATE_USER_ID AS UPDATE_USER_ID
+			 , smsPc.UPDATE_DATE_TIME AS UPDATE_DATE_TIME
+		FROM TB_SMS_PCCC_SET_INFO smsPc
+		LEFT JOIN TB_SMS_CUSTOMER cust
+		ON cust.CUSTOMER_CODE = smsPc.CUST_CODE_LV1 
+		AND cust.ENT_CODE = smsPc.ENT_CODE
+		WHERE 1=1
+		<if test="entCode != null and entCode != ''">
+			AND  smsPc.ENT_CODE = #{entCode}
+		</if>
+		<if test="custCodeLv1 != null and custCodeLv1 != ''">
+			AND  smsPc.CUST_CODE_LV1 = #{custCodeLv1}
+		</if>
+	</select>
+	
+	<select id="selectSendDataList" parameterType="java.util.List" resultType="HashMap">
+		/* PcccMapper.selectsendDataList : Pccc 알림톡 전송 데이터 */
+		SELECT
+			 cusId.CUSTOMS_ID_JOB_NO AS CUSTOMS_ID_JOB_NO
+			 , cusId.ENT_CODE AS ENT_CODE
+			 , cusId.HBL_NO AS HBL_NO
+			 , cusId.INPUT_METHOD AS INPUT_METHOD
+			 , cusId.PO_NO AS PO_NO
+			 , cusId.CUST_CODE_LV1 AS CUST_CODE_LV1
+			 , cusId.COMMODITY_ITEM AS COMMODITY_ITEM
+			 , cusId.CONSIGNEE_ADDRESS AS CONSIGNEE_ADDRESS
+			 , CASE WHEN ISNULL(cusId.AFTER_CUSTOMS_ID, '') = '' THEN ISNULL(cusId.ORIG_CUSTOMS_ID, '') ELSE ISNULL(cusId.AFTER_CUSTOMS_ID, '') END AS CUSTOMS_ID
+			 , CASE WHEN ISNULL(cusId.AFTER_CONSIGNEE_NAME, '') = '' THEN ISNULL(cusId.ORIG_CONSIGNEE_NAME, '') ELSE ISNULL(cusId.AFTER_CONSIGNEE_NAME, '') END AS CONSIGNEE_NAME
+			 , ISNULL(cusId.ORIG_CONSIGNEE_HP, '') AS CONSIGNEE_HP
+			 , CASE WHEN ISNULL(cusId.AFTER_CONSIGNEE_ZIPCODE, '') = '' THEN ISNULL(cusId.ORIG_CONSIGNEE_ZIPCODE, '') ELSE ISNULL(cusId.AFTER_CONSIGNEE_ZIPCODE, '') END AS CONSIGNEE_ZIPCODE
+			 , CASE WHEN ISNULL(cusId.AFTER_CONSIGNEE_F_NAME, '') = '' THEN ISNULL(cusId.ORIG_CONSIGNEE_F_NAME, '') ELSE ISNULL(cusId.AFTER_CONSIGNEE_F_NAME, '') END AS CONSIGNEE_F_NAME
+			 , CASE WHEN ISNULL(cusId.AFTER_CONSIGNEE_L_NAME, '') = '' THEN ISNULL(cusId.ORIG_CONSIGNEE_L_NAME, '') ELSE ISNULL(cusId.AFTER_CONSIGNEE_L_NAME, '') END AS CONSIGNEE_L_NAME
+			 , rst.ERROR_CODE
+		FROM TB_ECM_CUSTOMS_ID_INFO cusId
+		LEFT JOIN (
+			SELECT r.TB_ECM_CUSTOMS_ID_INFO
+				 , r.SEQ_NO_ID
+				 , r.ERROR_CODE
+				 , ROW_NUMBER() OVER (PARTITION BY r.TB_ECM_CUSTOMS_ID_INFO ORDER BY r.SEQ_NO_ID DESC) AS RN
+			FROM TB_ECM_CUSTOMS_ID_INFO_RESULT r
+		) rst
+		ON rst.TB_ECM_CUSTOMS_ID_INFO = cusId.CUSTOMS_ID_JOB_NO AND rst.RN = 1
+		WHERE 1=1
+		AND
+		<foreach collection="list" item="item" separator=" OR " open="(" close=")">
+        (cusId.CUSTOMS_ID_JOB_NO = #{item.customsIdJobNo}  AND cusId.ENT_CODE = #{item.entCode})
+    	</foreach>
+	</select>
+	
+	<select id="selectAlarm" parameterType="HashMap" resultType="alarm">
+		/* PcccMapper.selectAlarm : 알림톡 조회 */
+			SELECT
+				 alarm.JOB_TYPE
+				,alarm.SEQ_NO_ID 
+				,(SELECT LABEL_NAME FROM TB_MMS_MANAGEMENT WHERE TEMPLATE_TYPE = alarm.JOB_TYPE AND TEMPLATE_CODE = alarm.JOB_CODE) AS JOB_TYPE_NAME
+				,alarm.ALARM_ATTN_ID
+				,CONVERT(VARCHAR(16), alarm.SEND_DATE_TIME, 120) AS SEND_DATE_TIME
+				,alarm.BEFORE_VALUE
+				,alarm.AFTER_VALUE
+				,CONVERT(VARCHAR(16), DATEADD(hh, -9, alarm.RECV_DATE_TIME), 120) AS RECV_DATE_TIME
+				,rst.ERROR_DESC  AS ERROR_DESC
+			FROM TB_SMS_ALARM alarm
+			LEFT JOIN TB_ECM_CUSTOMS_ID_INFO_RESULT rst
+			ON rst.TB_ECM_CUSTOMS_ID_INFO = alarm.REF_JOB_NO 
+			AND rst.SEQ_NO_ID = alarm.SEQ_NO_ID 
+			LEFT JOIN TB_ECM_CUSTOMS_ID_INFO cusId
+			ON cusId.CUSTOMS_ID_JOB_NO = alarm.REF_JOB_NO 
+			WHERE 1=1
+			<if test="srchEntCode != null and srchEntCode != ''">
+			AND alarm.ENT_CODE = #{srchEntCode}
+			</if>
+			<if test="odJobNo != null and odJobNo != ''">
+			AND alarm.REF_JOB_NO = #{odJobNo}
+			</if>
+			<if test="srchNo != null and srchNo != ''">
+				<choose>
+					<when test='srchNoType == "od.PO_NO"'>
+						AND cusId.PO_NO = #{srchNo}
+					</when>
+					<when test='srchNoType == "srchBlNo"'>
+						AND (cusId.HBL_NO = #{srchNo} OR cusId.PO_NO = #{srchNo})				
+					</when>
+					<otherwise>
+						AND cusId.HBL_NO = #{srchNo}
+					</otherwise>
+				</choose>
+			</if>
+			ORDER BY alarm.REGISTER_DATE_TIME DESC
+	</select>
+	
+	<insert id="insertPcccBatch" parameterType="pcccBatch">
+	/* PcccMapper.insertPcccBatch : PCCC 알림톡 설정 추가 */
+		INSERT INTO TB_SMS_PCCC_SET_INFO(
+			   PCCC_SET_JOB_NO
+			  ,ENT_CODE
+			  ,CUST_CODE_LV1
+			  ,REPEAT_COUNT
+			  ,SEND_TIME_TYPE
+			  ,SEND_TIME
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{pcccSetJobNo}
+			  ,#{entCode}
+			  ,#{custCodeLv1}
+			  ,#{repeatCount}
+			  ,#{sendTimeType}
+			  ,#{sendTime}
+			  ,#{registerUserId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{registerUserId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())		
+		)
+	</insert>
+	<update id="updatePcccBatch" parameterType="pcccBatch">
+		/* PcccMapper.updatePcccBatch : PCCC 알림톡 설정 수정  */
+		UPDATE TB_SMS_PCCC_SET_INFO SET
+				UPDATE_USER_ID = #{updateUserId}
+			   ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			   <if test="repeatCount != null and repeatCount !=''">
+			   ,REPEAT_COUNT = #{repeatCount}
+			   </if>
+			   <if test="sendTimeType != null and sendTimeType !=''">
+			   ,SEND_TIME_TYPE = #{sendTimeType}
+			   </if>
+			   <if test="sendTime != null and sendTime !=''">
+			   ,SEND_TIME = #{sendTime}
+			   </if>
+		WHERE
+		 PCCC_SET_JOB_NO = #{pcccSetJobNo}
+		 AND ENT_CODE = #{entCode}
+		 AND CUST_CODE_LV1 = #{custCodeLv1}
+	</update>
+	<delete id="deletePcccBatch" parameterType="pcccBatch">
+		/* PcccMapper.deletePcccBatch : PCCC Batch Delete */
+			DELETE FROM TB_SMS_PCCC_SET_INFO
+			WHERE PCCC_SET_JOB_NO = #{pcccSetJobNo}
+	</delete>
+	
+	<update id="updatePcccOutCall" parameterType="pccc">
+		/* PcccMapper.updateAlarmSendStop : PCCC 아웃콜 수정 */
+		UPDATE TB_ECM_CUSTOMS_ID_INFO SET
+				UPDATE_USER_ID = #{updateUserId}
+			   ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			   <if test="outCall1 != null and outCall1 !=''">
+			   ,OUT_CALL1 = CONVERT(DATETIME, #{outCall1})
+			   </if>
+			   <if test="outCall2 != null and outCall2 !=''">
+			   ,OUT_CALL2 = CONVERT(DATETIME, #{outCall2})
+			   </if>
+			    <if test="outCallType != null and outCallType !=''">
+			   ,OUT_CALL_TYPE = #{outCallType}
+			   </if>
+		WHERE
+		 CUSTOMS_ID_JOB_NO = #{customsIdJobNo} 
+		 AND ENT_CODE = #{entCode}
+	</update>
+	
+	<select id="selectKakaoInfo" parameterType="HashMap" resultType="HashMap">
+ 		/* SmsRecvMapper.selectKakaoInfo : 카카오톡 전송정보 조회 */
+	 		SELECT TOP 1
+			 mng.TEMPLATE_CODE
+			,mng.RESEND_MSG_TYPE
+			,mng.LABEL_NAME
+			,mng.MSG_TYPE
+			,mng.RESEND_MSG_TYPE
+			,tmp.SUBJECT
+			,tmp.TEMPLATE
+			,tmp.RESEND_TEMPLATE
+			,tmp.BUTTON1_URL
+			,tmp.BUTTON1_NAME
+			,tmp.BUTTON1_TYPE
+			,tmp.BUTTON2_URL
+			,tmp.BUTTON2_NAME
+			,tmp.BUTTON2_TYPE
+			,tmp.BUTTON3_URL
+			,tmp.BUTTON3_NAME
+			,tmp.BUTTON3_TYPE
+			,tmp.BUTTON4_URL
+			,tmp.BUTTON4_NAME
+			,tmp.BUTTON4_TYPE
+			,tmp.BUTTON5_URL
+			,tmp.BUTTON5_NAME
+			,tmp.BUTTON5_TYPE
+		FROM TB_MMS_MANAGEMENT mng
+			 INNER JOIN exps_master.dbo.TB_MMS_TEMPLATE tmp
+			 			ON tmp.TEMPLATE_TYPE = mng.TEMPLATE_TYPE
+			 			AND tmp.TEMPLATE_SEQ_NO = mng.TEMPLATE_SEQ_NO
+		WHERE mng.ENT_CODE = #{srchEntCode}
+		AND mng.TEMPLATE_TYPE = #{srchTemplateType}
+		<if test="srchTemplateCode != null and srchTemplateCode != ''">
+		AND mng.TEMPLATE_CODE = #{srchTemplateCode}
+		</if>
+ 	</select>
+ 	
+ 	<select id="selectKakaoInfoEnterprise" parameterType="HashMap" resultType="HashMap">
+ 		/* common.selectKakaoInfoEnterprise : 카카오톡 전송정보 조회  */
+ 		SELECT
+ 			 ent.SMS_USER_ID
+ 			,ent.SMS_CID_NUM
+ 			,ent.SMS_SEND_TEL_NO
+ 			,ent.ENT_CODE
+ 			,ent.ENT_NAME
+ 			,ent.ENT_MAPPING_CODE
+ 		FROM exps_master.dbo.TB_SMS_ENTERPRISE ent
+		WHERE ent.ENT_CODE = #{srchEntCode}
+ 	</select>
+ 	
+ 	<select id="selectSendSmsCustomsIdVerify" parameterType="HashMap" resultType="HashMap">
+		/* pcccMapper.selectSendSmsCustomsIdVerify : 전자상거래 SMS전송데이터조회 - 개인통관정보 요청 안내 */
+			SELECT
+				 cusId.CUSTOMS_ID_JOB_NO
+				,cusId.HBL_NO
+				,cusId.PO_NO
+				,cusId.ORIG_CUSTOMS_ID
+				,cusId.ORIG_CONSIGNEE_NAME
+				,cusId.ORIG_CONSIGNEE_ZIPCODE
+				,cusId.ORIG_CONSIGNEE_HP
+				,cusId.ORIG_CONSIGNEE_F_NAME
+				,cusId.ORIG_CONSIGNEE_L_NAME
+				,(SELECT ENT_NAME FROM exps_master.dbo.TB_SMS_ENTERPRISE WHERE ENT_CODE = cusId.ENT_CODE) AS ENT_NAME
+				,(
+					SELECT TOP 1 cus.TEL
+					FROM TB_SMS_ENT_BUSINESS bus
+						 INNER JOIN TB_SMS_CUSTOMER cus
+						 			ON cus.ENT_CODE = bus.ENT_CODE
+						 			AND cus.CUSTOMER_CODE = bus.CUSTOMER_CODE
+					WHERE bus.ENT_CODE = cusId.ENT_CODE
+				 ) AS TEL
+				, ent.SMS_SEND_TEL_NO
+			FROM TB_ECM_CUSTOMS_ID_INFO cusId
+			LEFT JOIN exps_master.dbo.TB_SMS_ENTERPRISE ent ON ent.ENT_CODE = cusId.ENT_CODE
+			WHERE cusId.CUSTOMS_ID_JOB_NO = #{CUSTOMS_ID_JOB_NO}
+	</select>
+	<insert id="insertKakaoSendResultBatch" parameterType="HashMap">
+		/* pcccMapper.insertKakaoSendResultBatch : 카카오톡배치 데이터 저장 */
+		INSERT INTO TB_SMS_ALARM(
+			   SEQ_NO_ID
+			  ,ENT_CODE
+			  ,ENT_BUSINESS_CODE
+			  ,SOLUTION
+			  ,REF_JOB_NO
+			  ,JOB_TYPE
+			  ,JOB_CODE
+			  ,MSG_KEY
+			  <if test="attnKey != null and attnKey != ''">
+			  ,ALARM_ATTN_ID
+			  </if>
+			  ,ALARM_ATTN_HP
+			  ,SEND_DATE_TIME
+			  ,BEFORE_VALUE
+			  ,STATUS
+			  ,RESULT_TYPE
+			  ,RESULT_LOG
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{seqNoId}
+			  ,#{entCode}
+			  ,#{entBusinessCode}
+			  ,#{solution}
+			  ,#{customsIdJobNo}
+			  ,#{templateType}
+			  ,#{templateCode}
+			  ,#{msgKey}
+			  <if test="attnKey != null and attnKey != ''">
+			  ,#{attnKey}
+			  </if>
+			  ,#{dstAddrKey}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{beforeValue}
+			  ,CASE ISNULL(#{msgKey}, '') WHEN '' THEN 'E' ELSE 'R' END
+			  ,CASE ISNULL(#{msgKey}, '') WHEN '' THEN 'E' ELSE NULL END
+			  ,CASE ISNULL(#{msgKey}, '') WHEN '' THEN ISNULL(#{returnMessageDetail}, '') ELSE NULL END
+			  ,#{updateUserId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{updateUserId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())  
+		)
+	</insert>
+
+	<select id="selectPodDetail" parameterType="searchPod" resultType="podDetail">
+		/* PcccMapper.selectPodDetail : POD  Detail */
+		SELECT TOP 1
+			 od.OD_JOB_NO AS OD_JOB_NO
+			 , od.ENT_CODE AS ENT_CODE
+			 , od.HBL_NO AS HBL_NO
+			 , od.DELIVERY_CODE AS DELIVERY_CODE
+			 , od.MBL_NO AS MBL_NO
+			 , od.MRN AS MRN
+			 , od.PO_NO AS PO_NO
+			 , od.PO_DATE AS PO_DATE
+			 , CONCAT(od.BOUND,', ',od.ORIG_NAME,' - ',od.DEST_NAME) AS ORIG_DEST
+			 , od.ORIG_NAME AS ORIG_NAME
+			 , od.DEST_NAME AS DEST_NAME
+			 , od.CUST_CODE_LV1 AS CUST_CODE_LV1
+			 , CONCAT(OD.CUST_CODE_LV1, '(', (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV1), ')') AS CUST_CODE_LV1_NM
+			 , od.COMMODITY_ITEM  AS COMMODITY_ITEM
+			 , od.DELIVERY_NOTE AS DELIVERY_NOTE
+			 , od.VESSEL_FLIGHT AS VESSEL_FLIGHT
+			 , CONCAT(od.OB_DATE, ' / ' , od.OB_TIME) AS OB_DATE
+			 , CONCAT(od.AR_DATE, ' / ' , od.AR_TIME) AS AR_DATE
+			 , CONCAT(RIGHT(od.CONSIGNEE_NAME,1),'**') AS ORIG_CONSIGNEE_NAME
+		<!-- , ISNULL(od.RETURN_YN, 'N') AS RETURN_YN -->
+			 , CASE WHEN (SELECT TOP 1 re.OD_JOB_NO FROM TB_ECM_OD_RESEND_INFO re WHERE re.OD_JOB_NO = od.OD_JOB_NO) IS NOT NULL THEN ISNULL(od.RETURN_YN, 'N') ELSE '' END RETURN_YN
+			 , CASE WHEN (SELECT TOP 1 mt.OD_JOB_NO FROM TB_ECM_OD_MULTI mt WHERE mt.OD_JOB_NO = od.OD_JOB_NO) IS NOT NULL THEN 'Y' ELSE '' END MULTI_YN
+    		 , ad.LAST_POD_STATUS
+		<!-- , CASE WHEN cusId.STATUS = '04' or cusId.STATUS = '05' or cusId.STATUS = '06' THEN 'PCCC 성공' ELSE CASE WHEN ISNULL(cusId.STATUS, '') != '' THEN 'PCCC 오류' ELSE '' END END AS PCCC_YN -->
+    		 ,ad.CUSTOMS_ID_VERIFY
+			 ,ad.CUSTOMS_ID_ERROR AS PCCC_YN
+    		 , (SELECT TOP 1 ERROR_DESC FROM TB_ECM_CUSTOMS_ID_INFO_RESULT WHERE TB_ECM_CUSTOMS_ID_INFO = cusId.CUSTOMS_ID_JOB_NO ORDER BY REGISTER_DATE_TIME DESC) AS ERROR_DESC
+    		 , (SELECT TOP 1 POD_STATUS FROM TB_ECM_POD_01 WHERE OD_JOB_NO = od.MASTER_OD_JOB_NO AND POD_STATUS = 'ECM070') AS POD_STATUS
+    		 , ISNULL((SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE IN (SELECT TOP 1 POD_STATUS FROM TB_ECM_POD_01 WHERE OD_JOB_NO = od.MASTER_OD_JOB_NO AND POD_STATUS = 'ECM070')),'') AS POD_STATUS_NM
+			 , CASE
+					WHEN ad.DROP_YN = 'Y'
+						THEN CONCAT('취하 : ',(SELECT CONCAT(CODE, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'DROP_CODE' AND CODE = ad.DROP_CODE))
+    				WHEN ad.XRAY_YN = 'Y'
+    					THEN CONCAT('X-RAY : ',(SELECT CONCAT(CODE, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = ad.INSPECTION_APP_CODE))
+    				WHEN od.INSPECTION_YN = 'Y'
+    					THEN CONCAT('검사 : ',(SELECT CONCAT(CODE, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = ad.SE_INSPECTION_CODE))
+    				WHEN ad.SE_INSPECTION_YN = 'Y'
+    					THEN CONCAT('선별 : ',(SELECT CONCAT(CODE, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = ad.SE_INSPECTION_CODE))
+    				ELSE ''
+    				END AS POD_REASON
+    		 , od.CB_CODE	
+    		 , ISNULL(cu.CUSTOMER_NAME, '') AS CB_NAME
+    		 , ISNULL(cu.TEL, '') AS CB_TEL
+    		 , od.SHIPPER_NAME
+    		 , od.ORIG_COUNTRY
+		FROM TB_ECM_OD od
+		LEFT JOIN TB_ECM_OD_ADDITIONAL ad
+		ON od.OD_JOB_NO = ad.OD_JOB_NO
+		LEFT JOIN TB_ECM_CUSTOMS_ID_INFO cusId
+		 ON cusId.HBL_NO = od.HBL_NO
+		LEFT JOIN TB_SMS_CUSTOMER cu
+		 ON cu.ent_code = od.ent_code
+		AND cu.CUSTOMER_CODE = od.CB_CODE 
+		AND cu.CUSTOMER_TYPE = 'BR' 
+		WHERE 1=1
+		<if test="srchEntCode != null and srchEntCode != ''">
+			AND  od.ENT_CODE = #{srchEntCode}
+		</if>
+		<if test="odJobNo != null and odJobNo != ''">
+			AND  od.OD_JOB_NO = #{odJobNo}
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<when test='srchNoType == "srchBlNo"'>
+				AND (od.HBL_NO = #{srchNo} OR od.PO_NO = #{srchNo})				
+				</when>
+				<otherwise>
+				AND ${srchNoType} = #{srchNo}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="boundType != null and boundType != ''">
+			AND  od.BOUND_TYPE = #{boundType}
+		</if>
+	</select>
+
+
+	<select id="selectOrderPodStatusList" parameterType="HashMap" resultType="HashMap">
+		/* /* PcccMapper.selectOrderPodStatusList */ : 오더 pod조회  */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		SELECT
+		od.OD_JOB_NO
+		,pod.POD_STATUS
+		,CONCAT(ISNULL(pod.POD_DATE,'1900-01-01'),' ',ISNULL(pod.POD_TIME,'00:00')) AS POD_DATE_TIME
+		,(SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = pod.POD_STATUS) AS POD_STATUS_NAME
+		,pod.COURIER_NAME
+		,pod.REGISTER_USER_ID
+		,usr.USER_LOGIN_ID
+		,usr.USER_NAME AS REGISTER_USER_NAME
+		,od.HBL_NO
+		,od.MBL_NO
+		,ISNULL(od.PIECES,0) AS PIECES
+		,ISNULL(od.PIECES_REAL,0) AS PIECES_REAL
+		,ISNULL(od.GWT,0) AS GWT
+		,od.CONSIGNEE_NAME_LOC
+		,od.COMMODITY_ITEM
+		,CASE
+		WHEN NULLIF(od.MRN, '') IS NULL THEN NULL
+		ELSE
+		CASE
+		WHEN NULLIF(od.MSN, '') IS NOT NULL AND NULLIF(od.HSN, '') IS NOT NULL THEN CONCAT(od.MRN, '-', od.MSN, '-', od.HSN)
+		WHEN NULLIF(od.MSN, '') IS NOT NULL THEN CONCAT(od.MRN, '-', od.MSN)
+		ELSE od.MRN
+		END
+		END
+		AS SHIPMENT_NO
+		,od.BOUND
+		,od.BOUND_TYPE
+		FROM TB_ECM_OD od
+		INNER JOIN (
+		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME, COURIER_NAME, REGISTER_USER_ID FROM TB_ECM_POD_04 WHERE OD_JOB_NO = #{odJobNo} AND POD_STATUS IN ('ECM340','ECM410','ECM360','ECM390','ECM361','ECM420','ECM400')
+		) pod
+		ON pod.OD_JOB_NO = od.OD_JOB_NO
+		LEFT JOIN TB_SMS_USER usr
+		ON usr.ENT_CODE = od.ENT_CODE
+		AND usr.USER_ID = pod.REGISTER_USER_ID
+		WHERE od.ENT_CODE = #{srchEntCode}
+		AND od.OD_JOB_NO = #{odJobNo}
+		ORDER BY
+		<!-- pod.POD_STATUS <if test="defaultSort == 'desc' or defaultSort == 'DESC'">DESC</if>,  -->
+		POD_DATE_TIME DESC
+	</select>
+
+	<insert id="batchInsertPodStatus" parameterType="HashMap">
+		/* PcccMapper.batchInsertPodStatus */
+		INSERT INTO ${podTableName}(
+		POD_JOB_NO
+		,ENT_CODE
+		,OD_JOB_NO
+		,POD_STATUS
+		,POD_DATE
+		,POD_TIME
+		,BL_NO
+		<if test='podTableName == "TB_ECM_POD_04"'>
+			,DELIVERY_CODE
+			,DELIVERY_STORE_NAME
+			,DELIVERY_IRRE_CODE
+			,RECIPIENT_NAME
+			,COURIER_NAME
+			,COURIER_TEL
+			,REMARKS
+		</if>
+		,REGISTER_USER_ID
+		,REGISTER_DATE_TIME
+		,UPDATE_USER_ID
+		,UPDATE_DATE_TIME
+		)VALUES(
+		#{podJobNo}
+		,#{entCode}
+		,#{odJobNo}
+		,#{podStatus}
+		<choose>
+			<when test="podDate != null and podDate != ''">
+				,#{podDate}
+			</when>
+			<otherwise>
+				,GETDATE()
+			</otherwise>
+		</choose>
+		<choose>
+			<when test="podTime != null and podTime != ''">
+				,#{podTime}
+			</when>
+			<otherwise>
+				,CONVERT(VARCHAR(5), GETDATE(), 108)
+			</otherwise>
+		</choose>
+		,LTRIM(RTRIM(REPLACE(#{blNo},char(9),'')))
+		<if test='podTableName == "TB_ECM_POD_04"'>
+			,#{deliveryCode}
+			,#{deliveryStoreName}
+			,#{deliveryIrreCode}
+			,#{recipientName}
+			,#{courierName}
+			,#{courierTel}
+			,#{remarks}
+		</if>
+		,#{registerUserId}
+		,GETDATE()
+		,#{registerUserId}
+		,GETDATE()
+		);
+	</insert>
+
+	<select id="selectDeliveryApiInfo" parameterType="HashMap" resultType="HashMap">
+		SELECT
+			ENT_CODE
+			 , DELIVERY_CODE
+			 , RECV_API_URL
+			 , RECV_API_CODE
+			 , RECV_API_ID
+			 , RECV_API_PW
+			 , TRACKING_API_URL
+		FROM TB_SMS_DELIVERY_API_INFO
+		WHERE ENT_CODE = #{entCode}
+		  AND DELIVERY_CODE = #{deliveryCode}
+	</select>
+
+
+
+	<update id="updateOrderLastPodStatus" parameterType="HashMap">
+		/* PcccMapper.updateOrderLastPodStatus */
+		UPDATE ad SET
+		ad.OD_JOB_NO = ad.OD_JOB_NO
+		<if test="deliveryRecvDate != null and deliveryRecvDate != ''">
+			,ad.DELIVERY_RECV_DATE = #{deliveryRecvDate}
+		</if>
+		<if test="saveStatus != null and saveStatus != ''">
+			<choose>
+				<when test='notSaveLastStatusYn == "Y"'>
+					,ad.LAST_POD_STATUS = LAST_POD_STATUS
+				</when>
+				<otherwise>
+					,ad.LAST_POD_STATUS = #{saveStatus}
+				</otherwise>
+			</choose>
+			<!-- 				  <choose> -->
+			<!-- 				  <when test="lastPodDate != null and lastPodDate != ''"> -->
+			<!-- 				  ,ad.LAST_POD_DATE = #{lastPodDate} -->
+			<!-- 				  </when> -->
+			<!-- 				  <otherwise> -->
+			<!-- 				  ,ad.LAST_POD_DATE = GETDATE() -->
+			<!-- 				  </otherwise> -->
+			<!-- 				  </choose> -->
+		</if>
+		<choose>
+			<when test='chkMasterOdJobNoYn == "Y"'>
+				FROM TB_ECM_OD od
+				INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				ON ad.OD_JOB_NO = od.OD_JOB_NO
+				<choose>
+					<when test="MASTER_OD_JOB_NO != null and MASTER_OD_JOB_NO != ''">
+						WHERE od.MASTER_OD_JOB_NO = #{MASTER_OD_JOB_NO}
+					</when>
+					<otherwise>
+						WHERE od.MASTER_OD_JOB_NO IN (
+						<foreach collection="odJobNoList" item="item" separator=",">
+							#{item}
+						</foreach>
+						)
+					</otherwise>
+				</choose>
+			</when>
+			<otherwise>
+				FROM TB_ECM_OD_ADDITIONAL ad
+				<choose>
+					<when test="odJobNo != null and odJobNo != ''">
+						WHERE ad.OD_JOB_NO = #{odJobNo}
+					</when>
+					<otherwise>
+						WHERE ad.OD_JOB_NO IN (
+						<foreach collection="odJobNoList" item="item" separator=",">
+							#{item}
+						</foreach>
+						)
+					</otherwise>
+				</choose>
+			</otherwise>
+		</choose>
+		<!-- 			 			<if test='podStatusChkYn == "Y"'> -->
+		<!-- 			 			AND ISNULL(ad.LAST_POD_STATUS, '') <![CDATA[<]]> #{saveStatus} -->
+		<!-- 			 			</if> -->
+
+		<!-- 		AND od.BL_TYPE_MH = 'H' -->
+		<if test='chkSaveStatusYn == "Y"'>
+			AND ISNULL(ad.LAST_POD_STATUS, '') <![CDATA[<]]> #{saveStatus}
+		</if>
+	</update>
+
+	<update id="updateOrderDeliveryInfo" parameterType="HashMap">
+		/** OdMapper.updateOrderDeliveryInfo */
+		UPDATE TB_ECM_OD_ADDITIONAL SET
+		OD_JOB_NO = OD_JOB_NO
+		<if test="saveStatus != null and saveStatus != ''">
+			,DELIVERY_STATUS = #{saveStatus}
+		</if>
+		<if test="deliveryDate != null and deliveryDate != ''">
+			,DELIVERY_DATE = #{deliveryDate}
+			,DELIVERY_YN = 'Y'
+		</if>
+		WHERE OD_JOB_NO = #{odJobNo}
+		<if test='chkSaveStatusYn == "Y"'>
+			AND ISNULL(DELIVERY_STATUS,'') <![CDATA[<]]> #{saveStatus}
+		</if>
+	</update>
+
+
+	<select id="selectOrderPodStatus" parameterType="HashMap" resultType="HashMap">
+		SELECT
+		COUNT(1) AS cnt,
+		STUFF((
+		SELECT ','+ POD_STATUS FROM ${podTableName}
+		WHERE pod.OD_JOB_NO = OD_JOB_NO
+		<if test="podMultiList != null and podMultiList != ''">
+			AND POD_STATUS IN (<foreach collection="podMultiList" item="item" separator=",">#{item}</foreach> )
+		</if>
+		FOR XML PATH('')), 1, 1, '') AS podStatus
+		FROM ${podTableName} pod
+		WHERE OD_JOB_NO = #{odjobno}
+		<if test="podMultiList != null and podMultiList != ''">
+			AND pod.POD_STATUS IN (<foreach collection="podMultiList" item="item" separator=",">#{item}</foreach> )
+		</if>
+		<if test="podUpdateList != null and podUpdateList != ''">
+			AND pod.POD_STATUS IN (<foreach collection="podUpdateList" item="item" separator=",">#{item}</foreach> )
+		</if>
+		GROUP BY OD_JOB_NO
+	</select>
+
+	<delete id="batchTrackingDeletePod" parameterType="HashMap">
+		/* PcccMapper.batchTrackingDeletePod : 전자상거래 Order POD 삭제 */
+		DELETE FROM ${podTableName}
+		<choose>
+			<when test="podUpdateList != null and podUpdateList != ''">
+				WHERE POD_STATUS IN (<foreach collection="podUpdateList" item="item" separator=",">#{item}</foreach> )
+				AND OD_JOB_NO = #{odjobno}
+			</when>
+			<when test="podMultiList != null and podMultiList != ''">
+				WHERE POD_STATUS IN (<foreach collection="podMultiList" item="item" separator=",">#{item}</foreach> )
+				AND OD_JOB_NO = #{odjobno}
+			</when>
+			<otherwise>
+				WHERE OD_JOB_NO = #{odjobno}
+			</otherwise>
+		</choose>
+	</delete>
+
+	<select id="selectDeliveryApiInfoAll" parameterType="HashMap" resultType="HashMap">
+		/** PcccMapper.selectDeliveryApiInfoKd */
+		SELECT
+			KD_ADDR1
+			 ,KD_ADDR2
+			 ,KD_NAME
+			 ,KD_TEL1
+			 ,KD_TEL2
+			 ,KD_ZIPCODE
+			 ,KD_CUST_SEND_NO
+			 ,KD_AUTH_KEY
+			 ,TRACKING_KD_YN
+			 ,KOREX_ID
+			 ,KOREX_CUST_ID
+			 ,KOREX_METHOD
+			 ,KOREX_TOKEN_NUM
+			 ,KOREX_TOKEN_EXPRTN_DTM
+			 ,TRACKING_KOREX_YN
+		FROM TB_SMS_DELIVERY_COMP_INFO
+		WHERE ENT_CODE = #{entCode}
+		  AND EMS_ID = 'COMMON'
+	</select>
+
+	<delete id="batchDeletePod" parameterType="HashMap">
+		/** PcccMapper.batchDeletePod */
+		DELETE FROM TB_ECM_POD
+		WHERE OD_JOB_NO = #{odJobNo}
+		  AND POD_STATUS = #{podStatus};
+
+		DELETE FROM ${podTableName}
+		WHERE OD_JOB_NO = #{odJobNo}
+		  AND POD_STATUS = #{podStatus};
+	</delete>
+	
+	<select id="selectOrderMultiList" parameterType="HashMap" resultType="HashMap">
+		/** pcccMapper.selectOrderMultiList */
+		SELECT
+			od.HBL_NO as hblNo
+			,od.PO_NO as poNo
+			,od.OD_JOB_NO as odjobno
+			,od.DELIVERY_CODE as deliveryCode
+			,od.CUST_CODE_LV1
+			,od.DEST_PORT
+			,od.BOUND
+			,teom.DELIVERY_NO as deliveryNo
+			,CASE WHEN ISNULL(teom.OD_JOB_NO,'') != '' THEN 'multi' ELSE 'N' END multi_chk
+			,teom.SEQ_NO_ID as chkSeq
+			,teom.DELIVERY_CODE as multiChangeDeliveryCode
+			,teom.RETURN_DELIVERY_NO as returnDeliveryNo
+			,teom.DELIVERY_NO_CHANGED as deliveryNoChanged
+			,teom.SEQ_NO_ID as seqNoId
+		FROM
+			TB_ECM_OD od
+			LEFT JOIN
+			TB_ECM_OD_MULTI teom
+			ON od.OD_JOB_NO = teom.OD_JOB_NO 
+		WHERE 
+		od.OD_JOB_NO = #{odJobNo}
+	</select>
+	
+	<update id="updateOdMultiDate" parameterType="HashMap">
+		/** pcccMapper.updateOdMultiDate */
+		UPDATE TB_ECM_OD_MULTI
+		<set>
+			<choose>
+				<when test="statusType == 'RETURN_REG'">
+					RETURN_REG_DATE = #{podDate}
+				</when>
+				<when test="statusType == 'DELIVERY_REG'">
+					DELIVERY_REG_DATE = #{podDate}
+				</when>
+				<when test="statusType == 'RETURN_END'">
+					RETURN_END_DATE = #{podDate}
+				</when>
+				<when test="statusType == 'DELIVERY_END'">
+					DELIVERY_END_DATE = #{podDate}
+				</when>
+				<when test="statusType == 'RETURN_DLV_REQ_DATE'">
+					RETURN_DLV_REQ_DATE = #{podDate}
+				</when>
+			</choose>
+		</set>
+		WHERE OD_JOB_NO = #{odJobNo}
+		AND DELIVERY_NO = #{deliveryNo}
+
+		<if test="statusType == 'RETURN_REG'">
+		UPDATE TB_ECM_OD
+		SET RETURN_YN = 'Y'
+		WHERE OD_JOB_NO = #{odJobNo}
+		</if>
+	</update>
+	
+	<select id="countMulti" parameterType="HashMap" resultType="int">
+		/** PcccMapper.countMulti */
+		SELECT count(*)
+		FROM TB_ECM_OD_MULTI
+		WHERE
+			OD_JOB_NO = #{odJobNo}
+	</select>
+	
+	<select id="selectPodStatusTrackingCnt" parameterType="HashMap" resultType="int">
+		SELECT COUNT(*) AS cnt
+		FROM ${podTableName}
+		WHERE OD_JOB_NO = #{odJobNo}
+		  AND POD_STATUS = #{podStatus}
+		<if test='podTableName == "TB_ECM_POD_04_M"'>
+		  AND BL_NO = #{hblno}
+		</if>
+	</select>
+	
+	<insert id="batchInsertCoupangPodStatus" parameterType="HashMap">
+		INSERT INTO TB_ECM_COUPANG_TRACKING(
+				 ENT_CODE
+			   ,OD_JOB_NO
+			   ,HBL_NO
+			   ,PO_NO
+			   ,DELIVERY_CODE
+			   ,POD_STATUS
+			   ,POD_NAME
+			   ,POD_DATE
+			   ,POD_TIME
+			   ,REMARKS
+			   ,STATUS
+			   ,ERROR_DESC
+			   ,SEND_DATE_TIME
+			   ,REGISTER_USER_ID
+			   ,REGISTER_DATE_TIME
+			   ,UPDATE_USER_ID
+			   ,UPDATE_DATE_TIME
+			   ,TRACKING_JOB_NO
+		)VALUES(
+				 #{entCode}
+			   ,#{odJobNo}
+			   ,#{hblNo}
+			   ,#{poNo}
+			   ,#{deliveryCode}
+			   ,#{podStatus}
+			   ,#{podName}
+			   ,#{podDate}
+			   ,#{podTime}
+			   ,#{remarks}
+			   ,#{status}
+			   ,#{errorDesc}
+			   ,#{sendDateTime}
+			   ,#{registerUserId}
+			   ,GETDATE()
+			   ,#{registerUserId}
+			   ,GETDATE()
+			   ,#{trackingJobNo}
+			   );
+	</insert>
+	
+	<select id="selectDeliveryApiInfoAllMapping" parameterType="HashMap" resultType="HashMap">
+		/** pcccMapper.selectDeliveryApiInfoAllMapping */
+		SELECT TOP 1
+			KD_ADDR1
+			 ,KD_ADDR2
+			 ,KD_NAME
+			 ,KD_TEL1
+			 ,KD_TEL2
+			 ,KD_ZIPCODE
+			 ,KD_CUST_SEND_NO
+			 ,KD_AUTH_KEY
+			 ,TRACKING_KD_YN
+			 ,KOREX_ID
+			 ,KOREX_CUST_ID
+			 ,KOREX_METHOD
+			 ,KOREX_TOKEN_NUM
+			 ,KOREX_TOKEN_EXPRTN_DTM
+			 ,TRACKING_KOREX_YN
+			 ,SENDER_TELNO1
+			 ,SENDER_TELNO2
+			 ,SENDER_TELNO3
+			 ,SENDER_ADDR
+			 ,SENDER_ADDR_DTL
+			 ,SENDER_ZIPCODE
+			 ,SENDER_INFO_USEYN
+		FROM TB_SMS_DELIVERY_COMP_INFO
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{srchCustomerCode}
+		AND BOUND =  #{srchBound}
+		<!-- 2024-03-07 LOGISTICS_CODE는 BOUND별로 여러개 존재 가능 -->
+		<if test="srchLogisticsCode != null and srchLogisticsCode != ''">
+			AND LOGISTICS_CODE = #{srchLogisticsCode}
+		</if>
+	</select>
+	
+	<update id="updateOdDate" parameterType="map">
+		/** pcccMapper.updateOdDate */
+		UPDATE TB_ECM_OD_ADDITIONAL
+		<set>
+			<choose>
+				<when test="statusType == 'RETURN_REG'">
+					RETURN_REG_DATE = #{podDate}
+				</when>
+				<when test="statusType == 'RETURN_END'">
+					RETURN_END_DATE = #{podDate}
+				</when>
+				<when test="statusType == 'RETURN_DLV_REQ_DATE'">
+					RETURN_DLV_REQ_DATE = #{podDate}
+				</when>
+			</choose>
+		</set>
+		WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<select id="selectOdInfo" parameterType="searchPod" resultType="HashMap">
+		/* pcccMapper.selectOdInfo */
+		SELECT
+				MAX(HBL_NO) AS HBL_NO
+			FROM 
+				TB_ECM_OD od
+			INNER JOIN TB_ECM_OD_MULTI mul
+			ON od.OD_JOB_NO = mul.OD_JOB_NO
+			WHERE 
+				mul.DELIVERY_NO = #{srchNo}
+	</select>
+	
+	
+	<select id="selectOrderPodStatusMultiList" parameterType="HashMap" resultType="HashMap">
+		SELECT 
+			CONCAT(ISNULL(pod.POD_DATE,'1900-01-01'),' ',ISNULL(pod.POD_TIME,'00:00')) AS POD_DATE_TIME
+			,(SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = pod.POD_STATUS) AS POD_STATUS_NAME
+			,pod.POD_STATUS
+			,pod.OD_JOB_NO
+			FROM TB_ECM_POD_04_M pod
+			WHERE
+				OD_JOB_NO = #{odJobNo}
+				AND BL_NO = #{deliveryNo}
+	</select>
+	
+	<select id="selectSendCustomsInfo" parameterType="HashMap" resultType="HashMap">
+		/* PcccMapper.selectSendCustomsInfo : 쿠팡PCCC전송정보 */
+		SELECT
+			 cusId.CUSTOMS_ID_JOB_NO AS CUSTOMS_ID_JOB_NO
+			 , cusId.ENT_CODE AS ENT_CODE
+			 , cusId.REQUEST_ID AS REQUEST_ID
+			 , cusId.INPUT_METHOD AS INPUT_METHOD
+			 , cusId.HBL_NO AS HBL_NO
+			 , cusId.PO_NO AS PO_NO
+			 , CONVERT(VARCHAR(10), CONVERT(DATE, cusId.PO_DATE_TIME), 120) AS PO_DATE_TIME
+			 , cusId.PCCC_DATE_TIME AS PCCC_DATE_TIME
+			 , CASE WHEN ISNULL(cusId.AFTER_CUSTOMS_ID, '') = '' THEN cusId.AFTER_CUSTOMS_ID ELSE cusId.ORIG_CUSTOMS_ID END AS CUSTOMS_ID
+			 , CASE WHEN ISNULL(cusId.AFTER_CONSIGNEE_NAME, '') = '' THEN cusId.ORIG_CONSIGNEE_NAME ELSE cusId.AFTER_CONSIGNEE_NAME END AS CONSIGNEE_NAME
+			 , CASE WHEN ISNULL(cusId.AFTER_CONSIGNEE_F_NAME, '') = '' THEN cusId.ORIG_CONSIGNEE_F_NAME ELSE cusId.AFTER_CONSIGNEE_F_NAME END AS CONSIGNEE_F_NAME
+			 , CASE WHEN ISNULL(cusId.AFTER_CONSIGNEE_L_NAME, '') = '' THEN cusId.ORIG_CONSIGNEE_L_NAME ELSE cusId.AFTER_CONSIGNEE_L_NAME END AS CONSIGNEE_L_NAME
+			 , CASE WHEN ISNULL(cusId.AFTER_CONSIGNEE_HP, '') = '' THEN cusId.ORIG_CONSIGNEE_HP ELSE cusId.AFTER_CONSIGNEE_HP END AS CONSIGNEE_HP
+			 , CASE WHEN ISNULL(cusId.AFTER_CONSIGNEE_ZIPCODE, '') = '' THEN cusId.ORIG_CONSIGNEE_ZIPCODE ELSE cusId.AFTER_CONSIGNEE_ZIPCODE END AS CONSIGNEE_ZIPCODE
+			 , CONVERT(VARCHAR(16), cusId.COUPANG_SEND_DATE_TIME, 120) AS COUPANG_SEND_DATE_TIME
+			 , cusId.REGISTER_DATE_TIME AS REGISTER_DATE_TIME
+		FROM TB_ECM_CUSTOMS_ID_INFO cusId
+		WHERE 1=1
+			AND cusId.ENT_CODE = #{entCode}
+			AND cusId.CUSTOMS_ID_JOB_NO = #{odJobNo}
+			AND cusId.COUPANG_SEND_YN != 'Y'
+			AND cusId.COUPANG_SEND_DATE_TIME IS NULL
+	</select>
+	
+	<update id="updateSendCustomsInfo" parameterType="HashMap">
+		/** OdMapper.updateSendCustomsInfo : 개인통관부호 검증 전송여부 처리 **/
+		UPDATE TB_ECM_CUSTOMS_ID_INFO SET
+		   	COUPANG_SEND_YN = 'Y'
+		   	,COUPANG_SEND_DATE_TIME = GETDATE()
+		   	,UPDATE_USER_ID = 'DAEMON'
+		   	,UPDATE_DATE_TIME = GETDATE()
+		 WHERE REQUEST_ID = #{requestId}
+	</update>
+	
+	<select id="selectCustomsCodeVerificationInfo" parameterType="searchPod" resultType="pccc">
+		/* PcccMapper.selectCustomsCodeVerificationInfo : 개인통관부호 검증 전송 데이터 조회 */
+		SELECT TOP 1
+			od.ENT_CODE
+			,od.OD_JOB_NO
+			,od.HBL_NO
+			<choose>
+			<when test='cryptographyYn == "Y"'>
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS ORIG_CONSIGNEE_HP
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS ORIG_CONSIGNEE_TEL
+			,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS ORIG_CUSTOMS_ID
+			</when>
+			<otherwise>
+			,od.CONSIGNEE_HP AS ORIG_CONSIGNEE_HP
+			,od.CONSIGNEE_TEL AS ORIG_CONSIGNEE_TEL
+			,od.CUSTOMS_ID AS ORIG_CUSTOMS_ID
+			</otherwise>
+			</choose>
+			,od.CONSIGNEE_NAME_LOC AS ORIG_CONSIGNEE_NAME
+			,od.CONSIGNEE_FIRST_NAME as ORIG_CONSIGNEE_F_NAME
+			,od.CONSIGNEE_LAST_NAME as ORIG_CONSIGNEE_L_NAME
+			,od.CONSIGNEE_ZIPCODE AS ORIG_CONSIGNEE_ZIPCODE
+		FROM TB_ECM_OD od
+		LEFT JOIN TB_ECM_OD_ADDITIONAL ad
+		ON od.OD_JOB_NO = ad.OD_JOB_NO
+		WHERE 1=1
+		<if test="srchEntCode != null and srchEntCode != ''">
+			AND  od.ENT_CODE = #{srchEntCode}
+		</if>
+		<if test="odJobNo != null and odJobNo != ''">
+			AND  od.OD_JOB_NO = #{odJobNo}
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<when test='srchNoType == "srchBlNo"'>
+				AND (od.HBL_NO = #{srchNo} OR od.PO_NO = #{srchNo})				
+				</when>
+				<otherwise>
+				AND ${srchNoType} = #{srchNo}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="boundType != null and boundType != ''">
+			AND  od.BOUND_TYPE = #{boundType}
+		</if>
+	</select>
+	
+	<update id="UpdateCustomsCodeVerified" parameterType="PcccSaveResult">
+		/** PcccMapper.UpdateCustomsCodeVerified */
+		UPDATE TB_ECM_OD_ADDITIONAL SET
+			CUSTOMS_ID_VERIFY = #{customsIdVerify}
+			,CUSTOMS_ID_ERROR = #{customsIdError}
+			<if test="customsIdStartDate != null and customsIdStartDate != ''">
+			,CUSTOMS_ID_START_DATE = CONVERT(date, #{customsIdStartDate}, 23)
+			</if>
+			<if test="customsIdEndDate != null and customsIdEndDate != ''">
+			,CUSTOMS_ID_END_DATE = CONVERT(date, #{customsIdEndDate}, 23)
+			</if>
+		WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<select id="selectMultiNoList" parameterType="searchPod" resultType="HashMap">
+		/* pcccMapper.selectMultiNoList */
+		SELECT 
+			mul.DELIVERY_NO AS CODE
+			, mul.DELIVERY_NO AS CODE_NAME
+		FROM TB_ECM_OD od
+		INNER JOIN TB_ECM_OD_MULTI mul
+		ON od.OD_JOB_NO = mul.OD_JOB_NO
+		WHERE od.OD_JOB_NO IN (
+			SELECT od.OD_JOB_NO
+			FROM TB_ECM_OD od
+			INNER JOIN TB_ECM_OD_MULTI mul
+			ON od.OD_JOB_NO = mul.OD_JOB_NO
+			WHERE od.HBL_NO = #{srchNo} OR od.PO_NO = #{srchNo} OR mul.DELIVERY_NO = #{srchNo}
+		)
+	</select>
+</mapper>

@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.pda.BmsMobBwstMapper">
+
+	<select id="selectInitStockScanInfo" resultType="String" >
+		/* BmsMobBwstMapper.selectInitStockScanInfo : 재고실사 - 재고PKG SCAN 조회 */
+		SELECT
+			TOP 1
+			CASE
+				WHEN ISNULL(SCAN_START_TIME, '') <![CDATA[<>]]> '' AND ISNULL(SCAN_END_TIME, '') <![CDATA[<>]]> '' THEN 'S'
+				WHEN ISNULL(SCAN_END_TIME, '') <![CDATA[<>]]> '' THEN 'E'
+				WHEN ISNULL(SCAN_END_TIME, '') = '' AND ISNULL(SCAN_START_TIME, '') <![CDATA[<>]]> '' THEN 'C'
+				ELSE 'S'
+			END AS STATUS
+		FROM
+			TB_BMS_STOCK_SCAN_START_END
+		WHERE
+			<!-- SCAN_DATE = CONVERT(VARCHAR(10),GETDATE(),120) -->
+			SCAN_END_TIME = ''
+		ORDER BY SEQ DESC
+	</select>
+
+	<insert id="insertStockScanInfo" parameterType="HashMap">
+		/* BmsMobBwstMapper.insertStockScanInfo : 재고실사 - 재고PKG SCAN 시작종료 생성 */
+		INSERT INTO TB_BMS_STOCK_SCAN_START_END (
+			SCAN_DATE,
+			SCAN_START_TIME,
+			SCAN_END_TIME,
+			CHUTE_STOCK_YN,
+			REGISTER_USER_ID,
+			REGISTER_DATE_TIME,
+			UPDATE_USER_ID,
+			UPDATE_DATE_TIME
+		) VALUES (
+			CONVERT(VARCHAR(10),GETDATE(),120)
+			, CONVERT(CHAR(8), GETDATE(), 8)
+			, ''
+			, #{chuteStockYn}
+			, #{registerUserId}
+			, GETDATE()
+			, #{updateUserId}
+			, GETDATE()
+		)
+	</insert>
+
+	<select id="insertStockPkgScanBySortResult" parameterType="HashMap" statementType="CALLABLE" resultType="HashMap">
+		  {call SP_CR_CHKINV(
+		        #{registerUserId, mode=IN, jdbcType=VARCHAR},
+		        #{RSLT_CD, mode=OUT, jdbcType=VARCHAR},
+		        #{RSLT_MSG, mode=OUT, jdbcType=VARCHAR}
+		    )}
+	</select>
+	
+	<update id="updateStockScanInfo" parameterType="HashMap">
+		/* BmsMobBwstMapper.updateStockScanInfo : 재고실사 - 재고실사 PKG 조회 */
+		UPDATE 
+			TB_BMS_STOCK_SCAN_START_END 
+		SET
+			SCAN_END_TIME = CONVERT(CHAR(8), GETDATE(), 8),
+			SCAN_END_DATE = CONVERT(VARCHAR(10),GETDATE(),120)
+		<if test="stockScanSeq != null and stockScanSeq != ''">
+			, STOCK_SCAN_SEQ = #{stockScanSeq}
+		</if>
+		WHERE 
+			<!-- SCAN_DATE = CONVERT(VARCHAR(10),GETDATE(),120)
+			AND --> 
+			SCAN_END_TIME = ''
+	</update>
+
+	<select id="selectStockInfo" parameterType="HashMap" resultType="bmsStockPkgScan" >
+		/* BmsMobBwstMapper.selectStockInfo : 재고실사 - 재고PKG SCAN 조회 */
+		SELECT
+			P.IN_PLAN_NO,
+			P.BL_NO,
+			P.CARGO_REFERENCE_NO,
+			P.OD_JOB_NO,
+			PP.PACKING_NO
+		FROM
+			TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+			INNER JOIN TB_BMS_IN_PLAN P WITH (NOLOCK) ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		WHERE
+			PP.PACKING_NO = #{packingNo}
+			<if test="srchSeq != null and srchSeq != ''">
+				AND PP.SEQ = #{srchSeq}
+			</if>
+			AND PP.DELETE_YN = 'N'
+	</select>
+
+	<insert id="insertStockPkgScan" parameterType="HashMap">
+		/* BmsMobBwstMapper.insertStockPkgScan : 재고실사 - 재고PKG SCAN 생성 */
+		INSERT INTO TB_BMS_STOCK_PKG_SCAN (
+			IN_PLAN_NO,
+			SCAN_NO,
+			BL_NO,
+			PACKING_NO,
+			SCAN_DATE,
+			SCAN_TIME,
+			SCAN_RESULT,
+			SCAN_CT,
+			REGISTER_USER_ID,
+			REGISTER_DATE_TIME,
+			SCAN_TYPE
+		<if test="stockScanSeq != null and stockScanSeq != ''">
+			, STOCK_SCAN_SEQ
+		</if>
+		) VALUES (
+			#{inPlanNo}
+			, #{packingNo}
+			, #{blNo}
+			, #{packingNo}
+			, CONVERT(VARCHAR(10),GETDATE(),120)
+			, CONVERT(CHAR(8), GETDATE(), 8)
+			, #{scanResult}
+			, #{scanCt}
+			, #{registerUserId}
+			, GETDATE()
+			, 'PDA'
+		<if test="stockScanSeq != null and stockScanSeq != ''">
+			, #{stockScanSeq}
+		</if>
+		)
+	</insert>
+	
+	<insert id="insertBmsEcmPodForBatch" parameterType="HashMap">
+		/*EdiBmsSendMapper.insertBmsEcmPodForBatch : 작업내역 로그 */
+		INSERT INTO TB_ECM_POD_05 (
+               ENT_CODE
+             , OD_JOB_NO
+             , POD_STATUS
+             , POD_NAME
+             , POD_DATE
+             , POD_TIME
+             , REMARKS
+             , REGISTER_USER_ID
+             , REGISTER_DATE_TIME
+             , UPDATE_USER_ID
+             , UPDATE_DATE_TIME
+		) VALUES (
+               #{entCode}
+             , #{odJobNo}
+             , 'ECM288'
+             , #{podName}
+             , GETDATE()
+			 , SUBSTRING(CONVERT(VARCHAR(10), GETDATE(), 108), 1, 8)
+             , #{remarks}
+             , #{registerUserId}
+             , GETDATE()
+             , #{registerUserId}
+             , GETDATE()
+		)
+    </insert>
+
+	<select id="selectScanLogInfo" parameterType="HashMap" resultType="HashMap">
+		/* BmsMobBwstMapper.selectScanLogInfo : 재고실사 스캔 로그 조회 */
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+			SELECT 
+				IN_PLAN_NO
+				, SCAN_NO
+				, BL_NO
+				, PACKING_NO
+				, SCAN_DATE
+				, SCAN_TIME
+				, SCAN_RESULT
+				, SCAN_CT
+				, REGISTER_USER_ID
+				, ISNULL((SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = tbsps.REGISTER_USER_ID),'') AS REGISTER_USER_NAME
+				, REGISTER_DATE_TIME
+			FROM 
+				TB_BMS_STOCK_PKG_SCAN tbsps
+			WHERE 
+				SCAN_DATE + ' ' + SCAN_TIME >= #{scanStartDateTime} 
+				<!-- SCAN_DATE BETWEEN CONVERT(VARCHAR(10), ISNULL(#{srchScanDate},''), 120) AND CONVERT(VARCHAR(10), GETDATE(), 120) -->
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+
+	<select id="selectRealStockCarryInDetail" parameterType="SearchMobBwst" resultType="mobBwst" >
+		/* BmsMobBwstMapper.selectRealStockCarryInDetail : 재고실사처리 - 반입 조회 */
+			<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+			SELECT TOP 1
+			       I.OD_JOB_NO, 
+			       I.BL_NO, 
+			       ISNULL(S.SCAN_CT, 1) AS SCAN_CT, /* SCAN 수량 */	 
+				   SUBSTRING(I.CARRYIN_DATE+ ' ' + I.CARRYIN_TIME, 3, LEN(I.CARRYIN_DATE+ ' ' + I.CARRYIN_TIME)) AS CARRYIN_DATE_TIME, /* 반입일시 */
+				   CASE WHEN ISNULL(S.SEQ, '') != '' THEN 'Y' 	
+						ELSE 'N'
+			       END AS APPLY_YN /* 적용여부 */		
+			FROM TB_BMS_IN I WITH (NOLOCK)
+			LEFT JOIN TB_BMS_STOCK_SCAN S
+			ON I.BL_NO = S.BL_NO
+			WHERE I.IN_NO = #{srchNo}	 
+			<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />   -->
+	</select>
+	
+	<insert id="insertRealStockScan" parameterType="SearchMobBwst">
+		/* BmsMobBwstMapper.insertRealStockScan : 재고실사처리 - 재고스캔 insert */
+			INSERT INTO TB_BMS_STOCK_SCAN (
+				SCAN_NO
+			  , BL_NO
+			  , SCAN_DATE
+			  , SCAN_CT
+			  , REGISTER_USER_ID
+			  , REGISTER_DATE_TIME
+			)
+			VALUES (
+				#{blNo}
+			  , #{blNo}
+			  , #{scanDate}
+			  , 1
+			  , #{registerUserId}
+			  , GETDATE()
+			)
+	</insert>
+	
+	<select id="selectLocationInfoDetail" parameterType="HashMap" resultType="HashMap" >
+		/* BmsMobBwstMapper.selectLocationInfoDetail : 로케이션적치 - 로케이션정보 조회 */
+			SELECT TOP 1 
+				  CODE AS CODE
+				, NAME_DEFAULT AS NAME
+			FROM TB_SMS_CODE_DETAIL LOC
+			WHERE  LOC.GROUP_CODE = 'WH_LOCATION'
+			AND LOC.CODE = #{locationPlace}
+	</select>
+	
+	<select id="selectScanLogInfoByLocation" parameterType="HashMap" resultType="BmsStockPkgScan">
+		/* BmsMobBwstMapper.selectScanLogInfoByLocation : 적치된 재고실사 스캔 로그 조회 */
+			SELECT 
+				p.IN_PLAN_NO,
+				p.BL_NO,
+				p.CARGO_REFERENCE_NO,
+				p.OD_JOB_NO,
+				pkg.PACKING_NO,
+				pkg.LOCATION_STATUS,
+				pkg.LOCATION_PLACE,
+				pkg.OUT_CT AS PKG_OUT_CT,
+				pkg.DELETE_YN,
+				carryIn.IN_NO AS IN_NO
+			FROM TB_BMS_IN_PLAN_PKG pkg WITH (NOLOCK)
+			INNER JOIN TB_BMS_IN_PLAN p WITH (NOLOCK)
+				ON pkg.IN_PLAN_NO = p.IN_PLAN_NO
+			INNER JOIN TB_BMS_IN carryIn WITH (NOLOCK)
+				ON p.CARGO_REFERENCE_NO = carryIn.CARGO_REFERENCE_NO
+			WHERE pkg.LOCATION_PLACE = #{locationPlace}
+				AND pkg.DELETE_YN = 'N'
+				AND carryIn.STOCK_CT > 0
+	</select>
+	
+	<select id="selectPkgWithLogByLocation" parameterType="HashMap" resultType="BmsStockPkgScan">
+		/* BmsMobBwstMapper.selectPkgWithLogByLocation : 로케이션에 적치된 박스와 스캔 로그 조회 */
+			SELECT 
+				p.IN_PLAN_NO,
+				p.BL_NO,
+				p.CARGO_REFERENCE_NO,
+				p.OD_JOB_NO,
+				pkg.PACKING_NO,
+				pkg.LOCATION_STATUS,
+				pkg.OUT_CT AS PKG_OUT_CT,
+				pkg.DELETE_YN,
+				ISNULL(pkgScan.SCAN_RESULT, '') AS SCAN_RESULT
+			FROM TB_BMS_IN_PLAN_PKG pkg WITH (NOLOCK)
+			INNER JOIN TB_BMS_IN_PLAN p WITH (NOLOCK)
+				ON pkg.IN_PLAN_NO = p.IN_PLAN_NO
+			INNER JOIN TB_BMS_IN carryIn WITH (NOLOCK)
+				ON p.CARGO_REFERENCE_NO = carryIn.CARGO_REFERENCE_NO
+			OUTER APPLY (
+				    SELECT TOP 1 
+				    	SCAN_RESULT
+				    FROM TB_BMS_STOCK_PKG_SCAN scan WITH (NOLOCK)
+				    WHERE scan.PACKING_NO = pkg.PACKING_NO
+				    ORDER BY REGISTER_DATE_TIME DESC 
+				) pkgScan
+			WHERE pkg.LOCATION_PLACE = #{locationPlace}
+				AND pkg.DELETE_YN = 'N'
+				AND carryIn.STOCK_CT > 0
+	</select>
+	
+	<select id="selectStockInfoByLocation" parameterType="HashMap" resultType="bmsStockPkgScan" >
+		/* BmsMobBwstMapper.selectStockInfoByLocation : 적치된 재고PKG SCAN 조회 */
+		SELECT
+			p.IN_PLAN_NO,
+			p.BL_NO,
+			p.CARGO_REFERENCE_NO,
+			p.OD_JOB_NO,
+			pkg.PACKING_NO,
+			pkg.LOCATION_STATUS,
+			pkg.LOCATION_PLACE,
+			pkg.DELETE_YN
+		FROM TB_BMS_IN_PLAN_PKG pkg WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN p WITH (NOLOCK)
+			ON pkg.IN_PLAN_NO = p.IN_PLAN_NO
+		WHERE
+			pkg.PACKING_NO = #{packingNo}
+			<if test="srchSeq != null and srchSeq != ''">
+				AND pkg.SEQ = #{srchSeq}
+			</if>
+	</select>
+	
+	<select id="checkPkgHasBmsIn" parameterType="HashMap" resultType="Integer" >
+		/* BmsMobBwstMapper.checkPkgHasBmsIn : 해당박스가 반입이 생성 됬는지 count */
+			SELECT
+				COUNT(*)	
+			FROM TB_BMS_IN_PLAN_PKG pkg WITH (NOLOCK)
+			INNER JOIN TB_BMS_IN i WITH (NOLOCK)
+				ON i.IN_PLAN_NO = pkg.IN_PLAN_NO
+			WHERE pkg.PACKING_NO = #{packingNo}
+				<if test="srchSeq != null and srchSeq != ''">
+					AND pkg.SEQ = #{srchSeq}
+				</if>
+	</select>
+	
+	<select id="selectOutPlanInfoByPkgNo" parameterType="HashMap" resultType="bmsOutPlan" >
+		/* BmsMobBwstMapper.selectOutPlanInfoByPkgNo : PKG SCAN으로 OUT_PLAN 반출승인 조회 */
+		SELECT TOP 1
+			outPlan.APPROVAL_CLASS
+			, outPlan.OUT_CLASS
+			, COALESCE(outPlan.IN_NO, carryIn.IN_NO, 0) AS IN_NO
+		FROM TB_BMS_IN_PLAN_PKG pkg WITH(NOLOCK)
+		LEFT JOIN TB_BMS_IN carryIn WITH(NOLOCK)
+			ON carryIn.IN_PLAN_NO = pkg.IN_PLAN_NO OR carryIn.ORIG_IN_PLAN_NO = pkg.IN_PLAN_NO
+		LEFT JOIN TB_BMS_OUT_PLAN outPlan WITH(NOLOCK)
+			ON outPlan.IN_NO = carryIn.IN_NO
+		WHERE
+			pkg.PACKING_NO = #{packingNo}
+			<if test="srchSeq != null and srchSeq != ''">
+				AND pkg.SEQ = #{srchSeq}
+			</if>
+			AND pkg.DELETE_YN = 'N'
+		ORDER BY outPlan.NOTIFY_DATE_TIME DESC
+	</select>
+	
+	<select id="selectCurrentStockScanSeq" resultType="Integer">
+		/* BmsMobBwstMapper.selectCurrentStockScanSeq : 현재 재고실사SCAN 차수 가져오기 */
+		SELECT TOP 1
+			CASE WHEN A.STOCK_SCAN_SEQ IS NOT NULL
+				THEN A.STOCK_SCAN_SEQ + 1
+				ELSE 1
+			END
+		FROM(
+			SELECT TOP 1
+				SCAN_DATE AS SCAN_DATE_BEFORE,
+				STOCK_SCAN_SEQ,
+				NULL AS SCAN_DATE_CURRENT
+			FROM TB_BMS_STOCK_SCAN_START_END
+			WHERE SCAN_DATE <![CDATA[<]]> CONVERT(CHAR(10), GETDATE(), 23) AND STOCK_SCAN_SEQ IS NOT NULL
+			ORDER BY SCAN_DATE DESC
+			
+			UNION ALL
+			
+			SELECT TOP 1
+				NULL AS SCAN_DATE_BEFORE,
+				STOCK_SCAN_SEQ,
+				SCAN_DATE AS SCAN_DATE_CURRENT
+			FROM TB_BMS_STOCK_SCAN_START_END
+			WHERE SCAN_DATE = CONVERT(CHAR(10), GETDATE(), 23)
+			ORDER BY SCAN_DATE DESC, STOCK_SCAN_SEQ DESC
+		) AS A
+		ORDER BY A.SCAN_DATE_CURRENT DESC, A.STOCK_SCAN_SEQ DESC
+	</select>
+	
+	<select id="selectCurrentStockScanSeq_old" resultType="Integer">
+		/* BmsMobBwstMapper.selectCurrentStockScanSeq_old : 현재 재고실사SCAN 차수 가져오기 */
+		SELECT 
+			CASE WHEN MAX(STOCK_SCAN_SEQ) IS NOT NULL
+				THEN MAX(STOCK_SCAN_SEQ) + 1
+				ELSE 1
+			END
+		FROM TB_BMS_STOCK_SCAN_START_END
+		WHERE SCAN_DATE <![CDATA[<=]]> CONVERT(CHAR(10), GETDATE(), 23) 
+			AND SCAN_END_DATE >= CONVERT(CHAR(10), GETDATE(), 23)
+			AND SCAN_START_TIME <![CDATA[<=]]> CONVERT(CHAR(10), GETDATE(), 24)
+	</select>
+	
+	<select id="checkScannedByScanDate" resultType="Integer">
+		/* BmsMobBwstMapper.checkScannedByScanDate : 현재 재고실사SCAN 차수 가져오기 */
+		SELECT 
+			COUNT(*)
+		FROM TB_BMS_STOCK_PKG_SCAN pkgScan
+		JOIN TB_BMS_STOCK_SCAN_START_END SSSE
+			ON SSSE.SCAN_END_DATE = '' AND pkgScan.SCAN_DATE = SSSE.SCAN_DATE AND pkgScan.SCAN_DATE + ' ' + pkgScan.SCAN_TIME >= SSSE.SCAN_DATE + ' ' + SSSE.SCAN_START_TIME 
+	</select>
+	
+	<select id="getStockScanStartEnd" resultType="HashMap" >
+		/* BmsMobBwstMapper.getStockScanStartEnd : 재고실사 - 재고PKG SCAN 조회 */
+		SELECT
+			TOP 1
+			SCAN_DATE
+			, SCAN_START_TIME
+		FROM
+			TB_BMS_STOCK_SCAN_START_END
+		WHERE
+			<!-- SCAN_DATE = CONVERT(VARCHAR(10),GETDATE(),120)
+			AND --> 
+			SCAN_END_TIME = ''
+		ORDER BY SEQ DESC
+	</select>
+</mapper>

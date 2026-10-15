@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.edi.SeparateMngMapper">
+
+	<select id="selectSeparateDocList" parameterType="searchSeparateMngList" resultType="separateMng">
+		/* SeparateMngMapper.selectSeparateDocList : 별도관리물품해제신고 제출번호 그룹 List */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 edi.EDI_DOC_NO			
+			,edi.EDI_SEND_DATE
+			,edi.REGISTER_DATE_TIME
+			,edi.OD_JOB_NO
+			,(SELECT COUNT(*) FROM TB_ECM_OD_ADDITIONAL WHERE SPECIAL_ITEM_DOC_NO = edi.EDI_DOC_NO) AS DOC_CNT
+			,ISNULL(edi.EDI_STATUS, 'EDI') AS EDI_STATUS
+			,CASE WHEN edi.EDI_STATUS IN ('READY','SEND','RECV','1','3') THEN 1 ELSE 0 END AS SEND_CNT
+			,od.CUSTOMS_CODE
+			,od.AR_DATE
+			,od.VESSEL_FLIGHT
+			,od.ORIG_CODE
+			,od.MRN
+			,od.MSN
+		FROM TB_EDI_LINKED edi
+			 INNER JOIN TB_ECM_OD od
+			 			ON edi.OD_JOB_NO = od.OD_JOB_NO		
+		WHERE edi.ENT_CODE = #{srchEntCode}
+		AND edi.EDI_CODE = 'GOVCBRDAX'
+		<if test="srchStartDate != null and srchStartDate != ''">
+		AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+		</if>
+		<if test="srchEndDate != null and srchEndDate != ''">
+		AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+		</if>		
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>	
+	
+	<select id="selectSeparateList" parameterType="searchSeparateMngList" resultType="separateMng">
+		/* SeparateMngMapper.selectSeparateList : 별도관리물품해제신고  List */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT * 
+		FROM
+		(
+			SELECT
+				edi.EDI_JOB_NO
+				,ROW_NUMBER() OVER(PARTITION BY edi.EDI_JOB_NO,od.OD_JOB_NO 
+	                                 ORDER BY edi.EDI_JOB_NO,od.OD_JOB_NO) AS OD_NUM
+				,edi.ENT_CODE
+				,edi.ENT_BUSINESS_CODE
+				,od.OD_JOB_NO
+				,od.BOUND
+				,od.BOUND_TYPE
+				,edi.EDI_DOC_NO
+				,edi.ISSUE_DATE
+				,edi.EDI_STATUS
+				,edi.EDI_SEND_DATE
+				,edi.EDI_RECEIPT_DATE
+				,edi.EDI_RESULT_DATE
+				,edi.REGISTER_DATE_TIME AS EDI_REGISTER_DATE_TIME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = edi.ENT_CODE AND USER_ID = edi.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				,odAdd.CLEARANCE_RECEIPT_DATE
+				,od.PO_NO
+				,od.CD_TYPE
+				,od.MBL_NO
+				,od.HBL_NO
+				,od.MASTER_OD_JOB_NO
+				,odAdd.DELIVERY_DATE
+				,od.DELIVERY_CODE
+				,od.DELIVERY_NAME
+				,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS CONSIGNEE_ADDRESS
+				,od.DELIVERY_ADDRESS_CHANGED
+				,od.DELIVERY_REASON_CHANGED
+				,od.CONSIGNEE_NAME
+				,od.COMMODITY_ITEM
+				,od.CUSTOMS_CODE
+				,od.ORIG_CODE
+				,od.VESSEL_FLIGHT
+				,odAdd.SIMPLE_REPORT_DATE
+				,od.REGISTER_DATE_TIME
+				,spItem.AR_DATE 
+				,mod.MRN
+				,mod.MSN
+				,od.HSN
+				,spItem.FLIGHT_NO
+				,spItem.ITEM_DESC
+				,spItem.GWT
+				,spItem.PIECES
+				,SUM(spItem.GWT) OVER(PARTITION BY edi.EDI_JOB_NO,od.OD_JOB_NO ORDER BY edi.EDI_JOB_NO,od.OD_JOB_NO) AS ITEM_GWT
+				,SUM(spItem.PIECES) OVER(PARTITION BY edi.EDI_JOB_NO,od.OD_JOB_NO ORDER BY edi.EDI_JOB_NO,od.OD_JOB_NO) AS ITEM_PIECES
+				,COUNT(*) OVER(PARTITION BY edi.EDI_JOB_NO,od.OD_JOB_NO ORDER BY edi.EDI_JOB_NO,od.OD_JOB_NO) AS ITEM_CNT
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL odAdd
+				 			ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+				 INNER JOIN TB_ECM_OD_SPECIAL_ITEM spItem
+				 			ON od.OD_JOB_NO = spItem.OD_JOB_NO
+				 INNER JOIN TB_ECM_OD mod
+				 			ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+			<choose>
+			<when test='srchDataGen == "Y"'>
+			INNER JOIN TB_EDI_LINKED edi ON edi.OD_JOB_NO = od.MASTER_OD_JOB_NO AND edi.EDI_DOC_NO = odAdd.SPECIAL_ITEM_DOC_NO
+			</when>
+			<otherwise>
+			LEFT OUTER JOIN TB_EDI_LINKED edi ON edi.OD_JOB_NO = od.MASTER_OD_JOB_NO AND edi.EDI_DOC_NO = odAdd.SPECIAL_ITEM_DOC_NO
+			</otherwise>
+			</choose>
+			WHERE od.ENT_CODE = #{srchEntCode}
+			
+			<if test='srchDataGen == "N"'>		
+			AND edi.EDI_JOB_NO IS NULL
+			</if>
+			<if test='srchDataGen == "Y"'>
+			AND edi.EDI_JOB_NO IS NOT NULL
+			AND odAdd.SPECIAL_ITEM_DOC_NO = edi.EDI_DOC_NO
+			</if>
+			
+			<if test="srchCdType != null and srchCdType != ''">
+				AND od.CD_TYPE = #{srchCdType}
+			</if>
+			<if test="srchNo != null and srchNo != ''">
+				AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+			</if>
+			<if test='srchSendStatus == "Y"'>
+				AND (edi.EDI_STATUS IS NOT NULL AND edi.EDI_STATUS <![CDATA[<>]]> '')
+			</if>
+			<if test='srchSendStatus == "N"'>
+				AND (edi.EDI_STATUS IS NULL OR edi.EDI_STATUS = '')
+			</if>
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			</if>
+			<if test="srchEndDate != null and srchEndDate != ''">
+			AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</if>	
+			
+			<if test="ediDocNo != null and ediDocNo != ''">
+				AND edi.EDI_DOC_NO = #{ediDocNo}
+			</if>	
+		) A
+		WHERE OD_NUM = 1	
+		
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>	
+	
+	<insert id="insertSeparateMng" parameterType="separateMng">
+		/* SeparateMngMapper.insertSeparateMng : 별도관리물품해제신고 insert */
+		INSERT INTO TB_EDI_LINKED(
+			EDI_JOB_NO
+			,ENT_CODE
+			,ENT_BUSINESS_CODE
+			,OD_JOB_NO
+			,BOUND
+			,BOUND_TYPE
+			,EDI_CODE
+			,EDI_DOC_NO	
+			,ISSUE_DATE
+			,EDI_STATUS
+			,EDI_PORTAL_MAILBOX_ID
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+		)VALUES(
+			 #{ediJobNo}
+			,#{entCode}
+			,#{entBusinessCode}
+			,#{MASTER_OD_JOB_NO}
+			,#{BOUND}
+			,#{BOUND_TYPE}
+			,'GOVCBRDAX'
+			,#{ediDocNo}
+			,#{issueDate}
+			,NULL
+			,#{EDI_PORTAL_MAILBOX_ID}
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</insert>
+	
+	<insert id="updateSeparateJob" parameterType="separateMng">
+		/* SeparateMngMapper.updateSeparateJob : 별도관리물품해제신고  insert */
+		UPDATE TB_ECM_OD_ADDITIONAL
+		SET SPECIAL_ITEM_DOC_NO = #{ediDocNo}
+		WHERE OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item.OD_JOB_NO}</foreach>)
+	</insert>
+	
+	<select id="selectSpecialData" parameterType="HashMap" resultType="HashMap">
+		/* SeparateMngMapper.selectSpecialData : 별도관리물품해제신고 생성자료 조회 */
+			SELECT 
+				 ad.SPECIAL_ITEM_DOC_NO
+				,ad.HBL_NO
+				,ad.MASTER_OD_JOB_NO
+				,ad.OD_JOB_NO
+				,od.BOUND
+				,od.BOUND_TYPE
+				,(SELECT EDI_PORTAL_MAILBOX_ID FROM TB_SMS_ENT_BUS_EDI_ECM WHERE ENT_CODE = #{entCode} AND ENT_BUSINESS_CODE = #{entBusinessCode} AND SEQ_NO = ad.EDI_MAILBOX_SEQ_NO) AS EDI_PORTAL_MAILBOX_ID
+				<if test='searchEdiLinked == "Y"'>
+				,edi.EDI_JOB_NO
+				,edi.EDI_STATUS
+				</if>
+			FROM TB_ECM_OD_ADDITIONAL ad
+				 INNER JOIN TB_ECM_OD od
+				 			ON od.OD_JOB_NO = ad.OD_JOB_NO
+				 <if test='searchEdiLinked == "Y"'>
+				 LEFT JOIN TB_EDI_LINKED edi
+				 		   ON edi.EDI_DOC_NO = ad.SPECIAL_ITEM_DOC_NO
+				 </if>
+			<choose>
+			<when test='action == "deleteMasterGrid"'>
+			WHERE ad.SPECIAL_ITEM_DOC_NO IN(<foreach collection="separateMngList" item="item" separator=",">#{item.ediDocNo}</foreach>)
+			</when>
+			<otherwise>
+			WHERE ad.OD_JOB_NO IN(<foreach collection="separateMngList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="getSeparateDocNo" parameterType="separateMng" resultType="separateMng">
+		/* SeparateMngMapper.getSeparateDocNo : 별도관리물품해제신고 추출  배송지변경 번호: 특송부호(6) +년도(4) +일련번호(8) TODO 특송부호 prefix 받아야함*/
+		SELECT CONCAT('BBCDEF',CONVERT(CHAR(4), GETDATE(), 112),CONCAT(REPLICATE('0', 8 - LEN(num)), num)) AS ediDocNo
+		FROM
+		(
+			SELECT ISNULL(MAX(SUBSTRING(EDI_DOC_NO,11,8)),0) + 1 AS num 
+			FROM TB_EDI_LINKED 
+			WHERE SUBSTRING(EDI_DOC_NO,1,10) = CONCAT('BBCDEF',CONVERT(CHAR(4), GETDATE(), 112))
+		) A
+	</select>
+			
+	<delete id="deleteBatchSeparateMng" parameterType="separateMngDoc">
+		/* SeparateMngMapper.deleteBatchSeparateMng : 별도관리물품해제신고 delete */
+		<foreach collection="separateMngList" item="item">		
+			<choose>
+			<when test='item.docYn == "Y"'>
+				DELETE TB_EDI_LINKED
+				WHERE EDI_DOC_NO = #{item.ediDocNo};
+				UPDATE TB_ECM_OD_ADDITIONAL SET
+					   SPECIAL_ITEM_DOC_NO = NULL
+				WHERE SPECIAL_ITEM_DOC_NO = #{item.ediDocNo};
+			</when>
+			<otherwise>
+				UPDATE TB_ECM_OD_ADDITIONAL 	
+				SET SPECIAL_ITEM_DOC_NO = NULL
+				WHERE OD_JOB_NO = #{item.odJobNo};
+			</otherwise>
+			</choose>		
+		</foreach>	
+	</delete>
+		
+</mapper>

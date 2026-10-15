@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.sms.holy.HolydayMapper">
+	<select id="selectHolyDayList" parameterType="searchHolydayList" resultType="Holyday">
+		/* HolydayMapper.selectHolyDayList : 공휴일 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT 
+			tsh.SEQ_NO_ID
+			,tsh.ENT_CODE
+			,tsh.COUNTRY
+			,(SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'COUNTRY' AND CODE = tsh.COUNTRY) AS COUNTRY_NAME
+			,tsh.HOLYDAY_TYPE
+			,CASE WHEN tsh.HOLYDAY_TYPE = 'H' THEN '공휴일' ELSE '대체휴무일' END HOLYDAY_TYPE_NAME 
+			,tsh.HOLYDAY_NAME
+			,FORMAT(tsh.START_DATE,'yyyy-MM-dd') as START_DATE
+			,FORMAT(tsh.END_DATE,'yyyy-MM-dd') as END_DATE
+			,tsh.REMARKS
+			,tsh.REGISTER_DATE_TIME
+			,tsh.REGISTER_USER_ID
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = tsh.ENT_CODE AND USER_ID = tsh.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			,tsh.UPDATE_DATE_TIME
+			,tsh.UPDATE_USER_ID
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = tsh.ENT_CODE AND USER_ID = tsh.UPDATE_USER_ID) AS UPDATE_USER_NAME
+		FROM TB_SMS_HOLYDAY tsh
+		WHERE tsh.ENT_CODE = #{srchEntCode}
+		<if test="srchStartDate != null and srchStartDate != ''">
+			AND tsh.START_DATE >= CONVERT(DATETIME, #{srchStartDate} + ' 00:00:00', 20)
+		</if>
+		<if test="srchEndDate != null and srchEndDate != ''">
+			AND tsh.END_DATE <![CDATA[<=]]> CONVERT(DATETIME, #{srchEndDate} + ' 23:59:59', 20)
+		</if>
+		<if test="srchCountry != null and srchCountry != ''">
+			AND tsh.COUNTRY = #{srchCountry}
+		</if>
+		<if test="srchHolydayType != null and srchHolydayType != ''">
+			AND tsh.HOLYDAY_TYPE = #{srchHolydayType}
+		</if>
+		<if test="srchHolydayName != null and srchHolydayName != ''">
+			AND tsh.HOLYDAY_NAME LIKE CONCAT('%',#{srchHolydayName},'%')
+		</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />	
+	</select>
+	
+	<insert id="insertHolyDay" parameterType="holyday">
+		/* HolydayMapper.insertHolyDay : 공휴일 정보 등록 */
+		INSERT INTO TB_SMS_HOLYDAY(
+			SEQ_NO_ID
+			,ENT_CODE
+			,COUNTRY
+			,HOLYDAY_TYPE
+			,HOLYDAY_NAME
+			,START_DATE
+			,END_DATE
+			,REMARKS
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)
+		VALUES
+		(
+			#{seqNoId}
+			,#{entCode}
+			,#{country}
+			,#{holydayType}
+			,#{holydayName}
+			,CONVERT(DATE, #{startDate}, ${dateFormat})
+			,CONVERT(DATE, #{endDate}, ${dateFormat})
+			,#{remarks}
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</insert>
+	
+	<delete id="deleteHolyDay" parameterType="holydayList">
+		/* HolydayMapper.deleteHolyDay : 공휴일 정보 Delete */
+		DELETE TB_SMS_HOLYDAY
+		WHERE ENT_CODE = #{entCode}
+		<if test="dataList != null and dataList.size > 0">
+			AND SEQ_NO_ID IN (
+			<foreach collection="dataList" item="item" separator=",">#{item.seqNoId}</foreach>
+			)
+		</if>
+	</delete>
+</mapper>

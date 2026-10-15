@@ -1,0 +1,1650 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.sms.SmsCousMapper">
+
+	<select id="selectEcmUserList" parameterType="searchEcmUserList" resultType="ecmUser">
+		/* SmsCousMapper.selectEcmUserList : Ecm User List */
+		SELECT
+			usr.USE_YN
+			,usr.USER_TYPE
+			,usr.USER_ID
+			,usr.USER_LOGIN_ID
+			,usr.ENT_BUSINESS_CODE
+			,usr.USER_NAME
+			,usr.CUSTOMER_CODE
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = usr.ENT_CODE AND CUSTOMER_CODE = usr.CUSTOMER_CODE) AS CUSTOMER_NAME
+			,usr.REGISTER_DATE_TIME AS registerDateTime
+		FROM TB_SMS_USER usr
+		LEFT JOIN TB_SMS_USER_OPTION opt
+				ON usr.ENT_CODE = opt.ENT_CODE
+				AND usr.USER_ID = opt.USER_ID
+		WHERE usr.ENT_CODE = #{srchEntCode}
+		AND opt.USER_CLASS = 'ECM-USER'
+		
+		<if test="srchCustomerCode != null and srchCustomerCode != ''">
+			AND usr.CUSTOMER_CODE = #{srchCustomerCode}
+		</if>
+	</select>	
+	
+	<select id="selectEcmCustomerTreeList" parameterType="searchEcmCustomerTreeList" resultType="HashMap">
+	    /*SmsCousMapper.selectEcmCustomTreeList : 거래처 하위  리스트 조회*/		
+		WITH tree_query 
+		AS 
+		( 
+			SELECT 
+				cus.CUSTOMER_CODE AS id
+				, cus.PARENT_CUSTOMER_CODE AS upper 
+				, cus.CUSTOMER_CODE + '(' + cus.CUSTOMER_NAME + ')' AS text
+				, cus.CUSTOMER_NAME AS cusName
+				, cus.CUSTOMER_TYPE AS type
+				, cus.REGISTER_DATE_TIME AS registerDateTime
+			FROM TB_SMS_CUSTOMER cus
+			WHERE cus.ENT_CODE = #{srchEntCode}
+			  	AND cus.PARENT_CUSTOMER_CODE = #{srchParentId}	
+			UNION ALL 	
+			SELECT 
+				B.CUSTOMER_CODE AS id
+				, B.PARENT_CUSTOMER_CODE AS upper
+				, B.CUSTOMER_CODE + '(' + B.CUSTOMER_NAME + ')' AS text
+				, B.CUSTOMER_NAME AS cusName
+				, B.CUSTOMER_TYPE AS type
+				, B.REGISTER_DATE_TIME AS registerDateTime
+			FROM TB_SMS_CUSTOMER B, tree_query C 
+			WHERE B.PARENT_CUSTOMER_CODE = C.id 
+		) 
+		
+		SELECT A.* FROM tree_query	A
+		ORDER BY registerDateTime DESC
+
+	</select>	
+		
+	<update id="updateEcmUserApprove" parameterType="ecmUserApprove">
+		/* SmsCousMapper.updateEcmUserApprove : 사용자 승인여부 처리 */
+		UPDATE TB_SMS_USER
+		SET USE_YN = #{useYn}
+		    ,UPDATE_USER_ID = #{updateUserId}
+			,UPDATE_DATE_TIME = CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID IN (
+		<foreach collection="ecmUserList" item="item" separator=",">
+			#{item.userId}
+		</foreach>
+		)
+	</update>
+	
+	<update id="deleteEcmUser" parameterType="ecmUserDelete">
+		/* SmsCousMapper.deleteEcmUser : 사용자 삭제 처리 */		
+		DELETE FROM TB_SMS_USER
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID = #{userId};
+		DELETE FROM TB_SMS_USER_FAVORITE_MENU
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID = #{userId};
+		DELETE FROM TB_SMS_USER_OPTION
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID = #{userId};		
+		DELETE FROM TB_SMS_GROUP_USER_MENU
+		WHERE ENT_CODE = #{entCode}
+		AND GROUP_USER_ID = #{userId};
+		DELETE FROM TB_SMS_GROUP_USER
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID = #{userId};
+		DELETE FROM TB_SMS_USER_IMAGE
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID = #{userId};
+		DELETE FROM TB_SMS_USER_CUSTOMER
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID = #{userId};
+		DELETE FROM TB_SMS_OTHLOGIN
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID = #{userId};
+		DELETE FROM TB_SMS_USER_BUSINESS
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID = #{userId};
+		
+	</update>
+	
+	<update id="deleteEcmUserList" parameterType="ecmUserDelete">
+		/* SmsCousMapper.deleteEcmUserList : 사용자 삭제 처리 */		
+		DELETE FROM TB_SMS_USER
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID IN 
+		<foreach collection="ecmUserList" item="item" open="(" close=");" separator=",">
+			#{item.userId}
+		</foreach>
+		DELETE FROM TB_SMS_USER_FAVORITE_MENU
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID IN 
+		<foreach collection="ecmUserList" item="item" open="(" close=");" separator=",">
+			#{item.userId}
+		</foreach>
+		DELETE FROM TB_SMS_USER_OPTION
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID IN 
+		<foreach collection="ecmUserList" item="item" open="(" close=");" separator=",">
+			#{item.userId}
+		</foreach>
+		DELETE FROM TB_SMS_GROUP_USER_MENU
+		WHERE ENT_CODE = #{entCode}
+		AND GROUP_USER_ID IN 
+		<foreach collection="ecmUserList" item="item" open="(" close=");" separator=",">
+			#{item.userId}
+		</foreach>
+		DELETE FROM TB_SMS_GROUP_USER
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID IN 
+		<foreach collection="ecmUserList" item="item" open="(" close=");" separator=",">
+			#{item.userId}
+		</foreach>
+		DELETE FROM TB_SMS_USER_IMAGE
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID IN 
+		<foreach collection="ecmUserList" item="item" open="(" close=");" separator=",">
+			#{item.userId}
+		</foreach>
+		DELETE FROM TB_SMS_USER_CUSTOMER
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID IN 
+		<foreach collection="ecmUserList" item="item" open="(" close=");" separator=",">
+			#{item.userId}
+		</foreach>
+		DELETE FROM TB_SMS_OTHLOGIN
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID IN 
+		<foreach collection="ecmUserList" item="item" open="(" close=");" separator=",">
+			#{item.userId}
+		</foreach>
+		DELETE FROM TB_SMS_USER_BUSINESS
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID IN 
+		<foreach collection="ecmUserList" item="item" open="(" close=");" separator=",">
+			#{item.userId}
+		</foreach>		
+	</update>
+	
+	<delete id="deleteEcmCustomer" parameterType="ecmCustomerDelete">
+		/* SmsCousMapper.deleteEcmCustomer : 거래처정보 delete */
+		DELETE FROM TB_SMS_CUSTOMER
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+		DELETE FROM TB_SMS_CUSTOMER_FMS
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+		DELETE FROM TB_SMS_CUSTOMER_ATTN
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+		DELETE FROM TB_SMS_CUSTOMER_KIND
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+		DELETE FROM TB_SMS_CUSTOMER_SOLUTION
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+		DELETE FROM TB_SMS_CUSTOMER_BUSINESS
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+		DELETE FROM TB_SMS_CUSTOMER_BANK
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+		DELETE FROM TB_SMS_CUSTOMER_COLLATERAL
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+		DELETE FROM TB_SMS_CUSTOMER_UPDATE
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+		DELETE FROM TB_SMS_CUSTOMER_CHARGE
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+		DELETE FROM TB_SMS_CUSTOMER_INTERFACE
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+		DELETE FROM TB_SMS_CUSTOMER_IMAGE
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode};
+	</delete>
+	
+	<delete id="deleteEcmCustomerList" parameterType="ecmCustomerDelete">
+		/* SmsCousMapper.deleteEcmCustomerList : 거래처정보 일괄 delete */
+		DELETE FROM TB_SMS_CUSTOMER
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE IN 
+		<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+			#{item.customerCode}
+		</foreach>
+		DELETE FROM TB_SMS_CUSTOMER_FMS
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE IN 
+		<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+			#{item.customerCode}
+		</foreach>
+		DELETE FROM TB_SMS_CUSTOMER_ATTN
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE IN 
+		<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+			#{item.customerCode}
+		</foreach>
+		DELETE FROM TB_SMS_CUSTOMER_KIND
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE IN 
+		<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+			#{item.customerCode}
+		</foreach>
+		DELETE FROM TB_SMS_CUSTOMER_SOLUTION
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE IN 
+		<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+			#{item.customerCode}
+		</foreach>
+		DELETE FROM TB_SMS_CUSTOMER_BUSINESS
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE IN 
+		<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+			#{item.customerCode}
+		</foreach>
+		DELETE FROM TB_SMS_CUSTOMER_BANK
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE IN 
+		<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+			#{item.customerCode}
+		</foreach>
+		DELETE FROM TB_SMS_CUSTOMER_COLLATERAL
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE IN 
+		<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+			#{item.customerCode}
+		</foreach>
+		DELETE FROM TB_SMS_CUSTOMER_UPDATE
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE IN 
+		<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+			#{item.customerCode}
+		</foreach>
+		DELETE FROM TB_SMS_CUSTOMER_CHARGE
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE IN 
+		<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+			#{item.customerCode}
+		</foreach>
+		DELETE FROM TB_SMS_CUSTOMER_INTERFACE
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE IN 
+		<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+			#{item.customerCode}
+		</foreach>
+		DELETE FROM TB_SMS_CUSTOMER_IMAGE
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE IN 
+		<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+			#{item.customerCode}
+		</foreach>
+	</delete>
+	
+	<insert id="insertEcmUser" parameterType="ecmUserSave">
+		/* SmsCousMapper.insertEcmUser : 사용자관리 Insert */
+		INSERT INTO TB_SMS_USER(
+		   ENT_CODE
+		  ,USER_ID
+		  ,USER_LOGIN_ID
+		  ,USER_LOGIN_PW
+		  ,USER_TYPE
+		  ,USER_NAME
+		  ,USER_NAME_ENG
+		  ,POSITION_CODE
+		  ,DEPARTMENT_CODE
+		  ,USER_TEL
+		  ,USER_CELLPHONE
+		  ,USER_EMAIL
+		  ,USE_YN
+		  ,ENT_BUSINESS_CODE
+		  ,CUSTOMER_CODE	  
+		  ,USER_ADDRESS
+		  ,USER_ADDRESS_A
+		  ,USER_ADDRESS_B
+		  ,REGISTER_USER_ID
+		  ,REGISTER_DATE_TIME
+		  ,UPDATE_USER_ID
+		  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{entCode}
+			  ,#{userId}
+			  ,#{userLoginId}
+			  ,#{userLoginPw}
+			  ,#{userType}
+			  ,#{userName}
+			  ,#{userName}
+			  ,#{positionCode}
+			  ,#{departmentCode}
+			  ,#{userTel}
+			  ,#{userCellphone}
+			  ,#{userEmail}
+			  ,#{useYn}
+			  ,#{entBusinessCode}
+			  ,#{customerCode}
+			  ,#{userAddress}
+		  	  ,#{userAddressA}
+		  	  ,#{userAddressB}
+			  ,#{updateUserId}
+			  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			  ,#{updateUserId}
+			  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		)
+	</insert>
+	
+	<insert id="insertEcmUserOption" parameterType="ecmUserSave">
+		/* SmsCousMapper.insertEcmUserOption : 사용자관리 Insert */
+		DELETE FROM TB_SMS_USER_OPTION
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID = #{userId};
+		
+		INSERT INTO TB_SMS_USER_OPTION(
+			   ENT_CODE
+			  ,USER_ID				 
+			  ,USER_CLASS
+			  ,SEARCH_OPTION_HIDE_YN
+			  ,SEARCH_START_TERM
+			  ,SEARCH_END_TERM
+			  ,SEARCH_ALL_USER_YN
+			  ,SEARCH_DEFAULT_USER_YN
+			  ,PW_UPDATE_DAYS
+			  ,PW_UPDATE_DATE
+			  ,PW_ERROR_COUNT
+			  ,PW_UPDATE_ALERT_DAYS
+			  ,SPREAD_YN
+			  ,VALID_USE_DAYS
+			  ,DEFAULT_SOLUTION_CODE
+			  ,DEFAULT_BOUND
+			  ,DEFAULT_BOUND_TYPE
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{entCode}
+			  ,#{userId}
+			  ,#{userClass}
+			  ,#{searchOptionHideYn}
+			  ,#{searchStartTerm}
+			  ,#{searchEndTerm}
+			  ,#{searchAllUserYn}
+			  ,#{searchDefaultUserYn}
+			  ,#{pwUpdateDays}
+			  ,CONVERT(VARCHAR,#{pwUpdateDate}, CAST(#{dateFormat} AS INT))
+			  ,#{pwErrorCount}
+			  ,#{pwUpdateAlertDays}
+			  ,#{spreadYn}
+			  ,#{validUseDays}
+			  ,#{defaultSolutionCode}
+			  ,#{defaultBound}
+			  ,#{defaultBoundType}
+			  ,#{updateUserId}
+			  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			  ,#{updateUserId}
+			  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		);
+		INSERT INTO TB_SMS_USER_BUSINESS(
+			   ENT_CODE
+			  ,USER_ID
+			  ,ENT_BUSINESS_CODE
+			  ,SRCH_SERVICES
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{entCode}
+			  ,#{userId}
+			  ,#{entBusinessCode}
+			  ,#{srchServices}
+			  ,#{updateUserId}
+			  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			  ,#{updateUserId}
+			  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		);
+	</insert>
+	
+	<update id="updateEcmUser" parameterType="ecmUserSave">
+		/* SmsCousMapper.updateEcmUser : 사용자관리 Update */
+		UPDATE TB_SMS_USER SET
+			   USER_LOGIN_ID = #{userLoginId}
+			  ,USER_NAME = #{userName}
+			  ,USER_TEL = #{userTel}
+			  ,USER_CELLPHONE = #{userCellphone}
+			  ,USER_EMAIL = #{userEmail}
+			  ,USE_YN = #{useYn}
+			  ,ENT_BUSINESS_CODE = #{entBusinessCode}
+			  ,CUSTOMER_CODE = #{customerCode}      
+		  	  ,USER_ADDRESS = #{userAddress}   
+		  	  ,USER_ADDRESS_A = #{userAddressA}
+		  	  ,USER_ADDRESS_B = #{userAddressB}		  	    
+			  ,UPDATE_USER_ID = #{updateUserId}
+			  ,UPDATE_DATE_TIME = CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID = #{userId};
+		UPDATE TB_SMS_USER_OPTION SET				
+			  SEARCH_OPTION_HIDE_YN = #{searchOptionHideYn}
+			  ,SEARCH_START_TERM = #{searchStartTerm}
+			  ,SEARCH_END_TERM = #{searchEndTerm}
+			  ,SEARCH_ALL_USER_YN = #{searchAllUserYn}
+			  ,SEARCH_DEFAULT_USER_YN = #{searchDefaultUserYn}
+			  ,PW_UPDATE_DAYS = #{pwUpdateDays}
+			  ,PW_UPDATE_DATE = CONVERT(VARCHAR,#{pwUpdateDate}, CAST(#{dateFormat} AS INT))
+			  ,PW_ERROR_COUNT = #{pwErrorCount}
+			  ,PW_UPDATE_ALERT_DAYS = #{pwUpdateAlertDays}
+			  ,SPREAD_YN = #{spreadYn}
+			  ,VALID_USE_DAYS = #{validUseDays}
+			  ,DEFAULT_SOLUTION_CODE = #{defaultSolutionCode}
+			  ,DEFAULT_BOUND = #{defaultBound}
+			  ,DEFAULT_BOUND_TYPE = #{defaultBoundType}
+			  ,UPDATE_USER_ID = #{updateUserId}
+			  ,UPDATE_DATE_TIME = CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		WHERE ENT_CODE = #{entCode}
+		AND USER_ID = #{userId};
+	</update>
+	
+	<select id="selectEcmUserDetail" parameterType="searchEcmUserDetail" resultType="ecmUserDetail">
+		/* SmsCousMapper.selectEcmUserDetail : Ecm User Detail */
+		SELECT
+			usr.USER_ID AS userId
+		    ,usr.USER_LOGIN_ID AS userLoginId
+		    ,CASE WHEN usr.USER_LOGIN_PW IS NOT NULL AND USER_LOGIN_PW != '' THEN 'userLoginPw' ELSE '' END AS userLoginPw
+		    ,usr.USER_TYPE AS userType
+		    ,usr.USER_NAME AS userName
+		    ,usr.USER_TEL AS userTel
+		    ,usr.USER_CELLPHONE AS userCellphone
+		    ,usr.USER_EMAIL AS userEmail
+		    ,usr.USE_YN AS useYn
+		    ,usr.ENT_BUSINESS_CODE AS entBusinessCode
+		    ,usr.CUSTOMER_CODE AS customerCode
+		    ,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = usr.ENT_CODE AND CUSTOMER_CODE = usr.CUSTOMER_CODE) AS customerName
+			,usr.REGISTER_DATE_TIME AS registerDateTime
+			,usr.UPDATE_DATE_TIME AS updateDateTime
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = usr.ENT_CODE AND USER_ID = usr.register_user_id) AS registerUserName
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = usr.ENT_CODE AND USER_ID = usr.update_user_id) AS updateUserName      
+		  	,usr.USER_ADDRESS AS userAddress   
+		  	,usr.USER_ADDRESS_A AS userAddressA
+		  	,usr.USER_ADDRESS_B AS userAddressB
+		  	,usr.LB_CFT_TYPE AS lbCftType   
+		  	,usr.CURRENCY_CODE AS currencyCode
+		  	,usr.EXCEL_TYPE AS excelType
+		  	,usr.CB_CODE AS cbCode      
+		  	,usr.TR_CODE AS trCode 
+		  	,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = usr.ENT_CODE AND CUSTOMER_CODE = usr.CB_CODE) AS cbName
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = usr.ENT_CODE AND CUSTOMER_CODE = usr.TR_CODE) AS trName
+			,opt.USER_CLASS AS userClass                      			                                                         
+			,opt.SEARCH_OPTION_HIDE_YN  AS  searchOptionHideYn      	                                              
+			,opt.SEARCH_START_TERM  AS  searchStartTerm                                                      
+			,opt.SEARCH_END_TERM  AS searchEndTerm                                                                  
+			,opt.SEARCH_ALL_USER_YN  AS  searchAllUserYn                                                       
+			,opt.SEARCH_DEFAULT_USER_YN  AS searchDefaultUserYn                                                   
+			,opt.PW_UPDATE_DAYS  AS pwUpdateDays                                                                   
+			,CONVERT(VARCHAR,opt.PW_UPDATE_DATE, CAST(#{dateFormat} AS INT)) AS pwUpdateDate                  			           
+			,opt.PW_ERROR_COUNT AS pwErrorCount                                                               
+			,opt.PW_UPDATE_ALERT_DAYS AS pwUpdateAlertDays                                                    
+			,opt.SPREAD_YN AS spreadYn                                                                   
+			,opt.VALID_USE_DAYS AS validUseDays
+			,opt.DEFAULT_SOLUTION_CODE
+			,opt.DEFAULT_BOUND
+			,opt.DEFAULT_BOUND_TYPE
+		FROM TB_SMS_USER usr
+		LEFT JOIN TB_SMS_USER_OPTION opt
+				ON usr.ENT_CODE = opt.ENT_CODE
+				AND usr.USER_ID = opt.USER_ID
+		WHERE usr.ENT_CODE = #{entCode}
+		AND usr.USER_ID = #{userId}
+	</select>	
+	
+	<select id="selectMakeUserId" parameterType="HashMap" resultType="string">
+		/* SmsCousMapper.selectMakeUserId : 사용자관리 아이디 생성 */
+		SELECT CONCAT(LEFT(CONVERT(varchar, GETDATE(),112),6)
+			   , '-'
+			   ,CONCAT(REPLICATE('0', 3-LEN(ISNULL(( SELECT MAX(CEILING(SUBSTRING(USER_ID, 8, 3))) + 1 FROM TB_SMS_USER
+							 						 WHERE USER_ID LIKE CONCAT(LEFT(CONVERT(varchar, GETDATE(),112),6), '-%')), 1)))
+					   ,ISNULL((SELECT MAX(CEILING(SUBSTRING(USER_ID, 8, 3))) + 1 FROM TB_SMS_USER
+						     	WHERE USER_ID LIKE CONCAT(LEFT(CONVERT(varchar, GETDATE(),112),6), '-%')), 1)
+					   )
+		
+		
+		
+		) AS USER_ID
+	</select>
+	
+	<select id="selectEcmCustomerList" parameterType="searchEcmCustomerList" resultType="ecmCustomer">
+		/* SmsCousMapper.selectEcmCustomerList : Customer List */
+		SELECT
+			cus.ENT_CODE
+			,dbo.GET_CUS_TREE(cus.ENT_CODE,cus.CUSTOMER_CODE,'SUB_CNT') AS COUNT 
+			,cus.CUSTOMER_CODE
+			,cus.CUSTOMER_NAME
+			,cus.REGISTER_DATE_TIME
+			,cus.CUSTOMER_TYPE
+		FROM TB_SMS_CUSTOMER cus			
+		WHERE cus.ENT_CODE = #{srchEntCode}
+		/*AND 1 = (SELECT COUNT(1) 
+			     FROM TB_SMS_CUSTOMER_SOLUTION sol
+			     WHERE sol.ENT_CODE = cus.ENT_CODE 
+			 	     AND sol.CUSTOMER_CODE = cus.CUSTOMER_CODE
+			 	     AND sol.SOLUTION = 'ECM')*/
+			 	     
+		<if test='srchUpperType == "U"'>
+			AND cus.CUSTOMER_TYPE IN ('HC','BR')
+		</if>
+		<if test='srchUpperType == "L"'>
+			AND cus.CUSTOMER_TYPE IN ('SC')
+		</if>
+		
+		<if test='srchMappingWaitYn == "Y"'>
+			AND ISNULL(cus.PARENT_CUSTOMER_CODE,'') = ''
+		</if>
+		
+		<if test="srchCustomerType != null and srchCustomerType != ''">
+			AND cus.CUSTOMER_TYPE = #{srchCustomerType}
+		</if>
+		<if test="srchCustomerCode != null and srchCustomerCode != ''">
+			AND cus.CUSTOMER_CODE = #{srchCustomerCode}
+		</if>
+		<if test="srchCustomerName != null and srchCustomerName != ''">
+			AND cus.CUSTOMER_NAME LIKE CONCAT('%',#{srchCustomerName},'%')
+		</if>			
+	</select>	
+	
+	<select id="selectEcmCustomerAllList" parameterType="searchEcmCustomerList" resultType="ecmCustomer">
+		/* SmsCousMapper.selectEcmCustomerAllList : Customer List */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			cus.ENT_CODE
+			,dbo.GET_CUS_TREE(cus.ENT_CODE,cus.CUSTOMER_CODE,'SUB_CNT') AS COUNT 
+			,cus.CUSTOMER_CODE
+			,cus.CUSTOMER_NAME
+			,CONVERT(VARCHAR(16), cus.REGISTER_DATE_TIME, 20) AS REGISTER_DATE_TIME
+			,cus.CUSTOMER_TYPE			
+			,cus.AMS_COUNTRY_CODE
+			,cus.PARENT_CUSTOMER_CODE
+			,cus.DELIVERY_CODE
+			,cus.CB_CODE
+			,cus.LB_CFT_TYPE
+			,cus.CURRENCY_CODE
+			,cus.EXCEL_TYPE
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = cus.ENT_CODE AND CUSTOMER_CODE = cus.PARENT_CUSTOMER_CODE) AS PARENT_CUSTOMER_NAME
+			,dbo.GET_CUS_TREE(cus.ENT_CODE,cus.CUSTOMER_CODE,'SUB_LIST') AS LOW_LIST
+			,cus.USE_YN
+			,inf.BUSINESS_ID
+			,CASE WHEN fs.FILE_COUNT > 0 THEN 'Y' ELSE 'N' END AS FILE_SHARE
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = cus.ENT_CODE AND CUSTOMER_CODE = cus.CB_CODE) AS CB_NAME
+			,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = cus.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = cus.DELIVERY_CODE) AS DELIVERY_NAME
+			,(SELECT COUNT(*) FROM TB_SMS_USER WHERE ENT_CODE = cus.ENT_CODE AND CUSTOMER_CODE = cus.CUSTOMER_CODE) AS USER_COUNT
+		FROM TB_SMS_CUSTOMER cus	
+		LEFT JOIN VTB_SMS_BUSINESS_REG_INFO inf
+				   ON inf.ENT_CODE = cus.ENT_CODE
+		 		   AND inf.REGISTRATION_CODE = cus.REGISTRATION_CODE
+			 LEFT JOIN (
+			 	SELECT
+			 		 ISNULL(COUNT(FUNC_JOB_NO), 0) AS FILE_COUNT
+			 		,MAX(fs.ENT_CODE) AS ENT_CODE
+			 		,MAX(fs.FUNC_JOB_NO) AS FUNC_JOB_NO
+			 	FROM TB_COM_FILE_SHARE fs
+			 	WHERE ENT_CODE = #{srchEntCode}
+			 	AND FUNC_TYPE = 'CUSTOMER'
+			 	GROUP BY FUNC_JOB_NO
+			 ) fs
+			 		   ON fs.ENT_CODE = cus.ENT_CODE
+			 		   AND fs.FUNC_JOB_NO = cus.CUSTOMER_CODE		
+		WHERE cus.ENT_CODE = #{srchEntCode}
+		/*AND 1 = (SELECT COUNT(1) 
+			     FROM TB_SMS_CUSTOMER_SOLUTION sol
+			     WHERE sol.ENT_CODE = cus.ENT_CODE 
+			 	     AND sol.CUSTOMER_CODE = cus.CUSTOMER_CODE
+			 	     AND sol.SOLUTION = 'ECM')*/
+		<choose>
+		<when test="srchCustomerType != null and srchCustomerType != ''">
+			AND cus.CUSTOMER_TYPE = #{srchCustomerType}
+		</when>
+		<otherwise>
+			AND cus.CUSTOMER_TYPE IN('HC', 'BR','SC')
+		</otherwise>
+		</choose>
+		<if test="srchCustomerCode != null and srchCustomerCode != ''">
+			AND cus.CUSTOMER_CODE = #{srchCustomerCode}
+		</if>
+		<if test="srchCustomerName != null and srchCustomerName != ''">
+			AND cus.CUSTOMER_NAME LIKE CONCAT('%',#{srchCustomerName},'%')
+		</if>	
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+				
+	</select>	
+	
+	<select id="selectEcmCustomerDetail" parameterType="searchEcmCustomerDetail" resultType="ecmCustomer">
+		/* SmsCousMapper.selectEcmCustomerDetail : Ecm Customer Detail */
+		SELECT
+			ENT_CODE
+			,CUSTOMER_CODE
+			<if test='entCode == "HUBNK"'>
+				,SEND_MODIFY_YN
+			</if>
+			,CUSTOMER_TYPE				 
+			,USE_YN				  
+			,CUSTOMER_NAME
+			,CUSTOMER_NAME_ENG
+			,ADDRESS_ENG
+			,ADDRESS_A_ENG
+			,ADDRESS_B_ENG
+			,ATTN_ENG
+			,TEL_ENG
+			,FAX_ENG
+			,ADDRESS
+			,ADDRESS_A
+			,ADDRESS_B
+			,ATTN
+			,ATTN_HP
+			,TEL
+			,FAX
+			,EMAIL
+			,HOME_PAGE_URL   
+			,ACCOUNT_CODE
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = cus.ENT_CODE AND CUSTOMER_CODE = cus.ACCOUNT_CODE) AS ACCOUNT_NAME
+			,CB_CODE 
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = cus.ENT_CODE AND CUSTOMER_CODE = cus.CB_CODE) AS CB_NAME
+			,DELIVERY_CODE  
+			,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = cus.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = cus.DELIVERY_CODE) AS DELIVERY_NAME
+			,EXCEL_TYPE     		
+			,LB_CFT_TYPE
+			,CURRENCY_CODE    	
+			,CONSOL_USE_YN 
+			,AMS_COUNTRY_CODE        	 
+			,REGISTER_DATE_TIME
+			,UPDATE_DATE_TIME
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = cus.ENT_CODE AND USER_ID = cus.register_user_id) AS REGISTER_USER_NAME
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = cus.ENT_CODE AND USER_ID = cus.update_user_id) AS UPDATE_USER_NAME
+			,ECM_INVOICE_YN  
+			,ORIG_CODE			
+			,GOODS_LOC_CODE		
+			,GOODS_LOC_ADDR		
+			,BWH_NAME			
+			,CUSTOMS_DPT_CODE	
+			,CUSTOMS_ID			
+			,CUSTOMS_CODE
+			,INCOTERMS
+			,AMS_ZIPCODE
+			,AMS_STATE
+			,CONCAT(AMS_STREET,AMS_STREET_2) AS AMS_STREET
+			,AMS_PLACE
+			,CUSTOMER_CUSTOMS_ID_TYPE
+			,CUSTOMER_BUSINESS_ID
+			,CUSTOMER_BUSINESS_NAME
+			,CUSTOMER_BUSINESS_PRESIDENT
+			,CUSTOMER_BUSINESS_ADDRESS
+			,CUSTOMER_EXP_TRANS_TYPE
+			,CUSTOMER_GST_NO
+			,DECLARATION_REG_NO
+		FROM TB_SMS_CUSTOMER cus
+		WHERE cus.ENT_CODE = #{entCode}
+		AND cus.CUSTOMER_CODE = #{customerCode}
+	</select>	
+	
+	<select id="selectEcmCustomerBank" parameterType="searchEcmCustomerDetail" resultType="ecmCustomerBank">
+		/* SmsCousMapper.selectEcmCustomerBank : ECM Customer Bank Detail */
+			SELECT TOP 1
+				 USE_YN
+				,PAYMENT_ACCOUNTS_YN
+				,BOUND
+				,BOUND_TYPE
+				,BANK_CODE
+				,BANK_OFFICE_NAME
+				,CURRENCY_CODE
+				,BANK_ACCOUNT_NO
+				,BANK_DEPOSITOR
+				,REMARKS
+				,BANK_ASSIGN_DATE
+				,PRINT_YN
+				,DISPLAY_INDEX
+				,BANK_ACCOUNTS_CODE
+				,REGISTER_DATE_TIME
+				,(SELECT NAME_${userLanguage} 
+				  FROM TB_SMS_CODE_DETAIL 
+				  WHERE CODE = bnk.BANK_CODE 
+				  AND GROUP_CODE = 'BANK' 
+				  AND ENT_CODE = bnk.ENT_CODE
+				  ) AS BANK_NAME
+			FROM TB_SMS_CUSTOMER_BANK bnk
+			WHERE ENT_CODE = #{entCode}
+			AND CUSTOMER_CODE = #{customerCode}
+			AND SOLUTION = 'ECM'
+	</select>
+	
+	<select id="selectEcmCustomerInterface" parameterType="searchEcmCustomerDetail" resultType="ecmCustomerInterface">
+		/* SmsCousMapper.selectEcmCustomerInterface : ECM Customer Interface Detail */
+			SELECT
+				 SOLUTION
+				,IF_SERVICE_CODE
+				,IF_RECEIVER_ID
+				,IF_LOGIN_ID
+				,IF_LOGIN_PW
+				,IF_ETC_1
+				,IF_ETC_2
+				,IF_ETC_3
+				,IF_ETC_4
+				,IF_ETC_5
+				,IF_ETC_6
+			FROM TB_SMS_CUSTOMER_INTERFACE
+			WHERE ENT_CODE = #{entCode}
+			AND CUSTOMER_CODE = #{customerCode}
+			ORDER BY SOLUTION, IF_SERVICE_CODE 
+	</select>
+	
+	<insert id="insertEcmCustomer" parameterType="ecmCustomer">
+		/* SmsCousMapper.insertEcmCustomer : ECM 거래처정보 Insert */
+		INSERT INTO TB_SMS_CUSTOMER(
+			ENT_CODE
+			<if test='entCode == "HUBNK"'>
+				,SEND_MODIFY_YN
+			</if>
+			,CUSTOMER_CODE
+			,CUSTOMER_TYPE		  
+			,CUSTOMER_NAME
+			,CUSTOMER_NAME_ENG
+			,ADDRESS_ENG
+			,ADDRESS_A_ENG
+			,ADDRESS_B_ENG
+			,ATTN_ENG
+			,TEL_ENG
+			,FAX_ENG
+			,ADDRESS
+			,ADDRESS_A
+			,ADDRESS_B
+			,ATTN
+			,ATTN_HP
+			,TEL
+			,FAX
+			,EMAIL
+			,HOME_PAGE_URL
+			,ACCOUNT_CODE
+			,CB_CODE
+			,DELIVERY_CODE
+			,EXCEL_TYPE
+			,LB_CFT_TYPE
+			,AMS_COUNTRY_CODE
+			,CURRENCY_CODE
+			,USE_YN
+			,CUSTOMER_LEVEL
+			,CONSOL_USE_YN
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+			,ECM_INVOICE_YN
+			,ORIG_CODE
+			,GOODS_LOC_CODE		
+			,GOODS_LOC_ADDR		
+			,BWH_NAME			
+			,CUSTOMS_DPT_CODE	
+			,CUSTOMS_ID			
+			,CUSTOMS_CODE
+			,INCOTERMS
+			,AMS_ZIPCODE
+			,AMS_STATE
+			,AMS_PLACE
+			,AMS_STREET
+			,AMS_STREET_2
+			,CUSTOMER_CUSTOMS_ID_TYPE
+			,CUSTOMER_BUSINESS_ID
+			,CUSTOMER_BUSINESS_NAME
+			,CUSTOMER_BUSINESS_PRESIDENT
+			,CUSTOMER_BUSINESS_ADDRESS
+			,CUSTOMER_EXP_TRANS_TYPE
+			,CUSTOMER_GST_NO
+			,DECLARATION_REG_NO
+		)VALUES(
+		    #{entCode}
+			<if test='entCode == "HUBNK"'>
+				,#{sendModifyYn}
+			</if>
+			,#{customerCode}
+			,#{customerType}
+			,#{customerName}
+			,#{customerNameEng}
+			,#{addressEng}
+			,#{addressAEng}
+			,#{addressBEng}
+			,#{attnEng}
+			,#{telEng}
+			,#{faxEng}
+			,#{address}
+			,#{addressA}
+			,#{addressB}
+			,#{attn}
+			,#{attnHp}
+			,#{tel}
+			,#{fax}
+			,#{email}
+			,#{homePageUrl}	
+			,#{accountCode}	
+			,#{cbCode}	
+			,#{deliveryCode}	
+			,#{excelType}	
+			,#{lbCftType}
+			,#{amsCountryCode}	
+			,#{currencyCode}	
+			,#{useYn}	
+			,CASE WHEN #{customerType} IN ('HC','BR') THEN '1' END
+			,#{consolUseYn}	
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			,#{ecmInvoiceYn}
+			,#{origCode}       
+			,#{goodsLocCode}   
+			,#{goodsLocAddr}   
+			,#{bwhName}        
+			,#{customsDptCode} 
+			,#{customsId}      
+			,#{customsCode}
+			,#{incoterms}
+			,#{amsZipcode}
+			,#{amsState}
+			,#{amsPlace}
+			,SUBSTRING(ISNULL(CAST(#{amsStreet} AS NVARCHAR(70)), ''), 1, 35)
+			,SUBSTRING(ISNULL(CAST(#{amsStreet} AS NVARCHAR(70)), ''), 36, 70)
+			,#{customerCustomsIdType}
+			,#{customerBusinessId}
+			,#{customerBusinessName}
+			,#{customerBusinessPresident}
+			,#{customerBusinessAddress}
+			,#{customerExpTransType}
+			,#{customerGstNo}
+			,#{declarationRegNo}
+		)   
+	</insert>
+	
+	<insert id="insertEcmCustomerSolution" parameterType="ecmCustomer">
+		/* SmsCousMapper.insertEcmCustomerSolution : ECM 거래처정보 솔루션 Insert */
+		INSERT INTO dbo.TB_SMS_CUSTOMER_SOLUTION
+            (ENT_CODE
+            ,CUSTOMER_CODE
+            ,SOLUTION
+            ,REGISTER_USER_ID
+            ,REGISTER_DATE_TIME
+            ,UPDATE_USER_ID
+            ,UPDATE_DATE_TIME)
+     	VALUES
+           (
+             #{entCode}
+			,#{customerCode}
+			,#{solution}
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			)
+	</insert>
+	
+	<insert id="insertEcmCustomerBusiness" parameterType="ecmCustomer">
+		/* SmsCousMapper.insertEcmCustomer : ECM 거래처정보 사업장 Insert */
+		INSERT INTO dbo.TB_SMS_CUSTOMER_BUSINESS
+            (ENT_CODE
+            ,CUSTOMER_CODE
+            ,ENT_BUSINESS_CODE
+            ,REGISTER_USER_ID
+            ,REGISTER_DATE_TIME
+            ,UPDATE_USER_ID
+            ,UPDATE_DATE_TIME)
+     	VALUES
+           (
+             #{entCode}
+			,#{customerCode}
+			,(SELECT TOP 1 ENT_BUSINESS_CODE FROM TB_SMS_ENT_BUSINESS WHERE HEAD_BUSINESS_YN = 'Y')
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			)
+	</insert>
+	
+	<insert id="insertEcmCustomerBankInfo" parameterType="ecmCustomer">
+		/* SmsCousMapper.insertEcmCustomerBankInfo : ECM 거래처정보 Bank Info Insert */
+		INSERT INTO dbo.TB_SMS_CUSTOMER_BANK(
+				   ENT_CODE
+				  ,CUSTOMER_CODE
+				  ,SOLUTION
+				  ,BOUND
+				  ,BOUND_TYPE
+				  ,BANK_ACCOUNTS_CODE
+				  ,BANK_CODE
+				  ,BANK_ACCOUNT_NO
+				  ,BANK_DEPOSITOR
+				  ,BANK_OFFICE_NAME
+				  ,BANK_ASSIGN_DATE
+				  ,PRINT_YN
+				  ,REMARKS
+				  ,DISPLAY_INDEX
+				  ,CURRENCY_CODE
+				  ,USE_YN
+				  ,PAYMENT_ACCOUNTS_YN
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{entCode}
+				  ,#{customerCode}
+				  ,#{solution}
+				  ,#{bankInfo.bound}
+				  ,#{bankInfo.boundType}
+				  ,CONCAT(#{bankInfo.bankCode},'-',#{customerCode},'01')
+				  ,#{bankInfo.bankCode}
+				  ,#{bankInfo.bankAccountNo}
+				  ,#{bankInfo.bankDepositor}
+				  ,#{bankInfo.bankOfficeName}
+				  ,CONVERT(VARCHAR,CASE WHEN #{bankInfo.bankAssignDate} IS NULL THEN GETDATE() ELSE #{bankInfo.bankAssignDate} END, CAST(#{dateFormat} AS INT))
+				  ,#{bankInfo.printYn}
+				  ,#{bankInfo.remarks}
+				  ,#{bankInfo.displayIndex}
+				  ,#{bankInfo.currencyCode}
+				  ,#{bankInfo.useYn}
+				  ,#{bankInfo.paymentAccountsYn}
+				  ,#{updateUserId}
+				  <choose>
+				  <when test="bankInfo.registerDateTime != null and bankInfo.registerDateTime != ''">
+				  ,#{bankInfo.registerDateTime}
+				  </when>
+				  <otherwise>
+				  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+				  </otherwise>
+				  </choose>
+				  ,#{updateUserId}
+				  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			)
+	</insert>
+	
+	<delete id="deleteEcmCustomerBankInfo" parameterType="ecmCustomerDelete">
+		/* SmsCousMapper.deleteEcmCustomerBankInfo : ECM 거래처정보 Bank Info Delete */
+		DELETE FROM TB_SMS_CUSTOMER_BANK
+			WHERE ENT_CODE = #{entCode}
+			AND CUSTOMER_CODE = #{customerCode}
+			AND solution = #{solution}
+	</delete>
+	
+	<insert id="insertEcmCustomerInterface" parameterType="ecmCustomer">
+		/* SmsCousMapper.insertEcmCustomerInterface : ECM 거래처정보 Interface Insert */
+			<foreach collection="interfaceList" item="item">
+			INSERT INTO TB_SMS_CUSTOMER_INTERFACE(
+				   ENT_CODE
+				  ,CUSTOMER_CODE
+				  ,SOLUTION
+				  ,IF_SERVICE_CODE
+				  ,IF_SERVICE_DOC_CODE
+				  ,IF_RECEIVER_ID
+				  ,IF_LOGIN_ID
+				  ,IF_LOGIN_PW
+				  ,IF_ETC_1
+				  ,IF_ETC_2
+				  ,IF_ETC_3
+				  ,IF_ETC_4
+				  ,IF_ETC_5
+				  ,IF_ETC_6
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+		  		   #{entCode}
+				  ,#{customerCode}
+				  ,#{item.solution}
+				  ,#{item.ifServiceCode}
+				  ,'NONE'<!-- #{item.IF_SERVICE_DOC_CODE} -->
+				  ,#{item.ifReceiverId}
+				  ,#{item.ifLoginId}
+				  ,#{item.ifLoginPw}
+				  ,#{item.ifEtc1}
+				  ,#{item.ifEtc2}
+				  ,#{item.ifEtc3}
+				  ,#{item.ifEtc4}
+				  ,#{item.ifEtc5}
+				  ,#{item.ifEtc6}
+				  ,#{updateUserId}
+				  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+				  ,#{updateUserId}
+				  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			);
+			</foreach>
+	</insert>
+	
+	<delete id="deleteEcmCustomerInterface" parameterType="ecmCustomerDelete">
+		/* SmsCousMapper.deleteEcmCustomerInterface : ECM 거래처정보 Interface Delete */
+			DELETE FROM TB_SMS_CUSTOMER_INTERFACE
+				WHERE ENT_CODE = #{entCode}
+				AND CUSTOMER_CODE = #{customerCode}
+	</delete>
+	
+	<update id="updateEcmCustomer" parameterType="ecmCustomer">
+		/* SmsCousMapper.updateEcmCustomer : ECM 거래처정보 Update */
+		UPDATE TB_SMS_CUSTOMER
+		SET		  
+			CUSTOMER_NAME  				= #{customerName}
+			,CUSTOMER_NAME_ENG			= #{customerNameEng}
+			,ADDRESS_ENG      			= #{addressEng}
+			<if test='entCode == "HUBNK"'>
+			,SEND_MODIFY_YN				= #{sendModifyYn}
+			</if>
+			,ADDRESS_A_ENG    			= #{addressAEng}
+			,ADDRESS_B_ENG    			= #{addressBEng}
+			,ATTN_ENG         			= #{attnEng}
+			,TEL_ENG          			= #{telEng}
+			,FAX_ENG          			= #{faxEng}
+			,ADDRESS          			= #{address}
+			,ADDRESS_A        			= #{addressA}
+			,ADDRESS_B        			= #{addressB}
+			,ATTN             			= #{attn}
+			,ATTN_HP          			= #{attnHp}
+			,TEL              			= #{tel}
+			,FAX              			= #{fax}
+			,EMAIL            			= #{email}
+			,HOME_PAGE_URL    			= #{homePageUrl}	
+			,ACCOUNT_CODE               = #{accountCode}			                                      
+			,CB_CODE              		= #{cbCode}	    
+			,DELIVERY_CODE        		= #{deliveryCode}	    
+			,EXCEL_TYPE     			= #{excelType}	
+			,LB_CFT_TYPE    			= #{lbCftType}	
+			,AMS_COUNTRY_CODE			= #{amsCountryCode}	
+			,CURRENCY_CODE				= #{currencyCode}	
+			,USE_YN         			= #{useYn}	  
+			,CONSOL_USE_YN         			= #{consolUseYn}
+			<!--  수정에서는 level 업데이트 안되도록..hyuk
+			,CUSTOMER_LEVEL 			= CASE WHEN #{customerType} = 'HC' THEN '1' END     
+			-->
+			,UPDATE_USER_ID   			= #{updateUserId}
+			,UPDATE_DATE_TIME 			= CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			,ECM_INVOICE_YN				= #{ecmInvoiceYn}
+			,ORIG_CODE					= #{origCode}
+			,GOODS_LOC_CODE				= #{goodsLocCode}
+			,GOODS_LOC_ADDR				= #{goodsLocAddr}
+			,BWH_NAME					= #{bwhName}
+			,CUSTOMS_DPT_CODE			= #{customsDptCode}
+			,CUSTOMS_ID					= #{customsId}
+			,CUSTOMS_CODE				= #{customsCode}
+			,INCOTERMS					= #{incoterms}
+			,AMS_ZIPCODE				= #{amsZipcode}
+			,AMS_STATE					= #{amsState}
+			,AMS_PLACE					= #{amsPlace}
+			,AMS_STREET					= SUBSTRING(ISNULL(CAST(#{amsStreet} AS NVARCHAR(70)), ''), 1, 35)
+			,AMS_STREET_2				= SUBSTRING(ISNULL(CAST(#{amsStreet} AS NVARCHAR(70)), ''), 36, 70)
+			,CUSTOMER_CUSTOMS_ID_TYPE	= #{customerCustomsIdType}
+			,CUSTOMER_BUSINESS_ID		= #{customerBusinessId}
+			,CUSTOMER_BUSINESS_NAME		= #{customerBusinessName}
+			,CUSTOMER_BUSINESS_PRESIDENT = #{customerBusinessPresident}
+			,CUSTOMER_BUSINESS_ADDRESS	= #{customerBusinessAddress}
+			,CUSTOMER_EXP_TRANS_TYPE	= #{customerExpTransType}
+			,CUSTOMER_GST_NO			= #{customerGstNo}
+			,DECLARATION_REG_NO			= #{declarationRegNo}
+		WHERE 
+			ENT_CODE = #{entCode}
+			AND CUSTOMER_CODE = #{customerCode}
+	</update>
+	
+	<update id="mappingExec" parameterType="ecmCustomerMapping">
+		/* SmsCousMapper.mappingExec : ECM 거래처정보 맵핑 또는 해제 */
+		
+		<if test='mappingYn == "Y"'>
+			UPDATE TB_SMS_CUSTOMER
+			SET		  
+				PARENT_CUSTOMER_CODE		= #{parentCustomerCode}
+				,UPDATE_USER_ID   			= #{updateUserId}
+				,UPDATE_DATE_TIME 			= CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			WHERE 
+				ENT_CODE = #{entCode}
+				AND CUSTOMER_CODE IN 
+				<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+					#{item.customerCode}
+				</foreach>
+		</if>
+		
+		<if test='mappingYn == "N"'>
+			UPDATE TB_SMS_CUSTOMER
+			SET		  
+				PARENT_CUSTOMER_CODE		= ''
+				,UPDATE_USER_ID   			= #{updateUserId}
+				,UPDATE_DATE_TIME 			= CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			WHERE 
+				ENT_CODE = #{entCode}
+				AND CUSTOMER_CODE IN 
+				<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+					#{item.customerCode}
+				</foreach>
+		</if>		
+	</update>
+	
+	<update id="updateLevel" parameterType="ecmCustomerMapping">
+		/* SmsCousMapper.mappingExec : ECM 거래처정보 맵핑 또는 해제 */
+		
+		<if test='mappingYn == "Y"'>
+			UPDATE TB_SMS_CUSTOMER
+			SET		  
+				CUSTOMER_LEVEL = dbo.GET_CUS_TREE(ENT_CODE,CUSTOMER_CODE,'LEV') 
+				,UPDATE_USER_ID   			= #{updateUserId}
+				,UPDATE_DATE_TIME 			= CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			WHERE 
+				ENT_CODE = #{entCode}
+				AND CUSTOMER_CODE IN 
+				<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+					#{item.customerCode}
+				</foreach>
+		</if>
+		
+		<if test='mappingYn == "N"'>
+			UPDATE TB_SMS_CUSTOMER
+			SET		  
+				CUSTOMER_LEVEL = ''
+				,UPDATE_USER_ID   			= #{updateUserId}
+				,UPDATE_DATE_TIME 			= CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			WHERE 
+				ENT_CODE = #{entCode}
+				AND CUSTOMER_CODE IN 
+				<foreach collection="ecmCustomerList" item="item" open="(" close=");" separator=",">
+					#{item.customerCode}
+				</foreach>
+		</if>
+		
+		
+	</update>
+	
+	<select id="selectSmsCustomerCodeDupCheck" parameterType="HashMap" resultType="int">
+		/* smsCous.selectSmsCustomerCodeDupCheck : 상(하)위업체 엑셀 업로드 거래처코드 중복체크 */
+			SELECT COUNT(CUSTOMER_CODE) AS CNT
+			FROM TB_SMS_CUSTOMER
+			WHERE ENT_CODE = #{entCode}
+			AND CUSTOMER_CODE = #{customerCode}
+	</select>
+	
+	<select id="selectSmsCustomerNameDupCheck" parameterType="HashMap" resultType="int">
+		/* smsCous.selectSmsCustomerNameDupCheck : 상(하)위업체 엑셀 업로드 거래처명 중복체크 */
+			SELECT COUNT(CUSTOMER_NAME) AS CNT
+			FROM TB_SMS_CUSTOMER
+			WHERE ENT_CODE = #{entCode}
+			AND CUSTOMER_NAME = #{customerName}
+			<if test="customerCode != null and customerCode != ''">
+			AND CUSTOMER_CODE != #{customerCode}
+			</if>
+	</select>
+	
+	<select id="selectSMSCustomerLevel" parameterType="HashMap" resultType="string">
+		/* SmsCousMapper.selectSMSCustomerLevel : 상(하)위업체 엑셀 업로드 상위업체 LEVEL 가져오기 */
+		SELECT CUSTOMER_LEVEL 
+		  FROM TB_SMS_CUSTOMER
+		 WHERE ENT_CODE = #{entCode}
+		   AND CUSTOMER_CODE = #{PARENT_CUSTOMER_CODE} 
+	</select>
+	
+	<insert id="insertSMSCustomer" parameterType="HashMap">
+		/* SmsCousMapper.insertSMSCustomer : 상(하)위업체 엑셀 업로드 Insert */
+		INSERT INTO TB_SMS_CUSTOMER(
+			ENT_CODE
+			,CUSTOMER_CODE
+			,CUSTOMER_TYPE		  
+			,CUSTOMER_NAME
+			,CUSTOMER_NAME_ENG
+			,ADDRESS_ENG
+			,ADDRESS_A_ENG
+			,ADDRESS_B_ENG
+			,ATTN_ENG
+			,TEL_ENG
+			,FAX_ENG
+			,ADDRESS
+			,ADDRESS_A
+			,ADDRESS_B
+			,ATTN
+			,ATTN_HP
+			,TEL
+			,FAX
+			,EMAIL
+			,HOME_PAGE_URL
+			,ACCOUNT_CODE
+			,CB_CODE
+			,DELIVERY_CODE
+			,EXCEL_TYPE
+			,LB_CFT_TYPE
+			,AMS_COUNTRY_CODE
+			,CURRENCY_CODE
+			,USE_YN
+			,PARENT_CUSTOMER_CODE
+			,CUSTOMER_LEVEL
+			,CONSOL_USE_YN
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)VALUES(
+		    #{entCode}
+			,#{CUSTOMER_CODE}
+			,#{CUSTOMER_TYPE}
+			,#{CUSTOMER_NAME}
+			,#{CUSTOMER_NAME_ENG}
+			,#{ADDRESS_ENG}
+			,#{ADDRESS_A_ENG}
+			,#{ADDRESS_B_ENG}
+			,#{ATTN_ENG}
+			,#{TEL}
+			,#{FAX}
+			,#{address}
+			,#{addressA}
+			,#{addressB}
+			,#{ATTN_ENG}
+			,#{ATTN_HP}
+			,#{TEL}
+			,#{FAX}
+			,#{EMAIL}
+			,#{HOME_PAGE_URL}	
+			,#{accountCode}	
+			,#{CB_CODE}	
+			,#{DELIVERY_CODE}	
+			,#{excelType}	
+			,#{lbCftType}
+			,#{AMS_COUNTRY_CODE}	
+			,#{CURRENCY_CODE}	
+			,'Y'
+			,#{PARENT_CUSTOMER_CODE}
+			,#{CUSTOMER_LEVEL}
+			,'N'	
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		)
+	</insert>
+	
+	<insert id="insertSMSCustomerSolution" parameterType="ecmCustomer">
+		/* SmsCousMapper.insertSMSCustomerSolution : 상(하)위업체 엑셀 업로드 솔루션 Insert */
+		INSERT INTO dbo.TB_SMS_CUSTOMER_SOLUTION
+            (ENT_CODE
+            ,CUSTOMER_CODE
+            ,SOLUTION
+            ,REGISTER_USER_ID
+            ,REGISTER_DATE_TIME
+            ,UPDATE_USER_ID
+            ,UPDATE_DATE_TIME)
+     	VALUES
+           (
+             #{entCode}
+			,#{CUSTOMER_CODE}
+			,#{solution}
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			)
+	</insert>
+	
+	<insert id="insertSMSCustomerBusiness" parameterType="ecmCustomer">
+		/* SmsCousMapper.insertSMSCustomerBusiness : 상(하)위업체 엑셀 업로드 사업장 Insert */
+		INSERT INTO dbo.TB_SMS_CUSTOMER_BUSINESS
+            (ENT_CODE
+            ,CUSTOMER_CODE
+            ,ENT_BUSINESS_CODE
+            ,REGISTER_USER_ID
+            ,REGISTER_DATE_TIME
+            ,UPDATE_USER_ID
+            ,UPDATE_DATE_TIME)
+     	VALUES
+           (
+             #{entCode}
+			,#{CUSTOMER_CODE}
+			,(SELECT TOP 1 ENT_BUSINESS_CODE FROM TB_SMS_ENT_BUSINESS WHERE HEAD_BUSINESS_YN = 'Y')
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			)
+	</insert>
+	
+	<select id="selectSmsUserIdDupCheck" parameterType="HashMap" resultType="int">
+		/* smsCous.selectSmsUserIdDupCheck : 상(하)위업체 엑셀 업로드 아이디 중복체크 */
+			SELECT COUNT(USER_ID) AS CNT
+			FROM TB_SMS_USER
+			WHERE ENT_CODE = #{entCode}
+			AND USER_LOGIN_ID = #{userLoginId}
+			<if test="regLoginId != null and regLoginId != ''">
+			AND USER_LOGIN_ID != #{regLoginId}
+			</if>
+	</select>
+	
+	<insert id="insertSMSUser" parameterType="ecmUserSave">
+		/* SmsCousMapper.insertSMSUser : 상(하)위업체 엑셀 업로드 Insert */
+		INSERT INTO TB_SMS_USER(
+		   ENT_CODE
+		  ,USER_ID
+		  ,USER_LOGIN_ID
+		  ,USER_LOGIN_PW
+		  ,USER_TYPE
+		  ,USER_NAME
+		  ,USER_NAME_ENG
+		  ,POSITION_CODE
+		  ,DEPARTMENT_CODE
+		  ,USER_TEL
+		  ,USER_CELLPHONE
+		  ,USER_EMAIL
+		  ,USE_YN
+		  ,ENT_BUSINESS_CODE
+		  ,CUSTOMER_CODE	  
+		  ,USER_ADDRESS
+		  ,USER_ADDRESS_A
+		  ,USER_ADDRESS_B
+		  ,REGISTER_USER_ID
+		  ,REGISTER_DATE_TIME
+		  ,UPDATE_USER_ID
+		  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{entCode}
+			  ,#{userId}
+			  ,#{USER_LOGIN_ID}
+			  ,#{USER_LOGIN_PW}
+			  ,#{userType}
+			  ,#{USER_NAME_ENG}
+			  ,#{USER_NAME_ENG}
+			  ,#{positionCode}
+			  ,#{departmentCode}
+			  ,#{USER_TEL}
+			  ,#{USER_CELLPHONE}
+			  ,#{USER_EMAIL}
+			  ,#{useYn}
+			  ,#{entBusinessCode}
+			  ,#{CUSTOMER_CODE}
+			  ,#{userAddress}
+		  	  ,#{userAddressA}
+		  	  ,#{userAddressB}
+			  ,#{updateUserId}
+			  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			  ,#{updateUserId}
+			  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		)
+	</insert>
+	
+	<insert id="insertSMSUserOption" parameterType="ecmUserSave">
+		/* SmsCousMapper.insertSMSUserOption : 상(하)위업체 엑셀 업로드 사용자관리 Insert */
+		INSERT INTO TB_SMS_USER_OPTION(
+			   ENT_CODE
+			  ,USER_ID				 
+			  ,USER_CLASS
+			  ,SEARCH_OPTION_HIDE_YN
+			  ,SEARCH_START_TERM
+			  ,SEARCH_END_TERM
+			  ,SEARCH_ALL_USER_YN
+			  ,SEARCH_DEFAULT_USER_YN
+			  ,PW_UPDATE_DAYS
+			  ,PW_UPDATE_DATE
+			  ,PW_ERROR_COUNT
+			  ,PW_UPDATE_ALERT_DAYS
+			  ,SPREAD_YN
+			  ,VALID_USE_DAYS
+			  ,DEFAULT_SOLUTION_CODE
+			  ,DEFAULT_BOUND
+			  ,DEFAULT_BOUND_TYPE
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{entCode}
+			  ,#{userId}
+			  ,#{userClass}
+			  ,#{searchOptionHideYn}
+			  ,#{searchStartTerm}
+			  ,#{searchEndTerm}
+			  ,#{searchAllUserYn}
+			  ,#{searchDefaultUserYn}
+			  ,#{pwUpdateDays}
+			  ,CONVERT(VARCHAR,#{pwUpdateDate}, CAST(#{dateFormat} AS INT))
+			  ,#{pwErrorCount}
+			  ,#{pwUpdateAlertDays}
+			  ,#{spreadYn}
+			  ,#{validUseDays}
+			  ,#{defaultSolutionCode}
+			  ,CASE WHEN #{DEFAULT_BOUND} = 'A' THEN 'AIR' WHEN #{DEFAULT_BOUND} = 'O' THEN 'SEA' ELSE '' END 
+			  ,CASE WHEN #{DEFAULT_BOUND_TYPE} = 'I' THEN 'IMP' WHEN #{DEFAULT_BOUND_TYPE} = 'O' THEN 'EXP' ELSE '' END 
+			  ,#{updateUserId}
+			  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			  ,#{updateUserId}
+			  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		);
+		INSERT INTO TB_SMS_USER_BUSINESS(
+			   ENT_CODE
+			  ,USER_ID
+			  ,ENT_BUSINESS_CODE
+			  ,SRCH_SERVICES
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{entCode}
+			  ,#{userId}
+			  ,#{entBusinessCode}
+			  ,#{srchServices}
+			  ,#{updateUserId}
+			  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			  ,#{updateUserId}
+			  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		);
+	</insert>
+	
+	
+	<select id="selectUserType" parameterType="HashMap" resultType="string">
+		/* smsCous.selectUserType : 상(하)위업체 엑셀 업로드 USER_TYPE */
+		SELECT CUSTOMER_TYPE FROM TB_SMS_CUSTOMER
+		 WHERE ENT_CODE = #{entCode}
+		   AND CUSTOMER_CODE = #{CUSTOMER_CODE}
+	</select>
+	
+	<select id="checkEcmCustomerUserCnt" parameterType="ecmCustomerDelete" resultType="int">
+		/* smsCous.checkEcmCustomerUserCnt : ECM 거래처 사용자등록여부 체크  */
+			SELECT 
+				COUNT(USER_ID) AS CNT
+			FROM TB_SMS_USER 
+			WHERE 1=1
+			<choose>
+			<when test='customerCode != null and customerCode != ""'>
+			AND CUSTOMER_CODE = #{customerCode}			
+			</when>
+			<otherwise>
+			AND CUSTOMER_CODE IN (<foreach collection="ecmCustomerList" item="item" separator=",">#{item.customerCode}</foreach>)
+			</otherwise>
+			</choose>
+	</select>
+	
+	<insert id="insertCustomerInterface" parameterType="HashMap">
+			/* smsCous.selectCustomerInterface : 하위업체 크림 API 키 저장 */
+			DELETE FROM TB_SMS_CUSTOMER_INTERFACE
+				WHERE ENT_CODE = #{ENT_CODE}
+				AND CUSTOMER_CODE = #{CUSTOMER_CODE}
+				AND IF_SERVICE_CODE = #{IF_SERVICE_CODE};
+			
+			INSERT INTO TB_SMS_CUSTOMER_INTERFACE(
+				   ENT_CODE
+				  ,CUSTOMER_CODE
+				  ,SOLUTION
+				  ,IF_SERVICE_CODE
+				  ,IF_SERVICE_DOC_CODE
+				  ,IF_RECEIVER_ID
+				  ,IF_LOGIN_ID
+				  ,IF_LOGIN_PW
+				  ,IF_ETC_1
+				  ,IF_ETC_2
+				  ,IF_ETC_3
+				  ,IF_ETC_4
+				  ,IF_ETC_5
+				  ,IF_ETC_6
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+		  		   #{ENT_CODE}
+				  ,#{CUSTOMER_CODE}
+				  ,#{SOLUTION}
+				  ,#{IF_SERVICE_CODE}
+				  ,'NONE'
+				  ,#{IF_RECEIVER_ID}
+				  ,#{IF_LOGIN_ID}
+				  ,#{IF_LOGIN_PW}
+				  ,#{IF_ETC_1}
+				  ,#{IF_ETC_2}
+				  ,#{IF_ETC_3}
+				  ,#{IF_ETC_4}
+				  ,#{IF_ETC_5}
+				  ,#{IF_ETC_6}
+				  ,#{UPDATE_USER_ID}
+				  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+				  ,#{UPDATE_USER_ID}
+				  ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			);
+	</insert>
+	
+	<select id="selectCustomerInterface" parameterType="searchEcmCustomerDetail" resultType="HashMap">
+		/* smsCous.selectCustomerInterface : 하위업체 크림 API 키 조회 */
+		SELECT
+			 SOLUTION
+			,IF_SERVICE_CODE
+			,IF_RECEIVER_ID
+			,IF_LOGIN_ID
+			,IF_LOGIN_PW
+			,IF_ETC_1
+			,IF_ETC_2
+			,IF_ETC_3
+			,IF_ETC_4
+			,IF_ETC_5
+			,IF_ETC_6
+		FROM TB_SMS_CUSTOMER_INTERFACE
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode}
+		AND IF_SERVICE_CODE = #{ifServiceCode}
+	</select>
+
+
+	<insert id="insertKreaminfo" parameterType="EcmCustomer">
+		INSERT INTO TB_SMS_CUSTOMER_INTERFACE(
+				   ENT_CODE
+				 ,CUSTOMER_CODE
+				 ,SOLUTION
+				 ,IF_LOGIN_ID
+				 ,IF_LOGIN_PW
+				 ,IF_SERVICE_CODE
+				 ,IF_SERVICE_DOC_CODE
+				 ,REGISTER_USER_ID
+				 ,REGISTER_DATE_TIME
+				 ,UPDATE_USER_ID
+				 ,UPDATE_DATE_TIME
+		)VALUES(
+				 #{entCode}
+			   ,#{customerCode}
+			   ,#{solution}
+			   ,#{kreamApi1}
+			   ,#{kreamApi2}
+			   ,'KREAM-ORDER-RECEIVE'
+			   ,'NONE'
+			   ,#{updateUserId}
+			   ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			   ,#{updateUserId}
+			   ,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			   );
+	</insert>
+
+
+	<select id="selectEcmCustomerAllListVe" parameterType="searchEcmCustomerList" resultType="ecmCustomer">
+		/* SmsCousMapper.selectEcmCustomerAllList : Customer List */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+		cus.ENT_CODE
+		,dbo.GET_CUS_TREE(cus.ENT_CODE,cus.CUSTOMER_CODE,'SUB_CNT') AS COUNT
+		,cus.CUSTOMER_CODE
+		,cus.CUSTOMER_NAME
+		,CONVERT(VARCHAR(16), cus.REGISTER_DATE_TIME, 20) AS REGISTER_DATE_TIME
+		,cus.CUSTOMER_TYPE
+		,cus.AMS_COUNTRY_CODE
+		,cus.PARENT_CUSTOMER_CODE
+		,cus.DELIVERY_CODE
+		,cus.CB_CODE
+		,cus.LB_CFT_TYPE
+		,cus.CURRENCY_CODE
+		,cus.EXCEL_TYPE
+		,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = cus.ENT_CODE AND CUSTOMER_CODE = cus.PARENT_CUSTOMER_CODE) AS PARENT_CUSTOMER_NAME
+		,dbo.GET_CUS_TREE(cus.ENT_CODE,cus.CUSTOMER_CODE,'SUB_LIST') AS LOW_LIST
+		,cus.USE_YN
+		,inf.BUSINESS_ID
+		,CASE WHEN fs.FILE_COUNT > 0 THEN 'Y' ELSE 'N' END AS FILE_SHARE
+		,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = cus.ENT_CODE AND CUSTOMER_CODE = cus.CB_CODE) AS CB_NAME
+		,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = cus.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = cus.DELIVERY_CODE) AS DELIVERY_NAME
+		,(SELECT COUNT(*) FROM TB_SMS_USER WHERE ENT_CODE = cus.ENT_CODE AND CUSTOMER_CODE = cus.CUSTOMER_CODE) AS USER_COUNT
+		,(SELECT COUNT(*) FROM TB_SMS_USER WHERE ENT_CODE = cus.ENT_CODE AND CUSTOMER_CODE = cus.CUSTOMER_CODE AND USE_YN = 'N') AS USER_COUNT_BEFORE
+		FROM TB_SMS_CUSTOMER cus
+		LEFT JOIN VTB_SMS_BUSINESS_REG_INFO inf
+		ON inf.ENT_CODE = cus.ENT_CODE
+		AND inf.REGISTRATION_CODE = cus.REGISTRATION_CODE
+		LEFT JOIN (
+		SELECT
+		ISNULL(COUNT(FUNC_JOB_NO), 0) AS FILE_COUNT
+		,MAX(fs.ENT_CODE) AS ENT_CODE
+		,MAX(fs.FUNC_JOB_NO) AS FUNC_JOB_NO
+		FROM TB_COM_FILE_SHARE fs
+		WHERE ENT_CODE = #{srchEntCode}
+		AND FUNC_TYPE = 'CUSTOMER'
+		GROUP BY FUNC_JOB_NO
+		) fs
+		ON fs.ENT_CODE = cus.ENT_CODE
+		AND fs.FUNC_JOB_NO = cus.CUSTOMER_CODE
+		WHERE cus.ENT_CODE = #{srchEntCode}
+		/*AND 1 = (SELECT COUNT(1)
+		FROM TB_SMS_CUSTOMER_SOLUTION sol
+		WHERE sol.ENT_CODE = cus.ENT_CODE
+		AND sol.CUSTOMER_CODE = cus.CUSTOMER_CODE
+		AND sol.SOLUTION = 'ECM')*/
+		<choose>
+			<when test="srchCustomerType != null and srchCustomerType != ''">
+				AND cus.CUSTOMER_TYPE = #{srchCustomerType}
+			</when>
+			<otherwise>
+				AND cus.CUSTOMER_TYPE IN('HC', 'BR','SC')
+			</otherwise>
+		</choose>
+		<if test="srchCustomerCode != null and srchCustomerCode != ''">
+			AND cus.CUSTOMER_CODE = #{srchCustomerCode}
+		</if>
+		<if test="srchCustomerName != null and srchCustomerName != ''">
+			AND cus.CUSTOMER_NAME LIKE CONCAT('%',#{srchCustomerName},'%')
+		</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+
+	</select>
+
+	<select id="selectEcmUserListVe" parameterType="searchEcmUserList" resultType="ecmUser">
+		/* SmsCousMapper.selectEcmUserList : Ecm User List */
+		SELECT
+		usr.USE_YN
+		,usr.USER_TYPE
+		,usr.USER_ID
+		,usr.USER_EMAIL
+		,usr.USER_LOGIN_ID
+		,usr.ENT_BUSINESS_CODE
+		,usr.USER_NAME
+		,usr.CUSTOMER_CODE
+		,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = usr.ENT_CODE AND CUSTOMER_CODE = usr.CUSTOMER_CODE) AS CUSTOMER_NAME
+		,usr.REGISTER_DATE_TIME AS registerDateTime
+		FROM TB_SMS_USER usr
+		LEFT JOIN TB_SMS_USER_OPTION opt
+		ON usr.ENT_CODE = opt.ENT_CODE
+		AND usr.USER_ID = opt.USER_ID
+		WHERE usr.ENT_CODE = #{srchEntCode}
+		AND opt.USER_CLASS = 'ECM-USER'
+		<if test="srchCustomerCode != null and srchCustomerCode != ''">
+			AND usr.CUSTOMER_CODE = #{srchCustomerCode}
+		</if>
+	</select>
+	<select id="selectLoginUserSendModifyYn" parameterType="HashMap" resultType="string">
+		/* SmsCousMapper.selectLoginUserSendModifyYn : 로그인 유저 거래처의 발송수정여부 */
+		SELECT ISNULL(cus.SEND_MODIFY_YN, 'N')
+		FROM TB_SMS_USER usr
+				 INNER JOIN TB_SMS_CUSTOMER cus
+							ON cus.ENT_CODE = usr.ENT_CODE
+								AND cus.CUSTOMER_CODE = usr.CUSTOMER_CODE
+		WHERE usr.ENT_CODE = #{entCode}
+		  AND usr.USER_ID = #{userId}
+	</select>
+</mapper>

@@ -1,0 +1,434 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.UpsNewbillingMapper">
+
+	<select id="selectManifestToNewbilling" parameterType="upsNewbilling" resultType="HashMap">
+		/* UpsNewbillingMapper.selectManifestToNewbilling : UPS manifestToNewbilling 업데이트 대상 조회 */
+			SELECT
+				 CONVERT(VARCHAR(10), mod.AR_DATE, 111) AS arDate
+				,mod.LINE_CODE AS lineCode
+				,mod.VESSEL_FLIGHT AS vesselFlight
+				,mod.MRN AS mrn
+				,mod.MSN AS msn
+				,mod.MBL_NO AS mblNo
+				,od.CONSIGNEE_NAME_LOC AS consigneeNameLoc
+				,od.CONSIGNEE_ADDRESS_LOC AS consigneeAddressLoc
+				,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS consigneeAddress
+				,od.CONSIGNEE_NAME AS consigneeName
+				,od.HBL_NO AS hblNo
+				,ISNULL(od.HSN, '') AS hsn
+				,od.AMOUNT_CUR AS amountCur
+				,od.PIECES AS pieces
+				,od.PIECES_REAL AS piecesReal
+				,od.GWT AS gwt
+				,od.CD_TYPE AS cdType
+				,od.ECM_TYPE AS ecmType
+				,od.ALLOWED_ITEM_CODE AS allowedItemCode
+				,od.CD_USE_TYPE AS cdUseType
+				,od.URL AS url
+				,od.COMMODITY_ITEM AS commodityItem
+				,od.SHIPPER_COUNTRY_CODE AS shipperCountryCode
+				,od.ASSIGNMENT_WH_CODE AS assignmentWhCode
+				,ad.PLAN_YN AS planYn
+				,ad.LC_NO AS lcNo
+				,ad.BANK_NAME AS bankName
+				,ISNULL(ad.TS_SEND_TYPE, '') AS tsSendType
+				,ISNULL(cdb.CUSTOMS_UPDATE_YN, 'N') AS customsUpdateYn
+				<choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS customsId
+				,CASE WHEN od.CONSIGNEE_HP_ENC = '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.od.CONSIGNEE_HP_ENC, 1) END AS consigneeTel
+				</when>
+				<otherwise>
+				,od.CUSTOMS_ID AS customsId
+				,CASE WHEN ISNULL(od.CONSIGNEE_HP, '') = '' THEN od.CONSIGNEE_TEL ELSE od.CONSIGNEE_HP END AS consigneeTel
+				</otherwise>
+				</choose>
+			FROM TB_ECM_OD mod
+				 INNER JOIN TB_ECM_OD od
+				 			ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+				 			AND od.BL_TYPE_MH = 'H'
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+				 LEFT JOIN TB_CD_B_INFO cdb
+				 		   ON cdb.HBL_NO = od.HBL_NO
+<!-- 			WHERE mod.OD_JOB_NO = #{masterOdJobNo} -->
+			WHERE mod.OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+			<if test='masterImpChk == "Y"'>
+				AND ad.SIMPLE_DOC_NO IN(<foreach collection="simpleDocNoList" item="item" separator=",">#{item}</foreach>)
+			</if>
+	</select>
+	
+	<select id="selectManifestToNewbillingCustomsTransfer" parameterType="upsNewbilling" resultType="HashMap">
+		/* UpsNewbillingMapper.selectManifestToNewbillingCustomsTransfer : UPS manifestToNewbillingCustomsTransfer 업데이트 대상 조회 */
+			SELECT
+				 mod.MRN AS mrn
+				,mod.MSN AS msn
+				,od.CONSIGNEE_NAME_LOC AS consigneeNameLoc
+				,od.CONSIGNEE_ADDRESS_LOC AS consigneeAddressLoc
+				,od.HBL_NO AS hblNo
+				,od.CD_USE_TYPE AS cdUseType
+				,od.HSN AS hsn
+				<choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS customsId
+				</when>
+				<otherwise>
+				,od.CUSTOMS_ID AS customsId
+				</otherwise>
+				</choose>
+			FROM TB_ECM_OD mod
+				 INNER JOIN TB_ECM_OD od
+				 			ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+				 			AND od.BL_TYPE_MH = 'H'
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			<choose>
+			<when test="odJobNoList != null">
+				<choose>
+				<when test="menuId != null and menuId != '' and menuId == 'ECM-L0188'">
+				WHERE od.OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<otherwise>
+				WHERE mod.OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+				</otherwise>
+				</choose>
+			</when>
+			<otherwise>
+			WHERE mod.OD_JOB_NO = #{masterOdJobNo}
+			</otherwise>
+			</choose>
+			<choose>
+			<when test='cdType == "Y"'>
+				AND od.CD_TYPE = 'Y'
+				<if test='action == "subGrid"'>
+				AND ISNULL(ad.SIMPLE_DOC_NO, '') IN(<foreach collection="simpleDocNoList" item="item" separator=",">#{item}</foreach>)
+				</if>
+			</when>
+			<otherwise>
+				AND od.CD_TYPE = 'Y'
+				AND ISNULL(ad.SIMPLE_DOC_NO, '') = ''
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectLocalNewbillingPCustomsUpdate" parameterType="upsNewbilling" resultType="HashMap">
+		/* UpsNewbillingMapper.selectLocalNewbillingPCustomsUpdate : UPS LocalNewbillingPCustomsUpdate 업데이트 대상 조회 */
+			SELECT
+				 od.HBL_NO AS hblNo
+				,od.OD_JOB_NO
+				,dbo.func_AlphabetRemain(od.CONSIGNEE_NAME) AS CONSIGNEE_NAME_CHK
+				<choose>
+				<when test='cryptographyYn == "Y"'>
+				,RIGHT(dbo.func_getNumeric(dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1)) ,8) AS CONSIGNEE_HP_CHK
+				,RIGHT(dbo.func_getNumeric(dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1)) ,8) AS CONSIGNEE_TEL_CHK
+				</when>
+				<otherwise>
+				,RIGHT(dbo.func_getNumeric(od.CONSIGNEE_HP) ,8) AS CONSIGNEE_HP_CHK
+				,RIGHT(dbo.func_getNumeric(od.CONSIGNEE_TEL) ,8) AS CONSIGNEE_TEL_CHK
+				</otherwise>
+				</choose>
+				,od.CONSIGNEE_NAME_LOC AS consigneeNameLoc
+				,od.CONSIGNEE_ADDRESS_LOC AS consigneeAddressLoc
+				,od.CD_USE_TYPE AS cdUseType
+				,od.HSN AS hsn
+				,mod.MRN AS mrn
+				,mod.MSN as msn
+			FROM TB_ECM_OD mod
+				 	INNER JOIN TB_ECM_OD od
+					ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+					AND od.BL_TYPE_MH = 'H'
+			WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+<!-- 			AND BL_TYPE_MH = 'H' -->
+			AND od.CD_TYPE = 'Y'
+			AND od.CD_USE_TYPE = '1'
+			<choose>
+			<when test='cryptographyYn == "Y"'>
+			AND od.CUSTOMS_ID_ENC = ''
+			</when>
+			<otherwise>
+			AND ISNULL(od.CUSTOMS_ID, '') = ''
+			</otherwise>
+			</choose>
+	</select>
+	
+	<update id="updateCustomsInfo" parameterType="HashMap">
+		/* UpsNewbillingMapper.updateCustomsInfo : updateCustomsInfo Update */
+			UPDATE TB_ECM_OD SET
+				   CUSTOMS_ID_TYPE = #{CUSTOMS_ID_TYPE}
+				  <choose>
+				  <when test='cryptographyYn == "Y"'>
+				  ,CUSTOMS_ID_ENC = dbo.Cryptography(OD_JOB_NO, #{CUSTOMS_ID}, 0)
+				  </when>
+				  <otherwise>
+				  ,CUSTOMS_ID = #{CUSTOMS_ID}
+				  </otherwise>
+				  </choose>
+			WHERE OD_JOB_NO = #{odJobNo};
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   LC_NO = #{LC_NO}
+			WHERE OD_JOB_NO = #{odJobNo};
+	</update>
+	
+<!-- 	<select id="selecteCISProgramCreateWaybill" parameterType="HashMap" resultType="HashMap"> -->
+<!-- 		/* UpsNewbillingMapper.selecteCISProgramCreateWaybill : UPS selecteCISProgramCreateWaybill 조회 */ -->
+<!-- 			SELECT TOP 1 -->
+<!-- 				 A.Orig -->
+<!-- 				,A.BillingTerm -->
+<!-- 				,B.Trans -->
+<!-- 				,B.Duties -->
+<!-- 				,C.ExcWho -->
+<!-- 			FROM Waybill A -->
+<!-- 				 LEFT JOIN WPW_Matrix B -->
+<!-- 				 		   ON A.ShipmentNumber = B.ShipmentNumber -->
+<!-- 				 LEFT JOIN WaybillExceptLog C -->
+<!-- 				 		   ON A.ShipmentNumber = C.ShipmentNumber -->
+<!-- 			WHERE A.ShipmentNumber = #{HBL_NO} -->
+<!-- 	</select> -->
+	
+<!-- 	<select id="selecteCISProgramCreateCheck" parameterType="HashMap" resultType="HashMap"> -->
+<!-- 		/* UpsNewbillingMapper.selecteCISProgramCreateCheck : UPS selecteCISProgramCreate 체크 */ -->
+<!-- 			SELECT ShipmentNumber, Orig -->
+<!-- 			FROM Waybill -->
+<!-- 			WHERE ShipmentNumber IN (<foreach collection="list" item="item" separator=",">#{item.HBL_NO}</foreach>) -->
+<!-- 	</select> -->
+	
+	<select id="selecteCISProgramCreate" parameterType="upsNewbilling" resultType="HashMap">
+		/* UpsNewbillingMapper.selecteCISProgramCreate : UPS selecteCISProgramCreate 조회 */
+			SELECT
+				 mod.MBL_NO
+				,CONVERT(VARCHAR(8), mod.AR_DATE, 112) AS AR_DATE
+				,mod.LINE_CODE
+				,mod.VESSEL_FLIGHT
+				,mod.MRN
+				,mod.MSN
+				,mod.DEST_CODE
+				,od.HSN
+				,od.HBL_NO
+				,od.SHIPPER_NAME
+				,od.CURRENCY_CODE
+				,od.ASSIGNMENT_WH_CODE
+				,ISNULL(od.PIECES, 0) AS pieces
+				,FORMAT(ISNULL(od.AMOUNT_CUR, 0), '#,##0.0000') AS AMOUNT_CUR
+				,FORMAT(ISNULL(od.GWT, 0), '#,##0.000') AS GWT
+				,ad.ORIG
+				,ad.BILLING_TERM
+				,ad.TRANS_TYPE
+				,ad.DUTIES
+			FROM TB_ECM_OD mod
+				 INNER JOIN TB_ECM_OD od
+				 			ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+				 			AND od.BL_TYPE_MH = 'H'
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+				 			<if test='action == "subGrid"'>
+				 			AND ISNULL(ad.SIMPLE_DOC_NO, '') IN(<foreach collection="simpleDocNoList" item="item" separator=",">#{item}</foreach>)
+				 			</if>
+			<choose>
+			<when test="odJobNoList != null">
+			WHERE mod.OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			<otherwise>
+			WHERE mod.OD_JOB_NO = #{masterOdJobNo}
+			</otherwise>
+			</choose>
+			<if test="dataList != null">
+			AND od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			</if>
+	</select>
+
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    
+<!--   김일호 ===================================================================================================== -->
+    
+
+    
+<!--   이슬기 ===================================================================================================== -->
+    <delete id="deleteBatShipmentMInfo" parameterType="HashMap">
+		/* UpsNewbillingMapper.deleteBatShipmentMInfo : BatShipmentM 데이터 삭제 */
+		DELETE FROM BatShipmentM
+		 WHERE ShipmentNumber = #{hblNo}
+	</delete>
+	<update id="updateLowToHighWaybillExceptHot" parameterType="HashMap">
+		/* UpsNewbillingMapper.WaybillExceptHot : WaybillExceptHot 업데이트 */
+		UPDATE
+				WaybillExceptHot
+		   SET
+				LowToHigh = #{lowToHigh}
+		 WHERE
+				ShipmentNumber = #{hblNo}
+	</update>
+	<update id="updatePerrorWaybillMFCSDN" parameterType="HashMap">
+		/* UpsNewbillingMapper.updatePerrorWaybillMFCSDN : WaybillMFCSDN 업데이트 */
+		UPDATE
+				WaybillMFCSDN
+		   SET
+				Perror = #{Perror}
+				,PerrorNumber = #{customsId}
+		 WHERE
+				ShipmentNumber = #{hblNo}
+	</update>
+	<insert id="saveWaybillExceptOneInfo" parameterType="HashMap">
+		/* UpsNewbillingMapper.saveWaybillExceptOneInfo : WaybillExceptOne 저장 */
+		INSERT INTO WaybillExceptOne
+			(
+			ShipmentNumber
+			,ExcDate
+			,ExcTime
+			,ExcUser
+			,ExcUnit
+			,ExcTerm
+			,ExcCode
+			,ExcMemo
+			,ExcNote	
+			)
+		VALUES
+			(
+			#{hblNo}
+			,substring(replace(convert(varchar,getdate(),120),'-','/'),1,10)
+			<choose>
+				<when test='excTimeGbn != null and excTimeGbn == "SECOND"'>
+					,substring(convert(varchar,dateadd(SECOND,#{excTime},getdate()),120),12,8)
+				</when>
+				<otherwise>
+					,substring(convert(varchar,getdate(),120),12,8)
+				</otherwise>
+			</choose>
+			,'FMSUSER'
+			,''
+			,'0'
+			,#{excCode}
+			,#{excMemo}
+			,''	
+			)	
+	</insert>
+	<update id="updateCustomsIdOd" parameterType="HashMap">
+		/* UpsNewbillingMapper.updateCustomsIdOd : 개인통관부호 초기화 */
+		UPDATE
+			TB_ECM_OD
+		   SET
+		   	<choose>
+		   	<when test='cryptographyYn == "Y"'>
+		   	CUSTOMS_ID_ENC = ''
+		   	</when>
+		   	<otherwise>
+		   	CUSTOMS_ID = ''
+		   	</otherwise>
+		   	</choose>
+		  WHERE
+		  	OD_JOB_NO = #{odJobNo} 	
+	</update>
+	<update id="updateSimpleDocNoInfo" parameterType="HashMap">
+		/* UpsNewbillingMapper.updateSimpleDocNoInfo : 제출번호 초기화 */
+		UPDATE
+			TB_ECM_OD_ADDITIONAL
+		   SET
+		   	SIMPLE_DOC_NO = NULL,
+		   	LAST_POD_STATUS = 'ECM100'
+		  WHERE
+		  	OD_JOB_NO = #{odJobNo} 	
+	</update>
+	<update id="updateCustomsIdCdBinfo" parameterType="HashMap">
+		/* UpsNewbillingMapper.updateCustomsIdCdBinfo : 개인통관부호 초기화 */
+		UPDATE
+			TB_CD_B_INFO
+		   SET
+		   	CUSTOMS_ID = ''
+		  WHERE
+		  	HBL_NO = #{hblNo} 	
+	</update>
+	<update id="updateDeliveryNoteOd" parameterType="HashMap">
+		/* UpsNewbillingMapper.updateDeliveryNoteOd : 개인통관부호 저장 */
+		UPDATE
+			TB_ECM_OD
+		   SET
+		   <choose>
+		   	<when test='cryptographyYn == "Y"'>
+		   	DELIVERY_NOTE = CUSTOMS_ID_ENC
+		   	</when>
+		   	<otherwise>
+		   	DELIVERY_NOTE = CUSTOMS_ID
+		   	</otherwise>
+		   </choose>
+		  WHERE
+		  	OD_JOB_NO = #{odJobNo} 	
+	</update>
+	
+	<select id="selectLocalNewbillingApply" parameterType="upsNewbilling" resultType="HashMap">
+		/* UpsNewbillingMapper.selectLocalNewbillingApply : 로컬미결등록 뉴빌링 업데이트 대상건조회 */
+			SELECT 
+				  od.HBL_NO AS hblNo
+				 ,mod.LINE_CODE AS lineCode
+				 ,mod.VESSEL_FLIGHT AS vesselFlight
+			FROM TB_ECM_OD od
+			LEFT JOIN TB_ECM_OD mod ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+			WHERE od.OD_JOB_NO IN (<foreach collection="dataList" item="item" separator=",">#{item.odJobNo}</foreach>);
+	</select>
+	
+	<update id="updateLocalNewbillingApply" parameterType="HashMap">
+		/* UpsNewbillingMapper.updateLocalNewbillingApply : 로컬미결등록 뉴빌링 WaybillExceptLog 업데이트 */
+			UPDATE WaybillExceptLog SET 
+				   TransferDate = substring(replace(convert(varchar,getdate(),120),'-','/'),1,10)
+				  ,Flight = #{flightNo}
+				  ,ExcSeq = '0'
+				  ,ExcWho = 'PCCC'
+				  ,ExHold = 'X'
+				  ,ExCode = 'B5'
+			WHERE ShipmentNumber= #{hblNo}
+			IF @@ROWCOUNT = 0
+			BEGIN
+				INSERT INTO WaybillExceptLog (
+					   TransferDate
+					  ,Flight
+					  ,ShipmentNumber
+					  ,ExcSeq
+					  ,ExcEnd
+					  ,ExcWho
+					  ,ExHold
+					  ,ExCode
+					  ,TransferMake
+				) VALUES(
+					   substring(replace(convert(varchar,getdate(),120),'-','/'),1,10)
+					  ,#{flightNo}
+					  ,#{hblNo}
+					  ,'0'
+					  ,''
+					  ,'PCCC'
+					  ,'X'
+					  ,'B5'
+					  ,substring(replace(convert(varchar,getdate(),120),'-','/'),1,10)
+				)
+			END
+	</update>
+	
+	<select id="selectToNewbillingCustomsTransferExcelMblInfo" parameterType="upsNewbilling" resultType="HashMap">
+		/* UpsNewbillingMapper.selectToNewbillingCustomsTransferExcelMblInfo : UPS Newbilling 자체선별 엑셀 다운로드 대상 마스터 정보 조회 */
+			SELECT
+				   MBL_NO
+				 , VESSEL_FLIGHT
+		 	FROM TB_ECM_OD
+		 	WHERE OD_JOB_NO = #{masterOdJobNo}
+	</select>
+    
+    
+    
+    
+    
+    
+    
+   
+</mapper>
+

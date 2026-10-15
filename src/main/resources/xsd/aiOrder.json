@@ -1,0 +1,482 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "type": "object",
+  "required": ["AccessIdentifier", "OrderManifest"],
+  "properties": {
+    "AccessIdentifier": {
+      "type": "object",
+      "required": ["SenderIdentifier", "ReceiverIdentifier", "AccessKey","Bound","BoundType"],
+      "properties": {
+        "SenderIdentifier": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10
+        },
+        "ReceiverIdentifier": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5
+        },
+        "AccessKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "Bound": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3
+        },
+        "BoundType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3
+        }
+      }
+    },
+    "OrderManifest": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "required": ["OrderInfo", "ItemInfo"],
+        "properties": {
+          "OrderInfo": {
+            "type": "object",
+            "required": [
+              "Operation", "OrdId", "OrdDt", "AgentCode", "EmsYn",
+              "HblNo", "ShipperName", "ShipperAddress",
+              "ConsigneeMobile", "ConsigneeZipcode",
+              "ConsigneeIdCardType", "ConsigneeIdCardNo",
+              "ConsigneeNameLocal", "ConsigneeAddressLocal",
+              "ETradeType", "CustomsType", "CType",
+              "Url", "CommodityItem", "PermitItemCode",
+              "TotalQty", "TotalWeight", "CurrencyCode", "AmountTotal"
+            ],
+            "properties": {
+              "Operation": {
+                "type": "string",
+                "enum": ["0", "1", "2"]
+              },
+              "OrdId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              },
+              "OrdDt": {
+                "type": "string",
+                "pattern": "\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}"
+              },
+              "AgentCode": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10
+              },
+              "EmsYn": {
+                "type": "string",
+                "enum": ["Y", "N"]
+              },
+              "HblNo": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20,
+                "pattern": "[A-Z0-9]*"
+              },
+              "MblNo": {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "[A-Z0-9]*"
+              },
+              "BLTypeIE": {
+                "type": "string",
+                "enum": ["", "I", "T"]
+              },
+              "FlightNo": {
+                "type": "string",
+                "maxLength": 7
+              },
+              "ETD": {
+                "type": "string",
+                "pattern": "[1-9][0-9]{3}-[0-1][0-9]-[0-3][0-9]|"
+              },
+              "ETA": {
+                "type": "string",
+                "pattern": "[1-9][0-9]{3}-[0-1][0-9]-[0-3][0-9]|"
+              },
+              "DepPort": {
+                "type": "string",
+                "maxLength": 3
+              },
+              "ArrPort": {
+                "type": "string",
+                "maxLength": 3
+              },
+              "ShipperName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "ShipperAddress": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "ShipperState": {
+                "type": "string",
+                "maxLength": 9,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "ShipperPlace": {
+                "type": "string",
+                "maxLength": 17,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "ShipperStreet": {
+                "type": "string",
+                "maxLength": 35,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "ShipperTel": {
+                "type": "string",
+                "maxLength": 35,
+                "pattern": "[0-9:#., \\+\\-\\(\\)]*"
+              },
+              "ShipperMobile": {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "[0-9:#., \\+\\-\\(\\)]*"
+              },
+              "ShipperZipcode": {
+                "type": "string",
+                "maxLength": 10,
+                "pattern": "[0-9A-Z \\-]*"
+              },
+              "ShipperCountryCode": {
+                "type": "string",
+                "maxLength": 2,
+                "pattern": "[A-Z]*"
+              },
+              "ShipperBusinessId": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "ConsigneeName": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "ConsigneeAddress": {
+                "type": "string",
+                "maxLength": 300,
+                "pattern": "[a-zA-Z0-9가-힣!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "ConsigneeState": {
+                "type": "string",
+                "maxLength": 9,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "ConsigneePlace": {
+                "type": "string",
+                "maxLength": 17,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "ConsigneeStreet": {
+                "type": "string",
+                "maxLength": 35,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "ConsigneeTel": {
+                "type": "string",
+                "maxLength": 35,
+                "pattern": "[0-9:#., \\+\\-\\(\\)]*"
+              },
+              "ConsigneeMobile": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20,
+                "pattern": "[0-9:#., \\+\\-\\(\\)]*"
+              },
+              "ConsigneeZipcode": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 10,
+                "pattern": "[0-9\\-]*"
+              },
+              "ConsigneeCountryCode": {
+                "type": "string",
+                "maxLength": 2,
+                "pattern": "[A-Z]*"
+              },
+              "ConsigneeBusinessId": {
+                "type": "string",
+                "maxLength": 20,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "ConsigneeIdCardType": {
+                "type": "string",
+                "enum": ["A", "B", "C", "D", "E", "F"]
+              },
+              "ConsigneeIdCardNo": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "ConsigneeNameLocal": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 60
+              },
+              "ConsigneeAddressLocal": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "DestinationCountryCode": {
+                "type": "string",
+                "maxLength": 2,
+                "pattern": "[A-Z]*"
+              },
+              "SpecialShipperCode": {
+                "type": "string",
+                "maxLength": 10
+              },
+              "ETradeType": {
+                "type": "string",
+                "enum": ["A", "D", "E", "F"]
+              },
+              "ETradeBuyType": {
+                "type": "string",
+                "enum": ["A", "B", "C", "Z", ""]
+              },
+              "SellerRegNo": {
+                "type": "string",
+                "maxLength": 9,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "SellerName": {
+                "type": "string",
+                "maxLength": 150
+              },
+              "AgentRegNo": {
+                "type": "string",
+                "maxLength": 9,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "AgentName": {
+                "type": "string",
+                "maxLength": 150
+              },
+              "SalesBrokerRegNo": {
+                "type": "string",
+                "maxLength": 9,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "SalesBrokerName": {
+                "type": "string",
+                "maxLength": 150
+              },
+              "SellerNo": {
+                "type": "string",
+                "maxLength": 350
+              },
+              "CustomsType": {
+                "type": "string",
+                "enum": ["1", "2"]
+              },
+              "CType": {
+                "type": "string",
+                "enum": ["Y", "N", "B"]
+              },
+              "Url": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "CommodityItem": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+              },
+              "CommodityItemLocal": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "PermitItemCode": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 6,
+                "pattern": "[0-9]*"
+              },
+              "TotalQty": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999999999
+              },
+              "TotalWeight": {
+                "type": "string",
+                "pattern": "[0-9]{1,13}\\.[0-9]{1,3}|[0-9]{1,13}"
+              },
+              "CurrencyCode": {
+                "type": "string",
+                "pattern": "[A-Z]{3}"
+              },
+              "AmountTotal": {
+                "type": "string",
+                "pattern": "[0-9]{1,10}\\.[0-9]{1,2}|[0-9]{1,10}"
+              },
+              "DeliveryNo": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "DimWidth": {
+			   "type": "integer",
+			   "minimum": 0,
+			   "maximum": 9999
+			  },
+			  "DimLength": {
+			   "type": "integer",
+			   "minimum": 0,
+			   "maximum": 9999
+			  },
+			  "DimHeight": {
+			   "type": "integer",
+			   "minimum": 0,
+			   "maximum": 9999
+			  },
+              "Remark": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "DeliveryRequest": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "BrokerRequest": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "BrokerPayment": {
+                "type": "string",
+                "enum": ["", "01", "02", "07", "08"]
+              },
+              "BrokerAmount": {
+                "type": "string",
+                "pattern": "[0-9]{1,10}\\.[0-9]{1,2}|[0-9]{0,10}"
+              },
+              "DeliveryPayment": {
+                "type": "string",
+                "pattern": "[0-9]{1,10}\\.[0-9]{1,2}|[0-9]{0,10}|"
+              },
+              "DeliveryCode": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "FrtDvCd": {
+                "type": "string",
+                "enum": ["", "01", "02", "07", "08"]
+              },
+              "FtaYn": {
+                "type": "string",
+                "enum": ["", "Y", "N"]
+              },
+              "DocumentYn": {
+                "type": "string",
+                "enum": ["Y", "N", ""]
+              },
+              "ConsigneeFirstName": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "ConsigneeLastName": {
+                "type": "string",
+                "maxLength": 60
+              }
+            }
+          },
+          "ItemInfo": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "required": [
+                "ItemNm", "ItemQty", "ItemQtyUnit",
+                "ItemAmount", "ItemCurrencyCode"
+              ],
+              "properties": {
+                "ItemNo": {
+                  "type": "string",
+                  "maxLength": 30
+                },
+                "ItemNm": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+                },
+                "ItemNmLocal": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "ItemModelNm": {
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \\[\\]\\?\\-\\(\\)\\*\\|\\\\&<>\"']*"
+                },
+                "ItemModelNmLocal": {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                "ItemQty": {
+                  "type": "string",
+                  "pattern": "[0-9]{1,10}"
+                },
+                "ItemQtyUnit": {
+                  "type": "string",
+                  "maxLength": 3,
+                  "pattern": "[A-Z]{2,3}"
+                },
+                "ItemGrossWeight": {
+                  "type": "string",
+                  "pattern": "[0-9]{1,13}\\.[0-9]{1,3}|[0-9]{0,13}"
+                },
+                "ItemRate": {
+                  "type": "string",
+                  "pattern": "[0-9]{1,13}\\.[0-9]{1,4}|[0-9]{0,13}"
+                },
+                "ItemAmount": {
+                  "type": "string",
+                  "pattern": "[0-9]{1,10}\\.[0-9]{1,2}|[0-9]{1,10}"
+                },
+                "ItemCurrencyCode": {
+                  "type": "string",
+                  "maxLength": 3,
+                  "pattern": "[A-Z]{3}"
+                },
+                "ItemHsCode": {
+                  "type": "string",
+                  "maxLength": 10
+                },
+                "ItemOrigin": {
+                  "type": "string",
+                  "maxLength": 2,
+                  "pattern": "[A-Z]*"
+                },
+                "ItemUrl": {
+                  "type": "string",
+                  "maxLength": 300
+                },
+                "ItemRemark": {
+                  "type": "string",
+                  "maxLength": 500
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

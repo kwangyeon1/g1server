@@ -1,0 +1,620 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsEcMapper">
+	
+	<sql id="searchMaster_main_info">
+		<if test='srchDateGbn != "noDateChk"'>
+			AND ${srchDateGbn} <![CDATA[>=]]> #{srchStartDate}
+			AND ${srchDateGbn} <![CDATA[<]]> #{srchEndDate}
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<when test='searchType == "multi"'>
+					AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<otherwise>
+					AND ${srchNoType} LIKE '%' + #{srchNo} + '%'
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchSndStatCd != null and srchSndStatCd != ''">
+			AND SND_STAT_CD = #{srchSndStatCd}
+		</if>
+		<if test="srchProsStatCd != null and srchProsStatCd != ''">
+			AND PROS_STAT_CD = #{srchProsStatCd}
+		</if>
+	</sql>
+	
+	<select id="selectEcInPlanList" parameterType="searchEc" resultType="bmsEcInPlan">
+		/* BmsEcMapper.selectEcInPlanList : EC송수신조회 - 반입예정 마스터 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				A.*
+			FROM (
+				SELECT
+					INTERFACE_ID
+					, INTERFACE_SEQ
+					, IS_CUD
+					, PART
+					, IN_NO1
+					, IN_NO2
+					, MRN
+					, MSN
+					, HSN
+					, IN_DT
+					, OWNER_CD
+					, OWNER_COMP
+					, ITEM_CD
+					, ITEM_NM1
+					, MBL_NO
+					, HBL_NO
+					, SHIP_NO
+					, IN_GUBUN
+					, BOND_FM
+					, BOND_TO
+					, SINGO_REQNO
+					, BOND_COMP_CD
+					, PACK_KIND
+					, IN_SAGO_CD
+					, PACK_CNT
+					, OUT_QTY
+					, JEGO_QTY
+					, TOT_WGT
+					, OUT_WGT
+					, JEGO_WGT
+					, TOT_CBM
+					, OUT_CBM1
+					, OUT_CBM
+					, PLC_LOC
+					, PLC_CONF_DT
+					, PLC_CONF_ID
+					, OVER_YN
+					, OVER_NO
+					, OVER_DT
+					, DATA_CREAT_GBN
+					, WORK_DT
+					, TERM_ID
+					, ELEC_YN
+					, IN_TYPE
+					, CC_SPR_CD
+					, SPC_PKG_GBN
+					, JOUP_DT
+					, IN_PORT_DT
+					, VAL
+					, DUTY
+					, UNLD_PORT_CD
+					, SEND_NAT_CD
+					, SEND_OFFICE
+					, SEND_ADDR1
+					, SEND_ADDR2
+					, SEND_ADDR3
+					, SEND_TEL
+					, RECV_TEL
+					, RECV_NM
+					, RECV_ADDR1
+					, RECV_ADDR2
+					, RECV_ADDR3
+					, RECV_POST_NO
+					, ELEC_DOMAIN
+					, INV_AMT
+					, INV_AMT_UNIT
+					, DIRECT_NO
+					, TRADE_TYPE
+					, USE_GBN
+					, CONTR_NO1
+					, CONTR_NO2
+					, FWD_CODE
+					, FWD_FIRM
+					, PASS_REASION
+					, CRIME_SELECTION_YN
+					, TAKBAE_NO
+					, TAKBAE_NM
+					, TAKBAE_LOC
+					, UNI_MATT
+					, HOLD_REASON
+					, RSP_AID
+					, TIMESTAMP
+					, TRNS_ID
+					, SND_SYS_CD
+					, RECV_SYS_CD
+					, DT_PROS_STAT
+					, RECV_YMD
+					, RECV_HMS
+					, DT_REG
+					, CONCAT(MRN, MSN, HSN) AS CARGO_REFERENCE_NO
+					, CONCAT_WS('-', MRN, MSN, HSN) AS CARGO_REFERENCE_NO_DISP
+					<choose>
+						<when test='srchMode == "excel"'>
+						, CASE	WHEN PKG_GBN = '10' THEN '10.일반'
+								WHEN PKG_GBN = '11' THEN '11.관리'
+								WHEN PKG_GBN = '12' THEN '12.이사'
+								WHEN PKG_GBN = '14' THEN '14.특송'
+								WHEN PKG_GBN = '15' THEN '15.수출'
+								WHEN PKG_GBN = 'K1016' THEN 'K1016.면세'
+								WHEN PKG_GBN = '17' THEN '17.조달'
+								ELSE PKG_GBN
+						  END AS PKG_GBN
+						, CUS_CD1 + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE = 'EDI_CUSTOMS_CODE' AND CODE = CUS_CD1 ) AS CUS_CD1
+						, CASE	WHEN PROS_STAT_CD = 'R' THEN 'R.전송대기'
+								WHEN PROS_STAT_CD = 'P' THEN 'P.작업중'
+								WHEN PROS_STAT_CD = 'D' THEN 'D.작업완료'
+								WHEN PROS_STAT_CD = 'E' THEN 'E.에러'
+								ELSE PROS_STAT_CD
+						  END AS PROS_STAT_CD
+						</when>
+						<otherwise>
+						, PKG_GBN
+						, CUS_CD1
+						, PROS_STAT_CD
+						</otherwise>
+					</choose>
+				FROM TB_IFR_ECTOG1_IN_PLAN
+			) A
+			WHERE 1=1
+			<include refid="org.yht.exps.express.mapper.bms.BmsEcMapper.searchMaster_main_info"/>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectEcInPlanDetailList" parameterType="searchEc" resultType="bmsEcInPlanDetail">
+		/* BmsEcMapper.selectEcInPlanDetailList : EC송수신조회 - 반입예정 상세 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				*
+			FROM TB_IFR_ECTOG1_IN_PLAN_DTL
+			WHERE 1=1
+			AND INTERFACE_ID = #{srchInterfaceId}
+			AND INTERFACE_SEQ = #{srchInterfaceSeq}
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectEcInPlanDetailRsgList" parameterType="searchEc" resultType="bmsEcInPlanRsgDetail">
+		/* BmsEcMapper.selectEcInPlanDetailRsgList : EC송수신조회 - 반입예정 상세Rsg 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				*
+			FROM TB_IFS_G1TOEC_RSG
+			WHERE 1=1
+			AND INTERFACE_ID = #{srchInterfaceId}
+			AND INTERFACE_SEQ = #{srchInterfaceSeq}
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectEcInList" parameterType="searchEc" resultType="bmsEcIn">
+		/* BmsEcMapper.selectEcInList : EC송수신조회 - 반입 마스터 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				A.*
+			FROM (
+				SELECT
+					INTERFACE_ID
+					, INTERFACE_SEQ
+					, IS_CUD
+					, SEQ_NO
+					, PART
+					, IN_NO1
+					, IN_NO2
+					, BOND_NO
+					, IN_DT
+					, PLC_LOC
+					, DIVI_IN_YN
+					, MRN
+					, MSN
+					, HSN
+					, MBL
+					, HBL
+					, IN_STD_NO
+					, TANK_NO
+					, IN_QTY
+					, PACK_GBN
+					, IN_WGT
+					, OWNER_CD
+					, SEND_YN
+					, REMARK
+					, TRAN_GBN
+					, BIG_SIZE_YN
+					, INTELLECTUAL_PROP_YN
+					, CHANGE_CLASS
+					, CHANGE_CODE
+					, CHANGE_BEFORE
+					, CHANGE_AFTER
+					, XRAY_MACHINE
+					, TIMESTAMP
+					, TRNS_ID
+					, SND_SYS_CD
+					, RECV_SYS_CD
+					, ERR_MSG
+					, SND_YMD
+					, SND_HMS
+					, DT_REG
+					, CONCAT(MRN, MSN, HSN) AS CARGO_REFERENCE_NO
+					, CONCAT_WS('-', MRN, MSN, HSN) AS CARGO_REFERENCE_NO_DISP
+					<choose>
+						<when test='srchMode == "excel"'>
+						, IN_GUBUN + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE = 'CARRYIN_TYPE' AND CODE = IN_GUBUN ) AS IN_GUBUN
+						, XRAY_GBN + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE = 'INSPECTION TYPE' AND CODE = XRAY_GBN ) AS XRAY_GBN
+						, XRAY_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = XRAY_INSPECTION_CODE ) AS XRAY_INSPECTION_CODE
+						, CASE	WHEN SND_STAT_CD = 'R' THEN 'R.전송요청/대기'
+								WHEN SND_STAT_CD = 'P' THEN 'P.전송중'
+								WHEN SND_STAT_CD = 'D' THEN 'D.전송완료'
+								WHEN SND_STAT_CD = 'E' THEN 'E.전송에러'
+								ELSE SND_STAT_CD
+						  END AS SND_STAT_CD
+						</when>
+						<otherwise>
+						, IN_GUBUN
+						, XRAY_GBN
+						, XRAY_INSPECTION_CODE
+						, SND_STAT_CD
+						</otherwise>
+					</choose>
+				FROM TB_IFS_G1TOEC_IN
+			)A
+			WHERE 1=1
+			<include refid="org.yht.exps.express.mapper.bms.BmsEcMapper.searchMaster_main_info"/>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectEcInDetailList" parameterType="searchEc" resultType="bmsEcInDetail">
+		/* BmsEcMapper.selectEcInDetailList : EC송수신조회 - 반입 상세 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				*
+			FROM TB_IFS_G1TOEC_IN_DTL
+			WHERE 1=1
+			AND INTERFACE_ID = #{srchInterfaceId}
+			AND INTERFACE_SEQ = #{srchInterfaceSeq}
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectEcEtcList" parameterType="searchEc" resultType="bmsEcEtc">
+		/* BmsEcMapper.selectEcEtcList : EC송수신조회 - 통관 마스터 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				A.*
+			FROM (
+				SELECT
+					INTERFACE_ID
+					, INTERFACE_SEQ
+					, IS_CUD
+					, IN_NO1
+					, IN_NO2
+					, MRN
+					, MSN
+					, HSN
+					, MBL
+					, HBL
+					, TAKBAE_LBLID
+					, REMARK
+					, TRAN_GBN
+					, XRAY_RESCAN_DATE
+					, LOCATION_SCAN_DATE
+					, LOCATION_PLACE
+					, INSPECTION_YN
+					, INSPECTION_FINISH_DATE
+					, INSPECTION_FINISH_YN
+					, RETURN_DATE
+					, RETURN_REASON
+					, REPAIR_FINISH_DATE
+					, REPAIR_CT
+					, SAMPLE_OUT_CT
+					, SAMPLE_OUT_WT
+					, SAMPLE_IN_CT
+					, SAMPLE_IN_WT
+					, INTELLECTUAL_PROP_YN
+					, INTELLECTUAL_PROP_STAT
+					, PACK_CNT_UNIPASS
+					, TOT_WGT_UNIPASS
+					, OUT_OK_GBN
+					, HOLD_YN
+					, HOLD_REASON
+					, INSPECTION_RESULT_REASON
+					, TIMESTAMP
+					, SND_SYS_CD
+					, RECV_SYS_CD
+					, ERR_MSG
+					, SND_YMD
+					, SND_HMS
+					, DT_REG
+					, CONCAT('-', MRN, MSN, HSN) AS CARGO_REFERENCE_NO
+					, CONCAT_WS('-', MRN, MSN, HSN) AS CARGO_REFERENCE_NO_DISP
+					<choose>
+						<when test='srchMode == "excel"'>
+						, CASE	WHEN WORK_GUBUN = '10' THEN '10.판독'
+								WHEN WORK_GUBUN = '11' THEN '11.적치'
+								WHEN WORK_GUBUN = '12' THEN '12.검사'
+								WHEN WORK_GUBUN = '13' THEN '13.재입고'
+								WHEN WORK_GUBUN = '14' THEN '14.보수'
+								WHEN WORK_GUBUN = '15' THEN '15.견품'
+								WHEN WORK_GUBUN = '16' THEN '16.이고'
+								ELSE WORK_GUBUN
+						  END AS WORK_GUBUN
+						, XRAY_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = XRAY_INSPECTION_CODE ) AS XRAY_INSPECTION_CODE
+						, OUT_OK_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE = 'CARRYOUT_TYPE' AND CODE = OUT_OK_TYPE ) AS OUT_OK_TYPE
+						, CASE	WHEN SND_STAT_CD = 'R' THEN 'R.전송요청/대기'
+								WHEN SND_STAT_CD = 'P' THEN 'P.전송중'
+								WHEN SND_STAT_CD = 'D' THEN 'D.전송완료'
+								WHEN SND_STAT_CD = 'E' THEN 'E.전송에러'
+								ELSE SND_STAT_CD
+						  END AS SND_STAT_CD
+						</when>
+						<otherwise>
+						, WORK_GUBUN
+						, XRAY_INSPECTION_CODE
+						, OUT_OK_TYPE
+						, SND_STAT_CD
+						</otherwise>
+					</choose>
+				FROM TB_IFS_G1TOEC_ETC
+			)A
+			WHERE 1=1
+			<include refid="org.yht.exps.express.mapper.bms.BmsEcMapper.searchMaster_main_info"/>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectEcEtcDetailList" parameterType="searchEc" resultType="bmsEcEtcDetail">
+		/* BmsEcMapper.selectEcEtcDetailList : EC송수신조회 - 통관 상세 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				*
+			FROM TB_IFS_G1TOEC_ETC_DTL
+			WHERE 1=1
+			AND INTERFACE_ID = #{srchInterfaceId}
+			AND INTERFACE_SEQ = #{srchInterfaceSeq}
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectEcOutPlanList" parameterType="searchEc" resultType="bmsEcOutPlan">
+		/* BmsEcMapper.selectEcOutPlanList : EC송수신조회 - 반출승인 마스터 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				A.*
+				, dbo.Cryptography(A.CARGO_REFERENCE_NO, A.JUMIN_NO, 1) AS COMPANY_BUSINESS_NO
+			FROM (
+				SELECT
+					INTERFACE_ID
+					, INTERFACE_SEQ
+					, IS_CUD
+					, SEQ_NO
+					, OUT_OK_NO
+					, OUT_OK_GBN
+					, CUS_SND_DT
+					, OUT_OK_DT
+					, BOND_BUHO
+					, WATCH_YN
+					, MRN
+					, MSN
+					, HSN
+					, DUTY
+					, CIF_COND
+					, VAL
+					, BL_NO
+					, SHIP_NM
+					, IN_PORT_DT
+					, JUMIN_NO
+					, JUMIN_GBN
+					, OFFICE_NM
+					, OWNER_NM
+					, OUT_OK_QTY
+					, OUT_OK_WGT
+					, REMARK
+					, TRAN_GBN
+					, CRITERIA_CODE
+					, INS_PAYMENT_TYPE
+					, INS_PAYMENT_YN
+					, HS_CODE
+					, TIMESTAMP
+					, TRNS_ID
+					, SND_SYS_CD
+					, RECV_SYS_CD
+					, SND_YMD
+					, SND_HMS
+					, DT_REG
+					, CONCAT(MRN, MSN, HSN) AS CARGO_REFERENCE_NO
+					, CONCAT_WS('-', MRN, MSN, HSN) AS CARGO_REFERENCE_NO_DISP
+					<choose>
+						<when test='srchMode == "excel"'>
+						, OUT_OK_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE = 'CARRYOUT_TYPE' AND CODE = OUT_OK_TYPE ) AS OUT_OK_TYPE
+						, CASE	WHEN SND_STAT_CD = 'R' THEN 'R.전송요청/대기'
+								WHEN SND_STAT_CD = 'P' THEN 'P.전송중'
+								WHEN SND_STAT_CD = 'D' THEN 'D.전송완료'
+								WHEN SND_STAT_CD = 'E' THEN 'E.전송에러'
+								ELSE SND_STAT_CD
+						  END AS SND_STAT_CD
+						</when>
+						<otherwise>
+						, OUT_OK_TYPE
+						, SND_STAT_CD
+						</otherwise>
+					</choose>
+				FROM TB_IFS_G1TOEC_OUT_PLAN
+			)A
+			WHERE 1=1
+			<include refid="org.yht.exps.express.mapper.bms.BmsEcMapper.searchMaster_main_info"/>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectEcOutList" parameterType="searchEc" resultType="bmsEcOut">
+		/* BmsEcMapper.selectEcOutList : EC송수신조회 - 반출 마스터 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				A.*
+			FROM (
+				SELECT
+					INTERFACE_ID
+					, INTERFACE_SEQ
+					, IS_CUD
+					, SEQ_NO
+					, PART
+					, OUT_NO1
+					, OUT_NO2
+					, DIVI_OUT_LAST
+					, BOND_NO
+					, OUT_DT
+					, PLC_LOC
+					, DIVI_OUT_YN
+					, MRN
+					, MSN
+					, HSN
+					, MBL
+					, HBL
+					, OUT_STD_NO
+					, OUT_QTY
+					, PACK_GBN
+					, OUT_WGT
+					, OWNER_CD
+					, SEND_YN
+					, REMARK
+					, TRAN_GBN
+					, OUT_CHUTE_NO
+					, OUT_DATE_TIME
+					, CHANGE_CLASS
+					, CHANGE_CODE
+					, CHANGE_BEFORE
+					, CHANGE_AFTER
+					, TIMESTAMP
+					, TRNS_ID
+					, SND_SYS_CD
+					, RECV_SYS_CD
+					, ERR_MSG
+					, SND_YMD
+					, SND_HMS
+					, DT_REG
+					, CONCAT(MRN, MSN, HSN) AS CARGO_REFERENCE_NO
+					, CONCAT_WS('-', MRN, MSN, HSN) AS CARGO_REFERENCE_NO_DISP
+					<choose>
+						<when test='srchMode == "excel"'>
+						, OUT_GUBUN + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+							AND GROUP_CODE = 'CARRYOUT_TYPE' AND CODE = OUT_GUBUN ) AS OUT_GUBUN
+						, CASE	WHEN SND_STAT_CD = 'R' THEN 'R.전송요청/대기'
+								WHEN SND_STAT_CD = 'P' THEN 'P.전송중'
+								WHEN SND_STAT_CD = 'D' THEN 'D.전송완료'
+								WHEN SND_STAT_CD = 'E' THEN 'E.전송에러'
+								ELSE SND_STAT_CD
+						  END AS SND_STAT_CD
+						</when>
+						<otherwise>
+						, OUT_GUBUN
+						, SND_STAT_CD
+						</otherwise>
+					</choose>
+				FROM TB_IFS_G1TOEC_OUT
+			)A
+			WHERE 1=1
+			<include refid="org.yht.exps.express.mapper.bms.BmsEcMapper.searchMaster_main_info"/>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectEcOutDetailList" parameterType="searchEc" resultType="bmsEcOutDetail">
+		/* BmsEcMapper.selectEcOutDetailList : EC송수신조회 - 반출 상세 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				*
+			FROM TB_IFS_G1TOEC_OUT_DTL
+			WHERE 1=1
+			AND INTERFACE_ID = #{srchInterfaceId}
+			AND INTERFACE_SEQ = #{srchInterfaceSeq}
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectEcInInterfaceId" parameterType="BmsEcData" resultType="String">
+		/* BmsEcMapper.selectEcInInterfaceId : EC송수신조회 - 반입 인터페이스ID 조회 */
+			SELECT
+				MAX(INTERFACE_ID)
+			FROM TB_IFS_G1TOEC_IN
+			WHERE LEFT(INTERFACE_ID, CHARINDEX('-', INTERFACE_ID + '-') - 1) = #{orgInterfaceId}
+	</select>
+	
+	<select id="selectEcEtcInterfaceId" parameterType="BmsEcData" resultType="String">
+		/* BmsEcMapper.selectEcEtcInterfaceId : EC송수신조회 - 통관 인터페이스ID 조회 */
+			SELECT
+				MAX(INTERFACE_ID)
+			FROM TB_IFS_G1TOEC_ETC
+			WHERE LEFT(INTERFACE_ID, CHARINDEX('-', INTERFACE_ID + '-') - 1) = #{orgInterfaceId}
+	</select>
+	
+	<select id="selectEcOutPlanInterfaceId" parameterType="BmsEcData" resultType="String">
+		/* BmsEcMapper.selectEcOutPlanInterfaceId : EC송수신조회 - 반출승인 인터페이스ID 조회 */
+			SELECT
+				MAX(INTERFACE_ID)
+			FROM TB_IFS_G1TOEC_OUT_PLAN
+			WHERE LEFT(INTERFACE_ID, CHARINDEX('-', INTERFACE_ID + '-') - 1) = #{orgInterfaceId}
+	</select>
+	
+	<select id="selectEcOutInterfaceId" parameterType="BmsEcData" resultType="String">
+		/* BmsEcMapper.selectEcOutInterfaceId : EC송수신조회 - 반출 인터페이스ID 조회 */
+			SELECT
+				MAX(INTERFACE_ID)
+			FROM TB_IFS_G1TOEC_OUT
+			WHERE LEFT(INTERFACE_ID, CHARINDEX('-', INTERFACE_ID + '-') - 1) = #{orgInterfaceId}
+	</select>
+	
+	<update id="updateEcInResend"  parameterType="BmsEcSend">
+		/* BmsEcMapper.updateEcInResend : EC 반입 재송신 */
+		<if test="ecList != null and ecList.size > 0 ">
+			<foreach collection="ecList" item="item">
+			UPDATE TB_IFS_G1TOEC_IN SET
+				INTERFACE_ID = #{item.interfaceIdNew}
+				, SND_STAT_CD = 'R'
+			WHERE LEFT(INTERFACE_ID, CHARINDEX('-', INTERFACE_ID + '-') - 1) = #{item.orgInterfaceId};
+			
+			UPDATE TB_IFS_G1TOEC_IN_DTL SET
+				INTERFACE_ID = #{item.interfaceIdNew}
+			WHERE LEFT(INTERFACE_ID, CHARINDEX('-', INTERFACE_ID + '-') - 1) = #{item.orgInterfaceId};
+         </foreach>
+        </if>
+	</update>
+	
+	<update id="updateEcEtcResend"  parameterType="BmsEcSend">
+		/* BmsEcMapper.updateEcEtcResend : EC 통관 재송신 */
+		<if test="ecList != null and ecList.size > 0 ">
+			<foreach collection="ecList" item="item">
+			UPDATE TB_IFS_G1TOEC_ETC SET
+				INTERFACE_ID = #{item.interfaceIdNew}
+				, SND_STAT_CD = 'R'
+			WHERE LEFT(INTERFACE_ID, CHARINDEX('-', INTERFACE_ID + '-') - 1) = #{item.orgInterfaceId};
+			
+			UPDATE TB_IFS_G1TOEC_ETC_DTL SET
+				INTERFACE_ID = #{item.interfaceIdNew}
+			WHERE LEFT(INTERFACE_ID, CHARINDEX('-', INTERFACE_ID + '-') - 1) = #{item.orgInterfaceId};
+         </foreach>
+        </if>
+	</update>
+	
+	<update id="updateEcOutPlanResend"  parameterType="BmsEcSend">
+		/* BmsEcMapper.updateEcOutPlanResend : EC 반출승인 재송신 */
+		<if test="ecList != null and ecList.size > 0 ">
+			<foreach collection="ecList" item="item">
+			UPDATE TB_IFS_G1TOEC_OUT_PLAN SET
+				INTERFACE_ID = #{item.interfaceIdNew}
+				, SND_STAT_CD = 'R'
+			WHERE LEFT(INTERFACE_ID, CHARINDEX('-', INTERFACE_ID + '-') - 1) = #{item.orgInterfaceId};
+         </foreach>
+        </if>
+	</update>
+	
+	<update id="updateEcOutResend"  parameterType="BmsEcSend">
+		/* BmsEcMapper.updateEcOutResend : EC 반출 재송신 */
+		<if test="ecList != null and ecList.size > 0 ">
+			<foreach collection="ecList" item="item">
+			UPDATE TB_IFS_G1TOEC_OUT SET
+				INTERFACE_ID = #{item.interfaceIdNew}
+				, SND_STAT_CD = 'R'
+			WHERE LEFT(INTERFACE_ID, CHARINDEX('-', INTERFACE_ID + '-') - 1) = #{item.orgInterfaceId};
+			
+			UPDATE TB_IFS_G1TOEC_OUT_DTL SET
+				INTERFACE_ID = #{item.interfaceIdNew}
+			WHERE LEFT(INTERFACE_ID, CHARINDEX('-', INTERFACE_ID + '-') - 1) = #{item.orgInterfaceId};
+         </foreach>
+        </if>
+	</update>
+</mapper>

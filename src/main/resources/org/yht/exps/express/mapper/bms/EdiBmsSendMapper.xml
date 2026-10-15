@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.EdiBmsSendMapper">
+	<select id="selectEdiBmsInSendList" parameterType="searchInList" resultType="inventoryIn">
+        /* EdiBmsSendMapper.selectEdiBmsInSendList : GOVCBR632(반입신고서) 목록 조회 */
+		SELECT 'GOVCBR632' AS TYPE_CODE
+			 , A.IN_NO
+	  		 , A.BL_NO
+			 , A.LAST_POD_STATUS
+			 , A.CUSTOMS_REPORT_NO
+			 , '9' AS FUNCTION_CODE
+			 , REPLACE(A.CARRYIN_DATE, '-', '') + REPLACE(A.CARRYIN_TIME, ':', '') AS CARRYIN_DATE_TIME
+			 , LOCATION_PLACE
+			 , IN_CLASS
+			 , 'A' AS BUNHAL
+			 , CARGO_REFERENCE_NO
+			 , IN_APPROVAL_NO
+			 , XRAY_CHECK
+			 , CT
+			 , PKG_TYPE
+			 , ACCIDENT_CLASS
+			 , WT
+			 , ACCIDENT_WT
+			 , ACCIDENT_CT
+		     , A.REGISTER_USER_ID
+		     , A.OD_JOB_NO
+		  FROM TB_BMS_IN A WITH (NOLOCK)
+	 	 WHERE A.IN_NO IN (<foreach collection="inNoList" item="item" separator=",">#{item}</foreach>)
+		 ORDER BY A.IN_NO
+	</select>
+
+	<update id="batchUpdateEdiBmsInSendSucc" parameterType="HashMap">
+		/*EdiBmsSendMapper.batchUpdateEdiBmsInSendSucc : GOVCBR632(반입신고서) XML 송신성공 건 LAST_POD_STATUS 업데이트 */
+		
+		UPDATE TB_BMS_IN
+		   SET LAST_POD_DATE = GETDATE()
+		     , LAST_POD_STATUS = 'BMS03' /* 송신 */
+			 , UPDATE_USER_ID = #{updateUserId}
+			 , UPDATE_DATE_TIME = GETDATE()
+		 WHERE IN_NO = #{inNo}
+		 AND LAST_POD_STATUS IN ('', 'BMS01', 'BMS02') /*입력, 송신실패 */
+		 
+	</update>
+
+	<update id="batchUpdateEdiBmsInSendErr" parameterType="HashMap">
+		/*EdiBmsSendMapper.batchUpdateEdiBmsInSendErr : GOVCBR632(반입신고서) XML 송신실패 건 LAST_POD_STATUS 업데이트 */
+		
+		UPDATE TB_BMS_IN
+		   SET LAST_POD_DATE = GETDATE()
+		     , LAST_POD_STATUS = 'BMS02' /* 송신실패 */
+			 , UPDATE_USER_ID = #{updateUserId}
+			 , UPDATE_DATE_TIME = GETDATE()
+		 WHERE IN_NO = #{inNo}
+		 AND LAST_POD_STATUS IN ('', 'BMS01', 'BMS02', 'BMS03') /*입력, 송신실패, 전송 */
+		 
+	</update>
+
+	<select id="selectEdiBmsOutSendList" parameterType="searchBmsOut" resultType="bmsOut">
+		/* EdiBmsSendMapper.selectEdiBmsOutSendList : GOVCBR6NB(반출신고서) 목록 조회 */
+		SELECT 'GOVCBR6NB' AS TYPE_CODE 							/* 문서형태구분 */
+			 , A.OUT_NO												/* 반출번호(PK) */
+			 , A.BL_NO 												/* BL번호 */
+			 , A.LAST_POD_STATUS									/* 신고일자(송신일시) */
+			 , A.CUSTOMS_REPORT_NO 									/* 신고번호(보세구역부호(8)+년도(02)+일련번호(08)) */
+			 , '9' AS FUNCTION_CODE 								/* 전자문서기능(9: 원본, 35: 재전송) */
+			 , REPLACE(A.CARRYOUT_DATE, '-', '') + REPLACE(A.CARRYOUT_TIME, ':', '') AS CARRYOUT_DATE_TIME /* 반출일시(CCYYMMDDHHMMSS) */
+			 , A.OUT_CLASS 											/* 화물반출유형 */
+			 , 'A' AS BUNHAL 										/* 분할반출구분(A: 전량, P: 분할, L: 최종) */
+			 , A.CARGO_REFERENCE_NO 								/* 화물관리번호 */
+			 , A.OUT_APPROVAL_NO 									/* 반출근거번호 */
+			 , A.OUT_CT 											/* 총반출수량 */
+			 , A.OUT_WT 											/* 반출중량 */
+		     , A.REGISTER_USER_ID									/* 내부 로그용 로그인 사용자ID */
+		     , A.TIC_OUT_SCAN_YN									/* TIC이고반출SCAN여부 */
+		     , B.OD_JOB_NO											/* 작업내역 조회용 */
+		  FROM TB_BMS_OUT A WITH (NOLOCK)
+     LEFT JOIN TB_BMS_IN B WITH (NOLOCK) ON A.IN_NO = B.IN_NO
+	 	 WHERE OUT_NO IN (<foreach collection="outNoList" item="item" separator=",">#{item}</foreach>)
+		 ORDER BY OUT_NO
+	</select>
+
+	<update id="batchUpdateEdiBmsOutSendSucc" parameterType="HashMap">
+		/*EdiBmsSendMapper.batchUpdateEdiBmsOutSendSucc : GOVCBR6NB(반출신고서) XML 송신성공 건 LAST_POD_STATUS 업데이트 */
+		
+		UPDATE TB_BMS_OUT
+		   SET LAST_POD_DATE = GETDATE()
+			 , LAST_POD_STATUS = 'BMS03' /* 송신 */
+			 , UPDATE_USER_ID = #{updateUserId}
+			 , UPDATE_DATE_TIME = GETDATE()
+		 WHERE OUT_NO = #{outNo}
+		   AND LAST_POD_STATUS NOT IN ('BMS04', 'BMS05', 'BMSA4')  /* 접수 오류 */
+		   
+	</update>
+
+	<update id="batchUpdateEdiBmsOutSendErr" parameterType="HashMap">
+		/*EdiBmsSendMapper.batchUpdateEdiBmsOutSendErr : GOVCBR6NB(반출신고서) XML 송신실패 건 LAST_POD_STATUS 업데이트 */
+		
+		UPDATE TB_BMS_OUT
+		   SET LAST_POD_DATE = GETDATE()
+			 , LAST_POD_STATUS = 'BMS02' /* 송신실패 */
+			 , UPDATE_USER_ID = #{updateUserId}
+			 , UPDATE_DATE_TIME = GETDATE()
+		 WHERE OUT_NO = #{outNo}
+		   AND LAST_POD_STATUS NOT IN ('BMS04', 'BMS05', 'BMSA4') /* 접수 오류 */
+		   
+	</update>
+
+	<select id="selectEdiBmsOutNoticeSendList" parameterType="searchBmsOutNotice" resultType="bmsOutNotice">
+		/* EdiBmsSendMapper.selectEdiBmsOutNoticeSendList : GOVCBR5II(목록보고서) 목록 조회 */
+		SELECT 'GOVCBR5II' AS TYPE_CODE 									/* 문서형태구분 */
+			 , A.OUT_NOTICE_NO												/* 반출통고번호(PK) */
+			 , A.BL_NO														/* BL번호 */
+			 , A.LAST_POD_STATUS											/* 신고일자(송신일시) */
+			 , (SELECT BMS_CUSTOMS_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode}) + (SELECT BMS_CUSTOMS_DPT_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode}) AS OFFICE_ID
+		 	 , '9' AS FUNCTION_CODE 										/* 전자문서기능(9: 원본, 35: 재전송) */
+			 , A.CARGO_REFERENCE_NO 										/* 화물관리번호 */
+			 , REPLACE(A.OUT_NOTICE_DATE, '-', '') AS OUT_NOTICE_DATE 		/* 반출통고일자(CCYYMMDD) */
+			 , A.NOTICE_CT  												/* 수량 */
+			 , A.NOTICE_WT 													/* 중량 */
+			 , REPLACE(A.PERIOD_OVER_DATE, '-', '') AS PERIOD_OVER_DATE 	/* 체화일자(CCYYMMDD) */
+			 , A.BL_NO 														/* BL번호 */
+			 , (SELECT BMS_WH_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode}) AS BMS_WH_CODE /* 보세구역번호 */
+			 , A.CUSTOMER_NAME 												/* 화주명 */
+			 , A.CUSTOMER_ZIPCODE 											/* 화주우편번호 */
+			 , A.CUSTOMER_ADDRESS_1											/* 화주기본주소 */
+			 , A.CUSTOMER_ADDRESS_2											/* 화주상세주소 */
+			 , dbo.Cryptography(A.CARGO_REFERENCE_NO , A.CUSTOMER_TEL, 1)	/* 화주전화번호 */
+		     , A.REGISTER_USER_ID											/* 내부 로그용 로그인 사용자ID */
+	 		 , B.OD_JOB_NO													/* 작업내역 조회용 */
+		  FROM TB_BMS_OUT_NOTICE A
+     LEFT JOIN TB_BMS_IN B WITH (NOLOCK) ON A.IN_NO = B.IN_NO
+	 	 WHERE A.OUT_NOTICE_NO IN (<foreach collection="outNoticeNoList" item="item" separator=",">#{item}</foreach>)
+		 ORDER BY A.OUT_NOTICE_NO
+	</select>
+
+	<update id="batchUpdateEdiBmsOutNoticeSendSucc" parameterType="HashMap">
+		/*EdiBmsSendMapper.batchUpdateEdiBmsOutNoticeSendSucc : GOVCBR5II(반출통고목록보고서) XML 송신성공 건 LAST_POD_STATUS 업데이트 */
+		UPDATE TB_BMS_OUT_NOTICE
+		   SET LAST_POD_DATE = GETDATE()
+			 , LAST_POD_STATUS = 'BMS03' /* 송신 */
+			 , UPDATE_USER_ID = #{updateUserId}
+			 , UPDATE_DATE_TIME = GETDATE()
+		 WHERE OUT_NOTICE_NO = #{outNoticeNo}
+		 AND LAST_POD_STATUS IN ('', 'BMS01', 'BMS02') /*입력, 송신실패 */
+	</update>
+
+	<update id="batchUpdateEdiBmsOutNoticeSendErr" parameterType="HashMap">
+		/*EdiBmsSendMapper.batchUpdateEdiBmsOutNoticeSendErr : GOVCBR5II(반출통고목록보고서) XML 송신실패 건 LAST_POD_STATUS 업데이트 */
+		UPDATE TB_BMS_OUT_NOTICE
+		   SET LAST_POD_DATE = GETDATE()
+			 , LAST_POD_STATUS = 'BMS02' /* 송신실패 */
+			 , UPDATE_USER_ID = #{updateUserId}
+			 , UPDATE_DATE_TIME = GETDATE()
+		 WHERE OUT_NOTICE_NO = #{outNoticeNo}
+		 AND LAST_POD_STATUS IN ('', 'BMS01', 'BMS02') /*입력, 송신실패 */
+	</update>
+
+	<select id="selectCarryInChangeList" parameterType="searchInCorrection" resultType="carryInChange">
+		/* EdiBmsSendMapper.selectCarryInChangeList : GOVCBR5LC(반입신고정정신청서) 목록 조회 */
+		SELECT 'GOVCBR5LC' AS TYPE_CODE  						/* 문서형태구분 */
+			 , A.CHANGE_NO									 	/* 반출입정정신청번호(PK) */
+			 , A.LAST_POD_STATUS								/* 신고일자(송신일시) */
+			 , A.CUSTOMS_REPORT_NO 							 	/* 반출입신고번호 */
+			 , A.CHANGE_CLASS 									/* 정정구분(01: 항목정정, 03: 내역삭제) */
+			 , REPLACE(A.CHANGE_DATE, '-', '') AS CHANGE_DATE	/* 정정일자(CCYYMMDD) */
+			 , A.CHANGE_COUNT 									/* 정정차수(001, 002) */
+			 , A.CHANGE_REASON				 					/* 정정사유 */
+			 , A.CHANGE_EMPLOYEE_NAME 							/* 신청인 */
+			 , A.CARGO_REFERENCE_NO 							/* 화물관리번호 */
+		     , A.REGISTER_USER_ID								/* 내부 로그용 로그인 사용자ID */
+		     , A.INOUT_NO
+		     , B.OD_JOB_NO
+		  FROM TB_BMS_CHANGE A
+     LEFT JOIN TB_BMS_IN B WITH (NOLOCK) ON A.INOUT_NO = B.IN_NO AND A.CUSTOMS_REPORT_NO = B.CUSTOMS_REPORT_NO
+	     WHERE INOUT_CLASS = '5LC'
+	 	   AND CHANGE_NO IN (<foreach collection="changeNoList" item="item" separator=",">#{item}</foreach>)
+		 ORDER BY CHANGE_NO
+	</select>
+
+	<select id="selectCarryInChangeItemList" parameterType="Integer" resultType="carryInChange">
+		/* EdiBmsSendMapper.selectCarryInChangeItemList : 반입정정신청 항목 조회 */
+		SELECT CHANGE_NO										/* 반출입정정신청번호(PK) */
+			 , CHANGE_CODE 										/* 항목정정구분*/
+			 , CHANGE_BEFORE 									/* 정정전내용 */
+			 , CHANGE_AFTER 									/* 정정후내용 */
+		  FROM TB_BMS_CHANGE_ITEMS
+	     WHERE CHANGE_NO = #{changeNo}
+		 ORDER BY SEQ_NO
+	</select>
+
+	<select id="selectCarryOutChangeList" parameterType="searchOutCorrection" resultType="carryOutChange">
+		/* EdiBmsSendMapper.selectCarryOutChangeList : GOVCBR5LD(반출신고정정신청서) 목록 조회 */
+		SELECT 'GOVCBR5LD' AS TYPE_CODE  						/* 문서형태구분 */
+			 , A.CHANGE_NO									 	/* 반출입정정신청번호(PK) */
+			 , A.LAST_POD_STATUS								/* 신고일자(송신일시) */
+			 , A.CUSTOMS_REPORT_NO 							 	/* 반출입신고번호 */
+			 , A.CHANGE_CLASS 									/* 정정구분(01: 항목정정, 03: 내역삭제) */
+			 , REPLACE(A.CHANGE_DATE, '-', '') AS CHANGE_DATE	/* 정정일자(CCYYMMDD) */
+			 , A.CHANGE_COUNT 									/* 정정차수(001, 002) */
+			 , A.CHANGE_REASON				 					/* 정정사유 */
+			 , A.CHANGE_EMPLOYEE_NAME 							/* 신청인 */
+			 , A.CARGO_REFERENCE_NO 							/* 화물관리번호 */
+		     , A.REGISTER_USER_ID								/* 내부 로그용 로그인 사용자ID */
+		     , A.INOUT_NO
+		     , B.OD_JOB_NO
+		  FROM TB_BMS_CHANGE A
+     LEFT JOIN TB_BMS_IN B WITH (NOLOCK) ON A.INOUT_NO = B.IN_NO AND A.CUSTOMS_REPORT_NO = B.CUSTOMS_REPORT_NO
+	     WHERE INOUT_CLASS = '5LD'
+	 	   AND CHANGE_NO IN (<foreach collection="changeNoList" item="item" separator=",">#{item}</foreach>)
+		 ORDER BY CHANGE_NO
+	</select>
+
+	<select id="selectCarryOutChangeItemList" parameterType="Integer" resultType="carryOutChange">
+		/* EdiBmsSendMapper.selectCarryOutChangeItemList : 반출정정신청 항목 조회 */
+		SELECT CHANGE_NO										/* 반출입정정신청번호(PK) */
+			 , CHANGE_CODE 										/* 항목정정구분*/
+			 , CHANGE_BEFORE 									/* 정정전내용 */
+			 , CHANGE_AFTER 									/* 정정후내용 */
+		  FROM TB_BMS_CHANGE_ITEMS
+	     WHERE CHANGE_NO = #{changeNo}
+		 ORDER BY SEQ_NO
+	</select>
+
+	<update id="batchUpdateEdiBmsChangeSendSucc" parameterType="HashMap">
+		/*EdiBmsSendMapper.batchUpdateEdiBmsChangeSendSucc : GOVCBR5LC(반입신고정정신청서) or GOVCBR5LD(반출신고정정신청서) XML 송신성공 건 LAST_POD_STATUS 업데이트 */
+		UPDATE TB_BMS_CHANGE
+		   SET LAST_POD_DATE = GETDATE()
+			 , LAST_POD_STATUS = 'BMS03' /* 송신 */
+			 , UPDATE_USER_ID = #{updateUserId}
+			 , UPDATE_DATE_TIME = GETDATE()
+		 WHERE CHANGE_NO = #{changeNo}
+		 AND LAST_POD_STATUS IN ('', 'BMS01', 'BMS02') /*입력, 송신실패 */
+	</update>
+
+	<update id="batchUpdateEdiBmsChangeSendErr" parameterType="HashMap">
+		/*EdiBmsSendMapper.batchUpdateEdiBmsChangeSendErr : GOVCBR5LC(반입신고정정신청서) or GOVCBR5LD(반출신고정정신청서) XML 송신실패 건 LAST_POD_STATUS 업데이트 */
+		UPDATE TB_BMS_CHANGE
+		   SET LAST_POD_DATE = GETDATE()
+			 , LAST_POD_STATUS = 'BMS02' /* 송신실패 */
+		 WHERE CHANGE_NO = #{changeNo}
+		  AND LAST_POD_STATUS IN ('', 'BMS01', 'BMS02') /*입력, 송신실패 */
+	</update>
+
+	<select id="selectEdiBmsAbnormalSendList" parameterType="searchCarryInAbnormal" resultType="carryInAbnormal">
+		/* EdiBmsSendMapper.selectEdiBmsAbnormalSendList : GOVCBRDKO(특송화물 반입물품 이상보고서) MBL 목록 조회 */
+		SELECT 'GOVCBRDKO' AS TYPE_CODE 							/* 문서형태구분 */
+			 , A.ABN_NO												/* 반입이상관리번호 */
+			 , A.LAST_POD_STATUS									/* 신고일자(송신일시) */
+		  	 , REPLACE(A.ABN_REQ_DATE, '-', '') AS ABN_REQ_DATE	 	/* 제출일자(YYYYMMDD) */
+			 , (SELECT BMS_CUSTOMS_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode}) + (SELECT BMS_CUSTOMS_DPT_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode}) AS OFFICE_ID
+		 	 , A.CUSTOMS_REPORT_NO									/* 반입이상제출번호 */
+			 , '10' AS AIRSEA_GBN 									/* 해상/항공 전송구분 */
+			 , A.MRN 												/* 적하목록관리번호(Manifest Reference Number) */
+			 , A.MBL_NO 											/* MBL번호 */
+			 , A.MSN												/* Master BL 일련번호(Mater BL Sequence Number) */
+		     , A.REGISTER_USER_ID									/* 내부 로그용 로그인 사용자ID */
+		  FROM TB_BMS_ABNORMAL A
+	 	 WHERE A.ABN_NO IN (<foreach collection="abnNoList" item="item" separator=",">#{item}</foreach>)
+		 ORDER BY A.ABN_NO
+	</select>
+
+	<select id="selectEdiBmsAbnormalHblSendList" parameterType="Integer" resultType="carryInAbnormalHbl">
+		/* EdiBmsSendMapper.selectEdiBmsAbnormalHblSendList : GOVCBRDKO(특송화물 반입물품 이상보고서) HBL 목록 조회 */
+		SELECT ABN_NO 									/* 반입이상관리번호 */
+			 , BL_NO 									/* BL번호 */
+			 , HSN 										/* House BL 일련번호(House BL Sequence Number) */
+			 , EX_WT									/* 예정중량 */
+			 , WT 										/* 반입중량 */
+			 , ACCIDENT_WT								/* 사고중량 */
+			 , EX_CT									/* 예정수량 */
+			 , CT										/* 반입수량 */
+			 , ACCIDENT_CT 								/* 사고수량 */
+			 , ACCIDENT_CLASS 							/* 사고구분 */
+			 , REJECT_REASON 							/* 사유 */
+		  FROM TB_BMS_ABNORMAL_BL
+	  	 WHERE ABN_NO = #{abnNo}
+	  	 ORDER BY ABN_NO
+	</select>
+
+	<update id="batchUpdateEdiBmsAbnormalSend" parameterType="HashMap">
+		/*EdiBmsSendMapper.batchUpdateEdiBmsAbnormalSend : GOVCBRDKO(특송화물 반입물품 이상보고서) XML 전송 후 DB 업데이트 */
+		UPDATE TB_BMS_ABNORMAL
+		   SET LAST_POD_DATE = GETDATE()
+			 , LAST_POD_STATUS = 'BMS03' /* 송신 */
+			 , UPDATE_USER_ID = #{updateUserId}
+			 , UPDATE_DATE_TIME = GETDATE()
+		 WHERE ABN_NO = #{abnNo}
+		 AND LAST_POD_STATUS IN ('', 'BMS01', 'BMS02') /*입력, 송신실패 */
+	</update>
+
+	<select id="selectEdiBmsAbnormalCorrSendList" parameterType="searchCarryInAbnormalCorr" resultType="carryInAbnormalCorr">
+		/* EdiBmsSendMapper.selectEdiBmsAbnormalCorrSendList : GOVCBRDKP(특송화물 반입물품 이상보고 정정신청서) 목록 조회 */
+	    SELECT 'GOVCBRDKP' AS TYPE_CODE									/* 문서형태구분 */
+	         , A.ABN_CHANGE_NO 											/* 반입물품이상정정번호 */
+			 , A.LAST_POD_STATUS										/* 신고일자(송신일시) */
+			 , A.CHANGE_COUNT 											/* 정정차수 */
+			 , REPLACE(A.CHANGE_DATE, '-', '') AS CHANGE_DATE 			/* 정정일자 */
+			 , (SELECT BMS_CUSTOMS_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode}) + (SELECT BMS_CUSTOMS_DPT_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode}) AS OFFICE_ID
+			 , A.CUSTOMS_REPORT_NO										/* 반입이상제출번호 */
+			 , '10' AS AIRSEA_GBN 										/* 해상/항공 전송구분 */
+			 , A.CHANGE_REASON 											/* 정정사유 */
+			 , A.MRN 													/* 적하목록관리번호(Manifest Reference Number) */
+			 , A.MBL_NO 												/* MBL번호 */
+			 , A.MSN										 			/* Master BL 일련번호(Mater BL Sequence Number) */
+			 , A.CHANGE_CLASS 											/* 정정구분 */
+			 , A.REGISTER_USER_ID								 		/* 내부 로그용 로그인 사용자ID */
+	      FROM TB_BMS_ABNORMAL_CHANGE A
+	     WHERE A.ABN_CHANGE_NO IN (<foreach collection="abnChangeNoList" item="item" separator=",">#{item}</foreach>)
+	     ORDER BY A.ABN_CHANGE_NO
+	</select>
+
+	<select id="selectEdiBmsAbnormalHblCorrSendList" parameterType="Integer" resultType="carryInAbnormalHblCorr">
+		/* EdiBmsSendMapper.selectEdiBmsAbnormalHblCorrSendList : GOVCBRDKP(특송화물 반입물품 이상보고 정정신청서) HBL 목록 조회 */
+    	SELECT A.ABN_CHANGE_NO											/* 반입물품이상정정번호 */
+			 , A.BL_NO 													/* BL번호 */
+			 , A.HSN										 			/* House BL 일련번호(House BL Sequence Number) */
+			 , A.CHANGE_CLASS 											/* 정정구분 */
+			 , A.EX_WT 			 										/* 예정중량 */
+			 , A.WT 			 										/* 반입중량 */
+			 , A.ACCIDENT_WT											/* 사고중량 */
+			 , A.EX_CT 			 										/* 예정수량 */
+			 , A.CT	 				 									/* 반입수량 */
+			 , A.ACCIDENT_CT 											/* 사고수량 */
+			 , A.ACCIDENT_CLASS 										/* 사고구분 */
+			 , A.REJECT_REASON 											/* 사유 */
+		  FROM TB_BMS_ABNORMAL_CHANGE_BL A
+	  	 WHERE A.ABN_CHANGE_NO = #{abnChangeNo}
+	  	 ORDER BY A.ABN_CHANGE_NO
+	</select>
+
+	<update id="batchUpdateEdiBmsAbnormalCorrSend" parameterType="HashMap">
+		/*EdiBmsSendMapper.batchUpdateEdiBmsAbnormalCorrSend : GOVCBRDKP(특송화물 반입물품 이상보고 정정신청서) XML 전송 후 DB 업데이트 */
+		UPDATE TB_BMS_ABNORMAL_CHANGE
+		   SET LAST_POD_DATE = GETDATE()
+			 , LAST_POD_STATUS = 'BMS03' /* 송신 */
+			 , UPDATE_USER_ID = #{updateUserId}
+			 , UPDATE_DATE_TIME = GETDATE()
+		 WHERE ABN_CHANGE_NO = #{abnChangeNo}
+		  AND LAST_POD_STATUS IN ('', 'BMS01', 'BMS02') /*입력, 송신실패 */
+	</update>
+
+</mapper>

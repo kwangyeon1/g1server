@@ -1,0 +1,34 @@
+[
+	{
+		"size": 3,
+		"func": "setTypeB1"
+	},
+	{
+		"size": 11,
+		"func": "setCntrNo"
+	},
+	{
+		"size": 4,
+		"func": "setCntrType"
+	},
+	{
+		"size": 20,
+		"func": "setSealNo1"
+	},
+	{
+		"size": 20,
+		"func": "setSealNo2"
+	},
+	{
+		"size": 20,
+		"func": "setSealNo3"
+	},
+	{
+		"size": 10,
+		"func": "setCntrCt"
+	},
+	{
+		"size": 1,
+		"func": "setDetectorInspectionYn"
+	}
+]

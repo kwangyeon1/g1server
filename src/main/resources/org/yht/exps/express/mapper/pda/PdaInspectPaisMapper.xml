@@ -1,0 +1,1049 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        
+<mapper namespace="org.yht.exps.express.mapper.pda.PdaInspectPaisMapper">
+	<select id="selectPkgWithBmsIn" parameterType="HashMap" resultType="inPlanPkg">
+		/* PdaInspectPaisMapper.selectPkgWithBmsIn : 박스리스트와 BL정보 */
+		
+	</select>
+	<select id="selectBmsInWithInspectResult" parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaInspectPaisMapper.selectBmsInWithInspectResult : BL리스트와 검사결과,박스갯수 */
+		SELECT
+			I.IN_PLAN_NO
+			<if test="recentFinishedInPlanNo != null and recentFinishedInPlanNo > 0">
+			, CASE WHEN I.IN_PLAN_NO = #{recentFinishedInPlanNo} THEN 0
+																  ELSE 1
+			  END AS LIST_ORDER
+			</if>
+			, I.IN_NO
+			, I.MBL_NO
+			, C.HSN
+			, I.OD_JOB_NO
+			, I.CARGO_REFERENCE_NO
+			, I.BL_NO
+			, I.CT
+			, I.WT
+			, (SELECT MAX(PACKING_NO) FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK) WHERE IN_PLAN_NO = I.IN_PLAN_NO ) AS PACKING_NO
+			, (SELECT COUNT(IN_CT) FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK) WHERE IN_PLAN_NO = I.IN_PLAN_NO ) AS PACKING_CNT
+		    , CASE WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'S' THEN '선별 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '') 
+			            WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'X' THEN 'XR ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y' AND UPPER(CODE) NOT IN ('C')), '')
+			            WHEN  SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'P' THEN '통관 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+			            WHEN  SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'I' THEN '검역 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y'), '')          
+			       END AS BMS_INSPECTION_TYPE
+		    , C.INSPECTION_TYPE AS INSPECTION_RESULT_TYPE
+		FROM TB_BMS_IN I WITH (NOLOCK)
+		INNER JOIN (SELECT  IN_NO
+							, INSPECTION_TYPE AS INSPECTION_TYPE
+		                    , HSN AS HSN
+		                FROM TB_BMS_INSPECT_RESULT
+		                WHERE INSPECTION_FINISH_YN = 'N' 
+		                	  AND INSPECTION_TYPE IN (
+		                	  	'P06','X03','X04','X05','X06','S03','S04','S05','S06','SC'
+		                	  	,'I5','I6','I7','I8','I9','I10','I11','I12'
+		                	  	,'J5','J6','J7','J8','J9','J10','J11','J12'
+		                	  	,'K5','K6','K7','K8','K9','K10','K11','K12'
+		                	  	)
+		                      AND INSPECTION_START_USER_ID <![CDATA[<>]]> ''
+		                      -- AND INSPECTION_START_DATE_TIME >= CAST(CAST(GETDATE() AS DATE) AS DATETIME) 
+		                ) AS C
+			ON I.IN_NO = C.IN_NO
+		WHERE
+			<choose>
+				<when test='cdType != null and cdType != "" and cdType == "Y"'>
+					<!-- 화물구분이 목록인 경우 --> 
+					I.CD_TYPE = 'Y'
+				</when>
+				<otherwise>
+					<!-- 화물구분이 일반인 경우 --> 
+					I.CD_TYPE <![CDATA[<>]]> 'Y'
+				</otherwise>
+			</choose>
+			<!-- AND I.SE_INSPECTION_CODE <![CDATA[<>]]> '01' AND  I.SE_INSPECTION_CODE <![CDATA[<>]]> '02' 
+			AND I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '01' AND  I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '02' 
+			AND I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> '01' AND I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> '02' -->
+		ORDER BY
+		<if test="recentFinishedInPlanNo != null and recentFinishedInPlanNo > 0">
+			LIST_ORDER, 
+		</if>
+			I.MBL_NO, C.HSN
+	</select>
+	
+	<select id="selectBmsInWithInspectResultV2" parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaInspectPaisMapper.selectBmsInWithInspectResultV2 : BL리스트와 검사결과,박스갯수 */
+		SELECT
+			I.IN_PLAN_NO
+			<if test="recentFinishedInPlanNo != null and recentFinishedInPlanNo > 0">
+			, CASE WHEN I.IN_PLAN_NO = #{recentFinishedInPlanNo} THEN 0
+																  ELSE 1
+			  END AS LIST_ORDER
+			</if>
+			, I.IN_NO
+			, I.MBL_NO
+			, C.HSN
+			, I.OD_JOB_NO
+			, I.CARGO_REFERENCE_NO
+			, I.BL_NO
+			, I.CT
+			, I.WT
+			, (SELECT MAX(PACKING_NO) FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK) WHERE IN_PLAN_NO = I.IN_PLAN_NO ) AS PACKING_NO
+			, (SELECT COUNT(IN_CT) FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK) WHERE IN_PLAN_NO = I.IN_PLAN_NO ) AS PACKING_CNT
+		    , CASE WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'S' THEN '선별 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '') 
+			            WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'X' THEN 'XR ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y' AND UPPER(CODE) NOT IN ('C')), '')
+			            WHEN  SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'P' THEN '통관 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+			            WHEN  SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'I' THEN '검역 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y'), '')          
+			       END AS BMS_INSPECTION_TYPE
+		    , C.INSPECTION_TYPE AS INSPECTION_RESULT_TYPE
+		FROM TB_BMS_IN I WITH (NOLOCK)
+		INNER JOIN (SELECT  IN_NO
+							, INSPECTION_TYPE AS INSPECTION_TYPE
+		                    , HSN AS HSN
+		                FROM TB_BMS_INSPECT_RESULT
+		                WHERE INSPECTION_FINISH_YN = 'N' 
+		                	  AND INSPECTION_TYPE IN (
+		                	  	'P06','X03','X04','X05','X06','S03','S04','S05','S06','SC'
+		                	  	,'I5','I6','I7','I8','I9','I10','I11','I12'
+		                	  	,'J5','J6','J7','J8','J9','J10','J11','J12'
+		                	  	,'K5','K6','K7','K8','K9','K10','K11','K12'
+		                	  	)
+		                      -- AND INSPECTION_START_USER_ID <![CDATA[<>]]> ''
+		                      -- AND INSPECTION_START_DATE_TIME >= CAST(CAST(GETDATE() AS DATE) AS DATETIME) 
+		                ) AS C
+			ON I.IN_NO = C.IN_NO
+		WHERE 1=1
+			<!-- AND I.SE_INSPECTION_CODE <![CDATA[<>]]> '01' AND  I.SE_INSPECTION_CODE <![CDATA[<>]]> '02' 
+			AND I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '01' AND  I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '02' 
+			AND I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> '01' AND I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> '02' -->
+		ORDER BY
+		<if test="recentFinishedInPlanNo != null and recentFinishedInPlanNo > 0">
+			LIST_ORDER, 
+		</if>
+		    <choose>
+				<when test='cdType != null and cdType != "" and cdType == "Y"'>
+					I.CD_TYPE DESC,
+				</when>
+				<otherwise>
+					I.CD_TYPE,
+				</otherwise>
+			</choose>
+			I.MBL_NO, C.HSN
+	</select>
+	
+	<select id="selectBmsInspectResultPicking" parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaInspectPaisMapper.selectBmsInspectResultPicking : 검사피킹 - 박스 피킹 리스트 조회 */
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+		SELECT *
+		FROM (
+			SELECT P.PACKING_NO
+				 , P.IN_PLAN_NO
+				 <if test="recentFinishedInPlanNo != null and recentFinishedInPlanNo > 0">
+				 , CASE WHEN I.IN_PLAN_NO = #{recentFinishedInPlanNo} THEN 0
+																	  ELSE 1
+				   END AS LIST_ORDER
+				 </if>
+				 , I.IN_NO
+				 , I.BL_NO
+				 , I.MBL_NO
+				 , I.OD_JOB_NO
+				 , I.CARGO_REFERENCE_NO
+				 , I.CT
+				 , I.WT
+			     , CASE WHEN SUBSTRING(ISNULL(C.I_TYPE,''), 0, 2) = 'S' THEN '선별 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.I_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '') 
+			            WHEN SUBSTRING(ISNULL(C.I_TYPE,''), 0, 2) = 'X' THEN 'XR ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.I_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y' AND UPPER(CODE) NOT IN ('C')), '')
+			            WHEN  SUBSTRING(ISNULL(C.I_TYPE,''), 0, 2) = 'P' THEN '통관 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.I_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+			            WHEN  SUBSTRING(ISNULL(C.I_TYPE,''), 0, 2) = 'I' THEN '검역 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.I_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y'), '')          
+			       END AS BMS_INSPECTION_TYPE
+			     , ISNULL(C.CNT,0) AS CNT
+			     , C.HSN
+			     , P.INSPECT_STATUS
+	        	 , ( SELECT COUNT(PACKING_NO) FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK) WHERE DELETE_YN = 'N' AND IN_PLAN_NO = I.IN_PLAN_NO AND INSPECT_STATUS <![CDATA[<>]]> 'E' ) AS PACKING_NO_CNT
+	        	 , ( SELECT COUNT(INSPECT_STATUS) FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK) WHERE DELETE_YN = 'N' AND IN_PLAN_NO = I.IN_PLAN_NO AND INSPECT_STATUS = 'P' ) AS INSPECT_STATUS_CNT
+			FROM TB_BMS_IN I WITH (NOLOCK)
+			INNER JOIN TB_BMS_IN_PLAN_PKG P WITH (NOLOCK)
+			ON I.IN_PLAN_NO = P.IN_PLAN_NO
+			INNER JOIN (
+				SELECT IN_NO, INSPECTION_TYPE AS I_TYPE, 1 AS CNT, HSN AS HSN
+			    FROM TB_BMS_INSPECT_RESULT
+			    WHERE INSPECTION_FINISH_YN = 'N' 
+			    <!-- AND SUBSTRING(INSPECTION_TYPE, 0, 2) IN ('S','X','P','I','J','K') -->
+			    AND INSPECTION_TYPE IN 
+			    ('P06','X03','X04','X05','X06','S03','S04','S05','S06','SC'
+        	  	,'I5','I6','I7','I8','I9','I10','I11','I12'
+        	  	,'J5','J6','J7','J8','J9','J10','J11','J12'
+        	  	,'K5','K6','K7','K8','K9','K10','K11','K12'
+        	  	)
+			    <!-- GROUP BY IN_NO -->
+			) AS C
+			ON I.IN_NO = C.IN_NO
+			WHERE P.DELETE_YN = 'N'
+			<!-- AND I.SE_INSPECTION_CODE <![CDATA[<>]]> '01' AND I.SE_INSPECTION_CODE <![CDATA[<>]]> '02' 
+			AND I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '01' AND I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '02' 
+			AND I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> '01' AND I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> '02' -->
+			<choose>
+				<when test='srchCdType != null and srchCdType != "" and srchCdType == "Y"'>
+				<!-- 화물구분이 목록인 경우 --> 
+				AND I.CD_TYPE = 'Y'
+				</when>
+				<otherwise>
+				<!-- 화물구분이 일반인 경우 --> 
+				AND I.CD_TYPE <![CDATA[<>]]> 'Y'
+				</otherwise>
+			</choose>
+			<if test="inPlanNo !=null and inPlanNo != '' and inPlanNo != '0' and inPlanNo != 0">
+			AND P.IN_PLAN_NO = #{inPlanNo} 
+			</if>
+			<if test="packingNo != null and packingNo != ''">
+			AND P.PACKING_NO = #{packingNo}
+			</if>
+			<if test="blNo != null and blNo != ''">
+			AND I.BL_NO = #{blNo}
+			</if>
+			<if test="inspectStatus != null and inspectStatus != ''">
+			AND P.INSPECT_STATUS <![CDATA[<>]]> #{inspectStatus}
+			</if>
+		) RST
+		WHERE RST.PACKING_NO_CNT <![CDATA[<>]]> RST.INSPECT_STATUS_CNT
+		<if test='inspectStatusCntCheck != null and inspectStatusCntCheck != "" and inspectStatusCntCheck == "Y"'>
+		AND INSPECT_STATUS_CNT <![CDATA[<>]]> 0
+		</if>
+		ORDER BY
+		<if test="recentFinishedInPlanNo != null and recentFinishedInPlanNo > 0">
+			LIST_ORDER, 
+		</if>
+			MBL_NO, HSN
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+	
+	<select id="selectBmsInForAddInspectResult" parameterType="HashMap" resultType="inPlanPkg">
+		/* PdaInspectPaisMapper.selectBmsInForAddInspectResult : 검사피킹 - 박스번호로 반입 조회 */
+		SELECT TOP 1
+			   PP.PACKING_NO
+			 , PP.IN_PLAN_NO 
+			 , I.IN_NO 
+			 , I.BL_NO 
+			 , I.MBL_NO 
+			 , I.OD_JOB_NO 
+			 , I.CARGO_REFERENCE_NO 
+			 , I.CT 
+			 , I.WT 
+			 , I.SE_INSPECTION_CODE 
+			 , I.XRAY_INSPECTION_CODE 
+			 , I.PALN5EM_INSPECTION_CODE 
+			 , PP.INSPECT_STATUS 
+		  FROM TB_BMS_IN I WITH (NOLOCK)
+		  JOIN TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+			ON I.IN_PLAN_NO = PP.IN_PLAN_NO
+		 WHERE PP.DELETE_YN = 'N'
+		   <!-- AND I.CD_TYPE = #{srchCdType} -->
+		   AND PP.PACKING_NO = #{packingNo}
+		   <if test="inPlanNo !=null and inPlanNo != '' and inPlanNo != '0' and inPlanNo != 0">
+		   AND PP.IN_PLAN_NO = #{inPlanNo}
+		   </if>
+		   <if test="blNo != null and blNo != ''">
+		   AND I.BL_NO = #{blNo}
+		   </if>
+	</select>
+	
+	<update id="updateBmsInPlanPkgInspectStatus" parameterType="HashMap">
+		/* PdaInspectPaisMapper.updateBmsInPlanPkgInspectStatus : 박스 검사여부 update */
+		UPDATE PP
+		   SET PP.INSPECT_STATUS = #{inspectStatus}
+		     , PP.UPDATE_USER_ID = #{updateUserId}
+	         , PP.UPDATE_DATE_TIME = GETDATE()
+		  FROM TB_BMS_IN_PLAN_PKG PP
+		  JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		    ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		 WHERE PP.PACKING_NO = #{packingNo}
+		<if test="inPlanNo !=null and inPlanNo != '' and inPlanNo != '0' and inPlanNo != 0">
+		   AND PP.IN_PLAN_NO = #{inPlanNo}
+		</if>
+		<if test="blNo != null and blNo != ''">
+		   AND P.BL_NO = #{blNo}
+		</if>
+	</update>
+	
+	<update id="updateBmsInspectResultStartInfo" parameterType="HashMap">
+		/* PdaInspectPaisMapper.updateBmsInspectResultStartInfo : 검사피킹 update */
+		UPDATE TB_BMS_INSPECT_RESULT SET 
+			INSPECTION_START_USER_ID = #{registerUserId}
+		  , INSPECTION_START_DATE_TIME = GETDATE()
+		WHERE IN_NO = #{inNo}
+	</update>
+	
+	<select id="selectBmsInspectScanLogInfo" parameterType="HashMap" resultType="HashMap">
+		/* PdaInspectPaisMapper.selectBmsInspectScanLogInfo : 검사 스캔로그 조회 */
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+			SELECT SCAN_NO
+				 , BL_NO
+				 , SCAN_DATE
+				 , SCAN_RESULT
+				 , INSPECTION_STATUS
+				 , REGISTER_USER_ID
+				 , ISNULL((SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = tbis.REGISTER_USER_ID),'') AS REGISTER_USER_NAME
+				 , REGISTER_DATE_TIME
+			FROM TB_BMS_INSPECT_SCAN tbis
+			WHERE 
+			SCAN_DATE BETWEEN CONVERT(VARCHAR(10), ISNULL(#{srchScanDate},''), 120) AND CONVERT(VARCHAR(10), GETDATE(), 120)
+			<if test="srchInspectStatus != null and srchInspectStatus != ''">
+			AND INSPECTION_STATUS = #{srchInspectStatus}
+			</if>
+			ORDER BY REGISTER_DATE_TIME DESC
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+	
+	<insert id="insertBmsInspectScanLog" parameterType="HashMap">
+		/* PdaInspectPaisMapper.insertBmsInspectScanLog : 검사 스캔로그 저장 */
+		INSERT INTO TB_BMS_INSPECT_SCAN (
+			  SCAN_NO
+			, INSPECTION_STATUS
+			, BL_NO
+			, SCAN_RESULT
+			, SCAN_DATE
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+		)
+		VALUES(
+			  #{packingNo}
+			, #{inspectStatus}
+			, #{blNo}
+			, #{result}
+			, CONVERT(VARCHAR(10),GETDATE(),120)
+			, #{registerUserId}
+			, GETDATE()
+		)
+	</insert>
+	
+	
+	<select id="selectOneBmsInByPackingNo" parameterType="HashMap" resultType="HashMap">
+		/* PdaInspectPaisMapper.selectOneBmsInByPackingNo : 박스번호에 의한 박스조회 */
+		SELECT TOP 1
+			I.BL_NO
+			, I.MBL_NO
+			, I.IN_NO
+			, I.IN_PLAN_NO
+			, I.CT
+		FROM TB_BMS_IN I WITH (NOLOCK)
+		INNER JOIN (SELECT  IN_NO
+							, INSPECTION_TYPE AS INSPECTION_TYPE
+		                    , HSN AS HSN
+		                FROM TB_BMS_INSPECT_RESULT
+		                WHERE INSPECTION_FINISH_YN = 'N' 
+		                	  AND INSPECTION_TYPE IN (
+		                	  	'P06','X03','X04','X05','X06','S03','S04','S05','S06','SC'
+		                	  	,'I5','I6','I7','I8','I9','I10','I11','I12'
+		                	  	,'J5','J6','J7','J8','J9','J10','J11','J12'
+		                	  	,'K5','K6','K7','K8','K9','K10','K11','K12'
+		                	  )
+		                      AND INSPECTION_START_USER_ID <![CDATA[<>]]> ''
+		                      -- AND INSPECTION_START_DATE_TIME >= CAST(CAST(GETDATE() AS DATE) AS DATETIME)
+		                <!-- GROUP BY IN_NO -->
+		                ) AS C
+			ON I.IN_NO = C.IN_NO
+		WHERE 
+			<choose>
+				<when test='cdType != null and cdType != "" and cdType == "Y"'>
+				<!-- 화물구분이 목록인 경우 --> 
+				I.CD_TYPE = 'Y'
+				</when>
+				<otherwise>
+				<!-- 화물구분이 일반인 경우 --> 
+				I.CD_TYPE <![CDATA[<>]]> 'Y'
+				</otherwise>
+			</choose>
+			<!-- AND I.SE_INSPECTION_CODE <![CDATA[<>]]> '01' AND  I.SE_INSPECTION_CODE <![CDATA[<>]]> '02' 
+			AND I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '01' AND  I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '02' 
+			AND I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> '01' AND I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> '02' -->
+			AND I.IN_PLAN_NO = (
+					SELECT TOP 1
+						PP.IN_PLAN_NO
+					FROM TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+					JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		    		ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+					WHERE PP.PACKING_NO = #{scanPackingNo}
+					<if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+						AND PP.IN_PLAN_NO = #{srchInPlanNo}
+					</if>
+					<if test="srchBlNo != null and srchBlNo != ''">
+						AND P.BL_NO = #{srchBlNo}
+					</if>
+				)
+	</select>
+	
+	<select id="selectOneBmsInByPackingNoV2" parameterType="HashMap" resultType="HashMap">
+		/* PdaInspectPaisMapper.selectOneBmsInByPackingNoV2 : 박스번호에 의한 박스조회 */
+		SELECT TOP 1
+			I.BL_NO
+			, I.MBL_NO
+			, I.IN_NO
+			, I.IN_PLAN_NO
+			, I.CT
+		FROM TB_BMS_IN I WITH (NOLOCK)
+		INNER JOIN (SELECT  IN_NO
+							, INSPECTION_TYPE AS INSPECTION_TYPE
+		                    , HSN AS HSN
+		                FROM TB_BMS_INSPECT_RESULT
+		                WHERE INSPECTION_FINISH_YN = 'N' 
+		                	  AND INSPECTION_TYPE IN (
+		                	  	'P06','X03','X04','X05','X06','S03','S04','S05','S06','SC'
+		                	  	,'I5','I6','I7','I8','I9','I10','I11','I12'
+		                	  	,'J5','J6','J7','J8','J9','J10','J11','J12'
+		                	  	,'K5','K6','K7','K8','K9','K10','K11','K12'
+		                	  )
+		                      -- AND INSPECTION_START_USER_ID <![CDATA[<>]]> ''
+		                      -- AND INSPECTION_START_DATE_TIME >= CAST(CAST(GETDATE() AS DATE) AS DATETIME)
+		                <!-- GROUP BY IN_NO -->
+		                ) AS C
+			ON I.IN_NO = C.IN_NO
+		WHERE 1=1
+			<!-- <choose>
+				<when test='cdType != null and cdType != "" and cdType == "Y"'>
+				화물구분이 목록인 경우 
+				I.CD_TYPE = 'Y'
+				</when>
+				<otherwise>
+				화물구분이 일반인 경우 
+				I.CD_TYPE <![CDATA[<>]]> 'Y'
+				</otherwise>
+			</choose> -->
+			<!-- AND I.SE_INSPECTION_CODE <![CDATA[<>]]> '01' AND  I.SE_INSPECTION_CODE <![CDATA[<>]]> '02' 
+			AND I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '01' AND  I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '02' 
+			AND I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> '01' AND I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> '02' -->
+			AND I.IN_PLAN_NO = (
+					SELECT TOP 1
+						PP.IN_PLAN_NO
+					FROM TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+					JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		    		ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+					WHERE PP.PACKING_NO = #{scanPackingNo}
+					<if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+						AND PP.IN_PLAN_NO = #{srchInPlanNo}
+					</if>
+					<if test="srchBlNo != null and srchBlNo != ''">
+						AND P.BL_NO = #{srchBlNo}
+					</if>
+				)
+	</select>
+	
+	<insert id="insertInspectScanLog" parameterType="HashMap">
+		/* PdaInspectPaisMapper.insertInspectScanLog : 검사 스캔로그 저장 */
+		INSERT INTO TB_BMS_INSPECT_SCAN (
+			  SCAN_NO
+			, INSPECTION_STATUS
+			, BL_NO
+			, SCAN_RESULT
+			, SCAN_DATE
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+		)
+		VALUES(
+			#{packingNo}
+			, #{inspectionStatus}
+			, #{blNo}
+			, #{result}
+			, CONVERT(VARCHAR(10),GETDATE(),120)
+			, #{registerUserId}
+			, GETDATE()
+		)
+	</insert>
+	
+	<select id="selectPkgByPackingNo" parameterType="HashMap" resultType="inPlanPkg">
+		/* PdaInspectPaisMapper.selectPkgByPackingNo : 박스번호에 의한 박스조회 */
+		SELECT TOP 1
+			_pkg.BL_NO
+			, _pkg.IN_PLAN_NO
+			, _pkg.INSPECT_STATUS
+		FROM TB_BMS_IN_PLAN_PKG _pkg WITH (NOLOCK)
+		JOIN TB_BMS_IN_PLAN _inPlan WITH (NOLOCK)
+		  ON _pkg.IN_PLAN_NO = _inPlan.IN_PLAN_NO
+		WHERE _pkg.PACKING_NO = #{scanPackingNo}
+		<if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+			AND _pkg.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+			AND _inPlan.BL_NO = #{srchBlNo}
+		</if>
+	</select>
+	
+	<select id="checkAllPkgNotInspectE" parameterType="HashMap" resultType="Integer">
+		/* PdaInspectPaisMapper.checkAllPkgNotInspectE : 검사완료 찍지않은 박스 데이터 갯수 체크 */
+		SELECT 
+			COUNT(*) AS CNT
+		FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+		WHERE IN_PLAN_NO = #{inPlanNo} 
+			AND DELETE_YN = 'N' 
+			AND INSPECT_STATUS <![CDATA[<>]]> 'E'
+	</select>
+	
+	<select id="checkAllInspectResultNotFinish" parameterType="HashMap" resultType="Integer">
+		/* PdaInspectPaisMapper.checkAllInspectResultNotFinish : 완료되지않은 검사결과 데이터 갯수 체크 */
+		SELECT
+			COUNT(*) AS CNT
+		FROM TB_BMS_INSPECT_RESULT
+		WHERE IN_NO IN (
+		    	SELECT IN_NO
+		    	FROM TB_BMS_IN WITH (NOLOCK)
+		    	WHERE IN_PLAN_NO = #{inPlanNo}
+	    	)
+	    	AND INSPECTION_FINISH_YN <![CDATA[<>]]> 'Y'
+	</select>
+	
+	<select id="selectPkgBmsInByInPlanNo" parameterType="HashMap" resultType="inPlanPkg">
+		/* PdaInspectPaisMapper.selectPkgBmsInByInPlanNo :  */
+		SELECT 
+			I.IN_PLAN_NO
+			, I.IN_NO
+			, I.BL_NO
+			, I.MBL_NO
+			, I.CT
+			, I.WT
+			, _pkg.PACKING_NO
+			, _pkg.INSPECT_STATUS
+		    , C.INSPECTION_TYPE AS BMS_INSPECTION_TYPE
+		    , C.HSN       
+		FROM TB_BMS_IN I WITH (NOLOCK)
+		INNER JOIN (SELECT  IN_NO
+							, INSPECTION_TYPE AS INSPECTION_TYPE
+		                    , HSN AS HSN
+		                FROM TB_BMS_INSPECT_RESULT
+		                WHERE INSPECTION_FINISH_YN = 'N' 
+		                	  AND INSPECTION_TYPE IN (
+		                	  	'P06','X03','X04','X05','X06','S03','S04','S05','S06','SC'
+		                	  	,'I5','I6','I7','I8','I9','I10','I11','I12'
+		                	  	,'J5','J6','J7','J8','J9','J10','J11','J12'
+		                	  	,'K5','K6','K7','K8','K9','K10','K11','K12'
+		                	  )
+		                      AND INSPECTION_START_USER_ID <![CDATA[<>]]> ''
+		                      -- AND INSPECTION_START_DATE_TIME >= CAST(CAST(GETDATE() AS DATE) AS DATETIME)
+		                <!-- GROUP BY IN_NO -->
+		                ) AS C
+			ON I.IN_NO = C.IN_NO
+		INNER JOIN TB_BMS_IN_PLAN_PKG _pkg WITH (NOLOCK)
+			ON _pkg.IN_PLAN_NO = I.IN_PLAN_NO AND _pkg.DELETE_YN ='N'
+		WHERE I.IN_PLAN_NO IN (<foreach collection="inPlanNoList" item="item" separator=",">#{item}</foreach>)
+			<choose>
+				<when test='cdType != null and cdType != "" and cdType == "Y"'>
+				<!-- 화물구분이 목록인 경우 --> 
+				AND I.CD_TYPE = 'Y'
+				</when>
+				<otherwise>
+				<!-- 화물구분이 일반인 경우 --> 
+				AND I.CD_TYPE <![CDATA[<>]]> 'Y'
+				</otherwise>
+			</choose>
+			<!-- AND I.SE_INSPECTION_CODE <![CDATA[<>]]> '01' AND  I.SE_INSPECTION_CODE <![CDATA[<>]]> '02' 
+			AND I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '01' AND  I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '02' 
+			AND I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> '01' AND I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> '02' -->
+		ORDER BY
+			I.MBL_NO, C.HSN
+	</select>
+	
+	<select id="selectInspectResultNotFinished"  parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaInspectPaisMapper.selectInspectResultNotFinished : (BL)반입단위그룹의 finished안된 검사결과 조회 */
+		SELECT
+			*
+		FROM TB_BMS_INSPECT_RESULT
+		WHERE IN_NO = #{inNo}
+			AND INSPECTION_FINISH_YN = 'N'
+	</select>
+	
+	<update id="updateInspectStatusOfPkg">
+		/* PdaInspectPaisMapper.updateInspectStatusOfPkg : 박스 검사상태 업데이트 */
+	    UPDATE PP
+	       SET PP.INSPECT_STATUS = #{inspectStatus}
+	         , PP.UPDATE_USER_ID = #{updateUserId}
+	         , PP.UPDATE_DATE_TIME = GETDATE()
+	      FROM TB_BMS_IN_PLAN_PKG PP
+	      JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		    ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+	     WHERE PP.PACKING_NO = #{scanPackingNo}
+	    <if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		   AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+		   AND P.BL_NO = #{srchBlNo}
+		</if>
+	</update>
+	
+	<update id="updateInspectStatusOfAllPkg">
+		/* PdaInspectPaisMapper.updateInspectStatusOfAllPkg : 박스 검사상태 일괄 업데이트 */
+	    UPDATE TB_BMS_IN_PLAN_PKG
+	    SET INSPECT_STATUS = #{inspectStatus}
+	        , UPDATE_USER_ID = #{updateUserId}
+	        , UPDATE_DATE_TIME = GETDATE()
+	    WHERE IN_PLAN_NO IN (<foreach collection="dataList" item="item" separator=",">#{item.inPlanNo}</foreach>)
+	</update>
+	
+	<update id="updateInspectResultFinishByInspectionTypeList">
+		/* PdaInspectPaisMapper.updateInspectResultFinishByInspectionTypeList : 검사결과 업데이트 */
+	    UPDATE TB_BMS_INSPECT_RESULT
+	    SET 
+	    	INSPECTION_FINISH_YN = #{inspectionFinishYn},
+			INSPECTION_FINISH_REMARKS = #{remarks},
+			INSPECTION_FINISH_USER_ID = #{updateUserId},
+			INSPECTION_FINISH_DATE_TIME = GETDATE()
+	    WHERE IN_NO = #{inNo}
+	    	AND INSPECTION_TYPE = #{inspectionResultType}
+	</update>
+	
+	<update id="updateBmsInAllInpectionFinishYnByInNoList">
+		/* PdaInspectPaisMapper.updateBmsInAllInpectionFinishYnByInNoList : 반입 전체검사완료여부 일괄 업데이트 */
+	    UPDATE TB_BMS_IN
+	    SET ALL_INSPECTION_FINISH_YN = #{allInspectionFinishYn}
+	        , UPDATE_USER_ID = #{updateUserId}
+	        , UPDATE_DATE_TIME = GETDATE()
+	    WHERE IN_NO = #{inNo}
+	</update>
+	
+	<update id="updateInspectResultFinishWhenExistType">
+		/* PdaInspectPaisMapper.updateInspectResultFinishWhenExistType : 이미 존재하는 검사결과 완료 처리 업데이트 */
+	    UPDATE TB_BMS_INSPECT_RESULT
+	    SET 
+	    	INSPECTION_FINISH_YN = #{inspectionFinishYn},
+			INSPECTION_FINISH_REMARKS = #{remarks},
+			INSPECTION_FINISH_USER_ID = #{updateUserId},
+			INSPECTION_FINISH_DATE_TIME = GETDATE()
+	    WHERE IN_NO = #{inNo}
+	    	AND SUBSTRING(ISNULL(INSPECTION_TYPE,''), 0, 2) IN (<foreach collection="typeList" item="item" separator=",">#{item}</foreach>)
+	</update>
+	
+	<update id="updateBmsInAndPlanAboutInspection">
+		/* PdaInspectPaisMapper.updateBmsInAndPlanAboutInspection : 반입, 반입예정 검사관련값 업데이트 */
+	    UPDATE TB_BMS_IN_PLAN
+	    SET
+	    	<if test="seInspectionCode != null and seInspectionCode != ''">
+		    	<choose>
+					<when test='seInspectionCode == "delete"'>
+						SE_INSPECTION_CODE = '',
+					</when>
+					<otherwise>
+						SE_INSPECTION_CODE = #{seInspectionCode},
+					</otherwise>
+				</choose>
+	    	</if>
+	    	<if test="inspectionType != null and inspectionType != ''">
+	    		<choose>
+					<when test='inspectionType == "delete"'>
+						INSPECTION_TYPE = '',
+					</when>
+					<otherwise>
+						INSPECTION_TYPE = #{inspectionType},
+					</otherwise>
+				</choose>
+	    	</if>
+	    	<if test="paln5emInspectionCode != null and paln5emInspectionCode != ''">
+	    		<choose>
+					<when test='paln5emInspectionCode == "delete"'>
+						PALN5EM_INSPECTION_CODE = '',
+					</when>
+					<otherwise>
+						PALN5EM_INSPECTION_CODE = #{paln5emInspectionCode},
+					</otherwise>
+				</choose>
+			</if>
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = GETDATE()
+	    WHERE IN_PLAN_NO = #{inPlanNo}
+	    
+	    UPDATE TB_BMS_IN
+	    SET 
+	    	<if test="xrayInspectionCode != null and xrayInspectionCode != ''">
+	    		<choose>
+					<when test='xrayInspectionCode == "delete"'>
+						XRAY_INSPECTION_CODE = '',
+					</when>
+					<otherwise>
+						XRAY_INSPECTION_CODE = #{xrayInspectionCode},
+					</otherwise>
+				</choose>
+	    	</if>
+	    	<if test="seInspectionCode != null and seInspectionCode != ''">
+		    	<choose>
+					<when test='seInspectionCode == "delete"'>
+						SE_INSPECTION_CODE = '',
+					</when>
+					<otherwise>
+						SE_INSPECTION_CODE = #{seInspectionCode},
+					</otherwise>
+				</choose>
+	    	</if>
+	    	<if test="inspectionType != null and inspectionType != ''">
+	    		<choose>
+					<when test='inspectionType == "delete"'>
+						INSPECTION_TYPE = '',
+					</when>
+					<otherwise>
+						INSPECTION_TYPE = #{inspectionType},
+					</otherwise>
+				</choose>
+	    	</if>
+	    	<if test="paln5emInspectionCode != null and paln5emInspectionCode != ''">
+	    		<choose>
+					<when test='paln5emInspectionCode == "delete"'>
+						PALN5EM_INSPECTION_CODE = '',
+					</when>
+					<otherwise>
+						PALN5EM_INSPECTION_CODE = #{paln5emInspectionCode},
+					</otherwise>
+				</choose>
+			</if>
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = GETDATE()
+	    WHERE IN_PLAN_NO = #{inPlanNo}
+	</update>
+	
+	<select id="selectBmsInByInPlanNo" parameterType="HashMap" resultType="HashMap">
+		/* PdaInspectPaisMapper.selectBmsInByInPlanNo : 반입번호로 검사결과 조회 */
+		SELECT
+			*
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE 
+			IN_PLAN_NO = #{inPlanNo}
+	</select>
+	
+	<update id="updateInspectResultStatusInit" parameterType="HashMap">
+		/* PdaInspectPaisMapper.updateInspectResultStatusInit : 검사결과 상태정보 초기화  */
+		UPDATE TB_BMS_INSPECT_RESULT
+   		SET
+   			INSPECTION_START_USER_ID = ''
+   			, INSPECTION_START_DATE_TIME = ''
+   			, INSPECTION_FINISH_YN = 'N'
+   			, INSPECTION_FINISH_REMARKS = ''
+   			, INSPECTION_FINISH_USER_ID = ''
+   			, INSPECTION_FINISH_DATE_TIME = ''
+   			, REGISTER_USER_ID = #{updateUserId}
+   			, REGISTER_DATE_TIME = GETDATE()
+   			, SEND_IF_YN = 'N'
+	    WHERE IN_NO = #{inNo}
+	    	AND INSPECTION_TYPE = #{inspectionType}
+	</update>
+	
+	<select id="selectInspectResultCodeValueByInNo" parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaInspectPaisMapper.selectInspectResultCodeValueByInNo : 반입번호로 검사결과 조회 */
+		SELECT
+			CASE WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'S' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')  
+				END AS SE_INSPECTION_CODE
+			, CASE WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'X' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y' AND UPPER(CODE) NOT IN ('C')), '')
+				END AS XRAY_INSPECTION_CODE
+			, CASE WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'P' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+				END AS PALN5EM_INSPECTION_CODE
+			, CASE WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'I' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y'), '')  
+				END AS INSPECTION_TYPE
+		FROM TB_BMS_INSPECT_RESULT AS C
+		WHERE 
+			IN_NO = #{inNo}
+			AND INSPECTION_FINISH_YN = 'N'
+	</select>
+	<select id="selectInspectResultCodeValueByInPlanNoOrInNo" parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaInspectPaisMapper.selectInspectResultCodeValueByInPlanNoOrInNo : 반입예정번호로 검사결과 조회 */
+		SELECT
+			CASE WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'S' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')  
+				END AS SE_INSPECTION_CODE
+			, CASE WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'X' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y' AND UPPER(CODE) NOT IN ('C')), '')
+				END AS XRAY_INSPECTION_CODE
+			, CASE WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'P' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+				END AS PALN5EM_INSPECTION_CODE
+			, CASE WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'I' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y'), '')  
+				END AS INSPECTION_TYPE
+			, _in.BL_NO AS BL_NO
+			, _in.OD_JOB_NO
+		FROM TB_BMS_INSPECT_RESULT AS C
+		LEFT JOIN TB_BMS_IN _in WITH (NOLOCK)
+			ON _in.IN_NO = C.IN_NO
+		WHERE 1=1
+			<if test="inNo != null and inNo != ''">
+				AND _in.IN_NO = #{inNo}
+			</if>
+			<if test="inPlanNo != null and inPlanNo != ''">
+				AND _in.IN_PLAN_NO = #{inPlanNo}
+			</if>
+			AND INSPECTION_FINISH_YN = 'N'
+	</select>
+	
+	<insert id="insertInspectResult" parameterType="HashMap">
+		/* PdaInspectPaisMapper.insertInspectResult : 검사결과 추가 */
+	    INSERT INTO TB_BMS_INSPECT_RESULT
+	    (
+	    	IN_NO
+			, INSPECTION_TYPE
+			, HSN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+	    )
+	    VALUES (
+	    	#{inNo}
+	    	, #{inspectionType}
+	    	, SUBSTRING(#{cargoReferenceNo}, 16, 4)
+	    	, #{updateUserId}
+	    	, GETDATE()
+	    )
+	</insert>
+
+	<select id="selectInspectResult" parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaInspectPaisMapper.selectInspectResult : 검사사유관리 - 조회 */
+		WITH R AS (
+		    SELECT
+		        IR.*,
+		        LEFT(IR.INSPECTION_TYPE, 1) AS PREFIX,
+		        ROW_NUMBER() OVER (
+		            PARTITION BY IR.IN_NO, LEFT(IR.INSPECTION_TYPE, 1)
+		            ORDER BY 
+		                IR.REGISTER_DATE_TIME DESC,          -- 최신 생성 날짜
+		                IR.INSPECTION_FINISH_DATE_TIME DESC  -- 취소든변경이든 최신 최종결과 날짜
+		        ) AS RN
+		    FROM TB_BMS_INSPECT_RESULT IR WITH (NOLOCK)
+		)
+		
+		SELECT
+			I.CT AS CT
+			, I.IN_NO
+			, I.CARGO_REFERENCE_NO
+			, I.REMARKS_3 AS INSPECT_REMARK
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'S' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')  
+			END AS SE_INSPECTION_CODE_NAME
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'X' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y' AND UPPER(CODE) NOT IN ('C')), '')
+			END AS XRAY_INSPECTION_CODE_NAME
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'P' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+			END AS PALN5EM_INSPECTION_CODE_NAME
+			, CASE 
+				WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'I' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y'), '')  
+				WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'J' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y'), '')
+				WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'K' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y'), '')
+			END AS INSPECTION_TYPE_NAME
+			
+			, CASE WHEN ISNULL(R.INSPECTION_TYPE,'') = 'B' and ISNULL(R.INSPECTION_FINISH_YN,'') = 'N' THEN '검사중'
+			END AS BIG_SIZE_YN_NAME
+			, CASE WHEN ISNULL(R.INSPECTION_TYPE,'') = 'T' and ISNULL(R.INSPECTION_FINISH_YN,'') = 'N' THEN '검사중'
+			END AS INTELLECTUAL_PROP_YN_NAME
+			, CASE WHEN ISNULL(R.INSPECTION_TYPE,'') = 'A' and ISNULL(R.INSPECTION_FINISH_YN,'') = 'N' THEN '검사중'
+			END AS INSPECTION_CUSTOMS_YN_NAME
+			
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'S' THEN ISNULL(R.INSPECTION_TYPE,'')
+			END AS SE_INSPECTION_CODE_TYPE
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'X' THEN ISNULL(R.INSPECTION_TYPE,'')
+			END AS XRAY_INSPECTION_CODE_TYPE
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'P' THEN ISNULL(R.INSPECTION_TYPE,'')
+			END AS PALN5EM_INSPECTION_CODE_TYPE
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) IN ('I','J','K') THEN ISNULL(R.INSPECTION_TYPE,'')
+			END AS INSPECTION_TYPE_TYPE
+			
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'S' THEN ISNULL(INSPECTION_FINISH_REMARKS, '') END AS SE_INSPECTION_REMARK
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'X' THEN ISNULL(INSPECTION_FINISH_REMARKS, '') END AS XRAY_INSPECTION_REMARK
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'P' THEN ISNULL(INSPECTION_FINISH_REMARKS, '') END AS PALN5EM_INSPECTION_REMARK
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'I' THEN ISNULL(INSPECTION_FINISH_REMARKS, '') END AS INSPECTION_TYPE_REMARK
+		
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'S' THEN ISNULL(R.INSPECTION_FINISH_YN, '') END AS SE_INSPECTION_FINISH_YN
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'X' THEN ISNULL(R.INSPECTION_FINISH_YN, '') END AS XRAY_INSPECTION_FINISH_YN
+			, CASE WHEN SUBSTRING(ISNULL(R.INSPECTION_TYPE,''), 0, 2) = 'P' THEN ISNULL(R.INSPECTION_FINISH_YN, '') END AS PALN5EM_INSPECTION_FINISH_YN
+		FROM TB_BMS_IN I WITH (NOLOCK)
+		LEFT JOIN R 
+			ON R.IN_NO = I.IN_NO AND R.RN = 1
+		WHERE
+			I.IN_PLAN_NO = #{srchInPlanNo}
+	</select>
+
+	<update id="updateInspectResultRemark" parameterType="HashMap">
+		/* PdaInspectPaisMapper.updateInspectResultRemark : 검사사유관리 - 검사결과 비고 저장 */
+		UPDATE 
+			TB_BMS_INSPECT_RESULT
+		SET
+			REGISTER_USER_ID = #{updateUserId}
+			, REGISTER_DATE_TIME = GETDATE()
+			, INSPECTION_FINISH_REMARKS = #{inspectResultRemark}
+		WHERE 
+			IN_NO = #{inNo}
+			AND SUBSTRING(ISNULL(INSPECTION_TYPE,''), 0, 2) = #{inspectTypeCode}
+	</update>
+	
+	<update id="updateInspectResultRemarkByKey" parameterType="HashMap">
+		/* PdaInspectPaisMapper.updateInspectResultRemarkByKey : 검사사유관리 - 검사결과 비고 저장 */
+		UPDATE 
+			TB_BMS_INSPECT_RESULT
+		SET
+			INSPECTION_FINISH_USER_ID = #{updateUserId}
+			, INSPECTION_FINISH_REMARKS = #{inspectResultRemark}
+			<if test='inspectionFinishYn != null and inspectionFinishYn != ""'>
+			, INSPECTION_FINISH_YN = #{inspectionFinishYn}
+			</if>
+			<choose>
+				<when test='inspectResultRemark != null and inspectResultRemark != ""'>
+					, INSPECTION_FINISH_DATE_TIME = GETDATE()
+				</when>
+				<otherwise>
+					, INSPECTION_FINISH_DATE_TIME = ''
+				</otherwise>
+			</choose>
+		WHERE 
+			IN_NO = #{inNo}
+			AND INSPECTION_TYPE =  #{inspectionTypeCode}
+	</update>
+
+	<update id="updateBmsInAllInspectionFinishYn" parameterType="HashMap">
+		/* PdaInspectPaisMapper.updateInspectResultRemark : 검사사유관리 - 전체 검사 여부 완료 저장 */
+		UPDATE 
+			TB_BMS_IN
+		SET 
+			REMARKS_3 = #{inspectRemark}
+			<if test='allInspectionFinishYn != null and allInspectionFinishYn != "" and allInspectionFinishYn == "Y"'>
+				, ALL_INSPECTION_FINISH_YN = #{allInspectionFinishYn}
+			</if>
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE 
+			IN_NO = #{inNo}
+	</update>
+	
+	<select id="selectInspectionTypeByTicInspectResultCode" resultType="String">
+		/* PdaInspectPaisMapper.selectInspectionTypeByTicInspectResultCode : 이고검사건 검사코드 리스트 */
+		SELECT v.code
+    	FROM (
+    		VALUES
+		        ('S01'),('S02'),
+		        ('X01'),('X02'),
+		        ('P01'),('P02'),
+		        ('B'),('A'),('T'),('C')
+	    ) AS v(code)
+	</select>
+	
+	<select id="selectInspectionTypeAll" resultType="String">
+		/* PdaInspectPaisMapper.selectInspectionTypeAll : 모든 검사코드 리스트 */
+		SELECT v.code
+    	FROM (
+    		VALUES
+    			-- 이고 검사건
+		        ('S01'),('S02'),
+		        ('X01'),('X02'),
+		        ('P01'),('P02'),
+		        ('B'),('A'),('T'),('C'),
+		        -- 일반검사건
+		        ('P06'),('X03'),('X04'),('X05'),('X06'),('S03'),('S04'),('S05'),('S06'),('SC'),
+            	('I5'),('I6'),('I7'),('I8'),('I9'),('I10'),('I11'),('I12'),
+            	('J5'),('J6'),('J7'),('J8'),('J9'),('J10'),('J11'),('J12'),
+            	('K5'),('K6'),('K7'),('K8'),('K9'),('K10'),('K11'),('K12')
+	    ) AS v(code)
+	</select>
+	
+	<select id="selectInspectResultByInNo"  parameterType="HashMap" resultType="HashMap">
+		/* PdaInspectPaisMapper.selectInspectResultByInNo : (BL)반입단위그룹의 존재하는 검사결과 조회 */
+		SELECT
+			*
+		FROM TB_BMS_INSPECT_RESULT WITH (NOLOCK)
+		WHERE IN_NO = #{inNo}
+	</select>
+	
+	<select id="selectNotFinishedInspectResultByInPlanNo"  parameterType="HashMap" resultType="HashMap">
+		/* PdaInspectPaisMapper.selectNotFinishedInspectResultByInPlanNo : (BL)반입단위그룹의 존재하는 검사결과 조회 */
+		SELECT
+			*
+		FROM TB_BMS_INSPECT_RESULT WITH (NOLOCK)
+		WHERE IN_NO = (
+			SELECT IN_NO
+			FROM TB_BMS_IN WITH (NOLOCK)
+			WHERE IN_PLAN_NO = #{inPlanNo}
+		) AND INSPECTION_FINISH_YN = 'N'
+	</select>
+	
+	<select id="selectBmsIn21ByInPlanNo"  parameterType="HashMap" resultType="HashMap">
+		/* PdaInspectPaisMapper.selectBmsIn21ByInPlanNo : 이고반입 조회 */
+		SELECT
+			*
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE ORIG_IN_PLAN_NO = #{inPlanNo}
+		  AND IN_CLASS ='21'
+		  AND IN_APPROVAL_NO ='04002001'
+	</select>
+	
+	<select id="selectBmsInsInNo" parameterType="HashMap" resultType="HashMap">
+		/* PdaInspectPaisMapper.selectBmsInsInNo : 이고반입 조회 */
+		SELECT TOP 1
+			*
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+		AND IN_CLASS = '21'
+	</select>
+	
+	<select id="selectBmsInsOutNo" parameterType="HashMap" resultType="HashMap">
+		/* PdaInspectPaisMapper.selectBmsInsOutNo : 이고반출 조회 */
+		SELECT TOP 1
+			*
+		FROM TB_BMS_OUT WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+		AND OUT_CLASS = '61'
+	</select>
+	
+	<update id="updateInsComplete" parameterType="HashMap">
+		/* PdaInspectPaisMapper.updateInsComplete : 검사사유관리 - 이고검사완료 처리 */
+		UPDATE 
+			TB_BMS_INSPECT_RESULT
+		SET
+			  INSPECTION_FINISH_YN = 'Y'
+			, INSPECTION_FINISH_REMARKS = '이상없음'
+			, INSPECTION_FINISH_USER_ID = #{updateUserId}
+			, INSPECTION_FINISH_DATE_TIME = GETDATE()
+		WHERE 
+			IN_NO = #{inNo}
+			<if test="inspectionType != null and inspectionType.size() > 0">
+			AND INSPECTION_TYPE IN
+			<foreach collection="inspectionType" item="type" open="(" separator="," close=")">
+				#{type}
+			</foreach>
+			</if>
+	</update>
+	
+	<select id="selectBmsInsCompleteYn" parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaInspectPaisMapper.selectBmsInsCompleteYn : 검사완료 여부 조회 */
+		SELECT
+			IN_NO
+			,INSPECTION_FINISH_YN
+		FROM TB_BMS_INSPECT_RESULT
+		WHERE IN_NO = #{inNo} 
+	</select>
+	
+	<update id="updateInsCompleteYn" parameterType="HashMap">
+		/* PdaInspectPaisMapper.updateInsCompleteYn : 검사사유관리 - 검사완료 처리 */
+		UPDATE 
+			TB_BMS_IN
+		SET
+			ALL_INSPECTION_FINISH_YN = 'Y'
+		WHERE 
+			IN_NO = #{inNo}
+	</update>
+	
+	<select id="selectBmsInByCargoNo" parameterType="HashMap" resultType="HashMap">
+		/* PdaInspectPaisMapper.selectBmsInByCargoNoOrInNoOrInPlanNo : 반입 조회 */
+		SELECT TOP 1
+			*
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+	</select>
+	
+	<select id="selectBmsInByInNoOrInPlanNo" parameterType="HashMap" resultType="HashMap">
+		/* PdaInspectPaisMapper.selectBmsInByInNoOrInPlanNo : 반입 조회 */
+		SELECT TOP 1
+			*
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE 
+		<choose>
+			<when test="inNo != null and inNo > 0">
+				IN_NO = #{inNo}
+			</when>
+			<when test="inPlanNo != null and inPlanNo > 0">
+				IN_PLAN_NO = #{inPlanNo}
+			</when>
+		</choose>
+	</select>
+	
+	<update id="updateInspectResultFinishByTicType">
+		/* PdaInspectPaisMapper.updateInspectResultFinishByTicType : 검사결과 업데이트 */
+	    UPDATE TB_BMS_INSPECT_RESULT
+	    SET 
+	    	INSPECTION_FINISH_YN = #{inspectionFinishYn},
+			INSPECTION_FINISH_REMARKS = #{remarks},
+			INSPECTION_FINISH_USER_ID = #{updateUserId},
+			INSPECTION_FINISH_DATE_TIME = GETDATE()
+	    WHERE IN_NO = #{inNo}
+	    	AND INSPECTION_FINISH_YN = 'N' 
+	    	AND INSPECTION_TYPE IN (<foreach collection="typeList" item="item" separator=",">#{item}</foreach>)
+	</update>
+	
+</mapper>

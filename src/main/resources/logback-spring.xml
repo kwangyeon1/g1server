@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="true">
+
+	<!-- aplication.yml에 정의한 log level, dir 데이터를 정의합니다 -->
+    <springProperty scope="context" name="LOG_LEVEL" source="custom.logging.level"/>
+    <springProperty scope="context" name="LOG_DIR" source="custom.logging.dir"/>
+
+    <!--콘솔에 로그를 남깁니다.-->
+    <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>
+                %d{yyyy-MM-dd HH:mm:ss} [%thread] [%-5level] %logger{36} - %msg%n
+            </Pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="File" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/g1logis-express-server.log</file>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>
+                %d{yyyy-MM-dd HH:mm:ss} [%-5level] %logger{36} - %msg%n
+            </Pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/rolling/g1logis-express-server.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>13</maxHistory>
+        </rollingPolicy>
+    </appender>
+    <appender name="FileOrderParams" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/OrderParams/g1logis-express-server.log</file>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>
+                %d{yyyy-MM-dd HH:mm:ss} [%-5level] %logger{36} - %msg%n
+            </Pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/OrderParams/rolling/g1logis-express-server.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>13</maxHistory>
+        </rollingPolicy>
+    </appender>
+   
+    <appender name="RollingFile" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/archived/g1logis-express-server.log</file>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>%d{yyyy-MM-dd HH:mm:ss} [%-5level] %logger{36} - %msg%n</Pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+
+        <!-- 100MB가 넘어가면 새로운 압축파일이 생성 -->
+        <triggeringPolicy
+                class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+            <MaxFileSize>100MB</MaxFileSize>
+        </triggeringPolicy>
+
+        <!-- 파일을 덮어쓰는 정책 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+            <FileNamePattern>${LOG_DIR}/archived/g1logis-express-server.%i.log.zip</FileNamePattern>
+            <!--
+                10MB단위로 로그 압축 파일이 생성된다. (1 ~ 10)
+                10개가 넘어가면 오래된순으로 덮어쓰기 됩니다.
+            -->
+            <MinIndex>1</MinIndex>
+            <MaxIndex>10</MaxIndex>
+        </rollingPolicy>
+    </appender>   
+   
+    <!--에러 일 경우 파일에 로그를 남깁니다--> 
+    <appender name="Error" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>error</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <file>${LOG_DIR}/g1logis-express-server-error.log</file>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>
+                %d{yyyy-MM-dd HH:mm:ss} [%-5level] %logger{36} - %msg%n
+            </Pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/rolling/g1logis-express-server-error.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>13</maxHistory>
+        </rollingPolicy>
+    </appender>
+    
+    <logger name="orderParams" level="${LOG_LEVEL}" additivity="false">
+        <appender-ref ref="FileOrderParams"/>
+	</logger>
+
+	<logger name="org.yht" level="${LOG_LEVEL}" additivity="false">
+        <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
+        <appender-ref ref="Error"/>
+	</logger>
+	
+    <logger name="org.springframework.web" level="INFO" additivity="false">
+        <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
+        <appender-ref ref="Error"/>
+    </logger>
+
+    <logger name="org.springframework.web.filter.CommonsRequestLoggingFilter">
+        <level value="DEBUG" />
+    </logger>
+
+    <logger name="jdbc.resultsettable" level="WARN"  additivity="false">
+        <appender-ref ref="Console"/>
+        <appender-ref ref="RollingFile"/>
+        <appender-ref ref="Error"/>
+    </logger>
+    
+     <logger name="jdbc.sqlonly" level="OFF" additivity="false">
+	    <appender-ref ref="Console"/>
+	    <appender-ref ref="File"/>
+	</logger>
+    
+    <logger name="jdbc.sqltiming" level="INFO" additivity="false">
+        <appender-ref ref="Console"/>
+        <appender-ref ref="File"/>
+        <appender-ref ref="RollingFile"/>
+        <appender-ref ref="Error"/>
+    </logger>
+
+<!--     <logger name="com.zaxxer.hikari" level="TRACE"> -->
+<!--         <appender-ref ref="Console"/> -->
+<!--         <appender-ref ref="File"/> -->
+<!--         <appender-ref ref="Error"/> -->
+<!--     </logger> -->
+<!-- 	<logger name="com.zaxxer.hikari.HikariConfig" level="DEBUG"> -->
+<!--         <appender-ref ref="Console"/> -->
+<!--         <appender-ref ref="File"/> -->
+<!--         <appender-ref ref="Error"/> -->
+<!-- 	</logger> -->
+	
+    <root level="OFF">
+		<appender-ref ref="Console"/>
+	</root>
+	
+</configuration>

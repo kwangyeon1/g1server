@@ -1,0 +1,820 @@
+<?xml version="1.0" encoding="UTF-8"?>
+ 
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+		"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsOutNoticeMapper">
+
+	<!-- 공통 검색조건 -->
+	<sql id="commonSrch">
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<when test='srchNoLikeYn == "N"'>
+					AND ${srchNoType} = #{srchNo}
+				</when>
+				<otherwise>
+					<!-- AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%') -->
+					<choose>
+						<when test='searchType == "multi"'>
+						AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND ${srchNoType} = #{srchNo}
+						</otherwise>
+					</choose>
+				</otherwise>
+			</choose>
+		</if>
+		<if test='srchDateGbn != "noDateChk"'>
+			<choose>
+				<when test='srchDateType == "dateTime"'>
+					AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+					AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+				</when>
+				<otherwise>
+					AND ${srchDateGbn} >= #{srchStartDate}
+					AND ${srchDateGbn} <![CDATA[<=]]> #{srchEndDate}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchLastPodStatus != null and srchLastPodStatus != ''">
+			<if test="srchGbn != null and srchGbn != '' and srchGbn == 'NOTICE'">
+				<!-- 미승인재고(STOCK), 누락통보(OMITTED)는 srchLastPodStatus 값과 상관없이 ALL 조회 -->
+				AND B.LAST_POD_STATUS = #{srchLastPodStatus} /* 현재진행상태코드 */
+			</if>
+		</if>
+		<if test="srchCustomerGuBun != null and srchCustomerGuBun != '' and srchCustomerGuBun == 'CUSTOMER'">
+			<choose>
+				<when test="srchCustomerCode != null and srchCustomerCode != ''">
+					<choose>
+						<when test="srchGbn == 'NOTICE'">
+							AND B.CUSTOMER_CODE = #{srchCustomerCode}
+						</when>
+						<otherwise>
+							AND A.CUSTOMER_CODE = #{srchCustomerCode}
+						</otherwise>
+					</choose>
+				</when>
+				<when test="srchCustomerName != null and srchCustomerName != ''">
+					<choose>
+						<when test="srchGbn == 'NOTICE'">
+							AND B.CUSTOMER_NAME LIKE CONCAT('%', #{srchCustomerName}, '%')
+						</when>
+						<otherwise>
+							AND A.CUSTOMER_NAME LIKE CONCAT('%', #{srchCustomerName}, '%')
+						</otherwise>
+					</choose>
+				</when>
+			</choose>
+		</if>
+		<if test="srchCustomerGuBun != null and srchCustomerGuBun != '' and srchCustomerGuBun == 'SHIPPER'">
+			<choose>
+				<when test="srchShipperCode != null and srchShipperCode != ''">
+					AND A.SHIPPER_CODE = #{srchShipperCode}
+				</when>
+				<when test="srchShipperName != null and srchShipperName != ''">
+					AND A.SHIPPER_NAME LIKE CONCAT('%', #{srchShipperName}, '%')
+				</when>
+			</choose>
+		</if>
+		<if test="srchCustomerGuBun != null and srchCustomerGuBun != '' and srchCustomerGuBun == 'CONSIGNEE'">
+			<choose>
+				<when test="srchConsigneeCode != null and srchConsigneeCode != ''">
+					AND A.CONSIGNEE_CODE = #{srchConsigneeCode}
+				</when>
+				<when test="srchConsigneeName != null and srchConsigneeName != ''">
+					AND A.CONSIGNEE_NAME LIKE CONCAT('%', #{srchConsigneeName}, '%')
+				</when>
+			</choose>
+		</if>
+		<if test="srchCustomerGuBun != null and srchCustomerGuBun != '' and srchCustomerGuBun == 'NOTIFY'">
+			<choose>
+				<when test="srchNotifyCode != null and srchNotifyCode != ''">
+					AND A.NOTIFY_CODE = #{srchNotifyCode}
+				</when>
+				<when test="srchNotifyName != null and srchNotifyName != ''">
+					AND A.NOTIFY_NAME LIKE CONCAT('%', #{srchNotifyName}, '%')
+				</when>
+			</choose>
+		</if>
+		<if test="srchCustomerGuBun != null and srchCustomerGuBun != '' and srchCustomerGuBun == 'DELIVERY'">
+			<choose>
+				<when test="srchDeliveryCode != null and srchDeliveryCode != ''">
+					AND A.DELIVERY_CODE = #{srchDeliveryCode}
+				</when>
+				<when test="srchDeliveryName != null and srchDeliveryName != ''">
+					AND A.DELIVERY_NAME LIKE CONCAT('%', #{srchDeliveryName}, '%')
+				</when>
+			</choose>
+		</if>
+		<if test="srchCustomerGuBun != null and srchCustomerGuBun != '' and srchCustomerGuBun == 'FWD'">
+			<choose>
+				<when test="srchFwdCode != null and srchFwdCode != ''">
+					AND A.FWD_CODE = #{srchFwdCode}
+				</when>
+				<when test="srchFwdName != null and srchFwdName != ''">
+					AND A.FWD_NAME LIKE CONCAT('%', #{srchFwdName}, '%')
+				</when>
+			</choose>
+		</if>
+		<if test="srchLocationPlaceName != null and srchLocationPlaceName != ''">
+			AND A.LOCATION_PLACE LIKE CONCAT('%', #{srchLocationPlaceName}, '%')
+		</if>
+		<if test="srchRemarks1Name != null and srchRemarks1Name != ''">
+			AND A.REMARKS_1 LIKE CONCAT('%', #{srchRemarks1Name}, '%')
+		</if>
+		<if test="srchRemarks2Name != null and srchRemarks2Name != ''">
+			AND A.REMARKS_2 LIKE CONCAT('%', #{srchRemarks2Name}, '%')
+		</if>
+		<if test="srchRemarks3Name != null and srchRemarks3Name != ''">
+			AND A.REMARKS_3 LIKE CONCAT('%', #{srchRemarks3Name}, '%')
+		</if>
+		<if test="srchCommodityItemLocName != null and srchCommodityItemLocName != ''">
+			AND A.COMMODITY_ITEM_LOC LIKE CONCAT('%', #{srchCommodityItemLocName}, '%')
+		</if>
+	</sql>
+
+	<select id="selectBmsOutNoticeList" parameterType="searchBmsOutNotice" resultType="bmsOutNotice" fetchSize="1000">
+		/* BmsOutNoticeMapper.selectBmsOutNoticeList : 반출통고 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+			 , COUNT(*) OVER() AS TOTAL_CNT
+			 , SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+			 , SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+		  FROM (
+				  SELECT B.OUT_NOTICE_NO
+		  		       , CASE WHEN (SELECT TOP 1 tcfs.REFERENCE_NO_ID FROM TB_COM_FILE_SHARE tcfs WHERE A.OD_JOB_NO = tcfs.FUNC_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+			   		   , A.OD_JOB_NO
+					   , A.CARRYIN_DATE
+					   , B.OUT_NOTICE_DATE
+					   , B.PERIOD_OVER_DATE
+					   , B.BL_NO
+					   , B.MBL_NO
+					   , B.CARGO_REFERENCE_NO
+					   , IIF(A.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+					   , IIF(A.CD_TYPE = 'N', 1, 0) AS GENERAL_CNT
+					   , B.PKG_TYPE
+				 	   , ISNULL(B.NOTICE_CT, 0) AS NOTICE_CT
+				 	   , ISNULL(B.NOTICE_WT, 0) AS NOTICE_WT
+					   , B.CUSTOMER_CODE
+					   , B.CUSTOMER_NAME
+					   , B.CUSTOMER_ZIPCODE
+					   , B.CUSTOMER_ADDRESS_1
+					   , B.CUSTOMER_ADDRESS_2
+					   , dbo.Cryptography(B.CARGO_REFERENCE_NO, B.CUSTOMER_TEL, 1) AS CUSTOMER_TEL
+					   , B.CUSTOMER_REMARKS
+					   , A.SHIPPER_CODE
+					   , A.SHIPPER_NAME
+				 	   , A.CONSIGNEE_CODE
+				 	   , A.CONSIGNEE_NAME
+				 	   , A.NOTIFY_CODE
+				 	   , A.NOTIFY_NAME
+				 	   , A.COMMODITY_ITEM_LOC
+				 	   , A.LOCATION_PLACE
+				 	   , A.CUSTOMS_REPORT_NO
+					   , B.PRINT_YN
+					   , B.IN_NO
+					   , B.REGISTER_USER_ID
+					   , (SELECT TOP 1 tsu.USER_NAME FROM TB_SMS_USER tsu WHERE B.REGISTER_USER_ID = tsu.USER_ID) AS REGISTER_USER_NAME
+					   , B.REGISTER_DATE_TIME
+					   , B.UPDATE_USER_ID
+					   , (SELECT TOP 1 tsu.USER_NAME FROM TB_SMS_USER tsu WHERE B.UPDATE_USER_ID = tsu.USER_ID) AS UPDATE_USER_NAME
+					   , B.UPDATE_DATE_TIME
+					   , 'NOTICE' AS SRCH_GBN
+				 	 	 <if test='excelDownYn != null and excelDownYn != "" and excelDownYn == "Y"'>
+				 		 	, '조회' AS blStatus
+				 	     </if>
+					     <choose>
+						 	<when test='excelDownYn != null and excelDownYn != "" and excelDownYn == "Y"'>
+						 		, (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = B.LAST_POD_STATUS AND det.GROUP_CODE = 'STATUS_ORDER_CARGO') AS LAST_POD_STATUS
+						 		, A.CD_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.CD_TYPE AND det.GROUP_CODE = 'CD_TYPE') AS CD_TYPE
+						 		, A.CD_USE_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.CD_USE_TYPE AND det.GROUP_CODE = 'USE_GUBN') AS CD_USE_TYPE
+						 		, A.IN_CLASS + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.IN_CLASS AND det.GROUP_CODE = 'CARRYIN_TYPE') AS IN_CLASS
+						 	</when>
+						 	<otherwise>
+		  		       		    , B.LAST_POD_STATUS
+							    , A.CD_TYPE
+							    , A.CD_USE_TYPE
+							    , A.IN_CLASS
+						 	</otherwise>
+						  </choose>
+					FROM TB_BMS_OUT_NOTICE B
+			   LEFT JOIN TB_BMS_IN A WITH (NOLOCK) ON A.IN_NO = B.IN_NO
+			       WHERE 1=1
+			       <if test='srchMode == "notSearch"'>
+			       AND 1 = 0
+			       </if>
+					<include refid="org.yht.exps.express.mapper.bms.BmsOutNoticeMapper.commonSrch"/>
+			   ) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectInventoryList" parameterType="searchBmsOutNotice" resultType="inventoryIn" fetchSize="1000">
+		/* BmsOutNoticeMapper.selectInventoryList : 미승인재고 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+			 , COUNT(*) OVER() AS TOTAL_CNT
+			 , SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+			 , SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+		  FROM (
+				  SELECT A.IN_NO
+					   , CASE WHEN (SELECT TOP 1 tcfs.REFERENCE_NO_ID FROM TB_COM_FILE_SHARE tcfs WHERE A.OD_JOB_NO = tcfs.FUNC_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+					    <if test='excelDownYn != null and excelDownYn != "" and excelDownYn == "Y"'>
+				 		 	, '예정' AS lastPodStatus
+				 		 	, '조회' AS blStatus
+				 	    </if>
+				 	   , A.CARRYIN_DATE
+				 	   , A.OUT_NOTICE_DATE
+				 	   , A.PERIOD_OVER_DATE
+				 	   , A.BL_NO
+				 	   , A.MBL_NO
+				 	   , A.CARGO_REFERENCE_NO
+				 	   , A.COMMODITY_ITEM_LOC
+				 	   , A.AR_DATE
+				 	   , A.VESSEL_FLIGHT
+				 	   , A.VOYAGE
+				 	   , A.PKG_TYPE
+				 	   , ISNULL(A.STOCK_CT, 0) - ISNULL(B.APPROVAL_CT, 0) AS INOUT_NOTICE_PLAN_CT
+				 	   , ISNULL(A.STOCK_WT, 0) - ISNULL(B.APPROVAL_WT, 0) AS INOUT_NOTICE_PLAN_WT
+				 	   , A.LOCATION_PLACE
+				 	   , A.OD_JOB_NO
+				 	   , A.CUSTOMER_CODE
+				 	   , A.CUSTOMER_NAME
+					   , A.SHIPPER_CODE
+					   , A.SHIPPER_NAME
+				 	   , A.CONSIGNEE_CODE
+				 	   , A.CONSIGNEE_NAME
+				 	   , A.CONSIGNEE_ADDRESS_1
+				 	   , dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+				 	   , dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_TEL, 1) AS CONSIGNEE_TEL
+				 	   , A.NOTIFY_CODE
+				 	   , A.NOTIFY_NAME
+				 	   , A.NOTIFY_ADDRESS_1
+				 	   , dbo.Cryptography(A.OD_JOB_NO, A.NOTIFY_TEL, 1) AS NOTIFY_TEL
+				 	   , A.CUSTOMS_REPORT_NO
+				 	   , A.CNTR_NO
+				 	   , A.REFERENCE_NO
+				 	   , A.REGISTER_USER_ID
+					   , (SELECT TOP 1 tsu.USER_NAME FROM TB_SMS_USER tsu WHERE A.REGISTER_USER_ID = tsu.USER_ID) AS REGISTER_USER_NAME
+					   , A.REGISTER_DATE_TIME
+					   , A.UPDATE_USER_ID
+					   , (SELECT TOP 1 tsu.USER_NAME FROM TB_SMS_USER tsu WHERE A.UPDATE_USER_ID = tsu.USER_ID) AS UPDATE_USER_NAME
+				 	   , A.UPDATE_DATE_TIME
+				 	   , A.CD_TYPE
+				 	   , IIF(A.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+					   , IIF(A.CD_TYPE = 'N', 1, 0) AS GENERAL_CNT
+					   , A.IN_CLASS
+					   , 'STOCK' AS SRCH_GBN
+				    FROM TB_BMS_IN A WITH (NOLOCK)
+			   LEFT JOIN TB_BMS_OUT_PLAN B WITH (NOLOCK) ON A.IN_NO = B.IN_NO AND B.APPROVAL_CLASS = '31' AND B.OUT_YN = 'N'
+				   WHERE 1=1
+				     AND ISNULL(A.STOCK_WT, 0) - ISNULL(B.APPROVAL_WT, 0) > 0
+				     AND NOT EXISTS (
+				     	SELECT 
+				     		1
+				     	FROM TB_BMS_OUT_NOTICE WITH(NOLOCK) 
+				     	WHERE CARGO_REFERENCE_NO = A.CARGO_REFERENCE_NO
+				     		AND LAST_POD_STATUS = 'BMS04'
+				     )
+				     <if test='srchMode == "notSearch"'>
+				     AND 1 = 0
+				     </if>
+					<include refid="org.yht.exps.express.mapper.bms.BmsOutNoticeMapper.commonSrch"/>
+			   ) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectBmsOutNoticeOmittedList" parameterType="searchBmsOutNotice" resultType="bmsOutNoticePlan" fetchSize="1000">
+		/* BmsOutNoticeMapper.selectBmsOutNoticeOmittedList : 누락통보 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+			 , COUNT(*) OVER() AS TOTAL_CNT
+			 , SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+			 , SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+		  FROM (
+				  SELECT B.OUT_NOTICE_PLAN_NO
+		  		       , CASE WHEN (SELECT TOP 1 tcfs.REFERENCE_NO_ID FROM TB_COM_FILE_SHARE tcfs WHERE A.OD_JOB_NO = tcfs.FUNC_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+					   , B.OUT_NOTICE_YN
+					   , A.CARRYIN_DATE
+					   , A.OUT_NOTICE_DATE
+					   , B.PERIOD_OVER_DATE
+				 	   , B.BL_NO
+					   , B.MBL_NO
+					   , B.CARGO_REFERENCE_NO
+					   , IIF(A.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+					   , IIF(A.CD_TYPE = 'N', 1, 0) AS GENERAL_CNT
+					   , A.AR_DATE
+					   , A.AR_TIME
+					   , A.VESSEL_FLIGHT
+					   , A.VOYAGE
+					   , A.PKG_TYPE
+					   , A.LOCATION_PLACE
+					   , B.IN_LOC_CODE
+				 	   , ISNULL(B.INOUT_NOTICE_PLAN_CT, 0) AS INOUT_NOTICE_PLAN_CT
+				 	   , ISNULL(B.INOUT_NOTICE_PLAN_WT, 0) AS INOUT_NOTICE_PLAN_WT
+					   , A.XRAY_LINE_NO
+				 	   , ISNULL(A.XRAY_SCAN_CT, 0) AS XRAY_SCAN_CT
+				 	   , ISNULL(A.XRAY_IMAGE_CT, 0) AS XRAY_IMAGE_CT
+					   , A.OD_JOB_NO
+					   , B.IN_NO
+					   , A.CUSTOMS_REPORT_NO
+					   , A.IN_APPROVAL_NO
+					   , A.TRANS_PERIOD_DATE
+				 	   , A.CUSTOMER_CODE
+				 	   , A.CUSTOMER_NAME
+					   , A.SHIPPER_CODE
+					   , A.SHIPPER_NAME
+					   , A.SHIPPER_ADDRESS_1
+					   , A.CONSIGNEE_CODE
+					   , A.CONSIGNEE_NAME
+					   , A.CONSIGNEE_ADDRESS_1
+					   , dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+					   , dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_TEL, 1) AS CONSIGNEE_TEL
+					   , A.NOTIFY_CODE
+					   , A.NOTIFY_NAME
+					   , A.NOTIFY_ADDRESS_1
+					   , dbo.Cryptography(A.OD_JOB_NO, A.NOTIFY_TEL, 1) AS NOTIFY_TEL
+					   , A.COMMODITY_ITEM_LOC
+					   , A.CNTR_NO
+					   , A.ORIG_COUNTRY
+					   , A.REFERENCE_NO
+					   , A.CARRYOUT_DATE
+					   , A.CARRYOUT_TIME
+					   , B.REGISTER_USER_ID
+					   , (SELECT TOP 1 tsu.USER_NAME FROM TB_SMS_USER tsu WHERE B.REGISTER_USER_ID = tsu.USER_ID) AS REGISTER_USER_NAME
+					   , B.REGISTER_DATE_TIME
+					   , 'OMITTED' AS SRCH_GBN
+				 	 	 <if test='excelDownYn != null and excelDownYn != "" and excelDownYn == "Y"'>
+				 		 	, '조회' AS blStatus
+				 	     </if>
+						 <choose>
+						 	<when test='excelDownYn != null and excelDownYn != "" and excelDownYn == "Y"'>
+						 		, A.CD_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.CD_TYPE AND det.GROUP_CODE = 'CD_TYPE') AS CD_TYPE
+						 		, A.ECM_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.ECM_TYPE AND det.GROUP_CODE = 'CCL_ECOMMERCE_TYPE') AS ECM_TYPE
+						 		, A.CD_USE_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.CD_USE_TYPE AND det.GROUP_CODE = 'USE_GUBN') AS CD_USE_TYPE
+						 		, A.SE_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.SE_INSPECTION_CODE AND det.GROUP_CODE = 'SE_INSPECTION_CODE') AS SE_INSPECTION_CODE
+						 		, A.INSPECTION_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.INSPECTION_TYPE AND det.GROUP_CODE = 'INSPECTION_TYPE') AS INSPECTION_TYPE
+						 		, A.INSPECTION_TYPE_A + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.INSPECTION_TYPE_A AND det.GROUP_CODE = 'INSPECTION_TYPE') AS INSPECTION_TYPE_A
+						 		, A.INSPECTION_TYPE_B + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.INSPECTION_TYPE_B AND det.GROUP_CODE = 'INSPECTION_TYPE') AS INSPECTION_TYPE_B
+						 		, A.XRAY_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.XRAY_INSPECTION_CODE AND det.GROUP_CODE = 'SE_INSPECTION_CODE') AS XRAY_INSPECTION_CODE
+						 		, A.XRAY_CHECK + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.XRAY_CHECK AND det.GROUP_CODE = 'XRAY_INSPECTION_TYPE') AS XRAY_CHECK
+						 		, A.PALN5EM_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.PALN5EM_INSPECTION_CODE AND det.GROUP_CODE = 'SE_INSPECTION_CODE') AS PALN5EM_INSPECTION_CODE
+						 		, A.IN_CLASS + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL det WHERE det.CODE = A.IN_CLASS AND det.GROUP_CODE = 'CARRYIN_TYPE') AS IN_CLASS
+						 	</when>
+						 	<otherwise>
+							    , A.CD_TYPE
+							    , A.ECM_TYPE
+							    , A.CD_USE_TYPE
+							    , A.SE_INSPECTION_CODE
+							    , A.INSPECTION_TYPE
+							    , A.INSPECTION_TYPE_A
+							    , A.INSPECTION_TYPE_B
+							    , A.XRAY_INSPECTION_CODE
+							    , A.XRAY_CHECK
+							    , A.PALN5EM_INSPECTION_CODE
+							    , A.IN_CLASS
+						 	</otherwise>
+						 </choose>
+					FROM TB_BMS_OUT_NOTICE_PLAN B
+			   LEFT JOIN TB_BMS_IN A WITH (NOLOCK) ON A.IN_NO = B.IN_NO
+			       WHERE 1=1
+			       <if test='srchMode == "notSearch"'>
+			       AND 1 = 0
+			       </if>
+					<include refid="org.yht.exps.express.mapper.bms.BmsOutNoticeMapper.commonSrch"/>
+			   ) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectBmsOutNoticeDetail" parameterType="searchBmsOutNotice" resultType="bmsOutNotice">
+		/* BmsOutNoticeMapper.selectBmsOutNoticeDetail : 등록 ENTRY - 반출통고 1건 상세 */
+		SELECT OUT_NOTICE_NO
+	     	 , IN_NO
+	     	 , BL_NO
+	     	 , MBL_NO
+	     	 , CARGO_REFERENCE_NO
+	     	 , OUT_NOTICE_DATE
+	     	 , PERIOD_OVER_DATE
+	     	 , PKG_TYPE
+	     	 , NOTICE_CT
+	     	 , NOTICE_WT
+	     	 , CUSTOMER_CODE
+	     	 , CUSTOMER_NAME
+	     	 , CUSTOMER_ZIPCODE
+	     	 , CUSTOMER_ADDRESS_1
+	     	 , CUSTOMER_ADDRESS_2
+	     	 , dbo.Cryptography(CARGO_REFERENCE_NO, CUSTOMER_TEL, 1) AS CUSTOMER_TEL
+	     	 , CUSTOMER_REMARKS
+	     	 , LAST_POD_DATE
+	     	 , LAST_POD_RAQ_DATE
+	     	 , LAST_POD_STATUS
+	     	 , REGISTER_USER_ID
+			 , (SELECT TOP 1 tsu.USER_NAME FROM TB_SMS_USER tsu WHERE REGISTER_USER_ID = tsu.USER_ID) AS REGISTER_USER_NAME
+	     	 , REGISTER_DATE_TIME
+	     	 , UPDATE_USER_ID
+			 , (SELECT TOP 1 tsu.USER_NAME FROM TB_SMS_USER tsu WHERE UPDATE_USER_ID = tsu.USER_ID) AS UPDATE_USER_NAME
+	     	 , UPDATE_DATE_TIME
+	     	 , 'NOTICE' AS srchGbn
+	      FROM TB_BMS_OUT_NOTICE
+	     WHERE 1=1
+		   AND CARGO_REFERENCE_NO = #{srchCargoReferenceNo}
+		   AND IN_NO = #{srchInNo}
+		 ORDER BY OUT_NOTICE_NO DESC
+	</select>
+
+	<select id="selectInventoryDetail" parameterType="searchBmsOutNotice" resultType="inventoryIn">
+		/* BmsOutNoticeMapper.selectInventoryDetail : 등록 ENTRY - 반입 1건 상세 */
+		SELECT TOP 1 A.IN_NO
+				   , A.OD_JOB_NO
+				   , A.BL_NO
+				   , A.MBL_NO
+				   , A.CARGO_REFERENCE_NO
+				   , A.OUT_NOTICE_DATE
+				   , A.PERIOD_OVER_DATE
+				   , A.PKG_TYPE
+				   , A.CT
+				   , A.WT
+				   , A.CUSTOMER_CODE
+				   , A.CUSTOMER_NAME
+				   , (SELECT TOP 1 busi.ZIPCODE FROM TB_SMS_ENT_BUSINESS busi WHERE busi.CUSTOMER_CODE = A.CUSTOMER_CODE) AS CUSTOMER_ZIPCODE
+				   , (SELECT TOP 1 busi.ADDRESS FROM TB_SMS_ENT_BUSINESS busi WHERE busi.CUSTOMER_CODE = A.CUSTOMER_CODE) AS CUSTOMER_ADDRESS_1
+				   , (SELECT TOP 1 busi.ADDRESS_A FROM TB_SMS_ENT_BUSINESS busi WHERE busi.CUSTOMER_CODE = A.CUSTOMER_CODE) AS CUSTOMER_ADDRESS_2
+				   , (SELECT TOP 1 busi.TEL FROM TB_SMS_ENT_BUSINESS busi WHERE busi.CUSTOMER_CODE = A.CUSTOMER_CODE) AS CUSTOMER_TEL
+				   , A.LAST_POD_DATE
+				   , A.LAST_POD_RAQ_DATE
+				   , A.LAST_POD_STATUS
+				   , A.LOCATION_PLACE
+				   , A.COMMODITY_ITEM_LOC
+				   , A.SE_INSPECTION_CODE
+				   , A.SIMPLE_AUTH_NAME
+				   , A.INSPECTION_TYPE
+				   , A.INSPECTION_TYPE_A
+				   , A.INSPECTION_TYPE_B
+				   , A.XRAY_INSPECTION_CODE
+				   , A.XRAY_LINE_NO
+				   , A.XRAY_CHECK
+				   , A.PALN5EM_INSPECTION_CODE
+				   , A.CD_TYPE
+				   , A.CD_USE_TYPE
+				   , A.AMOUNT_USD
+				   , A.CARRYIN_DATE
+		     	   , A.REGISTER_USER_ID
+				   , (SELECT TOP 1 tsu.USER_NAME FROM TB_SMS_USER tsu WHERE A.REGISTER_USER_ID = tsu.USER_ID) AS REGISTER_USER_NAME
+		     	   , A.REGISTER_DATE_TIME
+		     	   , A.UPDATE_USER_ID
+				   , (SELECT TOP 1 tsu.USER_NAME FROM TB_SMS_USER tsu WHERE A.UPDATE_USER_ID = tsu.USER_ID) AS UPDATE_USER_NAME
+		     	   , A.UPDATE_DATE_TIME
+				   , B.HOLD_YN
+				   , B.HOLD_REASON
+		     	   , 'STOCK' AS srchGbn
+		        FROM TB_BMS_IN A WITH (NOLOCK)
+						 LEFT JOIN (SELECT
+										'' AS HOLD_YN
+										 ,   MAX(OD_JOB_NO) AS OD_JOB_NO
+										 ,   MAX(HOLD_CODE) AS HOLD_CODE
+										 ,   MAX(HOLD_REASON) AS HOLD_REASON
+										 ,	MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+										 ,	MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+										 ,	MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+									FROM TB_ECM_OD_HOLD
+									GROUP BY OD_JOB_NO ) B
+						     ON A.OD_JOB_NO = B.OD_JOB_NO
+		       WHERE 1=1
+			     AND A.IN_NO = #{srchInNo}
+			   ORDER BY A.IN_NO DESC
+	</select>
+
+	<select id="selectErrorDesc" parameterType="String" resultType="String">
+		/* BmsOutNoticeMapper.selectErrorDesc : 등록 ENTRY - 오류내역 조회 */
+		SELECT TOP 1 ERROR_DESC
+		  FROM GT_XML_GOVCBRR20
+	 	 WHERE DECLARATION_NO = #{srchDeclarationNo} /* 화물관리번호 */
+		 ORDER BY ERROR_NO DESC
+	</select>
+
+	<select id="selectBmsOutNoticeListBySrchNo" parameterType="searchBmsOutNotice" resultType="bmsOutNotice">
+		/* BmsOutNoticeMapper.selectBmsOutNoticeListBySrchNo : 조회번호, 타입에 따라 반출통고 데이터 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT A.IN_NO
+			 , A.OUT_NOTICE_NO
+			 , A.OUT_NOTICE_DATE
+			 , A.BL_NO
+			 , A.CARGO_REFERENCE_NO
+			 , (SELECT B.IN_CLASS FROM TB_BMS_IN B WITH (NOLOCK) WHERE A.IN_NO = B.IN_NO) AS IN_CLASS
+			 , A.MBL_NO
+			 , 'NOTICE' AS SRCH_GBN
+		  FROM TB_BMS_OUT_NOTICE A
+		  LEFT JOIN TB_BMS_IN tbi WITH (NOLOCK)
+		  	ON tbi.IN_NO = A.IN_NO
+		 <choose>
+		 	<when test='srchNoType == "CUSTOMS_REPORT_NO"'>
+			WHERE tbi.${srchNoType} = #{srchNo}
+			</when>
+			<otherwise>
+			WHERE A.${srchNoType} = #{srchNo}
+			</otherwise>
+		</choose>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectInventoryListBySrchNo" parameterType="searchBmsOutNotice" resultType="inventoryIn">
+		/* BmsOutNoticeMapper.selectInventoryListBySrchNo : 조회번호, 타입에 따라 반입 데이터 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT A.IN_NO
+		 	 , A.CARRYIN_DATE
+		 	 , A.OUT_NOTICE_DATE
+		 	 , A.BL_NO
+		 	 , A.CARGO_REFERENCE_NO
+			 , A.IN_CLASS
+		 	 , A.MBL_NO
+			 , 'STOCK' AS SRCH_GBN
+		  FROM TB_BMS_IN A WITH (NOLOCK)
+		 WHERE A.${srchNoType} = #{srchNo}
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<update id="updateBmsOutNotice"  parameterType="bmsOutNotice">
+		/* BmsOutNoticeMapper.updateBmsOutNotice : 등록 ENTRY - 반출통고 UPDATE */
+		UPDATE TB_BMS_OUT_NOTICE
+		 <set>
+			   CUSTOMS_CODE = (SELECT BMS_CUSTOMS_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode})
+			 , CUSTOMS_DPT_CODE = (SELECT BMS_CUSTOMS_DPT_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode})
+		 	 , IN_NO = #{inNo}
+			 , CARGO_REFERENCE_NO = #{cargoReferenceNo}
+			 , BL_NO = #{blNo}
+			 , MBL_NO = #{mblNo}
+		  <if test='lastPodStatus != null and lastPodStatus != "" and (lastPodStatus.equals("BMS02") or lastPodStatus.equals("BMS05"))'>
+			 , LAST_POD_STATUS = 'BMS01'
+			 , LAST_POD_DATE = ''
+			 , LAST_POD_RAQ_DATE = ''
+		  </if>
+			 , OUT_NOTICE_DATE = #{outNoticeDate}
+			 , PERIOD_OVER_DATE = #{periodOverDate}
+			 , PKG_TYPE = #{pkgType}
+			 , NOTICE_CT = #{noticeCt}
+			 , NOTICE_WT = #{noticeWt}
+			 , CUSTOMER_CODE = #{customerCode}
+			 , CUSTOMER_NAME = #{customerName}
+			 , CUSTOMER_ZIPCODE = #{customerZipcode}
+			 , CUSTOMER_ADDRESS_1 = #{customerAddress1}
+			 , CUSTOMER_ADDRESS_2 = #{customerAddress2}
+			 , CUSTOMER_TEL = dbo.Cryptography(#{cargoReferenceNo}, #{customerTel}, 0)
+			 , CUSTOMER_REMARKS = #{customerRemarks}
+			 , UPDATE_USER_ID = #{updateUserId}
+			 , UPDATE_DATE_TIME = GETDATE()
+		</set>
+		 WHERE OUT_NOTICE_NO = #{outNoticeNo}
+	</update>
+
+	<insert id="insertBmsOutNotice" parameterType="bmsOutNotice">
+		/* BmsOutNoticeMapper.insertBmsOutNotice : 등록 ENTRY - 반출통고 INSERT */
+		INSERT INTO TB_BMS_OUT_NOTICE (
+			   CUSTOMS_CODE
+ 			 , CUSTOMS_DPT_CODE
+			 , IN_NO
+			 , CARGO_REFERENCE_NO
+			 , BL_NO
+			 , MBL_NO
+			 , LAST_POD_DATE
+			 , LAST_POD_STATUS
+			 , LAST_POD_RAQ_DATE
+			 , OUT_NOTICE_DATE
+			 , PERIOD_OVER_DATE
+			 , PRINT_YN
+			 , PKG_TYPE
+			 , NOTICE_CT
+			 , NOTICE_WT
+			 , CUSTOMER_CODE
+			 , CUSTOMER_NAME
+			 , CUSTOMER_ZIPCODE
+			 , CUSTOMER_ADDRESS_1
+			 , CUSTOMER_ADDRESS_2
+			 , CUSTOMER_TEL
+			 , CUSTOMER_REMARKS
+			 , REGISTER_USER_ID
+			 , REGISTER_DATE_TIME
+			 , UPDATE_USER_ID
+			 , UPDATE_DATE_TIME
+		) VALUES (
+			   (SELECT BMS_CUSTOMS_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode})
+ 			 , (SELECT BMS_CUSTOMS_DPT_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode})
+			 , #{inNo}
+			 , #{cargoReferenceNo}
+			 , #{blNo}
+			 , #{mblNo}
+			 , ''
+			 , 'BMS01'
+			 , ''
+			 , #{outNoticeDate}
+			 , #{periodOverDate}
+			 , #{printYn}
+			 , #{pkgType}
+			 , #{noticeCt}
+			 , #{noticeWt}
+			 , #{customerCode}
+			 , #{customerName}
+			 , #{customerZipcode}
+			 , #{customerAddress1}
+			 , #{customerAddress2}
+			 , dbo.Cryptography(#{cargoReferenceNo}, #{customerTel}, 0)
+			 , #{customerRemarks}
+			 , #{registerUserId}
+	 		 , GETDATE()
+			 , #{updateUserId}
+			 , GETDATE()
+		)
+	</insert>
+	
+	<update id="updateOutNoticePrintYn"  parameterType="bmsOutNoticeList">
+		/* BmsOutNoticeMapper.updateOutNoticePrintYn : 반출통고 출력여부 수정 */
+		UPDATE TB_BMS_OUT_NOTICE SET
+			   PRINT_YN = 'Y'
+		WHERE OUT_NOTICE_NO IN(<foreach collection="bmsOutNoticeList" item="item" separator=",">#{item.outNoticeNo}</foreach>)
+	</update>
+
+	<update id="updateBmsInDate"  parameterType="bmsOutNotice">
+		/* BmsOutNoticeMapper.updateBmsInDate : 등록 ENTRY - 반입 통고일자, 체화일자 UPDATE */
+		UPDATE TB_BMS_IN
+		 <set>
+			   OUT_NOTICE_DATE = #{outNoticeDate}
+			 , PERIOD_OVER_DATE = #{periodOverDate}
+			 , UPDATE_USER_ID = #{updateUserId}
+			 , UPDATE_DATE_TIME = GETDATE()
+		</set>
+		 WHERE IN_NO = #{inNo}
+	</update>
+
+	<update id="updateOutNoticeYn"  parameterType="bmsOutNotice">
+		/* BmsOutNoticeMapper.updateOutNoticeYn : 반출통고누락 반출통고등록여부 UPDATE */
+		UPDATE TB_BMS_OUT_NOTICE_PLAN
+		 <set>
+			   OUT_NOTICE_YN = 'Y'
+			 , REGISTER_USER_ID = #{registerUserId}
+			 , REGISTER_DATE_TIME = GETDATE()
+		</set>
+		 WHERE IN_NO = #{inNo}
+	</update>
+
+	<delete id="deleteBmsOutNotice" parameterType="bmsOutNotice">
+		/* BmsOutNoticeMapper.deleteBmsOutNotice : 반출통고 삭제 */
+		DELETE FROM TB_BMS_OUT_NOTICE
+		 WHERE OUT_NOTICE_NO = #{outNoticeNo}
+	</delete>
+	
+	<update id="updatePodStatusFromBmsOutNotice"  parameterType="bmsOutNotice">
+		/* BmsOutNoticeMapper.updatePodStatusFromBmsOutNotice : 반출통고 POD상태 UPDATE */
+		UPDATE TB_BMS_OUT_NOTICE
+			SET
+			   LAST_POD_STATUS = #{lastPodStatus}
+			 , LAST_POD_DATE = ''
+			 , UPDATE_USER_ID = #{registerUserId}
+			 , UPDATE_DATE_TIME = GETDATE()
+		 WHERE OUT_NOTICE_NO = #{outNoticeNo}
+	</update>
+	
+	<select id="selectOutNoticeInNoticeNoWithBms01"  parameterType="HashMap" resultType="bmsOutNotice">
+		/* BmsOutNoticeMapper.selectOutNoticeInNoticeNoWithBms01 :  */
+		SELECT
+			notice.*
+			, carryIn.OD_JOB_NO
+		FROM TB_BMS_OUT_NOTICE notice
+		LEFT JOIN TB_BMS_IN carryIn
+			ON carryIn.IN_NO = notice.IN_NO
+		WHERE notice.OUT_NOTICE_NO IN(<foreach collection="bmsOutNoticeList" item="item" separator=",">#{item.outNoticeNo}</foreach>)
+			AND notice.LAST_POD_STATUS = 'BMS01'
+	</select>
+	
+	<select id="selectBmsInCalcOutNoticeDateByInNo" parameterType="HashMap" resultType="inventoryIn">
+		/* BmsOutNoticeMapper.selectBmsInCalcOutNoticeDateByInNo : 반입번호에 해당하는 반입(재계산된 통고일자,체화일자 포함) 조회 */
+		SELECT
+			CONVERT(VARCHAR(10), DATEADD(MONTH, -1, dbo.GET_DATE_DIFF_WORK_DAYS_FOR_NOTICE_DATE(CARRYIN_DATE, #{optionValue}, 'Y')), 23) AS OUT_NOTICE_DATE
+		 	, dbo.GET_DATE_DIFF_WORK_DAYS_FOR_NOTICE_DATE(CARRYIN_DATE, #{optionValue}, 'Y') AS PERIOD_OVER_DATE
+			, *
+		FROM TB_BMS_IN WITH(NOLOCK)
+		WHERE IN_NO = #{inNo}
+	</select>
+	
+	<select id="selectBmsOutNoticeForExcelUpload" parameterType="String" resultType="bmsOutNotice">
+		/* BmsOutNoticeMapper.selectBmsOutNoticeForExcelUpload : 엑셀업로드 - 반출통고 조회 */
+		SELECT A.IN_NO
+			 , A.OUT_NOTICE_NO
+			 , A.OUT_NOTICE_DATE
+			 , A.BL_NO
+			 , A.CARGO_REFERENCE_NO
+			 , A.MBL_NO
+		  FROM TB_BMS_OUT_NOTICE A
+		  LEFT JOIN TB_BMS_IN tbi WITH (NOLOCK)
+		  	ON tbi.IN_NO = A.IN_NO
+			WHERE A.CARGO_REFERENCE_NO = #{cargoReferenceNo}
+	</select>
+	
+	<select id="selectBmsInForExcelUpload" parameterType="HashMap" resultType="inventoryIn">
+		/* BmsOutNoticeMapper.selectBmsInForExcelUpload : 엑셀업로드 - 반입 조회 */
+		SELECT A.IN_NO
+		 	 , A.CARRYIN_DATE
+		 	 , A.BL_NO
+		 	 , A.CARGO_REFERENCE_NO
+			 , A.IN_CLASS
+		 	 , A.MBL_NO
+		 	 , A.PKG_TYPE
+		 	 , A.STOCK_CT - outPlan.APPROVAL_CT AS CT
+		 	 , A.STOCK_WT - outPlan.APPROVAL_WT AS WT
+		 	 , A.CUSTOMER_CODE
+		 	 , CONVERT(VARCHAR(10), DATEADD(MONTH, -1, dbo.GET_DATE_DIFF_WORK_DAYS_FOR_NOTICE_DATE(A.CARRYIN_DATE, #{optionValue}, 'Y')), 23) AS OUT_NOTICE_DATE
+		 	 , dbo.GET_DATE_DIFF_WORK_DAYS_FOR_NOTICE_DATE(A.CARRYIN_DATE, #{optionValue}, 'Y') AS PERIOD_OVER_DATE
+		  FROM TB_BMS_IN A WITH (NOLOCK)
+		  OUTER APPLY
+			(
+			    SELECT
+			    	ISNULL(SUM(ISNULL(OP.APPROVAL_CT, 0)), 0) AS APPROVAL_CT
+			    	, ISNULL(SUM(ISNULL(OP.APPROVAL_WT, 0)), 0) AS APPROVAL_WT
+			    FROM TB_BMS_OUT_PLAN OP WITH (NOLOCK)
+			    WHERE OP.IN_NO = A.IN_NO
+			      AND OP.APPROVAL_CLASS = '31'
+			      AND OP.OUT_YN = 'N'
+			) outPlan
+		 WHERE A.CARGO_REFERENCE_NO = #{cargoReferenceNo}
+			  AND A.STOCK_CT - outPlan.APPROVAL_CT > 0
+	</select>
+	
+	<insert id="insertExcelUploadOutNotice" parameterType="HashMap">
+		/* BmsOutNoticeMapper.insertExcelUploadOutNotice : 엑셀업로드 - 반출통고 INSERT */
+		INSERT INTO TB_BMS_OUT_NOTICE (
+			   CUSTOMS_CODE
+ 			 , CUSTOMS_DPT_CODE
+			 , IN_NO
+			 , CARGO_REFERENCE_NO
+			 , BL_NO
+			 , MBL_NO
+			 , LAST_POD_DATE
+			 , LAST_POD_STATUS
+			 , LAST_POD_RAQ_DATE
+			 , OUT_NOTICE_DATE
+			 , PERIOD_OVER_DATE
+			 , PRINT_YN
+			 , PKG_TYPE
+			 , NOTICE_CT
+			 , NOTICE_WT
+			 , CUSTOMER_CODE
+			 , CUSTOMER_NAME
+			 , CUSTOMER_ZIPCODE
+			 , CUSTOMER_ADDRESS_1
+			 , CUSTOMER_ADDRESS_2
+			 , CUSTOMER_TEL
+			 , CUSTOMER_REMARKS
+			 , REGISTER_USER_ID
+			 , REGISTER_DATE_TIME
+			 , UPDATE_USER_ID
+			 , UPDATE_DATE_TIME
+		) VALUES (
+			   (SELECT BMS_CUSTOMS_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode})
+ 			 , (SELECT BMS_CUSTOMS_DPT_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_BUSINESS_CODE = #{entBusinessCode})
+ 			 , #{inNo}
+			 , #{cargoReferenceNo}
+			 , #{blNo}
+			 , #{mblNo}
+			 , ''
+			 , 'BMS01'
+			 , ''
+			 , #{outNoticeDate}
+			 , #{periodOverDate}
+			 , #{printYn}
+			 , #{pkgType}
+			 , #{noticeCt}
+			 , #{noticeWt}
+			 , #{customerCode}
+			 , #{customerName}
+			 , #{customerZipcode}
+			 , #{customerAddress1}
+			 , #{customerAddress2}
+			 , dbo.Cryptography(#{cargoReferenceNo}, #{customerTel}, 0)
+			 , #{customerRemarks}
+			 , #{registerUserId}
+	 		 , GETDATE()
+			 , #{updateUserId}
+			 , GETDATE()
+		);
+		
+		UPDATE TB_BMS_IN
+			SET
+				OUT_NOTICE_DATE = #{outNoticeDate}
+				, PERIOD_OVER_DATE = #{periodOverDate}
+				, UPDATE_USER_ID = #{updateUserId}
+			    , UPDATE_DATE_TIME = GETDATE()
+		WHERE IN_NO = #{inNo};
+			
+	</insert>
+	
+	<update id="updateExcelUploadOutNotice"  parameterType="HashMap">
+		/* BmsOutNoticeMapper.updateExcelUploadOutNotice : 엑셀업로드 - 반출통고 UPDATE */
+		UPDATE TB_BMS_OUT_NOTICE SET
+			   CUSTOMER_NAME = #{customerName}
+			 <!-- , CUSTOMER_CODE = #{customerCode} -->
+			 , CUSTOMER_ZIPCODE = #{customerZipcode}
+			 , CUSTOMER_ADDRESS_1 = #{customerAddress1}
+			 , CUSTOMER_ADDRESS_2 = #{customerAddress2}
+			 , CUSTOMER_TEL = dbo.Cryptography(#{cargoReferenceNo}, #{customerTel}, 0)
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+	</update>
+
+</mapper>

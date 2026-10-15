@@ -1,0 +1,1323 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        
+<mapper namespace="org.yht.exps.express.mapper.pda.PdaLocationPaloMapper">
+
+	<select id="selectPkgNoInfo" parameterType="SearchMobBwlo" resultType="mobPalo">
+		/* PdaLocationPaloMapper.selectPkgNoInfo : 로케이션적치 - 박스번호조회 */
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+		SELECT TOP 1
+			   '반입예정' AS dGbn
+			  , P.BL_NO
+			  , P.OD_JOB_NO
+			  , P.CARGO_REFERENCE_NO
+			  , PP.PACKING_NO
+			  , P.EX_CT AS CT
+			  , P.EX_WT AS WT
+			  , P.IN_PLAN_NO
+			  , PP.LOCATION_PLACE
+			  , 0 AS IN_NO
+			  , H.CARRYOUT_STOP_YN
+			  , 'N' AS INSPECTION
+			  , 'N' AS INSPECTION_FINISH_YN
+			  , '' AS HOLD_HISTORY
+			  , '' AS APPROVAL_DATE
+			  , 0 AS STORAGE_DAYS
+			  , 1 AS SORT_SEQ
+		FROM TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		LEFT JOIN (SELECT MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN, OD_JOB_NO FROM TB_ECM_OD_HOLD WITH (NOLOCK) WHERE HOLD_RELEASE_YN = 'N' GROUP BY OD_JOB_NO) H
+		ON P.OD_JOB_NO = H.OD_JOB_NO 
+		WHERE PP.PACKING_NO = #{srchNo} AND PP.DELETE_YN = 'N' AND PP.OUT_CT = 0
+		<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+		AND P.BL_NO = #{srchBlNo}
+		</if>
+		UNION ALL
+		SELECT TOP 1
+			   '반입' AS dGbn
+			  , I.BL_NO
+			  , I.OD_JOB_NO
+			  , I.CARGO_REFERENCE_NO
+			  , PP.PACKING_NO
+			  , I.CT
+			  , I.WT
+			  , I.IN_PLAN_NO
+			  , PP.LOCATION_PLACE
+			  , I.IN_NO
+			  , H.CARRYOUT_STOP_YN
+			  , CASE WHEN I.SE_INSPECTION_CODE <![CDATA[<>]]> '' OR I.INSPECTION_TYPE <![CDATA[<>]]> '' OR I.INSPECTION_TYPE_A <![CDATA[<>]]> '' OR I.INSPECTION_TYPE_B <![CDATA[<>]]> '' OR I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '' OR I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> ''
+		      	THEN 'Y' ELSE 'N'  END AS INSPECTION
+		      , ISNULL(IR.M_INSPECTION_FINISH_YN, 'N') AS INSPECTION_FINISH_YN
+		      , ISNULL(H.HOLD_HISTORY, 'N') AS HOLD_HISTORY
+		      , ISNULL(OP.APPROVAL_DATE, '') AS APPROVAL_DATE
+		      , CASE WHEN DATEDIFF(DAY, CONVERT(DATE, NULLIF(LTRIM(RTRIM(I.CARRYIN_DATE)), ''), 23), GETDATE()) + 1 <![CDATA[<]]> 1 THEN 1
+			         ELSE DATEDIFF(DAY, CONVERT(DATE, NULLIF(LTRIM(RTRIM(I.CARRYIN_DATE)), ''), 23), GETDATE()) + 1
+			    END AS STORAGE_DAYS
+			  , 2 AS SORT_SEQ
+		FROM TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN I WITH (NOLOCK)
+		ON PP.IN_PLAN_NO = I.IN_PLAN_NO
+		LEFT JOIN TB_BMS_OUT_PLAN OP WITH (NOLOCK)
+		ON I.IN_NO = OP.IN_NO
+		LEFT JOIN (SELECT 'Y' AS HOLD_HISTORY, OD_JOB_NO, MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN FROM TB_ECM_OD_HOLD WITH (NOLOCK) GROUP BY OD_JOB_NO) H
+		ON I.OD_JOB_NO = H.OD_JOB_NO
+		LEFT JOIN (SELECT IN_NO, MIN(INSPECTION_FINISH_YN) M_INSPECTION_FINISH_YN FROM TB_BMS_INSPECT_RESULT WITH (NOLOCK) GROUP BY IN_NO) IR
+		ON I.IN_NO = IR.IN_NO
+		WHERE PP.PACKING_NO = #{srchNo} AND PP.DELETE_YN = 'N' AND PP.OUT_CT = 0
+		<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+		AND I.BL_NO = #{srchBlNo}
+		</if>
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+	
+	<select id="selectPkgNoInfoNew" parameterType="SearchMobBwlo" resultType="mobPalo">
+		/* PdaLocationPaloMapper.selectPkgNoInfoNew : new 로케이션적치 - 박스번호조회 */
+		SELECT TOP 1
+			   CASE WHEN ISNULL(I.IN_NO, 0) <![CDATA[<>]]> 0 THEN '반입' 
+			   		ELSE '반입예정'
+			   END AS dGbn
+			  , P.BL_NO
+			  , P.OD_JOB_NO
+			  , P.CARGO_REFERENCE_NO
+			  , PP.PACKING_NO
+			  , COALESCE(I.CT, P.EX_CT) AS CT
+			  , COALESCE(I.WT, P.EX_WT) AS WT
+			  , P.IN_PLAN_NO
+			  , PP.LOCATION_PLACE
+			  , PP.ORIG_LOCATION_PLACE
+			  , I.IN_NO AS IN_NO
+			  , H.CARRYOUT_STOP_YN
+		      , ISNULL(H.HOLD_HISTORY, 'N') AS HOLD_HISTORY
+		      , ISNULL(OP.APPROVAL_DATE, '') AS APPROVAL_DATE
+		      , CASE WHEN I.IN_NO IS NULL THEN 0 
+		      		 WHEN DATEDIFF(DAY, CONVERT(DATE, NULLIF(LTRIM(RTRIM(I.CARRYIN_DATE)), ''), 23), GETDATE()) + 1 <![CDATA[<]]> 1 THEN 1
+			         ELSE DATEDIFF(DAY, CONVERT(DATE, NULLIF(LTRIM(RTRIM(I.CARRYIN_DATE)), ''), 23), GETDATE()) + 1
+			    END AS STORAGE_DAYS
+			  , P.SE_INSPECTION_CODE
+			  , P.PALN5EM_INSPECTION_CODE
+			  , XR.XRAY_INSPECTION_CODE AS XRAY_INSPECTION_CODE
+			  , P.INSPECTION_TYPE
+			  , P.INSPECTION_TYPE_A
+			  , P.INSPECTION_TYPE_B
+			  , P.BIG_SIZE_YN 
+			  , P.INSPECTION_CUSTOMS_YN
+			  , P.INTELLECTUAL_PROP_YN
+			  , P.CRIME_SELECTION_YN
+			  , PP.DELETE_YN
+	 <choose>
+		<when test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+			  , (
+			  	SELECT
+			  		ALL_INSPECTION_FINISH_YN
+			  	FROM TB_BMS_IN WITH (NOLOCK)
+				WHERE 
+					IN_PLAN_NO = #{srchInPlanNo}
+			  	) AS ALL_INSPECTION_FINISH_YN 
+		</when>
+		<otherwise>
+			  , 'N' AS ALL_INSPECTION_FINISH_YN
+		</otherwise>		
+	</choose> 
+		FROM TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+			ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		LEFT JOIN (SELECT MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN, OD_JOB_NO, 'Y' AS HOLD_HISTORY FROM TB_ECM_OD_HOLD WITH (NOLOCK) WHERE HOLD_RELEASE_YN = 'N' GROUP BY OD_JOB_NO) H
+			ON P.OD_JOB_NO = H.OD_JOB_NO
+		LEFT JOIN TB_BMS_XRAY_RESULT XR
+			ON XR.IN_PLAN_NO = PP.IN_PLAN_NO
+	<choose>
+		<when test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		LEFT JOIN 
+			(SELECT
+				TOP 1
+				IN_NO
+				, IN_PLAN_NO
+				, CARRYIN_DATE
+				, ORIG_IN_PLAN_NO
+				, CT
+				, WT
+			FROM TB_BMS_IN WITH (NOLOCK)
+			WHERE 
+				IN_PLAN_NO = #{srchInPlanNo}
+				OR ORIG_IN_PLAN_NO = #{srchInPlanNo}
+			ORDER BY CAST(CARRYIN_DATE + ' ' + CARRYIN_TIME AS DATETIME) DESC
+			) I
+		</when>
+		<otherwise>
+		LEFT JOIN 
+			(SELECT
+				NULL AS IN_NO
+				, NULL AS IN_PLAN_NO
+				, NULL AS CARRYIN_DATE
+				, NULL AS ORIG_IN_PLAN_NO
+				, NULL AS CT
+				, NULL AS WT
+			) I
+		</otherwise>		
+	</choose> 
+			ON I.IN_PLAN_NO = PP.IN_PLAN_NO OR I.ORIG_IN_PLAN_NO = PP.IN_PLAN_NO
+		LEFT JOIN TB_BMS_OUT_PLAN OP WITH (NOLOCK)
+			ON I.IN_NO = OP.IN_NO
+		WHERE PP.PACKING_NO = #{srchNo}
+			<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+			AND PP.IN_PLAN_NO = #{srchInPlanNo}
+			</if>
+			<if test="srchBlNo != null and srchBlNo != ''">
+			AND P.BL_NO = #{srchBlNo}
+			</if>
+	</select>
+	
+	<select id="selectPkgNoByPlanNoAndBlNo" parameterType="SearchMobBwlo" resultType="mobPalo">
+		/* PdaLocationPaloMapper.selectPkgNoByPlanNoAndBlNo : 로케이션적치 - 박스조회 */
+		SELECT
+			  P.BL_NO
+			  , P.OD_JOB_NO
+			  , P.CARGO_REFERENCE_NO
+			  , PP.PACKING_NO
+			  , P.EX_CT AS CT
+			  , P.EX_WT AS WT
+			  , P.IN_PLAN_NO
+			  , PP.LOCATION_PLACE
+			  , ISNULL(I.IN_NO, 0) AS IN_NO
+			  , ISNULL(I.ALL_INSPECTION_FINISH_YN, '') AS ALL_INSPECTION_FINISH_YN
+			  , H.CARRYOUT_STOP_YN
+			  , CASE WHEN I.SE_INSPECTION_CODE <![CDATA[<>]]> '' OR I.INSPECTION_TYPE <![CDATA[<>]]> '' OR I.INSPECTION_TYPE_A <![CDATA[<>]]> '' OR I.INSPECTION_TYPE_B <![CDATA[<>]]> '' OR I.XRAY_INSPECTION_CODE <![CDATA[<>]]> '' OR I.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> ''
+		      		THEN 'Y' ELSE 'N'  END AS INSPECTION
+		      , ISNULL(IR.M_INSPECTION_FINISH_YN, 'N') AS INSPECTION_FINISH_YN
+			  , ISNULL(H.HOLD_HISTORY, 'N') AS HOLD_HISTORY
+			  , ISNULL(OP.APPROVAL_DATE, '') AS APPROVAL_DATE
+		      , CASE WHEN DATEDIFF(DAY, CONVERT(DATE, NULLIF(LTRIM(RTRIM(I.CARRYIN_DATE)), ''), 23), GETDATE()) + 1 <![CDATA[<]]> 1 THEN 1
+			         ELSE DATEDIFF(DAY, CONVERT(DATE, NULLIF(LTRIM(RTRIM(I.CARRYIN_DATE)), ''), 23), GETDATE()) + 1
+			    END AS STORAGE_DAYS
+		FROM TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+			ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		LEFT JOIN TB_BMS_IN I WITH (NOLOCK)
+			ON PP.IN_PLAN_NO = I.IN_PLAN_NO
+		LEFT JOIN TB_BMS_OUT_PLAN OP WITH (NOLOCK)
+			ON I.IN_NO = OP.IN_NO
+		LEFT JOIN (SELECT 'Y' AS HOLD_HISTORY, OD_JOB_NO, MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN FROM TB_ECM_OD_HOLD WITH (NOLOCK) GROUP BY OD_JOB_NO) H
+			ON I.OD_JOB_NO = H.OD_JOB_NO
+		LEFT JOIN (SELECT IN_NO, MIN(INSPECTION_FINISH_YN) M_INSPECTION_FINISH_YN FROM TB_BMS_INSPECT_RESULT WITH (NOLOCK) GROUP BY IN_NO) IR
+			ON I.IN_NO = IR.IN_NO
+		WHERE PP.DELETE_YN = 'N' 
+			AND PP.OUT_CT = 0
+			<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+			AND PP.IN_PLAN_NO = #{srchInPlanNo}
+			</if>
+			<if test="srchBlNo != null and srchBlNo != ''">
+			AND P.BL_NO = #{srchBlNo}
+			</if>
+			<if test="srchLocationStatus != null and srchLocationStatus != ''">
+			AND PP.LOCATION_STATUS = #{srchLocationStatus}
+			</if>
+			<if test="srchNotLocationStatus != null and srchNotLocationStatus != ''">
+			AND PP.LOCATION_STATUS <![CDATA[<>]]> #{srchNotLocationStatus}
+			</if>
+	</select>
+	
+	<select id="selectEmptyLocation" parameterType="SearchBmsPkgNoList" resultType="mobPalo">
+		/* PdaLocationPaloMapper.selectEmptyLocation : 로케이션적치 - 공로케이션조회 */
+	<!-- 	<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+		SELECT CODE AS LOCATION_PLACE_CODE, NAME_DEFAULT AS LOCATION_PLACE_NAME, LOCATION_PLACE 
+		FROM (
+			SELECT CODE, NAME_DEFAULT	
+			FROM TB_SMS_CODE_DETAIL LOC	
+			WHERE  LOC.GROUP_CODE = 'WH_LOCATION' 
+		) W
+		LEFT JOIN (
+			SELECT LOCATION_PLACE 
+			FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+			WHERE LOCATION_STATUS = 'L' 
+			AND DELETE_YN = 'N' GROUP BY LOCATION_PLACE 
+		) PW
+		ON W.CODE = PW.LOCATION_PLACE 
+		WHERE PW.LOCATION_PLACE IS NULL
+	<!-- 	<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+	
+	<update id="updateBmsInAndInPlanPkgLocationInfo" parameterType="HashMap">
+		/* PdaLocationPaloMapper.updateBmsInAndInPlanPkgLocationInfo : 로케이션적치 - 반입예정 PKG 업데이트 */
+		UPDATE PP
+		   SET PP.LOCATION_PLACE = #{locationPlace}
+		   	 , PP.ORIG_LOCATION_PLACE = 
+		   	 				 CASE 
+                                WHEN PP.ORIG_LOCATION_PLACE = '' THEN #{locationPlace} 
+                                ELSE PP.ORIG_LOCATION_PLACE 
+                             END
+		   	 , PP.LOCATION_STATUS = 'L'
+		   	 , PP.UPDATE_USER_ID = #{updateUserId}
+		   	 , PP.UPDATE_DATE_TIME = GETDATE()
+		  FROM TB_BMS_IN_PLAN_PKG PP
+		  JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		    ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		 WHERE PP.PACKING_NO = #{packingNo}
+		   AND PP.IN_PLAN_NO = #{inPlanNo}
+		<if test="srchBlNo != null and srchBlNo != ''">
+		   AND P.BL_NO = #{srchBlNo}
+		</if>
+		;
+	</update>
+	
+	<update id="updateBmsInAndInPlanPkgLocationInfo2" parameterType="HashMap">
+		/* PdaLocationPaloMapper.updateBmsInAndInPlanPkgLocationInfo : 로케이션적치 - 반입예정 PKG 업데이트 */
+		IF(#{srchOrigLocation} IS NOT NULL and #{srchOrigLocation} <![CDATA[<>]]> '')
+			BEGIN
+				IF (#{applyAllLoactionYn} = 'Y' and #{inPlanNo} IS NOT NULL and #{inPlanNo} <![CDATA[<>]]> '' and #{inPlanNo} > 0)
+					BEGIN
+						UPDATE TB_BMS_IN_PLAN_PKG
+							SET 
+								ORIG_LOCATION_PLACE = #{srchOrigLocation}
+							   	, LOCATION_PLACE = CASE 
+							   							WHEN PACKING_NO = #{packingNo} THEN #{locationPlace}
+							   							ELSE LOCATION_PLACE
+							   					    END
+							   	, LOCATION_STATUS = CASE 
+							   							WHEN PACKING_NO = #{packingNo} THEN 'L'
+							   							ELSE LOCATION_STATUS
+							   					    END
+								, UPDATE_USER_ID = #{updateUserId}
+					   	 		, UPDATE_DATE_TIME = GETDATE()
+						WHERE IN_PLAN_NO = #{inPlanNo}
+							AND DELETE_YN = 'N'
+					END
+				ELSE
+					BEGIN
+						UPDATE TB_BMS_IN_PLAN_PKG
+							SET 
+								LOCATION_PLACE = #{locationPlace}
+							   	, ORIG_LOCATION_PLACE = #{srchOrigLocation}
+							   	, LOCATION_STATUS = 'L'
+								, UPDATE_USER_ID = #{updateUserId}
+					   	 		, UPDATE_DATE_TIME = GETDATE()
+						WHERE PACKING_NO = #{packingNo}
+							<if test="inPlanNo != null and inPlanNo != '' and inPlanNo != '0' and inPlanNo != 0">
+							AND IN_PLAN_NO = #{inPlanNo}
+							</if>
+							<if test="srchBlNo != null and srchBlNo != ''">
+							AND BL_NO = #{srchBlNo}
+							</if>
+							AND DELETE_YN = 'N'
+					END
+			END
+		ELSE
+			BEGIN
+				UPDATE TB_BMS_IN_PLAN_PKG
+				   SET LOCATION_PLACE = #{locationPlace}
+				   	 , ORIG_LOCATION_PLACE = CASE 
+					   							WHEN ORIG_LOCATION_PLACE = '' THEN #{locationPlace}
+					   							ELSE ORIG_LOCATION_PLACE
+					   					    END
+				   	 , LOCATION_STATUS = 'L'
+				   	 , UPDATE_USER_ID = #{updateUserId}
+				   	 , UPDATE_DATE_TIME = GETDATE()
+				 WHERE IN_PLAN_NO = #{inPlanNo}
+				 <if test="packingNo != null and packingNo != ''">
+				 	AND PACKING_NO = #{packingNo}
+				 </if>
+				 <if test="srchBlNo != null and srchBlNo != ''">
+				    AND BL_NO = #{srchBlNo}
+				 </if>
+			END
+		;
+	</update>
+	
+	<update id="updateBmsInLocationInfo" parameterType="HashMap">
+		/* PdaLocationPaloMapper.updateBmsInLocationInfo : 로케이션적치 - 반입 로케이션정보 업데이트 */
+	     UPDATE TB_BMS_IN
+	   	   SET LOCATION_PLACE = #{locationPlace}
+	   	 	 , UPDATE_USER_ID = #{updateUserId}
+	   	 	 , UPDATE_DATE_TIME = GETDATE()
+	 	 WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+	</update>
+	
+	<update id="updateLocationFromInPlanPkg" parameterType="HashMap">
+		/* PdaLocationPaloMapper.updateLocationFromInPlanPkg : 로케이션적치 - 반입예정 PKG, 반입 로케이션정보 업데이트 */
+		UPDATE PP
+		   SET PP.LOCATION_PLACE = #{locationPlace}
+		   	 , PP.ORIG_LOCATION_PLACE = CASE 
+		   							WHEN PP.ORIG_LOCATION_PLACE = '' THEN #{locationPlace}
+		   							ELSE PP.ORIG_LOCATION_PLACE
+		   					    END
+		   	 , PP.LOCATION_STATUS = 'L'
+		   	 , PP.UPDATE_USER_ID = #{updateUserId}
+		   	 , PP.UPDATE_DATE_TIME = GETDATE()
+		  FROM TB_BMS_IN_PLAN_PKG PP
+		  JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		    ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		 WHERE PP.IN_PLAN_NO = #{inPlanNo}
+		<if test="srchBlNo != null and srchBlNo != ''">
+		   AND P.BL_NO = #{srchBlNo}
+		</if>
+		;
+		
+		UPDATE TB_BMS_IN
+	   	   SET LOCATION_PLACE = #{locationPlace}
+	   	 	 , UPDATE_USER_ID = #{updateUserId}
+	   	 	 , UPDATE_DATE_TIME = GETDATE()
+	 	 WHERE 
+	 	 	IN_NO = #{inNo}
+	 	 	OR ORIG_IN_PLAN_NO = #{inPlanNo};
+	</update>
+	
+	<update id="updateInPlanPkgLocationInfo" parameterType="HashMap">
+		/* PdaLocationPaloMapper.updateInPlanPkgLocationInfo : 로케이션정보 업데이트 */
+		UPDATE _pkg
+		   SET _pkg.LOCATION_STATUS = #{locationStatus}
+		   	 , _pkg.LOCATION_PLACE = ''
+		   	 , _pkg.UPDATE_USER_ID = #{updateUserId}
+		   	 , _pkg.UPDATE_DATE_TIME = GETDATE()
+		  FROM TB_BMS_IN_PLAN_PKG _pkg
+		  JOIN TB_BMS_IN_PLAN _inPlan WITH (NOLOCK)
+		    ON _pkg.IN_PLAN_NO = _inPlan.IN_PLAN_NO
+		 WHERE _pkg.PACKING_NO = #{packingNo}
+		 <if test="inPlanNo != null and inPlanNo != '' and inPlanNo != '0' and inPlanNo != 0">
+		   AND _pkg.IN_PLAN_NO = #{inPlanNo}
+		 </if>
+		 <if test="blNo != null and blNo != ''">
+		   AND _inPlan.BL_NO = #{blNo}
+		 </if>
+	</update>
+	
+	<update id="batchUpdateInPlanPkgLocationInfo">
+		/* PdaLocationPaloMapper.batchUpdateInPlanPkgLocationInfo : 로케이션정보 일괄 업데이트 */
+	    UPDATE _pkg
+	       SET _pkg.LOCATION_STATUS = #{locationStatus}
+	       	 , _pkg.UPDATE_USER_ID = #{updateUserId}
+	         , _pkg.UPDATE_DATE_TIME = GETDATE()
+	         , _pkg.LOCATION_PLACE  = ''
+	      FROM TB_BMS_IN_PLAN_PKG _pkg
+	      JOIN TB_BMS_IN_PLAN _inPlan WITH (NOLOCK)
+		    ON _pkg.IN_PLAN_NO = _inPlan.IN_PLAN_NO
+	     WHERE _pkg.PACKING_NO IN (<foreach collection="packingNo" item="item" separator=",">#{item.packingNo}</foreach>)
+	       AND _pkg.IN_PLAN_NO IN (<foreach collection="packingNo" item="item" separator=",">#{item.inPlanNo}</foreach>)
+	       AND _inPlan.BL_NO IN (<foreach collection="packingNo" item="item" separator=",">#{item.blNo}</foreach>)
+	</update>
+	
+	<select id="selectBmsInHoldInfo" parameterType="SearchBmsPkgNoList" resultType="HashMap">
+		/* PdaLocationPaloMapper.selectBmsInHoldInfo : 로케이션적치 - 홀드조회 */
+		SELECT PP.PACKING_NO
+			 , P.OD_JOB_NO
+			 , HOLD_CODE
+			 , ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = H.HOLD_CODE AND ENT_CODE = #{srchEntCode} AND GROUP_CODE='HOLD_CODE' AND USE_YN='Y'), '') AS HOLD_CODE_NAME
+			 , HOLD_DATE
+			 , HOLD_RELEASE_YN 
+		FROM TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		LEFT JOIN TB_ECM_OD_HOLD H WITH (NOLOCK)
+		ON P.OD_JOB_NO = H.OD_JOB_NO
+		WHERE PP.PACKING_NO = #{srchNo}
+		<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+		AND P.BL_NO = #{srchBlNo}
+		</if>
+	</select>
+	
+	<select id="selectBmsInInspectionInfo" parameterType="SearchBmsPkgNoList" resultType="HashMap">
+		/* PdaLocationPaloMapper.selectBmsInInspectionInfo : 로케이션적치 - 검사,검역조회 */
+		SELECT TOP 1 
+			   PP.PACKING_NO
+			 , P.BL_NO
+			 , CASE WHEN ISNULL(I.SE_INSPECTION_CODE, '') = '' THEN P.SE_INSPECTION_CODE
+			 	    ELSE I.SE_INSPECTION_CODE
+			   END AS SE_INSPECTION_CODE
+			 , CASE WHEN ISNULL(I.SE_INSPECTION_CODE, '') = '' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = P.SE_INSPECTION_CODE AND ENT_CODE = #{srchEntCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+			 	    ELSE ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = I.SE_INSPECTION_CODE AND ENT_CODE = #{srchEntCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+			   END AS SE_INSPECTION_CODE_NAME
+			 , I.XRAY_INSPECTION_CODE
+			 , ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = I.XRAY_INSPECTION_CODE AND ENT_CODE = #{srchEntCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y' AND UPPER(CODE) NOT IN ('C')), '') AS XRAY_INSPECTION_CODE_NAME
+			 , CASE WHEN ISNULL(I.PALN5EM_INSPECTION_CODE, '') = '' THEN P.PALN5EM_INSPECTION_CODE
+			 	    ELSE I.PALN5EM_INSPECTION_CODE
+			   END AS PALN5EM_INSPECTION_CODE
+			 , CASE WHEN ISNULL(I.PALN5EM_INSPECTION_CODE, '') = '' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = P.PALN5EM_INSPECTION_CODE AND ENT_CODE = #{srchEntCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+			 	    ELSE ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = I.PALN5EM_INSPECTION_CODE AND ENT_CODE = #{srchEntCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+			   END AS PALN5EM_INSPECTION_CODE_NAME
+			 , CASE WHEN ISNULL(I.INSPECTION_TYPE, '') = '' THEN P.INSPECTION_TYPE
+			 	    ELSE I.INSPECTION_TYPE
+			   END AS INSPECTION_TYPE
+			 , CASE WHEN ISNULL(I.INSPECTION_TYPE, '') = '' THEN ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = P.INSPECTION_TYPE AND ENT_CODE = #{srchEntCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y' AND ETC1='Y'), '')
+			 	    ELSE ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = I.INSPECTION_TYPE AND ENT_CODE = #{srchEntCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y' AND ETC1='Y'), '')
+			   END AS INSPECTION_TYPE_NAME
+		FROM TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		LEFT JOIN TB_BMS_IN I WITH (NOLOCK)
+		ON PP.IN_PLAN_NO = I.IN_PLAN_NO
+		WHERE PP.PACKING_NO = #{srchNo}
+		<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+		AND P.BL_NO = #{srchBlNo}
+		</if>
+	</select>
+	
+	<select id="selectScanLogInfo" parameterType="HashMap" resultType="HashMap">
+		/* PdaLocationPaloMapper.selectScanLogInfo : 로케이션 스캔로그 조회 */
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+			SELECT SCAN_NO
+				 , BL_NO
+				 , SCAN_DATE
+				 , SCAN_RESULT
+				 , LOCATION_PLACE
+				 , ISNULL((SELECT TOP 1 NAME_DEFAULT FROM TB_SMS_CODE_DETAIL LOC WHERE LOC.GROUP_CODE = 'WH_LOCATION' AND LOC.CODE = tbls.LOCATION_PLACE), '') AS LOCATION_PLACE_NAME
+				 , REGISTER_USER_ID
+				 , ISNULL((SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = tbls.REGISTER_USER_ID),'') AS REGISTER_USER_NAME
+				 , REGISTER_DATE_TIME
+			FROM TB_BMS_LOCATION_SCAN tbls WITH (NOLOCK)
+			WHERE SCAN_DATE BETWEEN CONVERT(VARCHAR(10), ISNULL(#{srchScanDate},''), 120) AND CONVERT(VARCHAR(10), GETDATE(), 120)
+			<if test="srchLocationStatus != null and srchLocationStatus != ''">
+			AND LOCATION_STATUS = #{srchLocationStatus}
+			</if>
+			ORDER BY REGISTER_DATE_TIME DESC
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+	
+	<select id="selectLocationPlace" parameterType="SearchInList" resultType="HashMap" >
+		/* PdaLocationPaloMapper.selectLocationPlace : 로케이션적치 - 로케이션정보 조회 for front */
+			SELECT TOP 1 
+				  CODE AS LOCATION_PLACE
+				, NAME_DEFAULT AS LOCATION_NAME
+			FROM TB_SMS_CODE_DETAIL LOC
+			WHERE  LOC.GROUP_CODE = 'WH_LOCATION'
+			AND LOC.CODE = #{srchWhLocation}
+	</select>
+	
+	<update id="updateOrigLocation" parameterType="HashMap">
+		/* PdaLocationPaloMapper.updateOrigLocation : 반입 로케이션 초기화 */
+		IF(#{srchOrigLocation} IS NOT NULL and #{srchOrigLocation} <![CDATA[<>]]> '')
+			BEGIN
+				IF (#{applyAllLoactionYn} = 'Y' and #{srchInPlanNo} IS NOT NULL and #{srchInPlanNo} <![CDATA[<>]]> '')
+					BEGIN
+						UPDATE TB_BMS_IN_PLAN_PKG
+							SET 
+								ORIG_LOCATION_PLACE = #{srchOrigLocation}
+								, UPDATE_USER_ID = #{updateUserId}
+					   	 		, UPDATE_DATE_TIME = GETDATE()
+						WHERE IN_PLAN_NO = #{srchInPlanNo}
+							AND DELETE_YN = 'N'
+					END
+				ELSE
+					BEGIN
+						UPDATE TB_BMS_IN_PLAN_PKG
+							SET 
+								ORIG_LOCATION_PLACE = #{srchOrigLocation}
+								, UPDATE_USER_ID = #{updateUserId}
+					   	 		, UPDATE_DATE_TIME = GETDATE()
+						WHERE PACKING_NO = #{srchNo}
+							<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+							AND IN_PLAN_NO = #{srchInPlanNo}
+							</if>
+							<if test="srchBlNo != null and srchBlNo != ''">
+							AND BL_NO = #{srchBlNo}
+							</if>
+							AND DELETE_YN = 'N'
+					END
+			END
+	</update>
+	
+	<select id="selectLocationInfoDetail" parameterType="HashMap" resultType="HashMap" >
+		/* PdaLocationPaloMapper.selectLocationInfoDetail : 로케이션적치 - 로케이션정보 조회 */
+			SELECT TOP 1 
+				  CODE AS CODE
+				, NAME_DEFAULT AS NAME
+			FROM TB_SMS_CODE_DETAIL LOC
+			WHERE  LOC.GROUP_CODE = 'WH_LOCATION'
+			AND LOC.CODE = #{locationPlace}
+	</select>
+	
+	<select id="selectPkgWithBmsInByLocation" parameterType="HashMap" resultType="inPlanPkg">
+		/* PdaLocationPaloMapper.selectPkgWithBmsInByLocation : 로케이션에 의한 박스리스트조회 */
+		SELECT 
+			'반입'
+			 , _in.BL_NO
+			 , _pkg.PACKING_NO
+			 , _pkg.IN_PLAN_NO
+			 , _pkg.LOCATION_PLACE
+			 , _pkg.LOCATION_STATUS
+			 , _in.CT
+			 , _pkg.WEIGHING_WT
+			 , _in.CARGO_REFERENCE_NO
+			 , _in.IN_NO
+			 , _in.OD_JOB_NO
+			 , H.CARRYOUT_STOP_YN
+			 , ISNULL(H.HOLD_HISTORY, 'N') AS HOLD_HISTORY
+			 , CASE WHEN _in.SE_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_A <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_B <![CDATA[<>]]> '' OR _in.XRAY_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> ''
+		      	THEN 'Y' 
+		      	ELSE 'N'  
+		       END AS INSPECTION_TYPE
+		     , (SELECT SUBSTRING(_out_plan.APPROVAL_DATE, 6, 5) FROM TB_BMS_OUT_PLAN _out_plan WITH (NOLOCK) WHERE _out_plan.IN_NO = _in.IN_NO) AS APPROVAL_DATE_MMDD
+			 , CASE 
+			        WHEN DATEDIFF(DAY, _in.CARRYIN_DATE, GETDATE()) + 1 <![CDATA[<]]> 1 THEN 1 
+			        ELSE DATEDIFF(DAY, _in.CARRYIN_DATE, GETDATE()) + 1
+			    END AS STORAGE_DAYS
+			 , ISNULL(IR.M_INSPECTION_FINISH_YN, 'N') AS INSPECTION_FINISH_YN
+		FROM TB_BMS_IN_PLAN_PKG _pkg WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN _in WITH (NOLOCK)
+			ON _in.IN_PLAN_NO = _pkg.IN_PLAN_NO
+		LEFT JOIN (SELECT 
+			'Y' AS HOLD_HISTORY
+			, OD_JOB_NO
+			, MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN
+			FROM TB_ECM_OD_HOLD WITH (NOLOCK) GROUP BY OD_JOB_NO) H
+			ON _in.OD_JOB_NO = H.OD_JOB_NO 
+		LEFT JOIN (SELECT IN_NO, MIN(INSPECTION_FINISH_YN) M_INSPECTION_FINISH_YN FROM TB_BMS_INSPECT_RESULT WITH (NOLOCK) GROUP BY IN_NO) IR
+			ON _in.IN_NO = IR.IN_NO
+		WHERE _pkg.DELETE_YN = 'N' 
+			AND _pkg.LOCATION_PLACE = #{locationPlace} 
+			AND _pkg.LOCATION_STATUS = 'L'
+		ORDER BY _in.BL_NO
+	</select>
+	
+	<select id="selectPkgWithBmsInByPackingNoList" parameterType="HashMap" resultType="inPlanPkg">
+		/* PdaLocationPaloMapper.selectPkgWithBmsInByPackingNoList : 박스번호리스트에 의한 박스리스트조회 */
+		SELECT 
+			'반입'
+			 , _in.BL_NO
+			 , _pkg.PACKING_NO
+			 , _pkg.IN_PLAN_NO
+			 , _pkg.LOCATION_PLACE
+			 , _pkg.LOCATION_STATUS
+			 , _pkg.IN_CT
+			 , _pkg.WEIGHING_WT
+			 , _in.CARGO_REFERENCE_NO
+			 , _in.IN_NO
+			 , _in.OD_JOB_NO
+			 , H.CARRYOUT_STOP_YN
+			 , ISNULL(H.HOLD_HISTORY, 'N') AS HOLD_HISTORY
+			 , CASE WHEN _in.SE_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_A <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_B <![CDATA[<>]]> '' OR _in.XRAY_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> ''
+		      	THEN 'Y' 
+		      	ELSE 'N'  
+		       END AS INSPECTION_TYPE
+		     , SUBSTRING(_out_plan.APPROVAL_DATE, 6, 5) AS APPROVAL_DATE_MMDD
+		     , _out_plan.APPROVAL_DATE
+			 , CASE 
+			        WHEN DATEDIFF(DAY, _in.CARRYIN_DATE, GETDATE()) + 1 <![CDATA[<]]> 1 THEN 1 
+			        ELSE DATEDIFF(DAY, _in.CARRYIN_DATE, GETDATE()) + 1
+			    END AS STORAGE_DAYS
+		FROM TB_BMS_IN_PLAN_PKG _pkg WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN _in WITH (NOLOCK)
+			ON _in.IN_PLAN_NO = _pkg.IN_PLAN_NO
+		LEFT JOIN (SELECT 
+			'Y' AS HOLD_HISTORY
+			, OD_JOB_NO
+			, MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN
+			FROM TB_ECM_OD_HOLD WITH (NOLOCK) GROUP BY OD_JOB_NO
+			) H
+			ON _in.OD_JOB_NO = H.OD_JOB_NO 
+		LEFT JOIN TB_BMS_OUT_PLAN _out_plan WITH (NOLOCK)
+			ON _out_plan.IN_NO = _in.IN_NO
+		WHERE _pkg.DELETE_YN = 'N' 
+			AND _pkg.LOCATION_PLACE = #{locationPlace}
+			AND _pkg.PACKING_NO IN (<foreach collection="packingNo" item="item" separator=",">#{item.packingNo}</foreach>)
+			AND _pkg.IN_PLAN_NO IN (<foreach collection="packingNo" item="item" separator=",">#{item.inPlanNo}</foreach>)
+			AND _in.BL_NO IN (<foreach collection="packingNo" item="item" separator=",">#{item.blNo}</foreach>)
+	</select>
+	
+	<select id="selectOnePkgWithBmsInByPackingNo" parameterType="HashMap" resultType="inPlanPkg">
+		/* PdaLocationPaloMapper.selectOnePkgWithBmsInByPackingNo : 박스번호에 의한 박스조회 */
+		SELECT TOP 1
+			'반입'
+			 , _in.BL_NO
+			 , _pkg.PACKING_NO
+			 , _pkg.IN_PLAN_NO
+			 , _pkg.LOCATION_PLACE
+			 , _pkg.LOCATION_STATUS
+			 , _pkg.IN_CT
+			 , _pkg.WEIGHING_WT
+			 , _in.CARGO_REFERENCE_NO
+			 , _in.IN_NO
+			 , _in.OD_JOB_NO
+			 , H.CARRYOUT_STOP_YN
+			 , ISNULL(H.HOLD_HISTORY, 'N') AS HOLD_HISTORY
+			 , CASE WHEN _in.SE_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_A <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_B <![CDATA[<>]]> '' OR _in.XRAY_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> ''
+		      	THEN 'Y' 
+		      	ELSE 'N'  
+		       END AS INSPECTION_TYPE
+		     , SUBSTRING(_out_plan.APPROVAL_DATE, 6, 5) AS APPROVAL_DATE_MMDD
+		     , _out_plan.APPROVAL_DATE
+			 , CASE 
+			        WHEN DATEDIFF(DAY, _in.CARRYIN_DATE, GETDATE()) + 1 <![CDATA[<]]> 1 THEN 1 
+			        ELSE DATEDIFF(DAY, _in.CARRYIN_DATE, GETDATE()) + 1
+			    END AS STORAGE_DAYS
+		FROM TB_BMS_IN_PLAN_PKG _pkg WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN _in WITH (NOLOCK)
+			ON _in.IN_PLAN_NO = _pkg.IN_PLAN_NO
+		LEFT JOIN (SELECT 
+			'Y' AS HOLD_HISTORY
+			, OD_JOB_NO
+			, MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN
+			FROM TB_ECM_OD_HOLD WITH (NOLOCK) GROUP BY OD_JOB_NO
+			) H
+			ON _in.OD_JOB_NO = H.OD_JOB_NO 
+		LEFT JOIN TB_BMS_OUT_PLAN _out_plan WITH (NOLOCK)
+			ON _out_plan.IN_NO = _in.IN_NO
+		WHERE _pkg.DELETE_YN = 'N' 
+			<!-- AND _pkg.LOCATION_STATUS = 'L' -->
+			AND _pkg.PACKING_NO = #{scanPackingNo}
+		<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		AND _pkg.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+		AND _in.BL_NO = #{srchBlNo}
+		</if>
+	</select>
+	
+	<select id="selectLocationFromPkg" parameterType="HashMap" resultType="inPlanPkg">
+		/* PdaLocationPaloMapper.selectLocationFromPkg : 박스 로케이션조회 */
+		SELECT TOP 1
+			LOCATION_PLACE AS LOCATION_PLACE_PKG
+			, LOCATION_STATUS
+			, ORIG_LOCATION_PLACE AS ORIG_LOCATION_PLACE_PKG
+		FROM TB_BMS_IN_PLAN_PKG _pkg WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN _inPlan WITH (NOLOCK)
+		ON _pkg.IN_PLAN_NO = _inPlan.IN_PLAN_NO
+		WHERE _pkg.PACKING_NO = #{packingNo}
+		<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		AND _pkg.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+		AND _inPlan.BL_NO = #{srchBlNo}
+		</if>
+	</select>
+	
+	<select id="selectLocationFromAllPkgByScan" parameterType="HashMap" resultType="inPlanPkg">
+		/* PdaLocationPaloMapper.selectLocationFromAllPkgByScan : 박스 로케이션조회 */
+		SELECT TOP 1
+			LOCATION_PLACE AS LOCATION_PLACE_PKG
+			, LOCATION_STATUS
+		FROM TB_BMS_IN_PLAN_PKG _pkg WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN _inPlan WITH (NOLOCK)
+		ON _pkg.IN_PLAN_NO = _inPlan.IN_PLAN_NO
+		WHERE
+		<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+			_pkg.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+		AND _inPlan.BL_NO = #{srchBlNo}
+		</if>
+	</select>
+	
+	<insert id="insertLocationScanLog" parameterType="HashMap">
+		/* PdaLocationPaloMapper.insertLocationScanLog : 로케이션 스캔로그 저장 */
+		INSERT INTO TB_BMS_LOCATION_SCAN (
+			  SCAN_NO
+			, LOCATION_STATUS
+			, LOCATION_PLACE
+			, BL_NO
+			, STORAGE_DAYS
+			, INSPECTION_YN
+			, HOLD_HISTORY
+			, SCAN_RESULT
+			, SCAN_DATE
+			, SCAN_CT
+			, APPROVAL_DATE
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+		)
+		VALUES(
+			#{packingNo}
+			, #{locationStatus}
+			, #{locationPlace}
+			, #{blNo}
+			, #{storageDays}
+			, #{inspectionYn}
+			, #{holdHistory}
+			, #{result}
+			, CONVERT(VARCHAR(10),GETDATE(),120)
+			, #{scanCt}
+			, #{approvalDate}
+			, #{registerUserId}
+			, GETDATE()
+		)
+	</insert>
+
+	<update id="updateInLocationInfo" parameterType="HashMap">
+		/* PdaLocationPaloMapper.updateInLocationInfo : 반입 로케이션 초기화 */
+		UPDATE TB_BMS_IN
+		SET LOCATION_PLACE = ''
+		WHERE 
+			IN_PLAN_NO = #{inPlanNo}
+			OR ORIG_IN_PLAN_NO = #{inPlanNo}
+	</update>
+
+	<insert id="insertLocation" parameterType="HashMap">
+		/* PdaLocationPaloMapper.insertLocation : 로케이션 저장 */
+		INSERT INTO TB_SMS_CODE_DETAIL (
+			ENT_CODE
+			, CODE_DEFINE_ID
+			, CODE
+			, GROUP_CODE
+			, CODE_TYPE
+			, NAME_DEFAULT
+			, NAME_KOR
+			, NAME_ENG
+			, NAME_CHI
+			, NAME_JPN
+			, NAME_SPA
+			, NAME_VIE
+			, ENT_BUSINESS_CODE
+			, DISPLAY_INDEX
+			, USE_YN
+			, REMARKS
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME
+		)
+		VALUES (
+			#{entCode}
+			, 'ECM-009'
+			, #{location}
+			, 'WH_LOCATION'
+			, 'USER'
+			, #{locationName}
+			, #{locationName}
+			, #{locationName}
+			, #{locationName}
+			, #{locationName}
+			, #{locationName}
+			, #{locationName}
+			, #{entBusinessCode}
+			, 0
+			, 'Y'
+			, #{remarks}
+			, #{updateUserId}
+			, GETDATE()
+			, #{updateUserId}
+			, GETDATE()
+		);
+		
+	</insert>
+	
+	<select id="getCntPkgOutCt" parameterType="SearchMobBwlo" resultType="Integer">
+		/* PdaLocationPaloMapper.getCntPkgOutCt : 출고된 박스 조회 */
+		SELECT
+			COUNT(*) AS CNT
+		FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+		WHERE PACKING_NO = #{srchNo} AND OUT_CT <![CDATA[>]]> 0
+		<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		AND IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+		AND BL_NO = #{srchBlNo}
+		</if>
+	</select>
+	
+	<select id="getCntOutDateTimeFromBmsOut" parameterType="SearchMobBwlo" resultType="Integer">
+		/* PdaLocationPaloMapper.getCntOutDateTimeFromBmsOut : 출고된 박스 조회 */
+		SELECT
+			COUNT(*) AS CNT
+		FROM TB_BMS_OUT_SCAN WITH (NOLOCK)
+		WHERE SCAN_NO IN (
+			SELECT
+				PACKING_NO
+			FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+			WHERE 1=1
+				<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+				AND IN_PLAN_NO = #{srchInPlanNo}
+				</if>
+				<if test="srchBlNo != null and srchBlNo != ''">
+				AND BL_NO = #{srchBlNo}
+				</if>
+		) AND SCAN_RESULT = '완료'
+	</select>
+	
+	<select id="selectPkgNoInfoNew13F" parameterType="SearchMobBwlo" resultType="mobPalo">
+		/* PdaLocationPaloMapper.selectPkgNoInfoNew13F : new 로케이션적치 - 박스번호조회 */
+		SELECT TOP 1
+			   CASE WHEN ISNULL(I.IN_NO, 0) <![CDATA[<>]]> 0 THEN '반입' 
+			   		ELSE '반입예정'
+			   END AS dGbn
+			  , P.BL_NO
+			  , P.OD_JOB_NO
+			  , P.CARGO_REFERENCE_NO
+			  , PP.PACKING_NO
+			  , PP.OUT_CT
+			  , COALESCE(I.CT, P.EX_CT) AS CT
+			  , COALESCE(I.WT, P.EX_WT) AS WT
+			  , P.IN_PLAN_NO
+			  , PP.LOCATION_PLACE
+			  , PP.ORIG_LOCATION_PLACE
+			  , I.IN_NO AS IN_NO
+			  , H.CARRYOUT_STOP_YN
+		      , ISNULL(H.HOLD_HISTORY, 'N') AS HOLD_HISTORY
+		      , ISNULL(OP.APPROVAL_DATE, '') AS APPROVAL_DATE
+		      , CASE WHEN I.IN_NO IS NULL THEN 0 
+		      		 WHEN DATEDIFF(DAY, CONVERT(DATE, NULLIF(LTRIM(RTRIM(I.CARRYIN_DATE)), ''), 23), GETDATE()) + 1 <![CDATA[<]]> 1 THEN 1
+			         ELSE DATEDIFF(DAY, CONVERT(DATE, NULLIF(LTRIM(RTRIM(I.CARRYIN_DATE)), ''), 23), GETDATE()) + 1
+			    END AS STORAGE_DAYS
+			  , P.SE_INSPECTION_CODE
+			  , P.PALN5EM_INSPECTION_CODE
+			  , XR.XRAY_INSPECTION_CODE AS XRAY_INSPECTION_CODE
+			  , P.INSPECTION_TYPE
+			  , P.INSPECTION_TYPE_A
+			  , P.INSPECTION_TYPE_B
+			  , P.BIG_SIZE_YN 
+			  , P.INSPECTION_CUSTOMS_YN
+			  , P.INTELLECTUAL_PROP_YN
+			  , P.CRIME_SELECTION_YN
+			  , PP.DELETE_YN
+	 <choose>
+		<when test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+			  , (
+			  	SELECT
+			  		ALL_INSPECTION_FINISH_YN
+			  	FROM TB_BMS_IN WITH (NOLOCK)
+				WHERE 
+					IN_PLAN_NO = #{srchInPlanNo}
+			  	) AS ALL_INSPECTION_FINISH_YN 
+		</when>
+		<otherwise>
+			  , 'N' AS ALL_INSPECTION_FINISH_YN
+		</otherwise>		
+	</choose> 
+		FROM TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+			ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		LEFT JOIN (SELECT MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN, OD_JOB_NO, 'Y' AS HOLD_HISTORY FROM TB_ECM_OD_HOLD WITH (NOLOCK) WHERE HOLD_RELEASE_YN = 'N' GROUP BY OD_JOB_NO) H
+			ON P.OD_JOB_NO = H.OD_JOB_NO
+		LEFT JOIN TB_BMS_XRAY_RESULT XR
+			ON XR.IN_PLAN_NO = PP.IN_PLAN_NO
+	<choose>
+		<when test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		LEFT JOIN 
+			(SELECT
+				TOP 1
+				IN_NO
+				, IN_PLAN_NO
+				, CARRYIN_DATE
+				, ORIG_IN_PLAN_NO
+				, CT
+				, WT
+			FROM TB_BMS_IN WITH (NOLOCK)
+			WHERE 
+				IN_PLAN_NO = #{srchInPlanNo}
+				OR ORIG_IN_PLAN_NO = #{srchInPlanNo}
+			ORDER BY CAST(CARRYIN_DATE + ' ' + CARRYIN_TIME AS DATETIME) DESC
+			) I
+		</when>
+		<otherwise>
+		LEFT JOIN 
+			(SELECT
+				NULL AS IN_NO
+				, NULL AS IN_PLAN_NO
+				, NULL AS CARRYIN_DATE
+				, NULL AS ORIG_IN_PLAN_NO
+				, NULL AS CT
+				, NULL AS WT
+			) I
+		</otherwise>		
+	</choose> 
+			ON I.IN_PLAN_NO = PP.IN_PLAN_NO OR I.ORIG_IN_PLAN_NO = PP.IN_PLAN_NO
+		LEFT JOIN TB_BMS_OUT_PLAN OP WITH (NOLOCK)
+			ON I.IN_NO = OP.IN_NO
+		WHERE PP.PACKING_NO = #{srchNo}
+			<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+			AND PP.IN_PLAN_NO = #{srchInPlanNo}
+			</if>
+			<if test="srchBlNo != null and srchBlNo != ''">
+			AND P.BL_NO = #{srchBlNo}
+			</if>
+	</select>
+	
+	<select id="getPkgPaloListByCurrentLocation" parameterType="HashMap" resultType="MobPalo">
+		/* PdaLocationPaloMapper.getPkgPaloListByCurrentLocation : 현재 로케이션에 해당하는 박스 리스트 조회 */
+		SELECT _pkg.SEQ 
+			, _pkg.BL_NO
+			, _pkg.PACKING_NO
+			, _pkg.IN_PLAN_NO
+			, _pkg.OUT_CT
+			, _pkg.LOCATION_PLACE
+			, _pkg.ORIG_LOCATION_PLACE
+			, _pkg.LOCATION_STATUS
+			, COALESCE(_in.CT, inPlan.EX_CT, 0) AS CT
+			, COALESCE(_in.WT, inPlan.EX_WT, 0) AS WT
+			, COALESCE(_in.CARGO_REFERENCE_NO, inPlan.CARGO_REFERENCE_NO, '') AS CARGO_REFERENCE_NO
+			, _in.IN_NO
+			, _in.OD_JOB_NO
+			, H.CARRYOUT_STOP_YN
+			, ISNULL(H.HOLD_HISTORY, 'N') AS HOLD_HISTORY
+			, CASE WHEN ( _in.SE_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_A <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_B <![CDATA[<>]]> '' OR _in.XRAY_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> ''
+					OR _in.BIG_SIZE_YN = 'Y'
+					OR _in.INTELLECTUAL_PROP_YN = 'Y'
+					OR _in.INSPECTION_CUSTOMS_YN = 'Y'
+				)
+		     	AND ISNULL(IR.M_INSPECTION_FINISH_YN, 'Y') = 'N' THEN 'Y' 
+		     	ELSE 'N'  
+		      END AS INSPECTION
+		    , ISNULL(OP.APPROVAL_DATE, '') AS APPROVAL_DATE
+			, CASE 
+			       WHEN DATEDIFF(DAY, latest_in.CARRYIN_DATE, GETDATE()) + 1 <![CDATA[<]]> 1 THEN 1 
+			       ELSE ISNULL(DATEDIFF(DAY, latest_in.CARRYIN_DATE, GETDATE()) + 1, 0)
+			   END AS STORAGE_DAYS
+			<choose>
+				<when test='printLocationScanYn != null and printLocationScanYn == "Y"'>
+				, (SELECT TOP 1 SCAN_RESULT FROM TB_BMS_LOCATION_SCAN scan WITH(NOLOCK) WHERE scan.SCAN_NO = _pkg.PACKING_NO ORDER BY SEQ DESC) AS SCAN_RESULT
+				</when>
+				<otherwise>
+				, '' AS SCAN_RESULT
+			    </otherwise>
+			</choose>
+		FROM TB_BMS_IN_PLAN_PKG _pkg WITH (NOLOCK)
+		LEFT JOIN TB_BMS_IN_PLAN inPlan WITH (NOLOCK)
+			ON _pkg.IN_PLAN_NO = inPlan.IN_PLAN_NO
+		LEFT JOIN TB_BMS_IN _in WITH (NOLOCK)
+			ON _in.IN_PLAN_NO = _pkg.IN_PLAN_NO
+		LEFT JOIN (SELECT 
+			'Y' AS HOLD_HISTORY
+			, OD_JOB_NO
+			, MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN
+			FROM TB_ECM_OD_HOLD WITH (NOLOCK) GROUP BY OD_JOB_NO) H
+			ON _in.OD_JOB_NO = H.OD_JOB_NO 
+		LEFT JOIN TB_BMS_OUT_PLAN OP WITH (NOLOCK)
+			ON _in.IN_NO = OP.IN_NO
+		OUTER APPLY (SELECT MIN(INSPECTION_FINISH_YN) M_INSPECTION_FINISH_YN FROM TB_BMS_INSPECT_RESULT ins WITH (NOLOCK) WHERE ins.IN_NO = _in.IN_NO GROUP BY IN_NO) IR
+		OUTER APPLY ( 
+			SELECT TOP 1
+				CARRYIN_DATE
+			FROM TB_BMS_IN i WITH (NOLOCK)
+			WHERE 
+				i.CARGO_REFERENCE_NO = inPlan.CARGO_REFERENCE_NO
+			ORDER BY CAST(CARRYIN_DATE + ' ' + CARRYIN_TIME AS DATETIME) DESC
+			) latest_in
+		WHERE _pkg.LOCATION_PLACE = #{locationPlace}
+			OR _pkg.ORIG_LOCATION_PLACE = #{locationPlace}
+			AND _pkg.DELETE_YN = 'N'
+	</select>
+	
+	<select id="getPkgPaloListByOrigLocation" parameterType="HashMap" resultType="MobPalo">
+		/* PdaLocationPaloMapper.getPkgPaloListByOrigLocation : 현재 로케이션에 해당하는 박스 리스트 조회 */
+		SELECT _pkg.SEQ 
+			, _pkg.BL_NO
+			, _pkg.PACKING_NO
+			, _pkg.IN_PLAN_NO
+			, _pkg.OUT_CT
+			, _pkg.LOCATION_PLACE
+			, _pkg.ORIG_LOCATION_PLACE
+			, _pkg.LOCATION_STATUS
+			, COALESCE(_in.CT, inPlan.EX_CT, 0) AS CT
+			, COALESCE(_in.WT, inPlan.EX_WT, 0) AS WT
+			, COALESCE(_in.CARGO_REFERENCE_NO, inPlan.CARGO_REFERENCE_NO, '') AS CARGO_REFERENCE_NO
+			, _in.IN_NO
+			, _in.OD_JOB_NO
+			, H.CARRYOUT_STOP_YN
+			, ISNULL(H.HOLD_HISTORY, 'N') AS HOLD_HISTORY
+			, CASE WHEN ( _in.SE_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_A <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_B <![CDATA[<>]]> '' OR _in.XRAY_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> ''
+					OR _in.BIG_SIZE_YN = 'Y'
+					OR _in.INTELLECTUAL_PROP_YN = 'Y'
+					OR _in.INSPECTION_CUSTOMS_YN = 'Y'
+				)
+		     	AND ISNULL(IR.M_INSPECTION_FINISH_YN, 'Y') = 'N' THEN 'Y' 
+		     	ELSE 'N'  
+		      END AS INSPECTION
+		    , ISNULL(OP.APPROVAL_DATE, '') AS APPROVAL_DATE
+			, CASE 
+			       WHEN DATEDIFF(DAY, latest_in.CARRYIN_DATE, GETDATE()) + 1 <![CDATA[<]]> 1 THEN 1 
+			       ELSE ISNULL(DATEDIFF(DAY, latest_in.CARRYIN_DATE, GETDATE()) + 1, 0)
+			   END AS STORAGE_DAYS
+			<choose>
+				<when test='printLocationScanYn != null and printLocationScanYn == "Y"'>
+				, (SELECT TOP 1 SCAN_RESULT FROM TB_BMS_LOCATION_SCAN scan WITH(NOLOCK) WHERE scan.SCAN_NO = _pkg.PACKING_NO ORDER BY SEQ DESC) AS SCAN_RESULT
+				</when>
+				<otherwise>
+				, '' AS SCAN_RESULT
+			    </otherwise>
+			</choose>
+		FROM TB_BMS_IN_PLAN_PKG _pkg WITH (NOLOCK)
+		LEFT JOIN TB_BMS_IN_PLAN inPlan WITH (NOLOCK)
+			ON _pkg.IN_PLAN_NO = inPlan.IN_PLAN_NO
+		LEFT JOIN TB_BMS_IN _in WITH (NOLOCK)
+			ON _in.IN_PLAN_NO = _pkg.IN_PLAN_NO
+		LEFT JOIN (SELECT 
+			'Y' AS HOLD_HISTORY
+			, OD_JOB_NO
+			, MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN
+			FROM TB_ECM_OD_HOLD WITH (NOLOCK) GROUP BY OD_JOB_NO) H
+			ON _in.OD_JOB_NO = H.OD_JOB_NO 
+		LEFT JOIN TB_BMS_OUT_PLAN OP WITH (NOLOCK)
+			ON _in.IN_NO = OP.IN_NO
+		OUTER APPLY (SELECT MIN(INSPECTION_FINISH_YN) M_INSPECTION_FINISH_YN FROM TB_BMS_INSPECT_RESULT ins WITH (NOLOCK) WHERE ins.IN_NO = _in.IN_NO GROUP BY IN_NO) IR
+		OUTER APPLY ( 
+			SELECT TOP 1
+				CARRYIN_DATE
+			FROM TB_BMS_IN i WITH (NOLOCK)
+			WHERE 
+				i.CARGO_REFERENCE_NO = inPlan.CARGO_REFERENCE_NO
+			ORDER BY CAST(CARRYIN_DATE + ' ' + CARRYIN_TIME AS DATETIME) DESC
+			) latest_in
+		WHERE _pkg.ORIG_LOCATION_PLACE = #{locationPlace}
+			AND _pkg.DELETE_YN = 'N'
+	</select>
+	
+	<select id="getPkgPaloByPkgNo" parameterType="HashMap" resultType="MobPalo">
+		/* PdaLocationPaloMapper.getPkgPaloByPkgNo : 박스번호에 해당하는 박스 조회 */
+		SELECT 
+			_pkg.BL_NO
+			, _pkg.PACKING_NO
+			, _pkg.IN_PLAN_NO
+			, _pkg.LOCATION_PLACE
+			, _pkg.ORIG_LOCATION_PLACE
+			, _pkg.LOCATION_STATUS
+			, COALESCE(_in.CT, inPlan.EX_CT, 0) AS CT
+			, COALESCE(_in.WT, inPlan.EX_WT, 0) AS WT
+			, COALESCE(_in.CARGO_REFERENCE_NO, inPlan.CARGO_REFERENCE_NO, '') AS CARGO_REFERENCE_NO
+			, _in.IN_NO
+			, _in.OD_JOB_NO
+			, H.CARRYOUT_STOP_YN
+			, ISNULL(H.HOLD_HISTORY, 'N') AS HOLD_HISTORY
+			, CASE WHEN ( _in.SE_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_A <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_B <![CDATA[<>]]> '' OR _in.XRAY_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> ''
+					OR _in.BIG_SIZE_YN = 'Y'
+					OR _in.INTELLECTUAL_PROP_YN = 'Y'
+					OR _in.INSPECTION_CUSTOMS_YN = 'Y'
+				)
+		     	AND ISNULL(IR.M_INSPECTION_FINISH_YN, 'Y') = 'N' THEN 'Y' 
+		     	ELSE 'N'  
+		      END AS INSPECTION
+		    , ISNULL(OP.APPROVAL_DATE, '') AS APPROVAL_DATE
+			, CASE 
+			       WHEN DATEDIFF(DAY, latest_in.CARRYIN_DATE, GETDATE()) + 1 <![CDATA[<]]> 1 THEN 1 
+			       ELSE ISNULL(DATEDIFF(DAY, latest_in.CARRYIN_DATE, GETDATE()) + 1, 0)
+			   END AS STORAGE_DAYS
+			<choose>
+				<when test='printLocationScanYn != null and printLocationScanYn == "Y"'>
+				, (SELECT TOP 1 SCAN_RESULT FROM TB_BMS_LOCATION_SCAN scan WITH(NOLOCK) WHERE scan.SCAN_NO = _pkg.PACKING_NO ORDER BY SEQ DESC) AS SCAN_RESULT
+				</when>
+				<otherwise>
+				, '' AS SCAN_RESULT
+			    </otherwise>
+			</choose>
+		FROM TB_BMS_IN_PLAN_PKG _pkg WITH (NOLOCK)
+		LEFT JOIN TB_BMS_IN_PLAN inPlan WITH (NOLOCK)
+			ON _pkg.IN_PLAN_NO = inPlan.IN_PLAN_NO
+		LEFT JOIN TB_BMS_IN _in WITH (NOLOCK)
+			ON _in.IN_PLAN_NO = _pkg.IN_PLAN_NO
+		LEFT JOIN (SELECT 
+			'Y' AS HOLD_HISTORY
+			, OD_JOB_NO
+			, MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN
+			FROM TB_ECM_OD_HOLD WITH (NOLOCK) GROUP BY OD_JOB_NO) H
+			ON _in.OD_JOB_NO = H.OD_JOB_NO 
+		LEFT JOIN TB_BMS_OUT_PLAN OP WITH (NOLOCK)
+			ON _in.IN_NO = OP.IN_NO
+		OUTER APPLY (SELECT MIN(INSPECTION_FINISH_YN) M_INSPECTION_FINISH_YN FROM TB_BMS_INSPECT_RESULT ins WITH (NOLOCK) WHERE ins.IN_NO = _in.IN_NO GROUP BY IN_NO) IR
+		OUTER APPLY ( 
+			SELECT TOP 1
+				CARRYIN_DATE
+			FROM TB_BMS_IN i WITH (NOLOCK)
+			WHERE 
+				i.CARGO_REFERENCE_NO = inPlan.CARGO_REFERENCE_NO
+			ORDER BY CAST(CARRYIN_DATE + ' ' + CARRYIN_TIME AS DATETIME) DESC
+			) latest_in
+		WHERE PACKING_NO = #{packingNo}
+			<if test="inPlanNo != null and inPlanNo != '' and inPlanNo != '0' and inPlanNo != 0">
+			AND IN_PLAN_NO = #{inPlanNo}
+			</if>
+			<if test="srchBlNo != null and srchBlNo != ''">
+			AND BL_NO = #{srchBlNo}
+			</if>
+			AND DELETE_YN = 'N'
+	</select>
+	
+	<select id="selectPkgNoByPlanNoAndBlNo13F" parameterType="SearchMobBwlo" resultType="mobPalo">
+		/* PdaLocationPaloMapper.selectPkgNoByPlanNoAndBlNo13F : 로케이션적치 - 박스조회 */
+		SELECT 
+			_pkg.BL_NO
+			, _pkg.PACKING_NO
+			, _pkg.IN_PLAN_NO
+			, _pkg.OUT_CT
+			, _pkg.LOCATION_PLACE
+			, _pkg.ORIG_LOCATION_PLACE
+			, _pkg.LOCATION_STATUS
+			, COALESCE(_in.CT, inPlan.EX_CT, 0) AS CT
+			, COALESCE(_in.WT, inPlan.EX_WT, 0) AS WT
+			, COALESCE(_in.CARGO_REFERENCE_NO, inPlan.CARGO_REFERENCE_NO, '') AS CARGO_REFERENCE_NO
+			, _in.IN_NO
+			, _in.OD_JOB_NO
+			, H.CARRYOUT_STOP_YN
+			, ISNULL(H.HOLD_HISTORY, 'N') AS HOLD_HISTORY
+			, CASE WHEN ( _in.SE_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_A <![CDATA[<>]]> '' OR _in.INSPECTION_TYPE_B <![CDATA[<>]]> '' OR _in.XRAY_INSPECTION_CODE <![CDATA[<>]]> '' OR _in.PALN5EM_INSPECTION_CODE <![CDATA[<>]]> ''
+					OR _in.BIG_SIZE_YN = 'Y'
+					OR _in.INTELLECTUAL_PROP_YN = 'Y'
+					OR _in.INSPECTION_CUSTOMS_YN = 'Y'
+				)
+		     	AND ISNULL(IR.M_INSPECTION_FINISH_YN, 'Y') = 'N' THEN 'Y' 
+		     	ELSE 'N'  
+		      END AS INSPECTION
+		    , ISNULL(OP.APPROVAL_DATE, '') AS APPROVAL_DATE
+			, CASE 
+			       WHEN DATEDIFF(DAY, latest_in.CARRYIN_DATE, GETDATE()) + 1 <![CDATA[<]]> 1 THEN 1 
+			       ELSE ISNULL(DATEDIFF(DAY, latest_in.CARRYIN_DATE, GETDATE()) + 1, 0)
+			   END AS STORAGE_DAYS
+			, '' AS SCAN_RESULT
+		FROM TB_BMS_IN_PLAN_PKG _pkg WITH (NOLOCK)
+		LEFT JOIN TB_BMS_IN_PLAN inPlan WITH (NOLOCK)
+			ON _pkg.IN_PLAN_NO = inPlan.IN_PLAN_NO
+		LEFT JOIN TB_BMS_IN _in WITH (NOLOCK)
+			ON _in.IN_PLAN_NO = _pkg.IN_PLAN_NO
+		LEFT JOIN (SELECT 
+			'Y' AS HOLD_HISTORY
+			, OD_JOB_NO
+			, MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN
+			FROM TB_ECM_OD_HOLD WITH (NOLOCK) GROUP BY OD_JOB_NO) H
+			ON _in.OD_JOB_NO = H.OD_JOB_NO 
+		LEFT JOIN TB_BMS_OUT_PLAN OP WITH (NOLOCK)
+			ON _in.IN_NO = OP.IN_NO
+		OUTER APPLY (SELECT MIN(INSPECTION_FINISH_YN) M_INSPECTION_FINISH_YN FROM TB_BMS_INSPECT_RESULT ins WITH (NOLOCK) WHERE ins.IN_NO = _in.IN_NO GROUP BY IN_NO) IR
+		OUTER APPLY ( 
+			SELECT TOP 1
+				CARRYIN_DATE
+			FROM TB_BMS_IN i WITH (NOLOCK)
+			WHERE 
+				i.CARGO_REFERENCE_NO = inPlan.CARGO_REFERENCE_NO
+			ORDER BY CAST(CARRYIN_DATE + ' ' + CARRYIN_TIME AS DATETIME) DESC
+			) latest_in
+		WHERE 1 = 1
+			<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+			AND _pkg.IN_PLAN_NO = #{srchInPlanNo}
+			</if>
+			<if test="srchBlNo != null and srchBlNo != ''">
+			AND _pkg.BL_NO = #{srchBlNo}
+			</if>
+			<if test="srchLocationStatus != null and srchLocationStatus != ''">
+			AND _pkg.LOCATION_STATUS = #{srchLocationStatus}
+			</if>
+			<if test="srchNotLocationStatus != null and srchNotLocationStatus != ''">
+			AND _pkg.LOCATION_STATUS <![CDATA[<>]]> #{srchNotLocationStatus}
+			</if>
+			AND _pkg.DELETE_YN = 'N'
+	</select>
+	
+	<update id="updatePkgLocationInSeqList" parameterType="HashMap">
+		/* PdaLocationPaloMapper.updatePkgLocationInSeqList : 로케이션적치 - 현재 로케이션에서 변경 로케이션 으로 일괄 update */
+		UPDATE TB_BMS_IN_PLAN_PKG
+			SET 
+				ORIG_LOCATION_PLACE = CASE 
+	   							WHEN ORIG_LOCATION_PLACE = '' THEN #{locationPlace}
+	   							ELSE ORIG_LOCATION_PLACE
+	   					    END
+				, LOCATION_PLACE = #{locationPlace}
+			   	, LOCATION_STATUS = 'L'
+				, UPDATE_USER_ID = #{updateUserId}
+	   	 		, UPDATE_DATE_TIME = GETDATE()
+		WHERE SEQ IN  (<foreach collection="seqList" item="item" separator=",">#{item.seq}</foreach>)
+			AND DELETE_YN = 'N'
+	</update>
+	
+	<update id="updatePkgOrigLocationInSeqList" parameterType="HashMap">
+		/* PdaLocationPaloMapper.updatePkgOrigLocationInSeqList : 로케이션적치 - 현재 로케이션에서 변경 로케이션 으로 일괄 update */
+		UPDATE TB_BMS_IN_PLAN_PKG
+			SET 
+				ORIG_LOCATION_PLACE = #{origLocationPlace}
+				, UPDATE_USER_ID = #{updateUserId}
+	   	 		, UPDATE_DATE_TIME = GETDATE()
+		WHERE SEQ IN  (<foreach collection="seqList" item="item" separator=",">#{item.seq}</foreach>)
+			AND DELETE_YN = 'N'
+	</update>
+	
+	<update id="updatePkgLocationFromCurrentToTarget" parameterType="HashMap">
+		/* PdaLocationPaloMapper.updatePkgLocationFromCurrentToTarget : 로케이션적치 - 현재 로케이션에서 변경 로케이션 으로 일괄 update */
+		<!-- IF(#{srchCurrentLocation} IS NOT NULL and #{srchCurrentLocation} <![CDATA[<>]]> '')
+			BEGIN
+				IF (#{applyAllLoactionYn} = 'Y')
+					BEGIN
+						UPDATE TB_BMS_IN_PLAN_PKG
+							SET 
+								ORIG_LOCATION_PLACE = #{locationPlace}
+							   	, LOCATION_PLACE = #{locationPlace}
+							   	, LOCATION_STATUS = 'L'
+								, UPDATE_USER_ID = #{updateUserId}
+					   	 		, UPDATE_DATE_TIME = GETDATE()
+						WHERE LOCATION_PLACE = #{srchCurrentLocation}
+							AND DELETE_YN = 'N'
+					END
+				ELSE
+					BEGIN -->
+						UPDATE TB_BMS_IN_PLAN_PKG
+							SET 
+								ORIG_LOCATION_PLACE = CASE 
+					   							WHEN ORIG_LOCATION_PLACE = '' THEN #{locationPlace}
+					   							ELSE ORIG_LOCATION_PLACE
+					   					    END
+								, LOCATION_PLACE = #{locationPlace}
+							   	, LOCATION_STATUS = 'L'
+								, UPDATE_USER_ID = #{updateUserId}
+					   	 		, UPDATE_DATE_TIME = GETDATE()
+						WHERE LOCATION_PLACE = #{srchCurrentLocation}
+							AND DELETE_YN = 'N'
+			<!-- 		END
+			END -->
+	</update>
+	
+	<update id="updatePkgLocationAndOrigLocation" parameterType="HashMap">
+		/* PdaLocationPaloMapper.updatePkgLocationAndOrigLocation : 로케이션적치 - 반입예정 PKG 업데이트 */
+		IF (#{applyAllLoactionYn} = 'Y' and #{inPlanNo} IS NOT NULL and #{inPlanNo} <![CDATA[<>]]> '' and #{inPlanNo} > 0)
+			BEGIN
+				UPDATE TB_BMS_IN_PLAN_PKG
+					SET 
+						ORIG_LOCATION_PLACE = #{locationPlace}
+					   	, LOCATION_PLACE = #{locationPlace}
+					   	, LOCATION_STATUS = 'L'
+						, UPDATE_USER_ID = #{updateUserId}
+			   	 		, UPDATE_DATE_TIME = GETDATE()
+				WHERE PACKING_NO = #{packingNo}
+					<if test="inPlanNo != null and inPlanNo != '' and inPlanNo != '0' and inPlanNo != 0">
+					AND IN_PLAN_NO = #{inPlanNo}
+					</if>
+					<if test="srchBlNo != null and srchBlNo != ''">
+					AND BL_NO = #{srchBlNo}
+					</if>
+					AND DELETE_YN = 'N'
+			END
+		ELSE
+			BEGIN
+				UPDATE TB_BMS_IN_PLAN_PKG
+					SET 
+						ORIG_LOCATION_PLACE = CASE 
+			   							WHEN ORIG_LOCATION_PLACE = '' THEN #{locationPlace}
+			   							ELSE ORIG_LOCATION_PLACE
+			   					    END
+						, LOCATION_PLACE = #{locationPlace}
+					   	, LOCATION_STATUS = 'L'
+						, UPDATE_USER_ID = #{updateUserId}
+			   	 		, UPDATE_DATE_TIME = GETDATE()
+				WHERE PACKING_NO = #{packingNo}
+					<if test="inPlanNo != null and inPlanNo != '' and inPlanNo != '0' and inPlanNo != 0">
+					AND IN_PLAN_NO = #{inPlanNo}
+					</if>
+					<if test="srchBlNo != null and srchBlNo != ''">
+					AND BL_NO = #{srchBlNo}
+					</if>
+					AND DELETE_YN = 'N'
+			END
+	</update>
+	
+	<update id="updateOnlyOrigLocation" parameterType="HashMap">
+		/* PdaLocationPaloMapper.updateOnlyOrigLocation : 로케이션적치 - 해당하는 박스번호의 최초로케이션 변경 */
+		UPDATE TB_BMS_IN_PLAN_PKG
+			SET 
+				ORIG_LOCATION_PLACE = #{locationPlace}
+				, UPDATE_USER_ID = #{updateUserId}
+	   	 		, UPDATE_DATE_TIME = GETDATE()
+		WHERE PACKING_NO = #{packingNo}
+			<if test="inPlanNo != null and inPlanNo != '' and inPlanNo != '0' and inPlanNo != 0">
+			AND IN_PLAN_NO = #{inPlanNo}
+			</if>
+			<if test="srchBlNo != null and srchBlNo != ''">
+			AND BL_NO = #{srchBlNo}
+			</if>
+			AND DELETE_YN = 'N'
+	</update>
+</mapper>

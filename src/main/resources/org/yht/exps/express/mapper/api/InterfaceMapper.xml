@@ -1,0 +1,1048 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.api.InterfaceMapper">
+
+
+	<select id="selectInterfaceInfo" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+		/* interfaceMapper.selectInterfaceInfo 업체 인터페이스 정보 조회 */
+		SELECT * 
+		FROM TB_SMS_INTERFACE_INFO
+		WHERE 1 = 1
+		<if test="ReceiverId != null and ReceiverId != ''">
+		AND ENT_CODE = #{ReceiverId}
+		</if>
+		AND CUSTOMER_CODE = #{SenderId}
+		<if test="UseYN != null and UseYN != ''">
+		AND USE_YN = #{UseYN}
+		</if>
+	</select>
+
+	<select id="selectTrackingHbl" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+		/* interfaceMapper.selectTrackingHbl 해당 하우스번호 데이터 조회  */
+		 SELECT od.OD_JOB_NO 
+		  	   , od.HBL_NO 
+		  	   , od.ORIG_CODE
+		  	   , od.DEST_CODE 
+		  	   , '한국' AS OrigName <!--  임시 -->
+		  	   , od.VESSEL_FLIGHT
+		  	   , od.CONSIGNEE_NAME_LOC AS buyernm
+		  	   , od.HBL_NO AS hawbno
+		  	   , (SELECT COUNT(item.OD_JOB_NO) FROM TB_ECM_OD_ITEM item WHERE item.OD_JOB_NO = od.OD_JOB_NO) AS itemcnt
+		  	   , od.CONSIGNEE_NAME_LOC AS rcptnm
+			   , CASE odAdd.LAST_POD_STATUS WHEN 'ECM030' THEN '발송대기(complete clearance)'  <!-- 'HTC' -->
+						   WHEN 'ECM060' THEN '항공출발(shipped to air(overseas))' <!-- 'HTD' -->
+						   WHEN 'ECM070' THEN '항공도착(arrived in korea)'  <!-- 'HTE' -->
+						   WHEN 'ECM120' THEN '통관중(customs clearance of korea)'  <!-- 'HTG' -->
+						   WHEN 'ECM240' THEN '통관완료(complete clearance)'  <!-- 'HTH' -->
+						   WHEN 'ECM360' THEN '택배집하(receuot to korea post office)' <!-- 'HTI' -->
+						   WHEN 'ECM420' THEN '배송완료(clear to delivery)' END AS stepnm 	 <!-- 'HTJ' -->  
+		  	   , od.CONSIGNEE_ADDRESS_LOC AS rcptaddr
+		  	   , od.CONSIGNEE_ZIPCODE AS zipcode
+		  	   , od.COMMODITY_ITEM AS itemnm
+		  	   , od.PO_NO AS custordno
+		 FROM TB_ECM_OD od
+		 LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+		 WHERE od.ENT_CODE = #{entCode}
+		 AND od.SOLUTION = 'ECM'
+		 AND od.HBL_NO IN(
+		 <foreach collection="hblNoArr" item="item" separator=",">
+		 #{item}
+		 </foreach>)
+	 	 AND od.BOUND_TYPE = 'IMP'
+	 	 <!-- BOUND => AIR, SEA  / BOUND_TYPE => IMP, EXP -->
+	 	<if test="bound != null and bound != ''">
+	 		<if test="bound == 'AI'">
+	 		AND od.BOUND = 'AIR'
+	 		</if>
+	 		<if test="bound == 'OI'">
+	 		AND od.BOUND = 'SEA'
+	 		</if>	 		
+	 	</if>
+	</select>	
+	
+<!-- 	<select id="selectDeliveryTracking" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+	/* interfaceMapper.selectDeliveryTracking 해당 하우스번호로 상태값 정보 각 배송사에 맞게 변환된 데이터 조회   */
+		SELECT * FROM ( 공통코드건 조회
+					SELECT CASE od.DELIVERY_CODE WHEN 'EMS' THEN pod.DELIVERY_STORE_NAME WHEN 'KOREX' THEN '대한통운' END AS locationNm
+						 , CONVERT(VARCHAR, pod.POD_DATE, 23) + ' ' + pod.POD_TIME AS stepDt
+						 , CASE pod.POD_STATUS WHEN 'ECM003' THEN '집하' 	  오더생성(등록)
+										   WHEN 'ECM010' THEN '발송대기' 오더접수(발송)
+										   <if test="bound == 'AI'">
+										   WHEN 'ECM060' THEN '항공출발' 출항
+										   WHEN 'ECM070' THEN '항공도착' 입항
+										   </if>
+										   <if test="bound == 'OI'">
+										   WHEN 'ECM060' THEN '출발' 출항
+										   WHEN 'ECM070' THEN '도착' 입항
+										   </if>
+										   WHEN 'ECM120' THEN '통관중' 통관접수
+										   WHEN 'ECM250' THEN '통관중' 수입신고
+										   WHEN 'ECM240' THEN '통관완료' 통관목록심사완료
+										   WHEN 'ECM280' THEN '통관완료' 수입신고수리
+										   WHEN 'ECM360' THEN '집하지시' 배송접수
+										   WHEN 'ECM361' THEN '집하처리' 집하처리
+										   WHEN 'ECM370' THEN '간선상차' 간선상차
+										   WHEN 'ECM380' THEN '간선하차' 간선하차
+										   WHEN 'ECM390' THEN '배송출발' 배송출발
+										   WHEN 'ECM400' THEN '미배달' 미배달
+										   WHEN 'ECM420' THEN '배송완료' END AS statusNm 배송완료
+						 , '' AS memo
+						 , CASE od.DELIVERY_CODE WHEN 'EMS' THEN '우체국콜센터(1588-1300)'
+											 WHEN 'KOREX' THEN '대한통운콜센터(1588-1255)' END AS csInfo
+						 , CASE pod.POD_STATUS WHEN 'ECM003' THEN '00' 	  오더생성(등록)
+										   WHEN 'ECM010' THEN '10' 오더접수(발송)
+										   <if test="bound == 'AI'">
+										   WHEN 'ECM060' THEN '20' 출항
+										   WHEN 'ECM070' THEN '30' 입항
+										   </if>
+										   <if test="bound == 'OI'">
+										   WHEN 'ECM060' THEN '20' 출항
+										   WHEN 'ECM070' THEN '30' 입항
+										   </if>
+										   WHEN 'ECM120' THEN '40' 통관접수
+										   WHEN 'ECM250' THEN '40' 수입신고
+										   WHEN 'ECM240' THEN '50' 통관목록심사완료
+										   WHEN 'ECM280' THEN '50' 수입신고수리
+										   WHEN 'ECM360' THEN '60' 배송접수
+										   WHEN 'ECM361' THEN '60' 집하처리
+										   WHEN 'ECM370' THEN '61' 간선상차
+										   WHEN 'ECM380' THEN '62' 간선하차
+										   WHEN 'ECM390' THEN '63' 배송출발
+										   WHEN 'ECM400' THEN '68' 미배달
+										   WHEN 'ECM420' THEN '70' END AS statusCd 배송완료
+					FROM TB_ECM_POD pod
+						INNER JOIN TB_ECM_OD od ON pod.OD_JOB_NO = od.OD_JOB_NO
+					WHERE pod.OD_JOB_NO = #{OD_JOB_NO} AND pod.POD_STATUS IN ('ECM003','ECM010','ECM060','ECM070','ECM120','ECM240','ECM250','ECM280','ECM360','ECM361','ECM370','ECM380','ECM390','ECM400','ECM420')
+					
+			/*		UNION ALL
+					배송사별 이름이 다른 상태값 조회
+					SELECT CASE od.DELIVERY_CODE WHEN 'EMS' THEN pod.DELIVERY_STORE_NAME WHEN 'KOREX' THEN '대한통운' END AS locationNm
+						 , CONVERT(VARCHAR, pod.POD_DATE, 23) + ' ' + pod.POD_TIME AS stepDt
+						 , CASE od.DELIVERY_CODE WHEN 'EMS' THEN (CASE pod.POD_NAME WHEN '접수' THEN '택배집하'ELSE pod.POD_NAME END)
+										   	 WHEN 'KOREX' THEN pod.POD_NAME END AS statusNm
+						 , '-' AS memo
+						 , CASE od.DELIVERY_CODE WHEN 'EMS' THEN '우체국콜센터(1588-1300)'
+											 WHEN 'KOREX' THEN '대한통운콜센터(1588-1255)' END AS csInfo
+						 , pod.POD_STATUS AS statusCd
+					FROM TB_ECM_POD pod
+					INNER JOIN TB_ECM_OD od ON pod.OD_JOB_NO = od.OD_JOB_NO
+					WHERE pod.OD_JOB_NO = #{OD_JOB_NO} AND pod.POD_STATUS NOT IN ('ECM003','ECM010','ECM060','ECM070','ECM120','ECM240','ECM250','ECM280','ECM360','ECM361','ECM370','ECM380','ECM390','ECM400','ECM420') 
+					*/
+				) a ORDER BY a.stepDt	
+	</select> -->
+	
+	<select id="selectDeliveryTracking" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+	/* interfaceMapper.selectDeliveryTracking 해당 하우스번호로 상태값 정보 각 배송사에 맞게 변환된 데이터 조회   */
+		SELECT
+			 CASE A.DELIVERY_CODE WHEN 'EMS' THEN A.DELIVERY_STORE_NAME WHEN 'KOREX' THEN '대한통운' END AS locationNm
+			,CONVERT(VARCHAR, A.POD_DATE, 23) + ' ' + A.POD_TIME AS stepDt
+			,'' AS memo
+			,CASE A.DELIVERY_CODE WHEN 'EMS' THEN '우체국콜센터(1588-1300)' WHEN 'KOREX' THEN '대한통운콜센터(1588-1255)' END AS csInfo
+			,CASE A.POD_STATUS WHEN 'ECM003' THEN '집하' 	  <!-- 오더생성(등록) -->
+							   WHEN 'ECM010' THEN '발송대기' <!-- 오더접수(발송) -->
+							   <if test="bound == 'AI'">
+							   WHEN 'ECM060' THEN '항공출발' <!-- 출항 -->
+							   WHEN 'ECM070' THEN '항공도착' <!-- 입항 -->
+							   </if>
+							   <if test="bound == 'OI'">
+							   WHEN 'ECM060' THEN '출발' <!-- 출항 -->
+							   WHEN 'ECM070' THEN '도착' <!-- 입항 -->
+							   </if>
+							   WHEN 'ECM120' THEN '통관중' <!-- 통관접수 -->
+							   WHEN 'ECM250' THEN '통관중' <!-- 수입신고 -->
+							   WHEN 'ECM240' THEN '통관완료' <!-- 통관목록심사완료 -->
+							   WHEN 'ECM280' THEN '통관완료' <!-- 수입신고수리 -->
+							   WHEN 'ECM360' THEN '집하지시' <!-- 배송접수 -->
+							   WHEN 'ECM361' THEN '집하처리' <!-- 집하처리 -->
+							   WHEN 'ECM370' THEN '간선상차' <!-- 간선상차 -->
+							   WHEN 'ECM380' THEN '간선하차' <!-- 간선하차 -->
+							   WHEN 'ECM390' THEN '배송출발' <!-- 배송출발 -->
+							   WHEN 'ECM400' THEN '미배달' <!-- 미배달 -->
+							   WHEN 'ECM420' THEN '배송완료'<!-- 배송완료 -->
+			 END AS statusNm 
+			,CASE A.POD_STATUS WHEN 'ECM003' THEN '00' 	  <!-- 오더생성(등록) -->
+							   WHEN 'ECM010' THEN '10' <!-- 오더접수(발송) -->
+							   WHEN 'ECM060' THEN '20' <!-- 출항 -->
+							   WHEN 'ECM070' THEN '30' <!-- 입항 -->
+							   WHEN 'ECM120' THEN '40' <!-- 통관접수 -->
+							   WHEN 'ECM250' THEN '40' <!-- 수입신고 -->
+							   WHEN 'ECM240' THEN '50' <!-- 통관목록심사완료 -->
+							   WHEN 'ECM280' THEN '50' <!-- 수입신고수리 -->
+							   WHEN 'ECM360' THEN '60' <!-- 배송접수 -->
+							   WHEN 'ECM361' THEN '60' <!-- 집하처리 -->
+							   WHEN 'ECM370' THEN '61' <!-- 간선상차 -->
+							   WHEN 'ECM380' THEN '62' <!-- 간선하차 -->
+							   WHEN 'ECM390' THEN '63' <!-- 배송출발 -->
+							   WHEN 'ECM400' THEN '68' <!-- 미배달 -->
+							   WHEN 'ECM420' THEN '70' <!-- 배송완료 -->
+			 END AS statusCd
+		FROM(
+			<!-- 마스터오더로 저장되는 POD -->
+			SELECT
+				 pod.DELIVERY_STORE_NAME
+				,pod.POD_DATE
+				,pod.POD_TIME
+				,pod.POD_STATUS
+				,od.DELIVERY_CODE
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_POD pod
+				 			ON pod.OD_JOB_NO = od.MASTER_OD_JOB_NO
+				 			AND pod.POD_STATUS IN ('ECM060','ECM070')
+			WHERE od.OD_JOB_NO = #{OD_JOB_NO}
+			
+			UNION ALL
+			SELECT
+				 '' AS DELIVERY_STORE_NAME
+				,pod.POD_DATE
+				,pod.POD_TIME
+				,pod.POD_STATUS
+				,od.DELIVERY_CODE
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_POD_01 pod
+				 			ON pod.OD_JOB_NO = od.MASTER_OD_JOB_NO
+				 			AND pod.POD_STATUS IN ('ECM060','ECM070')
+			WHERE od.OD_JOB_NO = #{OD_JOB_NO}
+			
+			
+			<!-- 하우스오더로 저장되는 POD -->
+			UNION ALL
+			SELECT
+				 pod.DELIVERY_STORE_NAME
+				,pod.POD_DATE
+				,pod.POD_TIME
+				,pod.POD_STATUS
+				,(SELECT DELIVERY_CODE FROM TB_ECM_OD WHERE OD_JOB_NO = pod.OD_JOB_NO) AS DELIVERY_CODE
+			FROM TB_ECM_POD pod
+			WHERE pod.OD_JOB_NO = #{OD_JOB_NO}
+			AND pod.POD_STATUS IN ('ECM003','ECM010','ECM120','ECM240','ECM250','ECM280','ECM360','ECM361','ECM370','ECM380','ECM390','ECM400','ECM420')
+			
+			UNION ALL
+			SELECT
+				 '' AS DELIVERY_STORE_NAME
+				,pod.POD_DATE
+				,pod.POD_TIME
+				,pod.POD_STATUS
+				,(SELECT DELIVERY_CODE FROM TB_ECM_OD WHERE OD_JOB_NO = pod.OD_JOB_NO) AS DELIVERY_CODE
+			FROM TB_ECM_POD_01 pod
+			WHERE pod.OD_JOB_NO = #{OD_JOB_NO}
+			AND pod.POD_STATUS IN ('ECM003','ECM010')
+			
+			UNION ALL
+			SELECT
+				 '' AS DELIVERY_STORE_NAME
+				,pod.POD_DATE
+				,pod.POD_TIME
+				,pod.POD_STATUS
+				,(SELECT DELIVERY_CODE FROM TB_ECM_OD WHERE OD_JOB_NO = pod.OD_JOB_NO) AS DELIVERY_CODE
+			FROM TB_ECM_POD_02 pod
+			WHERE pod.OD_JOB_NO = #{OD_JOB_NO}
+			AND pod.POD_STATUS = 'ECM120'
+			
+			UNION ALL
+			SELECT
+				 '' AS DELIVERY_STORE_NAME
+				,pod.POD_DATE
+				,pod.POD_TIME
+				,pod.POD_STATUS
+				,(SELECT DELIVERY_CODE FROM TB_ECM_OD WHERE OD_JOB_NO = pod.OD_JOB_NO) AS DELIVERY_CODE
+			FROM TB_ECM_POD_03 pod
+			WHERE pod.OD_JOB_NO = #{OD_JOB_NO}
+			AND pod.POD_STATUS IN ('ECM240','ECM250','ECM280')
+			
+			UNION ALL
+			SELECT
+				 pod.DELIVERY_STORE_NAME
+				,pod.POD_DATE
+				,pod.POD_TIME
+				,pod.POD_STATUS
+				,(SELECT DELIVERY_CODE FROM TB_ECM_OD WHERE OD_JOB_NO = pod.OD_JOB_NO) AS DELIVERY_CODE
+			FROM TB_ECM_POD_04 pod
+			WHERE pod.OD_JOB_NO = #{OD_JOB_NO}
+			AND pod.POD_STATUS IN ('ECM360','ECM361','ECM370','ECM380','ECM390','ECM400','ECM420')
+		) A
+		ORDER BY A.POD_DATE, A.POD_TIME
+	</select>
+	
+	<select id="selectStockAPI" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+	/* interfaceMapper.selectStockAPI  스탁테이블에서 API 타입 스탁 데이터 조회 */
+		SELECT 
+				  SEQ_NO
+				, BOUND  	 <!--  AIR, SEA -->
+				, BOUND_TYPE  <!--  IMP, EXP -->
+				, STOCK_TYPE  <!-- MBL, HBL S/R, M.REF, H.REF, O/D -->
+				, STOCK_METHOD <!--  EXCEL,API -->
+				, START_NO
+				, END_NO
+				, ENT_CODE
+				, ENT_BUSINESS_CODE
+				, AGENT_CODE
+				, CURRENT_NO
+				, TR_CODE
+				, (CASE WHEN TR_CODE IN('KOREX','KOREXMUL','HANJIN') THEN (CASE WHEN ISNULL(CURRENT_NO, 0) = 0 THEN 0 
+																  ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),CURRENT_NO),1,11)) -  CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),START_NO),1,11)) + 1 END)
+				        WHEN TR_CODE IN('EMS-KP','EMS-TS') THEN (CASE WHEN ISNULL(CURRENT_NO, 0) = 0 THEN 0
+																  ELSE CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),CURRENT_NO),1,8)) -  CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),START_NO),1,8)) + 1 END)
+				        ELSE (CASE WHEN ISNULL(CURRENT_NO, 0) = 0 THEN 0 
+								   ELSE CURRENT_NO - START_NO + 1 END) END
+				  ) AS Used
+				, (CASE WHEN TR_CODE IN('KOREX','KOREXMUL','HANJIN') THEN (CASE WHEN ISNULL(CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),END_NO),1,11)) - CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),START_NO),1,11)) + 1 
+																  ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),END_NO),1,11)) - CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),CURRENT_NO),1,11)) END)
+						WHEN TR_CODE IN('EMS-KP','EMS-TS') THEN (CASE WHEN ISNULL(CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),END_NO),1,8)) - CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),START_NO),1,8)) + 1				
+																  ELSE CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),END_NO),1,8)) - CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),CURRENT_NO),1,8)) END)						   
+						ELSE (CASE WHEN ISNULL(CURRENT_NO, 0) = 0 THEN END_NO - START_NO + 1 
+								   ELSE END_NO - CURRENT_NO END) END
+				  ) AS unUsed
+		FROM TB_ECM_STOCK
+		WHERE 1 = 1
+		AND BOUND_TYPE = #{BoundType}
+		AND BOUND = #{Bound}
+		<!-- AND STOCK_TYPE = 'HBL' -->
+		<!-- AND STOCK_METHOD = 'API' -->
+		AND TR_CODE = #{TrCode}
+		AND AGENT_CODE = #{agentCode}	
+	</select>	
+	
+	<select id="getCreateStockAPI" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+		/* interfaceMapper.getCreateStockAPI  API 타입 스탁 데이터 생성하는 프로시저 호출 */
+		EXEC p_CREATE_EXPRESS_STOCK #{Bound}, #{BoundType}, '', #{agentCode}, #{TrCode}, #{HblCnt}, ''
+	</select>	
+	
+	<select id="getCreateEmsStockAPI" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+		/* interfaceMapper.getCreateEmsStockAPI  EMS API 타입 스탁 데이터 생성하는 프로시저 호출 */
+		EXEC p_CREATE_EXPRESS_STOCK_EMS #{Bound}, #{BoundType}, '', #{agentCode}, #{TrCode}, 1, '';
+	</select>	
+
+
+  	<select id="getKorexAddressCode" parameterType="HashMap" statementType="CALLABLE">
+ 	/* interfaceMapper.getKorexAddressCode 프로시저 */
+		{ call PKG_RVAP_ADDRSEARCH.PR_RVAP_SEARCHADDRESS_SM(
+			#{P_CLNTNUM, mode=INOUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_CLNTMGMCUSTCD, mode=INOUT, jdbcType=VARCHAR, javaType=String}	
+			, #{P_PRNGDIVCD, mode=INOUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_CGOSTS, mode=INOUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_ADDRESS, mode=INOUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_ZIPNUM, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_ZIPID, mode=OUT, jdbcType=INTEGER, javaType=Integer}
+			, #{P_OLDADDRESS, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_OLDADDRESSDTL, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_NEWADDRESS, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_NESADDRESSDTL, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_ETCADDR, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_SHORTADDR, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_CLSFADDR, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_CLLDLVBRANCD, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_CLLDLVBRANNM, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_CLLDLCBRANSHORTNM, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_CLLDLVEMPNUM, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_CLLDLVEMPNM, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_CLLDLVEMPNICKNM, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_CLSFCD, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_CLSFNM, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_SUBCLSFCD, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_RSPSDIV, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_NEWADDRYN, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_ERRORCD, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			, #{P_ERRORMSG, mode=OUT, jdbcType=VARCHAR, javaType=String}
+		) }
+	</select>
+	
+	<select id="checkKorexPostCode" parameterType="java.lang.String" resultType="java.util.HashMap" >
+	/* interfaceMapper.checkKorexPostCode  대한통운 DB에서 우편번호로 주소정보 조회 */
+		SELECT * FROM TB_POST010 
+		WHERE ZIP_NO = REPLACE(#{zipcode} ,'-', '')
+		AND ROWNUM = 1
+	</select>	
+	
+	
+	<select id="getHanjinAddressCode" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+		/* interfaceMapper.getHanjinAddressCode  ECM 한진 집배코드 조회 */
+		
+		SELECT   
+			(SELECT HUB_COD 
+			 FROM VW_HUB_COD 
+			 WHERE DML_COD = ( SELECT TML_COD FROM VW_ZIP_HJ WHERE ZIP_COD = #{zipcode} )
+			 AND aml_cod = ( SELECT TML_COD FROM VW_ZIP_HJ WHERE ZIP_COD = #{sZipcode})
+			 AND ROWNUM = 1
+			) AS HUB_COD,
+			a.TML_COD,
+			a.TML_NAM,
+			a.DOM_MID,
+			a.CEN_COD,
+			a.DOM_PDZ,
+			a.CEN_NAM,
+			a.ES_NAM,
+			(SELECT TML_COD FROM VW_ZIP_HJ WHERE ZIP_COD = #{sZipcode}) AS STML_COD,
+			(SELECT TML_NAM FROM VW_ZIP_HJ WHERE ZIP_COD = #{sZipcode}) AS STML_NAM,
+			a.PDZ_NAM,
+			a.DOM_RGN
+			FROM VW_ZIP_HJ a
+		WHERE ZIP_COD = #{zipcode}			
+	</select>	
+	
+	<update id="updateInterfaceCnt" parameterType="HashMap">
+		/* interfaceMapper.updateInterfaceCnt  인터페이스 사용량(ORDER_CNT, DELIVERY_CODE_CNT) 업데이트 */	
+			UPDATE TB_SMS_INTERFACE_INFO SET
+			  <if test='Type == "order"'>
+				ORDER_CNT = ISNULL(ORDER_CNT,0) + 1
+			  </if>
+			  <if test='Type == "korexConvert"'>
+			    DELIVERY_CODE_CNT = ISNULL(DELIVERY_CODE_CNT,0) + 1	
+			  </if>	
+			WHERE 1 = 1  
+			<if test="ReceiverId != null and ReceiverId != ''">
+			AND ENT_CODE = #{ReceiverId}
+			</if>
+			AND CUSTOMER_CODE = #{SenderId}
+			<if test="UseYN != null and UseYN != ''">
+			AND USE_YN = #{UseYN}
+			</if>  
+	</update>
+
+<!-- 	<select id="selectOrderTracking" parameterType="HashMap" resultType="HashMap"> -->
+<!-- 	/* interfaceMapper.selectOrderTracking */ -->
+<!-- 		SELECT sm.ETC16, od.OD_JOB_NO, p.POD_STATUS, p.POD_NAME, p.POD_DATE, p.POD_TIME, p.REMARKS, od.HBL_NO, od.PO_NO, -->
+<!-- 			(CONVERT(VARCHAR,p.POD_DATE,23)+' '+p.POD_TIME) as  TIME -->
+<!-- 		FROM TB_ECM_OD od  -->
+<!-- 		LEFT JOIN TB_ECM_POD p ON od.OD_JOB_NO = p.OD_JOB_NO -->
+<!-- 		LEFT JOIN TB_SMS_CODE_DETAIL sm ON p.POD_STATUS = sm.CODE and sm.GROUP_CODE = 'STATUS_ORDER_CARGO' -->
+<!-- 		WHERE od.HBL_NO = #{hblNo} and PO_NO = #{ordId} and BOUND = #{bound} and BOUND_TYPE = #{boundType} -->
+
+<!-- 	</select> -->
+	
+	<select id="selectOrderTracking" parameterType="HashMap" resultType="HashMap">
+	/* interfaceMapper.selectOrderTracking */
+		<!-- 
+		SELECT
+			 sm.ETC16
+			,od.OD_JOB_NO
+			,p.POD_STATUS
+			,p.POD_NAME
+			,p.POD_DATE
+			,p.POD_TIME
+			,'' AS REMARKS
+			,od.HBL_NO
+			,od.PO_NO
+			,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME
+		FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_POD p
+			 			ON od.MASTER_OD_JOB_NO = p.OD_JOB_NO
+			 			AND p.POD_STATUS IN ('ECM060','ECM070')
+			 LEFT JOIN TB_SMS_CODE_DETAIL sm
+			 		   ON p.POD_STATUS  = sm.CODE
+			 		   AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+		AND PO_NO = #{ordId}
+		AND BOUND = #{bound}
+		AND BOUND_TYPE = #{boundType}
+		 
+		UNION ALL
+	
+		SELECT sm.ETC16,od.OD_JOB_NO,p.POD_STATUS,p.POD_NAME,p.POD_DATE,p.POD_TIME,'' AS REMARKS,od.HBL_NO,od.PO_NO,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME
+		FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_POD_01 p
+			 			ON od.MASTER_OD_JOB_NO = p.OD_JOB_NO
+			 			AND p.POD_STATUS IN ('ECM060','ECM070')
+			 LEFT JOIN TB_SMS_CODE_DETAIL sm
+			 		   ON p.POD_STATUS  = sm.CODE
+			 		   AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+		AND PO_NO = #{ordId}
+		AND BOUND = #{bound}
+		AND BOUND_TYPE = #{boundType}
+		
+		UNION ALL
+		SELECT
+			 sm.ETC16
+			,od.OD_JOB_NO
+			,p.POD_STATUS
+			,p.POD_NAME
+			,p.POD_DATE
+			,p.POD_TIME
+			,p.REMARKS
+			,od.HBL_NO
+			,od.PO_NO
+			,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME
+		FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_POD p
+			 			ON od.OD_JOB_NO = p.OD_JOB_NO
+			 			AND p.POD_STATUS NOT IN ('ECM060','ECM070')
+			 LEFT JOIN TB_SMS_CODE_DETAIL sm
+			 		   ON p.POD_STATUS  = sm.CODE
+			 		   AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+		AND PO_NO = #{ordId}
+		AND BOUND = #{bound}
+		AND BOUND_TYPE = #{boundType}
+		
+		UNION ALL
+		-->
+		SELECT sm.ETC16,od.OD_JOB_NO,p.POD_STATUS,p.POD_NAME,p.POD_DATE,p.POD_TIME,'' AS REMARKS,od.HBL_NO,od.PO_NO,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME, od.BOUND, od.BOUND_TYPE, sm.NAME_${language} AS TRACKING_CODE_NAME
+		FROM TB_ECM_OD od INNER JOIN TB_ECM_POD_01 p ON od.OD_JOB_NO = p.OD_JOB_NO AND p.POD_STATUS NOT IN ('ECM060','ECM070') LEFT JOIN TB_SMS_CODE_DETAIL sm ON p.POD_STATUS  = sm.CODE AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE
+		1=1 and sm.ETC16 = 'Y'
+		<choose>
+			<when test="boundType != null and boundType != ''">
+				<choose>
+					<when test="boundType =='IMP'">
+						<if test="hblNo != null and hblNo != ''">
+							and od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+						</if>
+						<if test="ordId != null and ordId != ''">
+							and od.PO_NO = #{ordId}
+						</if>
+						and BOUND = #{bound} and BOUND_TYPE = #{boundType}
+					</when>
+					<otherwise>
+						and od.HBL_NO = LTRIM(RTRIM(#{hblNo})) AND PO_NO = #{ordId} AND BOUND = #{bound} AND BOUND_TYPE = #{boundType}
+					</otherwise>
+				</choose>
+			</when>
+			<otherwise>
+				<if test="hblNo != null and hblNo != ''">
+					and od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+				</if>
+				<if test="ordId != null and ordId != ''">
+					and od.PO_NO = #{ordId}
+				</if>
+			</otherwise>
+		</choose>
+
+		UNION ALL
+		SELECT sm.ETC16,od.OD_JOB_NO,p.POD_STATUS,p.POD_NAME,p.POD_DATE,p.POD_TIME,'' AS REMARKS,od.HBL_NO,od.PO_NO,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME, od.BOUND, od.BOUND_TYPE, sm.NAME_${language} AS TRACKING_CODE_NAME
+		FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_POD_01 p
+			 			ON od.MASTER_OD_JOB_NO = p.OD_JOB_NO
+			 			AND p.POD_STATUS IN ('ECM060','ECM070')
+			 LEFT JOIN TB_SMS_CODE_DETAIL sm
+			 		   ON p.POD_STATUS  = sm.CODE
+			 		   AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE
+		1=1 and sm.ETC16 = 'Y'
+		<choose>
+			<when test="boundType != null and boundType != ''">
+				<choose>
+					<when test="boundType =='IMP'">
+						<if test="hblNo != null and hblNo != ''">
+							and od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+						</if>
+						<if test="ordId != null and ordId != ''">
+							and od.PO_NO = #{ordId}
+						</if>
+						and BOUND = #{bound} and BOUND_TYPE = #{boundType}
+					</when>
+					<otherwise>
+						and od.HBL_NO = LTRIM(RTRIM(#{hblNo})) AND PO_NO = #{ordId} AND BOUND = #{bound} AND BOUND_TYPE = #{boundType}
+					</otherwise>
+				</choose>
+			</when>
+			<otherwise>
+				<if test="hblNo != null and hblNo != ''">
+					and od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+				</if>
+				<if test="ordId != null and ordId != ''">
+					and od.PO_NO = #{ordId}
+				</if>
+			</otherwise>
+		</choose>
+		UNION ALL
+		SELECT sm.ETC16,od.OD_JOB_NO,p.POD_STATUS,p.POD_NAME,p.POD_DATE,p.POD_TIME,'' AS REMARKS,od.HBL_NO,od.PO_NO,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME, od.BOUND, od.BOUND_TYPE, sm.NAME_${language} AS TRACKING_CODE_NAME
+		FROM TB_ECM_OD od INNER JOIN TB_ECM_POD_02 p ON od.OD_JOB_NO = p.OD_JOB_NO LEFT JOIN TB_SMS_CODE_DETAIL sm ON p.POD_STATUS  = sm.CODE AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE
+		1=1 and sm.ETC16 = 'Y'
+		<choose>
+			<when test="boundType != null and boundType != ''">
+				<choose>
+					<when test="boundType =='IMP'">
+						<if test="hblNo != null and hblNo != ''">
+							and od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+						</if>
+						<if test="ordId != null and ordId != ''">
+							and od.PO_NO = #{ordId}
+						</if>
+						and BOUND = #{bound} and BOUND_TYPE = #{boundType}
+					</when>
+					<otherwise>
+						and od.HBL_NO = LTRIM(RTRIM(#{hblNo})) AND PO_NO = #{ordId} AND BOUND = #{bound} AND BOUND_TYPE = #{boundType}
+					</otherwise>
+				</choose>
+			</when>
+			<otherwise>
+				<if test="hblNo != null and hblNo != ''">
+					and od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+				</if>
+				<if test="ordId != null and ordId != ''">
+					and od.PO_NO = #{ordId}
+				</if>
+			</otherwise>
+		</choose>
+		UNION ALL
+		SELECT sm.ETC16,od.OD_JOB_NO,p.POD_STATUS,p.POD_NAME,p.POD_DATE,p.POD_TIME,p.REMARKS,od.HBL_NO,od.PO_NO,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME, od.BOUND, od.BOUND_TYPE, sm.NAME_${language} AS TRACKING_CODE_NAME
+		FROM TB_ECM_OD od INNER JOIN TB_ECM_POD_03 p ON od.OD_JOB_NO = p.OD_JOB_NO LEFT JOIN TB_SMS_CODE_DETAIL sm ON p.POD_STATUS  = sm.CODE AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE
+		1=1 and sm.ETC16 = 'Y'
+		<choose>
+			<when test="boundType != null and boundType != ''">
+				<choose>
+					<when test="boundType =='IMP'">
+						<if test="hblNo != null and hblNo != ''">
+							and od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+						</if>
+						<if test="ordId != null and ordId != ''">
+							and od.PO_NO = #{ordId}
+						</if>
+						and BOUND = #{bound} and BOUND_TYPE = #{boundType}
+					</when>
+					<otherwise>
+						and od.HBL_NO = LTRIM(RTRIM(#{hblNo})) AND PO_NO = #{ordId} AND BOUND = #{bound} AND BOUND_TYPE = #{boundType}
+					</otherwise>
+				</choose>
+			</when>
+			<otherwise>
+				<if test="hblNo != null and hblNo != ''">
+					and od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+				</if>
+				<if test="ordId != null and ordId != ''">
+					and od.PO_NO = #{ordId}
+				</if>
+			</otherwise>
+		</choose>
+		UNION ALL
+		SELECT sm.ETC16,od.OD_JOB_NO,p.POD_STATUS,p.POD_NAME,p.POD_DATE,p.POD_TIME
+			 , CASE WHEN p.POD_STATUS IN ('ECM361', 'ECM390', 'ECM420') THEN CONCAT(p.DELIVERY_STORE_NAME, '/', p.COURIER_NAME, '/', p.COURIER_TEL)
+			        WHEN p.POD_STATUS = 'ECM400' 						THEN CONCAT(p.DELIVERY_STORE_NAME, '/', p.COURIER_NAME, '/', p.COURIER_TEL, '/', p.REMARKS)
+			   ELSE p.REMARKS END AS REMARKS
+			 ,od.HBL_NO,od.PO_NO,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME
+			 ,od.BOUND, od.BOUND_TYPE, sm.NAME_${language} AS TRACKING_CODE_NAME
+		FROM TB_ECM_OD od INNER JOIN TB_ECM_POD_04 p ON od.OD_JOB_NO = p.OD_JOB_NO LEFT JOIN TB_SMS_CODE_DETAIL sm ON p.POD_STATUS  = sm.CODE AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE
+		1=1 and sm.ETC16 = 'Y'
+		<choose>
+			<when test="boundType != null and boundType != ''">
+				<choose>
+					<when test="boundType =='IMP'">
+						<if test="hblNo != null and hblNo != ''">
+							and od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+						</if>
+						<if test="ordId != null and ordId != ''">
+							and od.PO_NO = #{ordId}
+						</if>
+							and BOUND = #{bound} and BOUND_TYPE = #{boundType}
+					</when>
+					<otherwise>
+						and od.HBL_NO = LTRIM(RTRIM(#{hblNo})) AND PO_NO = #{ordId} AND BOUND = #{bound} AND BOUND_TYPE = #{boundType}
+					</otherwise>
+				</choose>
+			</when>
+			<otherwise>
+				<if test="hblNo != null and hblNo != ''">
+					and od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+				</if>
+				<if test="ordId != null and ordId != ''">
+					and od.PO_NO = #{ordId}
+				</if>
+			</otherwise>
+		</choose>
+
+	</select>
+	
+	<select id="selectDeliveryInterfaceApi" parameterType="HashMap" resultType="HashMap">
+		/* interfaceMapper.selectDeliveryInterfaceApi */
+		SELECT
+			 ENT_CODE
+			,DELIVERY_CODE
+			,RECV_API_URL
+			,RECV_API_CODE
+			,RECV_API_ID
+			,RECV_API_PW
+		FROM TB_SMS_DELIVERY_API_INFO
+		WHERE ENT_CODE = #{entCode}
+		AND DELIVERY_CODE IN ('hms','cargo')
+		<if test="recvApiId != null and recvApiId != ''">
+		AND RECV_API_ID = #{recvApiId}
+		</if>
+		<if test="recvApiPw != null and recvApiPw != ''">
+		AND RECV_API_PW = #{recvApiPw}
+		</if>
+	</select>
+	
+	<select id="selectOrderRegisterDate" parameterType="HashMap" resultType="HashMap">
+		/* interfaceMapper.selectOrderRegisterDate */
+		SELECT TOP 1
+			 od.OD_JOB_NO
+			,od.HBL_NO
+			,od.BOUND
+			,od.PIECES
+<!-- 			,(SELECT COUNT(OD_JOB_NO) FROM TB_ECM_OD_PACKING WHERE OD_JOB_NO = od.OD_JOB_NO AND (PACKING_NO = od.HBL_NO OR LEN(PACKING_NO) = 18)) AS PACKING_CNT -->
+		FROM TB_ECM_OD od
+		WHERE od.HBL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+		AND od.REGISTER_DATE_TIME BETWEEN DATEADD(MONTH, -1, GETDATE()) AND DATEADD(MONTH, 1, GETDATE())
+		ORDER BY REGISTER_DATE_TIME DESC
+	</select>
+	
+	<select id="selectBmsOutPlanRegisterDate" parameterType="HashMap" resultType="HashMap">
+		/* interfaceMapper.selectBmsOutPlanRegisterDate */
+		SELECT TOP 1
+			 OUT_PLAN_NO
+<!-- 			,BOUND -->
+		FROM TB_BMS_OUT_PLAN WITH (NOLOCK)
+		WHERE BL_NO = LTRIM(RTRIM(#{hblNo}))
+		AND REGISTER_DATE_TIME BETWEEN DATEADD(MONTH, -1, GETDATE()) AND DATEADD(MONTH, 1, GETDATE())
+		ORDER BY REGISTER_DATE_TIME DESC
+	</select>
+	
+	<update id="updateBmsOutPlanScanDate" parameterType="HashMap">
+		/* interfaceMapper.updateBmsOutPlanScanDate */
+		UPDATE TB_BMS_OUT_PLAN SET OUT_SCAN_DATE_TIME = #{scanDate} WHERE BL_NO = #{hblNo} AND OUT_APPROVAL_NO = #{outApprovalNo} AND OUT_CLASS = #{outClass} 
+	</update>
+	
+	<update id="updateBmsOutScanDate" parameterType="HashMap">
+		/* interfaceMapper.updateBmsOutScanDate */
+		UPDATE TB_BMS_OUT SET OUT_SCAN_DATE_TIME = #{scanDate} WHERE BL_NO = #{hblNo} AND OUT_APPROVAL_NO = #{outApprovalNo} AND OUT_CLASS = #{outClass} 
+	</update>
+	
+	<insert id="insertPacking" parameterType="HashMap">
+		/* interfaceMapper.insertPacking */
+		<foreach collection="packages" item="item">
+		MERGE TB_ECM_OD_PACKING AS A
+		USING (SELECT #{OD_JOB_NO} AS OD_JOB_NO, #{item.packageNo} AS PACKING_NO) AS B
+		ON (A.OD_JOB_NO = B.OD_JOB_NO AND A.PACKING_NO = B.PACKING_NO)
+		WHEN NOT MATCHED BY TARGET THEN
+		INSERT (
+			   OD_JOB_NO
+			  ,SEQ_NO_ID
+			  ,DELIVERY_NO
+			  ,PACKING_NO
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+		)VALUES(
+			   <choose>
+			   <when test="BOUND != null and BOUND != ''">
+			   #{OD_JOB_NO}
+			   </when>
+			   <otherwise>
+			   LTRIM(RTRIM(REPLACE(#{OD_JOB_NO},char(9),'')))
+			   </otherwise>
+			   </choose>
+			  ,(SELECT ISNULL(MAX(SEQ_NO_ID), 0) + 1 FROM TB_ECM_OD_PACKING WHERE OD_JOB_NO = #{OD_JOB_NO})
+			  ,#{hblNo}
+			  ,#{item.packageNo}
+			  ,'API'
+			  ,GETDATE()
+		);
+		</foreach>
+	</insert>
+	
+	<select id="selectOrderTrackingVE" parameterType="HashMap" resultType="HashMap">
+		/* interfaceMapper.selectOrderTrackingVE */
+		SELECT sm.ETC16,od.OD_JOB_NO,p.POD_STATUS,p.POD_NAME,p.POD_DATE,p.POD_TIME,'' AS REMARKS,od.HBL_NO,od.PO_NO,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME, od.BOUND, od.BOUND_TYPE, sm.NAME_${language} AS TRACKING_CODE_NAME
+		FROM TB_ECM_OD od INNER JOIN TB_ECM_POD_01 p ON od.OD_JOB_NO = p.OD_JOB_NO AND p.POD_STATUS NOT IN ('ECM060','ECM070') LEFT JOIN TB_SMS_CODE_DETAIL sm ON p.POD_STATUS  = sm.CODE AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE
+		1=1 and sm.ETC16 = 'Y'
+		<if test="hblNo != null and hblNo != ''">
+			and (od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+				or od.OD_JOB_NO IN (SELECT TOP 1 OD_JOB_NO FROM TB_ECM_OD_MULTI WHERE DELIVERY_NO = LTRIM(RTRIM(#{hblNo}))))
+		</if>
+		<if test="ordId != null and ordId != ''">
+			and od.PO_NO = #{ordId}
+		</if>
+		UNION ALL
+		
+		SELECT sm.ETC16,od.OD_JOB_NO,p.POD_STATUS,p.POD_NAME,p.POD_DATE,p.POD_TIME,'' AS REMARKS,od.HBL_NO,od.PO_NO,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME, od.BOUND, od.BOUND_TYPE, sm.NAME_${language} AS TRACKING_CODE_NAME
+		FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_POD_01 p
+			 			ON od.MASTER_OD_JOB_NO = p.OD_JOB_NO
+			 			AND p.POD_STATUS IN ('ECM060','ECM070')
+			 LEFT JOIN TB_SMS_CODE_DETAIL sm
+			 		   ON p.POD_STATUS  = sm.CODE
+			 		   AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE
+		1=1 and sm.ETC16 = 'Y'
+		<if test="hblNo != null and hblNo != ''">
+			and (od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+				or od.OD_JOB_NO IN (SELECT TOP 1 OD_JOB_NO FROM TB_ECM_OD_MULTI WHERE DELIVERY_NO = LTRIM(RTRIM(#{hblNo}))))
+		</if>
+		<if test="ordId != null and ordId != ''">
+			and od.PO_NO = #{ordId}
+		</if>
+		UNION ALL
+		
+		SELECT sm.ETC16,od.OD_JOB_NO,p.POD_STATUS,p.POD_NAME,p.POD_DATE,p.POD_TIME,'' AS REMARKS,od.HBL_NO,od.PO_NO,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME, od.BOUND, od.BOUND_TYPE, sm.NAME_${language} AS TRACKING_CODE_NAME
+		FROM TB_ECM_OD od INNER JOIN TB_ECM_POD_02 p ON od.OD_JOB_NO = p.OD_JOB_NO LEFT JOIN TB_SMS_CODE_DETAIL sm ON p.POD_STATUS  = sm.CODE AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE
+		1=1 and sm.ETC16 = 'Y'
+		<if test="hblNo != null and hblNo != ''">
+			and (od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+				or od.OD_JOB_NO IN (SELECT TOP 1 OD_JOB_NO FROM TB_ECM_OD_MULTI WHERE DELIVERY_NO = LTRIM(RTRIM(#{hblNo}))))
+		</if>
+		<if test="ordId != null and ordId != ''">
+			and od.PO_NO = #{ordId}
+		</if>
+		UNION ALL
+		
+		SELECT sm.ETC16,od.OD_JOB_NO,p.POD_STATUS,p.POD_NAME,p.POD_DATE,p.POD_TIME,p.REMARKS,od.HBL_NO,od.PO_NO,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME, od.BOUND, od.BOUND_TYPE, sm.NAME_${language} AS TRACKING_CODE_NAME
+		FROM TB_ECM_OD od INNER JOIN TB_ECM_POD_03 p ON od.OD_JOB_NO = p.OD_JOB_NO LEFT JOIN TB_SMS_CODE_DETAIL sm ON p.POD_STATUS  = sm.CODE AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE
+		1=1 and sm.ETC16 = 'Y'
+		<if test="hblNo != null and hblNo != ''">
+			and (od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+				or od.OD_JOB_NO IN (SELECT TOP 1 OD_JOB_NO FROM TB_ECM_OD_MULTI WHERE DELIVERY_NO = LTRIM(RTRIM(#{hblNo}))))
+		</if>
+		<if test="ordId != null and ordId != ''">
+			and od.PO_NO = #{ordId}
+		</if>
+		UNION ALL
+		
+		SELECT sm.ETC16,od.OD_JOB_NO,p.POD_STATUS,p.POD_NAME,p.POD_DATE,p.POD_TIME
+			 , CASE WHEN p.POD_STATUS IN ('ECM361', 'ECM390', 'ECM420') THEN CONCAT(p.DELIVERY_STORE_NAME, '/', p.COURIER_NAME, '/', p.COURIER_TEL)
+			        WHEN p.POD_STATUS = 'ECM400' 						THEN CONCAT(p.DELIVERY_STORE_NAME, '/', p.COURIER_NAME, '/', p.COURIER_TEL, '/', p.REMARKS)
+			   ELSE p.REMARKS END AS REMARKS
+			 ,od.HBL_NO,od.PO_NO,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME
+			 ,od.BOUND, od.BOUND_TYPE, sm.NAME_${language} AS TRACKING_CODE_NAME
+		FROM TB_ECM_OD od INNER JOIN TB_ECM_POD_04 p ON od.OD_JOB_NO = p.OD_JOB_NO LEFT JOIN TB_SMS_CODE_DETAIL sm ON p.POD_STATUS  = sm.CODE AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE
+		1=1 and sm.ETC16 = 'Y'
+		<if test="hblNo != null and hblNo != ''">
+			and p.BL_NO = LTRIM(RTRIM(#{hblNo}))
+		</if>
+		<if test="ordId != null and ordId != ''">
+			and od.PO_NO = #{ordId}
+		</if>
+		UNION ALL
+		
+		SELECT sm.ETC16,od.OD_JOB_NO,p.POD_STATUS,p.POD_NAME,p.POD_DATE,p.POD_TIME
+			 , CASE WHEN p.POD_STATUS IN ('ECM361', 'ECM390', 'ECM420') THEN CONCAT(p.DELIVERY_STORE_NAME, '/', p.COURIER_NAME, '/', p.COURIER_TEL)
+			        WHEN p.POD_STATUS = 'ECM400' 						THEN CONCAT(p.DELIVERY_STORE_NAME, '/', p.COURIER_NAME, '/', p.COURIER_TEL, '/', p.REMARKS)
+			   ELSE p.REMARKS END AS REMARKS
+			 ,od.HBL_NO,od.PO_NO,(CONVERT(VARCHAR, p.POD_DATE, 23) + ' ' + p.POD_TIME) AS TIME
+			 ,od.BOUND, od.BOUND_TYPE, sm.NAME_${language} AS TRACKING_CODE_NAME
+		FROM TB_ECM_OD od INNER JOIN TB_ECM_POD_04_M p ON od.OD_JOB_NO = p.OD_JOB_NO LEFT JOIN TB_SMS_CODE_DETAIL sm ON p.POD_STATUS  = sm.CODE AND sm.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE
+		1=1 and sm.ETC16 = 'Y'
+		<if test="hblNo != null and hblNo != ''">
+			and p.BL_NO = LTRIM(RTRIM(#{hblNo}))
+		</if>
+		<if test="ordId != null and ordId != ''">
+			and od.PO_NO = #{ordId}
+		</if>
+	</select>
+	
+	<select id="selectOblTracking" parameterType="HashMap" resultType="hblReturnTracking">
+		/* interfaceMapper.selectOblTracking */
+		SELECT
+			 obl.HBL_NO
+			,pod.POD_STATUS AS TRACKING_CODE
+			,CONCAT(pod.POD_DATE, ' ', pod.POD_TIME) AS TRACKING_DATE_TIME
+			,pod.REMARKS AS TRACKING_REMARK
+		FROM TB_COM_OBL obl
+			 INNER JOIN TB_COM_POD pod
+			 			ON pod.OBL_JOB_NO = obl.OBL_JOB_NO
+		WHERE obl.ENT_CODE = #{entCode}
+		AND obl.HBL_NO = #{hblNo}
+		AND obl.SOLUTION = 'EMS'
+	</select>
+	
+	<select id="selectOrderTrackingCustomsInfo" parameterType="HashMap" resultType="HashMap">
+	/* interfaceMapper.selectOrderTrackingCustomsInfo */
+		SELECT <!-- CustomsInfo -->
+				od.HBL_NO, od.PO_NO,
+				CASE WHEN DROP_YN = 'Y' THEN 'Withdrawal'
+					WHEN od.CD_TYPE = 'Y' THEN 'Simplified Clearance'
+					WHEN od.CD_TYPE = 'N' THEN 'General Declaration'
+					WHEN od.CD_TYPE = 'B' THEN 'Exclude Simplified Clearance'
+				END AS CUSTOMS_CLEARANCE
+				, CASE WHEN INSPECTION_YN = 'Y' OR ad.SE_INSPECTION_YN = 'Y' THEN 'Inspection' END AS INSPECTION 
+				, DROP_CODE AS DROP_CODE
+				, (SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'DROP_CODE' AND CODE = DROP_CODE) AS DROP_REASON
+				, od.DELIVERY_CODE
+				<!-- InventoryInfo -->
+				, CASE WHEN (SELECT COUNT(*) FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') > 0 THEN 'Y' ELSE 'N' END AS HOLD_YN
+				, (SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD hld WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') AS HOLD_CODE
+				, CASE WHEN ISNULL((SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N'), '') IN ('', '4') 
+				 	   THEN (SELECT TOP 1 HOLD_REASON FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N')
+				 	   ELSE (SELECT NAME_KOR 
+				 	   		 FROM TB_SMS_CODE_DETAIL 
+				 	   		 WHERE ENT_CODE = od.ENT_CODE 
+				 	   		 AND GROUP_CODE = 'HOLD_CODE' 
+				 	   		 AND CODE = (SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N'))
+					   END AS HOLD_REASON
+				, ad.WH_LOCATION 
+				, (SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'WH_LOCATION' AND CODE = WH_LOCATION) AS WH_LOCATION_NAME
+				, CONVERT(CHAR(16), ad.STOCK_DATE_TIME, 20) AS STOCK_DATE_TIME
+				, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = ad.STOCK_USER_ID) AS STOCK_USER_NAME
+				, ad.WH_CARRYOUT_DATE AS CARRYOUT_DATE
+				, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = ad.CARRYOUT_USER_ID) AS CARRYOUT_USER
+		FROM TB_ECM_OD od 
+		LEFT JOIN TB_ECM_OD_ADDITIONAL ad ON od.OD_JOB_NO = ad.OD_JOB_NO
+		WHERE
+		1=1
+		<choose>
+			<when test="boundType =='IMP'">
+				<if test="hblNo != null and hblNo != ''">
+					and od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+				</if>
+				<if test="ordId != null and ordId != ''">
+					and od.PO_NO = #{ordId}
+				</if>
+				and BOUND = #{bound} and BOUND_TYPE = #{boundType}
+			</when>
+			<otherwise>
+				and od.HBL_NO = LTRIM(RTRIM(#{hblNo})) AND PO_NO = #{ordId} AND BOUND = #{bound} AND BOUND_TYPE = #{boundType}
+			</otherwise>
+		</choose>
+	</select>
+	
+	<select id="selectOrderTrackingMultiInfo" parameterType="HashMap" resultType="HashMap">
+	/* interfaceMapper.selectOrderTrackingMultiInfo */
+		SELECT 
+			   mul.DELIVERY_NO
+			 , mul.DELIVERY_CODE
+			 , mul.DELIVERY_NO_CHANGED
+			 , mul.SEQ_NO_ID
+		FROM TB_ECM_OD od
+		INNER JOIN TB_ECM_OD_MULTI mul
+		ON od.OD_JOB_NO = mul.OD_JOB_NO
+		WHERE
+		1=1
+		<choose>
+			<when test="boundType =='IMP'">
+				<if test="hblNo != null and hblNo != ''">
+					and od.HBL_NO = LTRIM(RTRIM(#{hblNo}))
+				</if>
+				<if test="ordId != null and ordId != ''">
+					and od.PO_NO = #{ordId}
+				</if>
+				and BOUND = #{bound} and BOUND_TYPE = #{boundType}
+			</when>
+			<otherwise>
+				and od.HBL_NO = LTRIM(RTRIM(#{hblNo})) AND PO_NO = #{ordId} AND BOUND = #{bound} AND BOUND_TYPE = #{boundType}
+			</otherwise>
+		</choose>
+	</select>
+	
+	<select id="insertImageDisplayInfo" parameterType="HashMap" statementType="CALLABLE">
+		/* interfaceMapper.insertImageDisplayInfo : 동시구현 DB 프로시저 호출 */
+		EXEC SP_INSERT_XRAY_INTF #{bagId}, #{bagAlias}, #{workStationName}, #{machineName}, #{event}, #{timeStamp}
+	</select>
+	
+	<select id="selectPoNoCnt" parameterType="HashMap" resultType="int">
+		/* interfaceMapper.selectPoNoCnt : PoNo 조회 */
+			SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+			SELECT 
+			   	 COUNT(PO_NO) AS CNT
+			FROM TB_ECM_OD
+			WHERE PO_NO = #{ordId};
+	</select>
+	
+	<select id="selectEmsOrderRequestBl" parameterType="HashMap" resultType="HashMap">
+		/* interfaceMapper.selectEmsOrderRequestBl */
+			SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+			SELECT TOP 1
+					OD.OD_JOB_NO 
+					, OD.HBL_NO
+					, OD.PO_NO
+					, OD.PO_DATE
+					, OD.DELIVERY_CODE
+					, AD.EMS_YN
+					, EMS.MAIL_TYPE
+			FROM TB_ECM_OD OD
+			JOIN TB_ECM_OD_ADDITIONAL AD ON OD.OD_JOB_NO = AD.OD_JOB_NO 
+			JOIN TB_ECM_OD_EMS_INFO EMS ON OD.OD_JOB_NO = EMS.OD_JOB_NO
+			WHERE OD.ENT_CODE = #{ReceiverId}
+			AND OD.PO_NO = #{ordId}
+	</select>
+	
+	
+	
+	<select id ="selectUnusedStockAPI" parameterType="HashMap" resultType="HashMap">
+		/* interfaceMapper.selectUnusedStockAPI  스탁테이블에서 API 타입 스탁 데이터 카운트 조회 */
+		SELECT SUM(unUsed) as sumUnUsed from (
+			SELECT 
+					  SEQ_NO
+					, BOUND  	 <!--  AIR, SEA -->
+					, BOUND_TYPE  <!--  IMP, EXP -->
+					, STOCK_TYPE  <!-- MBL, HBL S/R, M.REF, H.REF, O/D -->
+					, STOCK_METHOD <!--  EXCEL,API -->
+					, START_NO
+					, END_NO
+					, ENT_CODE
+					, ENT_BUSINESS_CODE
+					, AGENT_CODE
+					, CURRENT_NO
+					, TR_CODE
+					, (CASE WHEN TR_CODE IN('KOREX','KOREXMUL','HANJIN') THEN (CASE WHEN ISNULL(CURRENT_NO, 0) = 0 THEN 0 
+																	  ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),CURRENT_NO),1,11)) -  CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),START_NO),1,11)) + 1 END)
+					        WHEN TR_CODE IN('EMS-KP','EMS-TS') THEN (CASE WHEN ISNULL(CURRENT_NO, 0) = 0 THEN 0
+																	  ELSE CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),CURRENT_NO),1,8)) -  CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),START_NO),1,8)) + 1 END)
+					        ELSE (CASE WHEN ISNULL(CURRENT_NO, 0) = 0 THEN 0 
+									   ELSE CURRENT_NO - START_NO + 1 END) END
+					  ) AS Used
+					, (CASE WHEN TR_CODE IN('KOREX','KOREXMUL','HANJIN') THEN (CASE WHEN ISNULL(CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),END_NO),1,11)) - CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),START_NO),1,11)) + 1 
+																	  ELSE CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),END_NO),1,11)) - CONVERT(DECIMAL(12),SUBSTRING(CONVERT(VARCHAR(18),CURRENT_NO),1,11)) END)
+							WHEN TR_CODE IN('EMS-KP','EMS-TS') THEN (CASE WHEN ISNULL(CURRENT_NO, 0) = 0 THEN CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),END_NO),1,8)) - CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),START_NO),1,8)) + 1				
+																	  ELSE CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),END_NO),1,8)) - CONVERT(DECIMAL(9),SUBSTRING(CONVERT(VARCHAR(18),CURRENT_NO),1,8)) END)						   
+							ELSE (CASE WHEN ISNULL(CURRENT_NO, 0) = 0 THEN END_NO - START_NO + 1 
+									   ELSE END_NO - CURRENT_NO END) END
+					  ) AS unUsed
+			FROM TB_ECM_STOCK
+			WHERE 1 = 1
+			AND STOCK_USE_YN = 'Y'
+			AND BOUND_TYPE = #{BoundType}
+			AND BOUND = #{Bound}
+			<!-- AND STOCK_TYPE = 'HBL' -->
+			<!-- AND STOCK_METHOD = 'API' -->
+			AND TR_CODE = #{TrCode}
+			AND (AGENT_CODE = #{agentCode}  OR AGENT_CODE = #{entCode})
+		) stock
+	</select>
+	
+	<select id="selectEcmOrderRequestBl" parameterType="HashMap" resultType="HashMap">
+		/* interfaceMapper.selectEmsOrderRequestBl */
+			SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+			SELECT TOP 1
+					od.OD_JOB_NO AS odJobNo
+					, od.ENT_CODE AS entCode
+					, od.ENT_BUSINESS_CODE AS entBusinessCode
+					, od.HBL_NO AS deliveryNo
+					, od.PO_NO AS poNo
+					, od.PO_DATE AS poDate
+					, od.DELIVERY_CODE AS deliveryCode
+					, od.MULTI_YN
+					, (SELECT COUNT(*) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO) AS MULTI_CNT
+					, CASE WHEN od.HBL_NO = #{hblNo} THEN 'M' 
+					ELSE	CASE WHEN EXISTS(
+           				SELECT 1 FROM TB_ECM_OD_MULTI 
+		           		WHERE OD_JOB_NO = od.OD_JOB_NO 
+		           		AND DELIVERY_NO = #{hblNo} 
+		           		) THEN 'S' ELSE 'N' END END AS MULTI_DATA
+					, od.REGISTER_USER_ID AS userId
+			FROM TB_ECM_OD od
+			WHERE od.ENT_CODE = #{ReceiverId}
+			AND od.PO_NO = #{ordId}
+	</select>
+	
+	<select id="selectEcmOrderMultiBl" parameterType="HashMap" resultType="HashMap">
+		/* interfaceMapper.selectEcmOrderMultiBl */
+			SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+			SELECT
+					od.OD_JOB_NO AS odJobNo
+					, od.ENT_CODE AS entCode
+					, od.ENT_BUSINESS_CODE AS entBusinessCode
+					, od.PO_DATE AS poDate
+					, multi.DELIVERY_NO AS deliveryNo
+					, multi.DELIVERY_CODE AS deliveryCode
+					, od.REGISTER_USER_ID AS userId
+			FROM TB_ECM_OD od
+			INNER JOIN TB_ECM_OD_MULTI multi
+			ON multi.OD_JOB_NO = od.OD_JOB_NO 
+			WHERE od.ENT_CODE = #{ReceiverId}
+			AND od.OD_JOB_NO = #{odJobNo}
+			<if test='multiYn != null and multiYn == "Y"'>
+			AND multi.DELIVERY_NO = #{hblNo}
+			</if>
+			
+	</select>
+	
+</mapper>

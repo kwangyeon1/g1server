@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        
+<mapper namespace="org.yht.exps.express.mapper.pda.PdaCargoReceiveMapper">
+	<select id="selectExistMasterScan" parameterType="HashMap" resultType="HashMap">
+		/* PdaCargoReceiveMapper.selectExistMasterScan : 입항화물도착 MBL 조회 */
+		SELECT TOP 1
+			MBL_NO
+			, AR_DATE
+			, AR_TIME
+			, CARGO_REFERENCE_NO
+			, BL_NO
+		FROM 
+			TB_BMS_IN_PLAN WITH (NOLOCK)
+		WHERE 
+			MBL_NO = #{srchNo}
+	</select>
+
+	<select id="selectMasterDest" parameterType="HashMap" resultType="bmsMasterDest">
+		/* PdaCargoReceiveMapper.selectMasterDest : 입항화물도착 Master Dest 조회 */
+		DECLARE @srchCnt INT = #{listSize};
+		SELECT TOP (@srchCnt)
+			SEQ AS seq
+			, MBL_NO AS mblNo
+			, PIECES AS pieces
+			, AR_DATE AS arDate
+			, AR_TIME AS arTime
+			, FORMAT(CAST(CONCAT(AR_DATE, ' ', AR_TIME) AS DATETIME), 'yy-MM-dd HH:mm') AS arDateTime
+			, DEST_DATE AS destDate
+			, DEST_TIME AS destTime
+			, FORMAT(CAST(CONCAT(DEST_DATE, ' ', DEST_TIME) AS DATETIME), 'yy-MM-dd HH:mm') AS destDateTime
+			, REGISTER_USER_ID AS registerUserId
+			, REGISTER_DATE_TIME AS registerDateTime
+			, UPDATE_USER_ID AS updateUserId
+			, UPDATE_DATE_TIME AS updateDateTime
+		FROM 
+			TB_BMS_MASTER_DEST WITH (NOLOCK)
+		ORDER BY UPDATE_DATE_TIME DESC
+	</select>
+	
+	<select id="selectMasterDestList" parameterType="HashMap" resultType="bmsMasterDest">
+		/* PdaCargoReceiveMapper.selectMasterDestList : 입항화물도착 Master Dest 조회 */	<!-- 2025.12.15 2sowell 수정 -->
+		SELECT	
+			T.*
+		FROM (
+			SELECT
+				SEQ AS seq
+				, MBL_NO AS mblNo
+				, PIECES AS pieces
+				, AR_DATE AS arDate
+				, AR_TIME AS arTime
+				, FORMAT(CAST(CONCAT(AR_DATE, ' ', AR_TIME) AS DATETIME), 'yy-MM-dd HH:mm') AS arDateTime
+				, DEST_DATE AS destDate
+				, DEST_TIME AS destTime
+				, FORMAT(CAST(CONCAT(DEST_DATE, ' ', DEST_TIME) AS DATETIME), 'yy-MM-dd HH:mm') AS destDateTime
+				, REGISTER_USER_ID AS registerUserId
+				, REGISTER_DATE_TIME AS registerDateTime
+				, UPDATE_USER_ID AS updateUserId
+				, UPDATE_DATE_TIME AS updateDateTime
+				, SUM(IIF(DEST_DATE = '', 0, 1)) OVER(PARTITION BY MBL_NO) AS DEST_CNT	<!-- 도착일시있는 값 총 수량 -->
+			FROM 
+				TB_BMS_MASTER_DEST WITH (NOLOCK)
+			WHERE
+				MBL_NO = #{mblNo}
+		) T
+		WHERE 1=1
+		AND ((DEST_CNT > 0 AND destDate != '') OR DEST_CNT = 0 )
+		ORDER BY T.destDate DESC, T.destTime DESC, T.SEQ DESC
+	</select>
+	
+	<select id="selectMasterDestList_bak" parameterType="HashMap" resultType="bmsMasterDest">
+		/* PdaCargoReceiveMapper.selectMasterDestList_bak : 입항화물도착 Master Dest 조회 */
+		SELECT
+			SEQ AS seq
+			, MBL_NO AS mblNo
+			, PIECES AS pieces
+			, AR_DATE AS arDate
+			, AR_TIME AS arTime
+			, FORMAT(CAST(CONCAT(AR_DATE, ' ', AR_TIME) AS DATETIME), 'yy-MM-dd HH:mm') AS arDateTime
+			, DEST_DATE AS destDate
+			, DEST_TIME AS destTime
+			, FORMAT(CAST(CONCAT(DEST_DATE, ' ', DEST_TIME) AS DATETIME), 'yy-MM-dd HH:mm') AS destDateTime
+			, REGISTER_USER_ID AS registerUserId
+			, REGISTER_DATE_TIME AS registerDateTime
+			, UPDATE_USER_ID AS updateUserId
+			, UPDATE_DATE_TIME AS updateDateTime
+		FROM 
+			TB_BMS_MASTER_DEST WITH (NOLOCK)
+		WHERE
+			MBL_NO = #{mblNo}
+		ORDER BY DEST_DATE DESC, DEST_TIME DESC
+	</select>
+
+	<insert id="insertMasterDest" parameterType="HashMap">
+		/* PdaCargoReceiveMapper.insertMasterDest : Master Dest insert */
+			INSERT INTO TB_BMS_MASTER_DEST (
+				MBL_NO
+				, PIECES
+				, AR_DATE
+				, AR_TIME
+				, DEST_DATE
+				, DEST_TIME
+				, REGISTER_USER_ID
+				, REGISTER_DATE_TIME
+				, UPDATE_USER_ID
+				, UPDATE_DATE_TIME
+			)VALUES(
+				#{mblNo}
+				, #{pieces}
+				, #{arDate}
+				, #{arTime}
+<!-- 				, CONVERT(CHAR(10), GETDATE(), 23) -->
+<!-- 				, FORMAT(GETDATE(), 'HH:mm') -->
+			<choose>
+				<when test="editDestDate != null and editDestDate != ''">
+					, CONVERT(CHAR(10), #{editDestDate}, 23)
+				</when>
+				<otherwise>
+					, CONVERT(CHAR(10), GETDATE(), 23)
+				</otherwise>
+			</choose>
+			<choose>
+				<when test="editDestDate != null and editDestDate != ''">
+					, SUBSTRING(#{editDestDate}, 12, 5)
+				</when>
+				<otherwise>
+					, FORMAT(GETDATE(), 'HH:mm')
+				</otherwise>
+			</choose>
+				, #{updateUserId}
+				, GETDATE()
+				, #{updateUserId}
+				, GETDATE()
+			);
+	</insert>
+
+	<update id="updateMasterDest" parameterType="HashMap">
+		/* PdaCargoReceiveMapper.updateMasterDest : Master Dest update */
+		UPDATE 
+			TB_BMS_MASTER_DEST
+		SET
+			PIECES = #{pieces}
+			<if test="arDate != null and arDate != ''">
+			, AR_DATE = #{arDate}
+			</if>
+			<if test="arDate != null and arDate != ''">
+			, AR_TIME = #{arTime}
+			</if>
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+			<if test="editDestDate != null and editDestDate != ''">
+				, DEST_DATE = CONVERT(CHAR(10), #{editDestDate}, 23)
+				, DEST_TIME = SUBSTRING(#{editDestDate}, 12, 5)
+			</if>
+		WHERE 
+			SEQ = #{seq}
+	</update>
+
+	<delete id="deleteMasterDest" parameterType="HashMap">
+		/* PdaCargoReceiveMapper.updateMasterDest  */
+		DELETE FROM TB_BMS_MASTER_DEST WHERE SEQ = #{seq}
+   	</delete>
+</mapper>

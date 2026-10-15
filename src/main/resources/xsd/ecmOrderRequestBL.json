@@ -1,0 +1,103 @@
+{
+    "$schema": "https://json-schema.org/draft/2019-09/schema",
+    "$id": "http://example.com/example.json",
+    "type": "object",
+    "default": {},
+    "title": "Root Schema",
+    "required": [
+        "AccessIdentifier",
+        "OrderInvoice"
+    ],
+    "properties": {
+        "AccessIdentifier": {
+            "type": "object",
+            "default": {},
+            "title": "The AccessIdentifier Schema",
+            "required": [
+                "SenderIdentifier",
+                "ReceiverIdentifier",
+                "AccessKey"
+            ],
+            "properties": {
+    			"SenderIdentifier": {
+		            "type": "string",
+		            "default": "",
+		            "title": "The SenderIdentifier Schema",
+		            "minLength": 1,
+					"maxLength": 10,
+		            "examples": [
+		                "AAAA"
+		            ]
+        		},
+        		"ReceiverIdentifier": {
+		            "type": "string",
+		            "default": "",
+		            "title": "The ReceiverIdentifier Schema",
+		            "minLength": 1,
+					"maxLength": 5,
+		            "examples": [
+		                "YHTXX"
+		            ]
+        		},
+        		"AccessKey": {
+		            "type": "string",
+		            "default": "",
+		            "title": "The AccessKey Schema",
+		            "minLength": 1,
+					"maxLength": 64,
+		            "examples": [
+		                "40C02BE46AD3CA7255BD81407A2D82748CF4FE7BCF5BAD8D5F4E77B4E9F544CB"
+		            ]
+        		}
+            },
+            "examples": [{
+                "SenderIdentifier": "AAAA",
+                "ReceiverIdentifier": "YHTXX",
+                "AccessKey": "40C02BE46AD3CA7255BD81407A2D82748CF4FE7BCF5BAD8D5F4E77B4E9F544CB"
+            }]
+        },
+        "OrderInvoice": {
+            "type": "object",
+            "default": {},
+            "title": "The OrderInvoice Schema",
+            "required": [
+		        "OrdId",
+		        "HblNo"
+		    ],
+            "properties": {
+                "OrdId": {
+                    "type": "string",
+                    "default": "",
+                    "title": "The OrdId Schema",
+					"minLength": 1,
+					"maxLength": 60,
+                    "examples": [
+                        "201605090000000001"
+                    ]
+                },
+                "HblNo": {
+                    "type": "string",
+                    "default": "",
+                    "title": "The HblNo Schema",
+                    "minLength": 1,
+                    "maxLength": 20,
+                    "pattern": "[A-Z0-9]*"
+                }
+		    },
+            "examples": [{
+                "OrdId": "201605090000000001",
+                "HBLNo": "ECMOI07070001"
+            }]
+        }
+    },
+    "examples": [{
+		"AccessIdentifier": {
+			"SenderIdentifier": "AAAA",
+			"ReceiverIdentifier": "YHTXX",
+			"AccessKey": "E0826E3F0952675B156EC74BF050BE915F13EB4B03E2F82BDA09F872A535BA48"
+		},
+		"OrderInvoice": {
+			"OrdId": "201605090000000001"
+		}
+	}]
+}

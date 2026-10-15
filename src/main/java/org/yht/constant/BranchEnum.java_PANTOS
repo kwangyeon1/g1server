@@ -1,0 +1,5 @@
+package org.yht.constant;
+
+public enum BranchEnum {
+	PANTK, PANTK_BACK
+}

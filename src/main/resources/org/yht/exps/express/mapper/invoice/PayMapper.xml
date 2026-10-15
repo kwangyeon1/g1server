@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.invoice.PayMapper">
+	
+	<select id="selectInvoicePaymentData" parameterType="HashMap" resultType="HashMap">
+		/* PayMapper.selectInvoicePaymentData : 정산서 결제정보조회 */
+			SELECT
+				 MAX(res.PAYMENT_STATUS) AS PAYMENT_STATUS
+<!-- 				,MAX(res.APPROVAL_REQ_DATE) AS APPROVAL_REQ_DATE -->
+<!-- 				,MAX(res.SHOP_TRANSACTION_ID) AS SHOP_TRANSACTION_ID -->
+<!-- 				,MAX(res.PG_CNO) AS PG_CNO -->
+				,SUM(inv.AMOUNT_TOTAL_LOC) AS AMOUNT_TOTAL_LOC
+				,MAX(inv.ACCOUNT_CODE) AS ACCOUNT_CODE
+				,MAX(ISNULL(ent.ENT_MAPPING_CODE, ent.ENT_CODE)) AS ENT_MAPPING_CODE
+				,MAX(ent.EASYPAY_MALL_ID) AS MALL_ID
+				,MAX(ent.EASYPAY_SECRET_KEY) AS SECRET_KEY
+				,ISNULL(DATEDIFF(DAY, MAX(res.EXPIRY_DATE), GETDATE()), 1) AS RE_REQ_CHECK
+				,(
+					SELECT CASE WHEN bl.BL_TYPE_MH = 'H' THEN CONCAT(bl.HBL_NO, '/', ISNULL(bl.CONSIGNEE_NAME, ''))
+								ELSE CASE WHEN bl.SOLUTION = 'FMS' AND bl.BOUND IN('AIR', 'SEA') THEN CONCAT(bl.MBL_NO, '/', ISNULL(bl.CONSIGNEE_NAME, '')) ELSE bl.MBL_NO END
+						   END
+					FROM TB_COM_OD od
+						 INNER JOIN TB_COM_OBL bl
+						 			ON bl.OBL_JOB_NO = od.OBL_JOB_NO
+					WHERE od.OD_JOB_NO = MAX(inv.OD_JOB_NO)
+				 ) AS GOODS_NAME
+			FROM TB_SAS_INVOICE inv
+				 INNER JOIN exps_master.dbo.TB_SMS_ENTERPRISE ent
+				 			ON ent.ENT_CODE = inv.ENT_CODE
+				 LEFT JOIN (
+				 	SELECT TOP 1 INVOICE_NO, PAYMENT_STATUS, APPROVAL_REQ_DATE, SHOP_TRANSACTION_ID, PG_CNO, EXPIRY_DATE, CASE WHEN PAYMENT_STATUS IN('R','S') THEN 1 ELSE 2 END AS SORT_SEQ
+				 	FROM TB_SAS_PAY_RESULT
+				 	WHERE INVOICE_NO = #{invoiceNo}
+				 	ORDER BY SORT_SEQ
+				 ) res
+				 		   ON res.INVOICE_NO = inv.${invoiceNoField}
+			WHERE inv.ENT_CODE = #{entCode}
+			AND inv.${invoiceNoField} = #{invoiceNo}
+			GROUP BY inv.${invoiceNoField}
+	</select>
+	
+	<select id="selectEasypayResult" parameterType="HashMap" resultType="easypay">
+		/* PayMapper.selectEasypayResult : 이지페이 결제결과조회 */
+			SELECT
+				 MAX(inv.INVOICE_JOB_NO) AS INVOICE_JOB_NO
+				,ISNULL(MAX(inv.INVOICE_NO_GROUP), MAX(inv.INVOICE_NO)) AS INVOICE_NO
+				,MAX(inv.ACCOUNT_CODE) AS ACCOUNT_CODE
+				,SUM(inv.AMOUNT_TOTAL_LOC) AS AMOUNT
+				,(
+					SELECT CASE WHEN bl.BL_TYPE_MH = 'H' THEN CONCAT(bl.HBL_NO, '/', ISNULL(bl.CONSIGNEE_NAME, ''))
+								ELSE CASE WHEN bl.SOLUTION = 'FMS' AND bl.BOUND IN('AIR', 'SEA') THEN CONCAT(bl.MBL_NO, '/', ISNULL(bl.CONSIGNEE_NAME, '')) ELSE bl.MBL_NO END
+						   END
+					FROM TB_COM_OD od
+						 INNER JOIN TB_COM_OBL bl
+						 			ON bl.OBL_JOB_NO = od.OBL_JOB_NO
+					WHERE od.OD_JOB_NO = MAX(inv.OD_JOB_NO)
+				 ) AS GOODS_NAME
+				<choose>
+				<when test='shopTransactionId != "noSearch"'>
+				,MAX(res.PAYMENT_STATUS) AS PAYMENT_STATUS
+				,MAX(res.APPROVAL_REQ_DATE) AS APPROVAL_REQ_DATE
+				,MAX(res.SHOP_TRANSACTION_ID) AS SHOP_TRANSACTION_ID
+				,MAX(res.RES_CD) AS RES_CD
+				,MAX(res.RES_MSG) AS RES_MSG
+				,MAX(res.PG_CNO) AS PG_CNO
+				,MAX(res.BANK_NAME) AS BANK_NAME
+				,MAX(res.ACCOUNT_NO) AS ACCOUNT_NO
+				,MAX(res.DEPOSIT_NAME) AS DEPOSIT_NAME
+				</when>
+				<otherwise>
+				,MAX(od.SHIPPER_NAME) AS SHIPPER_NAME
+				,MAX(od.SHIPPER_ADDRESS) AS SHIPPER_ADDRESS
+				,MAX(od.CONSIGNEE_NAME) AS CONSIGNEE_NAME
+				,MAX(od.CONSIGNEE_ADDRESS) AS CONSIGNEE_ADDRESS
+				,MAX(od.PIECES) AS PIECES
+				,MAX(od.GWT) AS GWT
+				,MAX(od.ITEM_NAME) AS ITEM_NAME
+				</otherwise>
+				</choose>
+			FROM TB_SAS_INVOICE inv
+				 <choose>
+				 <when test='shopTransactionId != "noSearch"'>
+				 LEFT JOIN TB_SAS_PAY_RESULT res
+				 		   ON res.INVOICE_NO = inv.${invoiceNoField}
+				 		   AND res.SHOP_TRANSACTION_ID = #{shopTransactionId}
+				 </when>
+				 <otherwise>
+				 INNER JOIN (
+				 	SELECT
+				 		 bl.HBL_NO
+				 		,bl.MBL_NO
+				 		,bl.BL_TYPE_MH
+				 		,bl.SOLUTION
+				 		,bl.BOUND
+				 		,bl.SHIPPER_NAME
+				 		,CONCAT(ISNULL(bl.SHIPPER_ADDRESS, ''),ISNULL(bl.SHIPPER_ADDRESS_A, ''),ISNULL(bl.SHIPPER_ADDRESS_B, ''),ISNULL(bl.SHIPPER_ADDRESS_C, ''),ISNULL(bl.SHIPPER_ADDRESS_D, '')) AS SHIPPER_ADDRESS
+				 		,bl.CONSIGNEE_NAME
+				 		,CONCAT(ISNULL(bl.CONSIGNEE_ADDRESS, ''),ISNULL(bl.CONSIGNEE_ADDRESS_A, ''),ISNULL(bl.CONSIGNEE_ADDRESS_B, ''),ISNULL(bl.CONSIGNEE_ADDRESS_C, ''),ISNULL(bl.CONSIGNEE_ADDRESS_D, '')) AS CONSIGNEE_ADDRESS
+				 		,bl.PIECES
+				 		,bl.GWT
+				 		,bl.ITEM_NAME
+				 		,#{invoiceNo} AS ${invoiceNoField}
+				 	FROM TB_COM_OD od
+						 INNER JOIN TB_COM_OBL bl
+						 			ON bl.OBL_JOB_NO = od.OBL_JOB_NO
+					WHERE od.OD_JOB_NO = (SELECT MAX(OD_JOB_NO) FROM TB_SAS_INVOICE WHERE ${invoiceNoField} = #{invoiceNo})
+				 ) od
+				 			ON od.${invoiceNoField} = inv.${invoiceNoField}
+				 </otherwise>
+				 </choose>
+			WHERE inv.ENT_CODE = #{entCode}
+			AND inv.${invoiceNoField} = #{invoiceNo}
+			GROUP BY inv.${invoiceNoField}
+	</select>
+	
+	<select id="selectInvoiceList" parameterType="HashMap" resultType="HashMap">
+		/* PayMapper.selectInvoiceList : 정산서번호 조회 */
+			SELECT 
+		 		 CASE WHEN ISNULL(inv.INVOICE_NO_GROUP, '') = '' THEN inv.INVOICE_JOB_NO ELSE inv.INVOICE_NO_GROUP END AS SHOP_ORDER_NO
+		 		,CASE WHEN ISNULL(inv.INVOICE_NO_GROUP, '') = '' THEN 'INVOICE_JOB_NO' ELSE 'INVOICE_NO_GROUP' END AS INVOICE_NO_FIELD
+		 		,CASE WHEN ISNULL(inv.INVOICE_NO_GROUP, '') = '' THEN inv.INVOICE_NO ELSE inv.INVOICE_NO_GROUP END AS INVOICE_NO
+		 		,bl.SHIPPER_NAME
+		 		,CONCAT(ISNULL(bl.SHIPPER_ADDRESS, ''),ISNULL(bl.SHIPPER_ADDRESS_A, ''),ISNULL(bl.SHIPPER_ADDRESS_B, ''),ISNULL(bl.SHIPPER_ADDRESS_C, ''),ISNULL(bl.SHIPPER_ADDRESS_D, '')) AS SHIPPER_ADDRESS
+		 		,bl.CONSIGNEE_NAME
+		 		,CONCAT(ISNULL(bl.CONSIGNEE_ADDRESS, ''),ISNULL(bl.CONSIGNEE_ADDRESS_A, ''),ISNULL(bl.CONSIGNEE_ADDRESS_B, ''),ISNULL(bl.CONSIGNEE_ADDRESS_C, ''),ISNULL(bl.CONSIGNEE_ADDRESS_D, '')) AS CONSIGNEE_ADDRESS
+		 		,bl.ITEM_NAME
+			FROM TB_COM_OBL bl
+				 INNER JOIN TB_COM_OD od
+				 			ON od.OBL_JOB_NO = bl.OBL_JOB_NO
+				 INNER JOIN TB_SAS_INVOICE inv
+				 			ON inv.OD_JOB_NO = od.OD_JOB_NO
+			WHERE bl.HBL_NO = #{srchBlNo}
+			OR bl.MBL_NO = #{srchBlNo}
+	</select>
+	
+	<select id="selectEasypayInvoice" parameterType="HashMap" resultType="easypay">
+		/* PayMapper.selectEasypayInvoice : 결제 정산서 조회 */
+			SELECT A.* FROM(
+				<foreach collection="invoiceNoList" item="item" separator="UNION ALL">
+				SELECT
+			 		 #{item.SHIPPER_NAME} AS SHIPPER_NAME
+			 		,#{item.SHIPPER_ADDRESS} AS SHIPPER_ADDRESS
+			 		,#{item.CONSIGNEE_NAME} AS CONSIGNEE_NAME
+			 		,#{item.CONSIGNEE_ADDRESS} AS CONSIGNEE_ADDRESS
+			 		,#{item.ITEM_NAME} AS ITEM_NAME
+			 		,#{item.SHOP_ORDER_NO} AS SHOP_ORDER_NO
+			 		,#{item.INVOICE_NO} AS INVOICE_NO
+					,ISNULL((SELECT MAX(CASE WHEN PAYMENT_STATUS IN ('R','S') THEN 1 ELSE 0 END) FROM TB_SAS_PAY_RESULT WHERE INVOICE_NO = #{item.SHOP_ORDER_NO}), 0) AS PAYMENT
+			 		,SUM(bl.PIECES) AS PIECES
+			 		,SUM(bl.GWT) AS GWT
+			 		,MAX(inv.INVOICE_DATE) AS INVOICE_DATE
+			 		,MAX(inv.ACCOUNT_CODE) AS ACCOUNT_CODE
+			 		,MAX(inv.AMOUNT_TOTAL_LOC) AS AMOUNT
+				FROM TB_SAS_INVOICE inv
+					 INNER JOIN TB_COM_OD od
+					 			ON od.OD_JOB_NO = inv.OD_JOB_NO
+					 INNER JOIN TB_COM_OBL bl
+					 			ON bl.OBL_JOB_NO = od.OBL_JOB_NO
+				WHERE inv.${item.INVOICE_NO_FIELD} = #{item.SHOP_ORDER_NO}
+				GROUP BY inv.${item.INVOICE_NO_FIELD}
+				</foreach>
+			) A
+			WHERE A.PAYMENT = 0
+	</select>
+	
+	<select id="selectEntCode" parameterType="HashMap" resultType="string">
+		/* PayMapper.selectEntCode : 도입사코드조회 */
+			SELECT TOP 1 ENT_CODE
+			FROM TB_SMS_ENTERPRISE
+			WHERE EASYPAY_MALL_ID = #{easypayMallId}
+	</select>
+	
+	<insert id="insertPayResult" parameterType="HashMap">
+		/* PayMapper.insertPayResult : 정산서 결제 승인정보 저장 */
+			INSERT INTO TB_SAS_PAY_RESULT(
+				   PAY_JOB_NO
+				  ,ENT_CODE
+				  ,INVOICE_NO
+				  ,INV_GROUP_YN
+				  ,PAY_TYPE
+				  ,AMOUNT
+				  ,SHOP_TRANSACTION_ID
+				  ,PAY_METHOD_TYPE_CODE
+				  ,PAYMENT_STATUS
+				  ,APPROVAL_REQ_DATE
+				  ,INPUT_METHOD
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  <if test='insertType == "easypayNoti"'>
+				  ,RES_CD
+				  ,RES_MSG
+				  ,PG_CNO
+				  ,NOTI_TYPE
+				  ,TRANSACTION_DATE_TIME
+				  ,STATUS_CODE
+				  ,STATUS_MESSAGE
+				  ,APPROVAL_NO
+				  ,APPROVAL_DATE_TIME
+				  ,CP_CODE
+				  ,MULTI_CARD_AMOUNT
+				  ,MULTI_PNT_AMOUNT
+				  ,BANK_NAME
+				  ,ACCOUNT_NO
+				  ,DEPOSIT_NAME
+				  ,EXPIRY_DATE
+				  ,REMARKS
+				  </if>
+			)VALUES(
+				   #{payJobNo}
+				  ,#{entCode}
+				  ,#{invoiceNo}
+				  ,#{invGroupYn}
+				  ,#{payType}
+				  ,#{amount}
+				  ,#{shopTransactionId}
+				  ,#{payMethodTypeCode}
+				  ,#{paymentStatus}
+				  ,#{approvalReqDate}
+				  ,#{inputMethod}
+				  ,#{userId}
+				  ,GETDATE()
+				  <if test='insertType == "easypayNoti"'>
+				  ,#{resCd}
+				  ,#{resMsg}
+				  ,#{pgCno}
+				  ,#{notiType}
+				  ,#{transactionDateTime}
+				  ,#{statusCode}
+				  ,#{statusMessage}
+				  ,#{approvalNo}
+				  ,#{approvalDateTime}
+				  ,#{cpCode}
+				  ,#{multiCardAmount}
+				  ,#{multiPntAmount}
+				  ,#{bankName}
+				  ,#{accountNo}
+				  ,#{depositName}
+				  ,#{expiryDate}
+				  ,#{remarks}
+				  </if>
+			)
+	</insert>
+	
+	<update id="updatePayResult" parameterType="HashMap">
+		/* PayMapper.updatePayResult : 정산서 결제 승인정보 저장 */
+			UPDATE TB_SAS_PAY_RESULT SET
+				   RES_CD = #{resCd}
+				  ,RES_MSG = #{resMsg}
+				  ,PG_CNO = #{pgCno}
+				  ,AMOUNT = #{amount}
+				  ,TRANSACTION_DATE_TIME = #{transactionDateTime}
+				  ,STATUS_CODE = #{statusCode}
+				  ,STATUS_MESSAGE = #{statusMessage}
+				  ,APPROVAL_NO = #{approvalNo}
+				  ,APPROVAL_DATE_TIME = #{approvalDateTime}
+				  ,CP_CODE = #{cpCode}
+				  ,MULTI_CARD_AMOUNT = #{multiCardAmount}
+				  ,MULTI_PNT_AMOUNT = #{multiPntAmount}
+				  ,BANK_NAME = #{bankName}
+				  ,ACCOUNT_NO = #{accountNo}
+				  ,DEPOSIT_NAME = #{depositName}
+				  ,EXPIRY_DATE = #{expiryDate}
+				  ,PAYMENT_STATUS = #{paymentStatus}
+				  ,REMARKS = #{remarks}
+			WHERE PAY_JOB_NO = #{payJobNo}
+	</update>
+	
+</mapper>

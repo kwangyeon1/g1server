@@ -1,0 +1,504 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.TransactionMapper">
+	<select id="selectTransOdList" parameterType="searchTransactionList" resultType="transactionDet">
+		/* TransactionMapper.selectTransOdList */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			od.OD_JOB_NO
+			, CASE WHEN gov.RECV_RES_CODE != '0000' THEN '오류'
+				WHEN gov.RECV_RES_CODE = '0000' THEN '접수'
+				WHEN gov.SEND_RES_CODE != '0000' THEN '전송오류'
+				WHEN gov.SEND_RES_CODE = '0000' THEN '전송'
+				ELSE '준비'
+			END AS LAST_POD_STATUS
+			, od.CUST_CODE_LV1
+			, od.CUST_CODE_LV2
+			, gov.SEND_DATE_TIME
+			<!-- , '' AS test1
+			, '' AS test2
+			, '' AS test3 -->
+			, od.HBL_NO
+			, od.ECM_BUY_TYPE
+			, od.ORIG_COUNTRY
+			, od.AGENT_REG_NO
+			, od.AGENT_NAME
+			, od.FORWARD_AGENT_CODE
+			, od.FORWARD_AGENT_NAME
+			, od.SHIPPER_NAME
+			, od.SHIPPER_ADDRESS
+			, od.SHIPPER_TEL
+			, od.ORDER_END_DATETIME
+			, od.ORDER_NAME
+			, od.ORDER_TEL
+			, od.ORDER_ACCOUNT
+			, od.CONSIGNEE_NAME_LOC
+			, od.CONSIGNEE_TEL
+			, od.CONSIGNEE_ZIPCODE
+			, od.CONSIGNEE_ADDRESS_LOC
+			, od.REGISTER_DATE_TIME
+			, gov.EC_IF_SBMT_NO
+			, CONVERT(VARCHAR(MAX), gov.RECV_ERR_CN, 2) AS RECV_ERR_CN
+		FROM 
+			TB_ECM_OD od
+			INNER JOIN TB_ECM_OD_ADDITIONAL oa ON od.OD_JOB_NO = oa.OD_JOB_NO
+			LEFT JOIN TB_EDI_GOV_ECOMMERCE gov ON oa.EC_IF_SBMT_NO = gov.EC_IF_SBMT_NO
+		WHERE 
+			od.ENT_CODE = #{srchEntCode}
+			<if test="srchNo != null and srchNo != ''">
+				<choose>
+					<when test='searchType == "multi"'>
+						AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<otherwise>
+						AND ${srchNoType} LIKE CONCAT(#{srchNo},'%')
+					</otherwise>
+				</choose>
+			</if>
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			AND oa.LAST_POD_STATUS = 'ECM002'
+			AND od.ECM_GOV_SEND_YN = 'Y'
+			<choose>
+				<when test="srchCuslv1 != null and srchCuslv1 != ''">
+					AND ${srchCusType} = #{srchCuslv1}
+				</when>
+				<when test="srchCuslv2 != null and srchCuslv2 != ''">
+					AND ${srchCusType} = #{srchCuslv2}
+				</when>
+				<when test="loginCustomerCd != null and loginCustomerCd != '' and loginCustomerLev != null and loginCustomerLev != ''">
+					AND od.CUST_CODE_LV${loginCustomerLev} = #{loginCustomerCd}
+				</when>
+			</choose>
+			<choose>
+				<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+			</choose>
+			<choose>
+				<when test='srchSendStatus == "Y"'>AND (gov.SEND_RES_CODE IS NOT NULL AND gov.SEND_RES_CODE <![CDATA[<>]]> '')</when>
+				<when test='srchSendStatus == "N"'>AND (gov.SEND_RES_CODE IS NULL OR gov.SEND_RES_CODE = '')</when>
+			</choose>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectMaxSeqNoCnt" resultType="Integer">
+		/* TransactionMapper.selectMaxSeqNoCnt */
+		SELECT
+			COUNT(EC_IF_SBMT_NO) + 1
+		FROM
+			TB_EDI_GOV_ECOMMERCE
+		WHERE
+			REGISTER_DATE_TIME > CONVERT(VARCHAR(10), GETDATE(), 23);
+	</select>
+
+	<select id="selectTransItemList" parameterType="searchTransactionList" resultType="transactionOdItem">
+		/* TransactionMapper.selectTransItemList */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			od.OD_JOB_NO
+			, item.SEQ_NO_ID
+			, item.ORDER_NO
+			, item.CUSTOMS_ID
+			, item.CUSTOMS_TEMP_NO
+			, item.CUSTOMS_ID_VERIFY
+			, CASE WHEN ISNULL(item.CUSTOMS_TEMP_NO, '') <![CDATA[<>]]> '' THEN 'Y' ELSE 'N' END AS CUSTOMS_TEMP_NO_YN
+			, item.ITEM_NO
+			, item.CATEGORY_NAME_1
+			, item.CATEGORY_NAME_2
+			, item.HS_CODE
+			, item.DETAIL_ITEM_NAME
+			, item.ECM_URL
+			, item.PIECES
+			, item.UNIT_PRICE
+			, item.CURRENCY_CODE
+			, item.AMOUNT_CUR
+			, item.CURRENCY_CODE AS AMOUNT_CURRENCY_CODE
+		FROM 
+			TB_ECM_OD od
+			INNER JOIN TB_ECM_OD_ADDITIONAL oa ON od.OD_JOB_NO = oa.OD_JOB_NO
+			INNER JOIN TB_ECM_OD_ITEM item ON od.OD_JOB_NO = item.OD_JOB_NO
+			LEFT JOIN TB_EDI_GOV_ECOMMERCE gov ON oa.EC_IF_SBMT_NO = gov.EC_IF_SBMT_NO
+		WHERE od.ENT_CODE = #{srchEntCode}
+			<if test="srchNo != null and srchNo != ''">
+				AND od.OD_JOB_NO = #{srchNo}
+			</if>
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectTransOdJobNoList" parameterType="String" resultType="String">
+		/* TransactionMapper.selectTransOdJobNoList */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		SELECT
+			od.OD_JOB_NO
+		FROM 
+			TB_ECM_OD_ADDITIONAL oa
+			INNER JOIN TB_ECM_OD od ON oa.OD_JOB_NO = od.OD_JOB_NO
+		WHERE oa.EC_IF_SBMT_NO = #{ecIfSbmtNo}
+	</select>
+
+	<select id="selectTransOdInfo" parameterType="String" resultType="map">
+		/* TransactionMapper.selectTransOdInfo */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		SELECT
+			<!-- od.OD_JOB_NO -->
+			od.HBL_NO AS hbl_no
+			, item.ORDER_NO AS ord_no
+			, CASE WHEN ISNULL(od.AGENT_REG_NO, '') <![CDATA[<>]]> '' THEN 'B' ELSE 'C' END AS elcm_pcd
+			, od.URL AS ord_site_url
+			, od.ORIG_COUNTRY AS elcm_ents_cnty_cd
+			, od.AGENT_REG_NO AS puch_vcex_bsmn_sgn
+			, od.AGENT_NAME AS puch_vcex_bsmn_nm
+			, od.FORWARD_AGENT_CODE AS shpn_vcex_bsmn_sgn
+			, od.FORWARD_AGENT_NAME AS shpn_vcex_bsmn_nm
+			, od.ORDER_END_DATETIME AS ord_cmpl_dttm
+			, od.ORDER_NAME AS ordrr_nm
+			, od.ORDER_TEL AS ordrr_telno
+			, od.ORDER_ACCOUNT AS ordrr_id
+			, od.CONSIGNEE_NAME_LOC AS cnsi_nm
+			, od.CONSIGNEE_TEL AS cnsi_telno
+			, od.CONSIGNEE_ZIPCODE AS cnsi_psno
+			, SUBSTRING(od.CONSIGNEE_ADDRESS_LOC, 1, 50)  AS cnsi_bscs_addr
+			, SUBSTRING(od.CONSIGNEE_ADDRESS_LOC, 51, 100)  AS cnsi_dtl_addr
+			, item.CUSTOMS_ID AS cnsi_pers_ecm
+			, item.CUSTOMS_TEMP_NO AS su_crtf_no
+			, '' AS smon_use_amt
+			, '' AS smon_use_amt_curr_cd
+			, item.DELIVERY_FEE AS spfe
+			, 0 AS spfe_dscn_amt
+			, item.CURRENCY_CODE AS spfe_curr_cd
+			, item.ETC_AMOUNT AS cscl_agcs
+			, item.ETC_CURRENCY_CODE AS cscl_agcs_curr_cd
+			, '' AS tot_dscn_amt
+			, '' AS tot_dscn_amt_curr_cd
+			, item.AMOUNT_CUR AS tot_stlm_amt
+			, item.CUR_CURRENCY_CODE AS tot_stlm_amt_curr_cd
+			, item.PIECES AS tot_ord_prod_qty
+		FROM 
+			TB_ECM_OD od
+			INNER JOIN (
+				SELECT
+					MAX(OD_JOB_NO) AS OD_JOB_NO
+					, ORDER_NO
+					, MAX(CUSTOMS_ID) AS CUSTOMS_ID
+					, MAX(CUSTOMS_TEMP_NO) AS CUSTOMS_TEMP_NO
+					, SUM(DELIVERY_FEE) AS DELIVERY_FEE
+					, MAX(CURRENCY_CODE) AS CURRENCY_CODE
+					, SUM(ETC_AMOUNT) AS ETC_AMOUNT
+					, MAX(CURRENCY_CODE) AS ETC_CURRENCY_CODE
+					, SUM(AMOUNT_CUR) AS AMOUNT_CUR
+					, MAX(CURRENCY_CODE) AS CUR_CURRENCY_CODE
+					, SUM(PIECES) AS PIECES
+				FROM TB_ECM_OD_ITEM 
+				WHERE OD_JOB_NO = #{odJobNo}
+				GROUP BY ORDER_NO
+			) item ON od.OD_JOB_NO = item.OD_JOB_NO
+		WHERE od.OD_JOB_NO = #{odJobNo}
+	</select>
+
+	<select id="selectTransOdItemList" parameterType="String" resultType="map">
+		/* TransactionMapper.selectTransOdInfo */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		SELECT
+			<!-- od.OD_JOB_NO -->
+			od.HBL_NO AS hbl_no
+			, item.ORDER_NO AS ord_no
+			, CASE WHEN ISNULL(od.AGENT_REG_NO, '') <![CDATA[<>]]> '' THEN 'B' ELSE 'C' END AS elcm_pcd
+			, od.URL AS ord_site_url
+			, od.ORIG_COUNTRY AS elcm_ents_cnty_cd
+			, od.AGENT_REG_NO AS puch_vcex_bsmn_sgn
+			, od.AGENT_NAME AS puch_vcex_bsmn_nm
+			, od.FORWARD_AGENT_CODE AS shpn_vcex_bsmn_sgn
+			, od.FORWARD_AGENT_NAME AS shpn_vcex_bsmn_nm
+			, od.ORDER_END_DATETIME AS ord_cmpl_dttm
+			, od.ORDER_NAME AS ordrr_nm
+			, od.ORDER_TEL AS ordrr_telno
+			, od.ORDER_ACCOUNT AS ordrr_id
+			, od.CONSIGNEE_NAME_LOC AS cnsi_nm
+			, od.CONSIGNEE_TEL AS cnsi_telno
+			, od.CONSIGNEE_ZIPCODE AS cnsi_psno
+			, SUBSTRING(od.CONSIGNEE_ADDRESS_LOC, 1, 250)  AS cnsi_bscs_addr
+			, SUBSTRING(od.CONSIGNEE_ADDRESS_LOC, 251, 300)  AS cnsi_dtl_addr
+			, item.CUSTOMS_ID AS cnsi_pers_ecm
+			, item.CUSTOMS_TEMP_NO AS su_crtf_no
+			, '' AS smon_use_amt
+			, '' AS smon_use_amt_curr_cd
+			, od.DELIVERY_FEE AS spfe
+			, 0 AS spfe_dscn_amt
+			, od.CURRENCY_CODE AS spfe_curr_cd
+			, (SELECT SUM(AP_AMOUNT) FROM TB_ECM_OD_COST WHERE CHARGE_CODE = 'DTY') AS cscl_agcs
+			, od.CURRENCY_CODE AS cscl_agcs_curr_cd
+			, '' AS tot_dscn_amt
+			, '' AS tot_dscn_amt_curr_cd
+			, od.AMOUNT_CUR AS tot_stlm_amt
+			, od.CURRENCY_CODE AS tot_stlm_amt_curr_cd
+			, od.PIECES_REAL AS tot_ord_prod_qty
+		FROM 
+			TB_ECM_OD od
+			INNER JOIN (SELECT TOP 1 OD_JOB_NO, ORDER_NO, CUSTOMS_ID, CUSTOMS_TEMP_NO FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = #{odJobNo}) item ON od.OD_JOB_NO = item.OD_JOB_NO
+		WHERE od.OD_JOB_NO = #{odJobNo}
+	</select>
+
+	<select id="selectTransProductInfoList" parameterType="String" resultType="map">
+		/* TransactionMapper.selectTransProductInfoList */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		SELECT
+			ITEM_NO AS prod_srno
+			, CATEGORY_NAME_1 AS prod_clsf_nm_stp1
+			, CATEGORY_NAME_2 AS prod_clsf_nm_stp2
+			, CATEGORY_NAME_3 AS prod_clsf_nm_stp3
+			, CATEGORY_NAME_4 AS prod_clsf_nm_stp4
+			, CATEGORY_NAME_5 AS prod_clsf_nm_stp5
+			, CATEGORY_NAME_6 AS prod_clsf_nm_stp6
+			, CATEGORY_NAME_7 AS prod_clsf_nm_stp7
+			, CATEGORY_NAME_8 AS prod_clsf_nm_stp8
+			, CATEGORY_NAME_9 AS prod_clsf_nm_stp9
+			, DETAIL_ITEM_NAME AS ord_prod_nm
+			, OPTION_NAME AS slct_opt_nm
+			, ECM_URL AS prod_sale_pge_url
+			, PIECES AS prod_ord_qty
+			, UNIT_PRICE AS prod_unprc
+			, CURRENCY_CODE AS prod_unprc_curr_cd
+			, '' AS prod_dscn_amt
+			, '' AS prod_dscn_amt_curr_cd
+			, AMOUNT_CUR AS ord_amt
+			, CURRENCY_CODE AS ord_amt_curr_cd
+			, SELLER_NAME AS sale_ents_nm
+			, SELLER_ID AS sale_ents_id
+			, '' AS sale_ents_bsns_no
+			, SELLER_CODE AS sale_ents_sgn
+			, ITEM_ID AS prod_id
+			, ITEM_MAF_NAME AS prod_mkr_nm
+			, ITEM_MAF_MODEL_NO AS prod_mkr_mdl_no
+			, ITEM_BRAND_NAME AS prod_brnd_nm
+		FROM 
+			TB_ECM_OD_ITEM
+		WHERE OD_JOB_NO = #{odJobNo}
+	</select>
+
+	<delete id="deleteTransactionOd" parameterType="map">
+		/* TransactionMapper.deleteTransactionOd : 거래정보 오더 정보 삭제 */
+		DELETE FROM TB_ECM_OD WHERE OD_JOB_NO = #{odJobNo};
+		DELETE FROM TB_ECM_OD_ADDITIONAL WHERE OD_JOB_NO = #{odJobNo};
+		DELETE FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = #{odJobNo};
+		DELETE FROM TB_ECM_POD WHERE OD_JOB_NO = #{odJobNo};
+		DELETE FROM TB_ECM_POD_01 WHERE OD_JOB_NO = #{odJobNo};
+		DELETE FROM TB_ECM_POD_02 WHERE OD_JOB_NO = #{odJobNo};
+		DELETE FROM TB_ECM_POD_03 WHERE OD_JOB_NO = #{odJobNo};
+		DELETE FROM TB_ECM_POD_04 WHERE OD_JOB_NO = #{odJobNo};
+		DELETE FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = #{odJobNo};
+		DELETE FROM TB_ECM_OD_LICENSE WHERE OD_JOB_NO = #{odJobNo};
+	</delete>
+
+	<delete id="deleteTransactionInfo" parameterType="map">
+ 		/* TransactionMapper.deleteTransactionInfo : 거래정보 테이블 정보 삭제 */
+		DELETE FROM TB_EDI_GOV_ECOMMERCE
+		WHERE ENT_CODE = #{entCode}
+		AND EC_IF_SBMT_NO = #{ecIfSbmtNo}
+	</delete>
+
+	<select id="selectTransOdExcelList" parameterType="searchTransactionList" resultType="map">
+		/* TransactionMapper.selectTransOdExcelList */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+		
+			od.OD_JOB_NO AS odJobNo
+			, CASE WHEN gov.EC_IF_SBMT_NO != '' AND gov.EC_IF_SBMT_NO IS NOT NULL THEN '전송'
+				WHEN gov.SEND_RES_CODE != 'S' THEN '전송오류'
+				WHEN gov.SEND_RES_CODE = 'S' THEN '수신대기'
+				WHEN gov.RECV_STATUS = 'S' THEN '접수'
+				WHEN gov.RECV_STATUS != 'S' THEN '오류'
+				ELSE ''
+			END AS lastPodStatus
+			, od.CUST_CODE_LV1 AS custCodeLv1
+			, od.CUST_CODE_LV2 AS custCodeLv2
+			, gov.SEND_DATE_TIME AS sendDateTime
+			<!-- , '' AS test1
+			, '' AS test2
+			, '' AS test3 -->
+			, od.HBL_NO AS hblNo
+			, od.ECM_BUY_TYPE AS ecmBuyType
+			, od.ORIG_COUNTRY AS origCountry
+			, od.AGENT_REG_NO AS agentRegNo
+			, od.AGENT_NAME AS agentName
+			, od.FORWARD_AGENT_CODE AS forwardAgentCode
+			, od.FORWARD_AGENT_NAME AS forwardAgentName
+			, od.SHIPPER_NAME AS shipperName
+			, od.SHIPPER_ADDRESS AS shipperAddress
+			, od.SHIPPER_TEL AS shipperTel
+			, od.ORDER_END_DATETIME AS orderEndDatetime
+			, od.ORDER_NAME AS orderName
+			, od.ORDER_TEL AS orderTel
+			, od.ORDER_ACCOUNT AS orderAccount
+			, od.CONSIGNEE_NAME_LOC AS consigneeNameLoc
+			, od.CONSIGNEE_TEL AS consigneeTel
+			, od.CONSIGNEE_ZIPCODE AS consigneeZipcode
+			, od.CONSIGNEE_ADDRESS_LOC AS consigneeAddressLoc
+			, od.REGISTER_DATE_TIME AS registerDateTime
+			, item.SEQ_NO_ID AS seqNoId
+			, item.ORDER_NO AS orderNo
+			, item.CUSTOMS_ID AS customsId
+			, item.CUSTOMS_TEMP_NO AS customsTempNo
+			, (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'CUSTOMS_ID_VERIFY' AND CODE = item.CUSTOMS_ID_VERIFY) AS customsIdVerify
+			, CASE WHEN ISNULL(item.CUSTOMS_TEMP_NO, '') <![CDATA[<>]]> '' THEN 'Y' ELSE 'N' END AS customsTempNoYn
+			, item.ITEM_NO AS itemNo
+			, item.CATEGORY_NAME_1 AS categoryName1
+			, item.CATEGORY_NAME_2 AS categoryName2
+			, item.HS_CODE AS hsCode
+			, item.DETAIL_ITEM_NAME AS detailItemName
+			, item.ECM_URL AS ecmUrl
+			, item.PIECES AS pieces
+			, item.UNIT_PRICE AS unitPrice
+			, item.CURRENCY_CODE AS currencyCode
+			, item.AMOUNT_CUR AS amountCur
+			, item.CURRENCY_CODE AS amountCurrencyCode 
+		FROM 
+			TB_ECM_OD od
+			INNER JOIN TB_ECM_OD_ADDITIONAL oa ON od.OD_JOB_NO = oa.OD_JOB_NO
+			INNER JOIN TB_ECM_OD_ITEM item ON od.OD_JOB_NO = item.OD_JOB_NO
+			LEFT JOIN TB_EDI_GOV_ECOMMERCE gov ON oa.EC_IF_SBMT_NO = gov.EC_IF_SBMT_NO
+		WHERE 
+			od.ENT_CODE = #{srchEntCode}
+			<choose>
+				<when test="transNoList != null and transNoList.size > 0">
+					AND od.OD_JOB_NO IN (<foreach collection="transNoList" item="item" separator=",">#{item.odJobNo}</foreach>)
+				</when>
+				<when test="srchNo != null and srchNo != ''">
+					<choose>
+						<when test='searchType == "multi"'>
+							AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+							AND ${srchNoType} LIKE CONCAT(#{srchNo},'%')
+						</otherwise>
+					</choose>
+				</when>
+			</choose>
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			<choose>
+				<when test="srchCuslv1 != null and srchCuslv1 != ''">
+					AND ${srchCusType} = #{srchCuslv1}
+				</when>
+				<when test="srchCuslv2 != null and srchCuslv2 != ''">
+					AND ${srchCusType} = #{srchCuslv2}
+				</when>
+				<when test="loginCustomerCd != null and loginCustomerCd != '' and loginCustomerLev != null and loginCustomerLev != ''">
+					AND od.CUST_CODE_LV${loginCustomerLev} = #{loginCustomerCd}
+				</when>
+			</choose>
+			AND oa.LAST_POD_STATUS = 'ECM002'
+			AND od.ECM_GOV_SEND_YN = 'Y'
+			<choose>
+				<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+			</choose>
+			<choose>
+				<when test='srchSendStatus == "Y"'>AND (gov.SEND_RES_CODE IS NOT NULL AND gov.SEND_RES_CODE <![CDATA[<>]]> '')</when>
+				<when test='srchSendStatus == "N"'>AND (gov.SEND_RES_CODE IS NULL OR gov.SEND_RES_CODE = '')</when>
+			</choose>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectChkTransCustomsInfo" parameterType="String" resultType="map">
+		/* TransactionMapper.selectChkTransCustomsInfo */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		SELECT
+			<!-- od.OD_JOB_NO -->
+			od.HBL_NO AS hbl_no
+			, item.ORDER_NO AS ord_no
+			, od.ORDER_NAME AS ordrr_fnm
+			, od.ORDER_TEL AS ordrr_telno
+			, od.CONSIGNEE_NAME_LOC AS cnsi_fnm
+			, od.CONSIGNEE_TEL AS cnsi_telno
+			, od.CONSIGNEE_ZIPCODE AS dlvrpl_psno
+			, item.CUSTOMS_TEMP_NO AS su_crtf_no
+			, item.CUSTOMS_ID AS cnsi_pers_ecm
+			, item.ECM_GOV_REQ_NO AS ecm_gov_req_no
+			<!-- , (SELECT TOP 1 EDI_PORTAL_MAILBOX_ID FROM TB_SMS_ENT_BUS_EDI_ECM WHERE ENT_CODE = od.ENT_CODE AND ENT_BUSINESS_CODE = od.ENT_BUSINESS_CODE AND BOUND = od.BOUND AND EDI_CITY_PORT = od.ORIG_CODE ORDER BY SEQ_NO) AS ediPortalMailboxId -->
+		FROM 
+			TB_ECM_OD od
+			INNER JOIN (
+				SELECT
+					MAX(OD_JOB_NO) AS OD_JOB_NO
+					, ORDER_NO
+					, ECM_GOV_REQ_NO
+					, MAX(CUSTOMS_ID) AS CUSTOMS_ID
+					, MAX(CUSTOMS_TEMP_NO) AS CUSTOMS_TEMP_NO
+				FROM TB_ECM_OD_ITEM 
+				WHERE OD_JOB_NO = #{odJobNo}
+				GROUP BY ORDER_NO, ECM_GOV_REQ_NO
+			) item ON od.OD_JOB_NO = item.OD_JOB_NO
+		WHERE od.OD_JOB_NO = #{odJobNo}
+	</select>
+
+	<select id="selectEdiPortalMailboxId" parameterType="map" resultType="String">
+		/* TransactionMapper.selectEdiPortalMailboxId */
+		SELECT
+			TOP 1 EDI_PORTAL_MAILBOX_ID
+		FROM
+			TB_ECM_OD od
+			INNER JOIN TB_SMS_ENT_BUS_EDI_ECM edi ON od.ENT_CODE = edi.ENT_CODE 	AND od.ENT_BUSINESS_CODE = edi.ENT_BUSINESS_CODE AND od.BOUND = edi.BOUND AND od.EDI_CITY_PORT = edi.ORIG_CODE
+		WHERE
+			od.OD_JOB_NO = #{odJobNo}
+		ORDER BY
+			SEQ_NO
+	</select>
+
+	<select id="selectCustomerCode" parameterType="String" resultType="String">
+		/* TransactionMapper.selectCustomerCode */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		SELECT CUST_VALUE
+		FROM TB_ECM_OD
+		CROSS APPLY (
+			VALUES 
+				(CUST_CODE_LV7),
+				(CUST_CODE_LV6),
+				(CUST_CODE_LV5),
+				(CUST_CODE_LV4),
+				(CUST_CODE_LV3),
+				(CUST_CODE_LV2),
+				(CUST_CODE_LV1)
+		) AS V(CUST_VALUE)
+		WHERE OD_JOB_NO = #{odJobNo}
+		AND CUST_VALUE IS NOT NULL 
+		AND LTRIM(RTRIM(CUST_VALUE)) <![CDATA[<>]]> ''
+	</select>
+
+ 	<select id="selectCustomerInfo" parameterType="map" resultType="map">
+		/* TransactionMapper.selectCustomerInfo */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		SELECT
+			cus.PARENT_CUSTOMER_CODE AS parentCustomerCode
+			, ci.IF_ETC_1 AS commBusinessCode
+			, ci.IF_ETC_2 AS clientId
+			, ci.IF_ETC_3 AS clientSecret
+		FROM
+			TB_SMS_CUSTOMER cus
+			LEFT JOIN TB_SMS_CUSTOMER_INTERFACE ci ON cus.ENT_CODE = ci.ENT_CODE AND cus.CUSTOMER_CODE = ci.CUSTOMER_CODE AND ci.IF_SERVICE_CODE = 'ECM_GOV_SIGN'
+		WHERE 
+			cus.ENT_CODE = #{entCode}
+			AND cus.CUSTOMER_CODE = #{customerCd}
+	</select>
+
+	<update id="updateCheckCustomsId" parameterType="map">
+		/* TransactionMapper.updateCheckCustomsId : 개인통관고유번호 검증 결과 업데이트 */
+		UPDATE TB_ECM_OD_ITEM
+		SET CUSTOMS_ID_VERIFY = #{resCode}
+		<if test="reqNo != null and reqNo != ''">
+			, ECM_GOV_REQ_NO = #{reqNo}
+		</if>
+		<if test="customsTempNo != null and customsTempNo != ''">
+			, CUSTOMS_TEMP_NO = #{customsTempNo}
+		</if>
+		WHERE OD_JOB_NO = #{odJobNo}
+		AND ORDER_NO = #{ord_no}
+	</update>
+</mapper>

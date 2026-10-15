@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsErrorDescMapper">
+
+	<select id="selectBms05ErrorDescList" parameterType="searchBmsErrorDescList" resultType="bmsErrorDesc">
+		/* BmsErrorDescMapper.selectBms05ErrorDescList : 오류통보 리스트 */
+		SELECT ERROR_NO													 /* 오류통보번호 */
+			 , DOC_TYPE													 /* 전송타입 */
+			 , DECLARATION_NO											 /* 세관제출번호 */
+			 , CHANGE_SEQ_NO											 /* 정정차수 */
+			 , ERROR_DESC												 /* 오류내역 */
+			 , CONCAT(NOTICE_DATE, ' ', NOTICE_TIME) AS NOTICE_DATE_TIME /* 통보일시 */
+		  FROM GT_XML_GOVCBRR20
+		 WHERE DOC_TYPE = #{docType}
+		   AND DECLARATION_NO = #{declarationNo}
+		<if test='changeSeqNo != null and changeSeqNo != ""'>
+		   AND CHANGE_SEQ_NO = #{changeSeqNo}
+		</if>
+	</select>
+
+	<select id="selectBms09ErrorDescList" parameterType="searchBmsErrorDescList" resultType="bmsErrorDesc">
+		/* BmsErrorDescMapper.selectBms09ErrorDescList : 결과통보 리스트 */
+		SELECT RESULT_NO AS ERROR_NO 									 /* 결과통보번호 */
+			 , DOC_TYPE													 /* 전송타입 */
+			 , DECLARATION_NO											 /* 세관제출번호 */
+			 , CHANGE_SEQ_NO											 /* 정정차수 */
+			 , REJECT_REASON AS ERROR_DESC 								 /* 신고각하/거절사유 */
+			 , CONCAT(NOTICE_DATE, ' ', NOTICE_TIME) AS NOTICE_DATE_TIME /* 통보일시 */
+		  FROM GT_XML_GOVCBRRD9
+		 WHERE DOC_TYPE = #{docType}
+		   AND DECLARATION_NO = #{declarationNo}
+		<if test='changeSeqNo != null and changeSeqNo != ""'>
+		   AND CHANGE_SEQ_NO = #{changeSeqNo}
+		</if>
+	</select>
+
+</mapper>

@@ -1,0 +1,631 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.PodMapper">
+	
+	<select id="selectPodList" parameterType="searchPodList" resultType="PodInfo">
+    /* PodMapper.selectPodList : POD(쿠팡)  List */
+	SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+	<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+	SELECT *
+	FROM (
+	    SELECT
+	        od.OD_JOB_NO
+	        ,MAX(od.MASTER_OD_JOB_NO) AS MASTER_OD_JOB_NO
+	        ,od.ENT_CODE
+	        ,od.ENT_BUSINESS_CODE
+	        ,od.BOUND
+	        ,od.BOUND_TYPE
+	        ,od.CUST_CODE_LV1
+	        ,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV1) AS CUST_NAME_LV1	  
+	        ,od.CUST_CODE_LV2
+	        ,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV2) AS CUST_NAME_LV2	  
+	        ,od.PO_NO
+	        ,od.PO_DATE
+	        ,od.AR_DATE
+	        ,od.HBL_NO
+	        ,od.DELIVERY_CODE
+	        ,(SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = od.DELIVERY_CODE) AS DELIVERY_NAME
+	        ,od.CD_TYPE
+	        ,odAdd.DROP_YN
+	        ,odAdd.RETURN_REQUEST_ID
+	        ,odAdd.RETURN_REQ_DATE
+	        ,MAX(CASE WHEN p03.POD_STATUS = 'ECM065' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME) END) AS CUSTOMS_ID_ERROR
+	        ,MAX(CASE WHEN ct.POD_STATUS = 'ECM065' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120) END) AS CT_CUSTOMS_ID_ERROR
+	        ,MAX(CASE
+	            WHEN (od.CD_TYPE IN ('N', 'B') OR odAdd.DROP_YN = 'Y')
+	                AND p03.POD_STATUS = 'ECM250' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	            WHEN od.CD_TYPE = 'Y'
+	                AND p03.POD_STATUS = 'ECM210' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	        END) AS CUSTOMS_START
+	        ,MAX(CASE
+	            WHEN (od.CD_TYPE IN ('N', 'B') OR odAdd.DROP_YN = 'Y')
+	                AND p03.POD_STATUS = 'ECM280' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	            WHEN od.CD_TYPE = 'Y'
+	                AND p03.POD_STATUS = 'ECM240' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	        END) AS CUSTOMS_CLEAR
+	        ,MAX(CASE
+	            WHEN (od.CD_TYPE IN ('N', 'B') OR odAdd.DROP_YN = 'Y')
+	                AND ct.POD_STATUS = 'ECM250' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+	            WHEN od.CD_TYPE = 'Y'
+	                AND ct.POD_STATUS = 'ECM210' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+	        END) AS CT_CUSTOMS_START
+	        ,MAX(CASE
+	            WHEN (od.CD_TYPE IN ('N', 'B') OR odAdd.DROP_YN = 'Y')
+	                AND ct.POD_STATUS = 'ECM280' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+	            WHEN od.CD_TYPE = 'Y'
+	                AND ct.POD_STATUS = 'ECM240' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+	        END) AS CT_CUSTOMS_CLEAR
+	        ,MAX(CASE WHEN p04.POD_STATUS = 'ECM361' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM361
+	        ,MAX(CASE WHEN p04.POD_STATUS = 'ECM370' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM370
+	        ,MIN(CASE WHEN p04.POD_STATUS = 'ECM380' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM380
+	        ,MAX(CASE WHEN p04.POD_STATUS = 'ECM390' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM390
+	        ,MAX(CASE WHEN p04.POD_STATUS = 'ECM420' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM420
+	        ,MAX(CASE WHEN p04.POD_STATUS = 'ECM510' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM510
+	        ,MAX(CASE WHEN p04.POD_STATUS = 'ECM520' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM520
+	        ,MAX(CASE WHEN p04.POD_STATUS = 'ECM530' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM530
+	        ,MAX(CASE WHEN p04.POD_STATUS = 'ECM540' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM540
+	        ,MAX(CASE WHEN p04.POD_STATUS = 'ECM550' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM550
+	        ,MAX(CASE WHEN ct.POD_STATUS = 'ECM361' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120) END) AS CT_ECM361
+	        ,MAX(CASE WHEN ct.POD_STATUS = 'ECM370' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120) END) AS CT_ECM370
+	        ,MIN(CASE WHEN ct.POD_STATUS = 'ECM380' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120) END) AS CT_ECM380
+	        ,MAX(CASE WHEN ct.POD_STATUS = 'ECM390' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120) END) AS CT_ECM390
+	        ,MAX(CASE WHEN ct.POD_STATUS = 'ECM420' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120) END) AS CT_ECM420
+	        ,MAX(CASE WHEN ct.POD_STATUS = 'ECM510' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120) END) AS CT_ECM510
+	        ,MAX(CASE WHEN ct.POD_STATUS = 'ECM520' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120) END) AS CT_ECM520
+	        ,MAX(CASE WHEN ct.POD_STATUS = 'ECM530' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120) END) AS CT_ECM530
+	        ,MAX(CASE WHEN ct.POD_STATUS = 'ECM540' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120) END) AS CT_ECM540
+	        ,MAX(CASE WHEN ct.POD_STATUS = 'ECM550' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120) END) AS CT_ECM550
+	        ,'N' AS MULTI_YN
+	    FROM TB_ECM_OD od
+	    LEFT JOIN TB_ECM_OD_ADDITIONAL odAdd
+	        ON odAdd.OD_JOB_NO = od.OD_JOB_NO
+	    LEFT JOIN TB_ECM_POD_03 p03
+	        ON p03.OD_JOB_NO = od.OD_JOB_NO
+	        AND p03.BL_NO = od.HBL_NO
+	    LEFT JOIN TB_ECM_POD_04 p04
+	        ON p04.OD_JOB_NO = od.OD_JOB_NO
+	        AND p04.BL_NO = od.HBL_NO
+	    LEFT JOIN TB_ECM_COUPANG_TRACKING ct
+	        ON ct.OD_JOB_NO = od.OD_JOB_NO
+	        AND ct.HBL_NO = od.HBL_NO
+	    WHERE od.MULTI_YN = 'N'
+	    AND od.OD_JOB_NO IN (
+	        SELECT DISTINCT OD_JOB_NO
+	        FROM TB_ECM_POD_01
+	        WHERE POD_STATUS >= 'ECM010'
+	    )
+	    GROUP BY
+	        od.OD_JOB_NO, od.ENT_CODE, od.ENT_BUSINESS_CODE, od.BOUND, od.BOUND_TYPE, od.CUST_CODE_LV1, od.CUST_CODE_LV2, od.PO_NO,
+	        od.PO_DATE, od.AR_DATE, od.HBL_NO, od.DELIVERY_CODE, od.CD_TYPE,
+	        odAdd.DROP_YN, odAdd.RETURN_REQUEST_ID, odAdd.RETURN_REQ_DATE
+	
+	    UNION ALL
+	
+	    SELECT
+	        od.OD_JOB_NO
+	        ,MAX(od.MASTER_OD_JOB_NO) AS MASTER_OD_JOB_NO
+	        ,od.ENT_CODE
+	        ,od.ENT_BUSINESS_CODE
+	        ,od.BOUND
+	        ,od.BOUND_TYPE
+	        ,od.CUST_CODE_LV1
+	        ,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV1) AS CUST_NAME_LV1	  
+	        ,od.CUST_CODE_LV2
+	        ,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV2) AS CUST_NAME_LV2
+	        ,od.PO_NO
+	        ,od.PO_DATE
+	        ,od.AR_DATE
+	        ,mt.DELIVERY_NO AS HBL_NO
+	        ,mt.DELIVERY_CODE
+	        ,(SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = mt.DELIVERY_CODE) AS DELIVERY_NAME
+	        ,od.CD_TYPE
+	        ,odAdd.DROP_YN
+	        ,mt.RETURN_REQUEST_ID
+	        ,mt.RETURN_REQ_DATE
+	        ,MAX(CASE WHEN p03.POD_STATUS = 'ECM065' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME) END) AS CUSTOMS_ID_ERROR
+	        ,MAX(CASE WHEN ct.POD_STATUS = 'ECM065' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120) END) AS CT_CUSTOMS_ID_ERROR
+	        ,MAX(CASE
+	            WHEN (od.CD_TYPE IN ('N', 'B') OR odAdd.DROP_YN = 'Y')
+	                AND p03.POD_STATUS = 'ECM250' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	            WHEN od.CD_TYPE = 'Y'
+	                AND p03.POD_STATUS = 'ECM210' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	        END) AS CUSTOMS_START
+	        ,MAX(CASE
+	            WHEN (od.CD_TYPE IN ('N', 'B') OR odAdd.DROP_YN = 'Y')
+	                AND p03.POD_STATUS = 'ECM280' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	            WHEN od.CD_TYPE = 'Y'
+	                AND p03.POD_STATUS = 'ECM240' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	        END) AS CUSTOMS_CLEAR
+	        ,MAX(CASE
+	            WHEN (od.CD_TYPE IN ('N', 'B') OR odAdd.DROP_YN = 'Y')
+	                AND ct.POD_STATUS = 'ECM250' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+	            WHEN od.CD_TYPE = 'Y'
+	                AND ct.POD_STATUS = 'ECM210' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+	        END) AS CT_CUSTOMS_START
+	        ,MAX(CASE
+	            WHEN (od.CD_TYPE IN ('N', 'B') OR odAdd.DROP_YN = 'Y')
+	                AND ct.POD_STATUS = 'ECM280' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+	            WHEN od.CD_TYPE = 'Y'
+	                AND ct.POD_STATUS = 'ECM240' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+	        END) AS CT_CUSTOMS_CLEAR
+	        ,MAX(CASE 
+              WHEN p04.POD_STATUS = 'ECM361' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM361' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM361
+        ,MAX(CASE 
+              WHEN p04.POD_STATUS = 'ECM370' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM370' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM370
+        ,MIN(CASE 
+              WHEN p04.POD_STATUS = 'ECM380' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM380' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM380
+        ,MAX(CASE 
+              WHEN p04.POD_STATUS = 'ECM390' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM390' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM390
+        ,MAX(CASE 
+              WHEN p04.POD_STATUS = 'ECM420' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM420' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM420
+        ,MAX(CASE 
+              WHEN p04.POD_STATUS = 'ECM510' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM510' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM510
+        ,MAX(CASE 
+              WHEN p04.POD_STATUS = 'ECM520' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM520' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM520
+        ,MAX(CASE 
+              WHEN p04.POD_STATUS = 'ECM530' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM530' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM530
+        ,MAX(CASE 
+              WHEN p04.POD_STATUS = 'ECM540' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM540' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM540
+        ,MAX(CASE 
+              WHEN p04.POD_STATUS = 'ECM550' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM550' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM550
+        ,MAX(CASE 
+              WHEN ct.POD_STATUS = 'ECM361' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+              WHEN ctm.POD_STATUS = 'ECM361' THEN CONVERT(VARCHAR(16), ctm.SEND_DATE_TIME, 120)
+            END) AS CT_ECM361
+        ,MAX(CASE 
+              WHEN ct.POD_STATUS = 'ECM370' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+              WHEN ctm.POD_STATUS = 'ECM370' THEN CONVERT(VARCHAR(16), ctm.SEND_DATE_TIME, 120)
+            END) AS CT_ECM370
+        ,MIN(CASE 
+              WHEN ct.POD_STATUS = 'ECM380' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+              WHEN ctm.POD_STATUS = 'ECM380' THEN CONVERT(VARCHAR(16), ctm.SEND_DATE_TIME, 120)
+            END) AS CT_ECM380
+        ,MAX(CASE 
+              WHEN ct.POD_STATUS = 'ECM390' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+              WHEN ctm.POD_STATUS = 'ECM390' THEN CONVERT(VARCHAR(16), ctm.SEND_DATE_TIME, 120)
+            END) AS CT_ECM390
+        ,MAX(CASE 
+              WHEN ct.POD_STATUS = 'ECM420' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+              WHEN ctm.POD_STATUS = 'ECM420' THEN CONVERT(VARCHAR(16), ctm.SEND_DATE_TIME, 120)
+            END) AS CT_ECM420
+        ,MAX(CASE 
+              WHEN ct.POD_STATUS = 'ECM510' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+              WHEN ctm.POD_STATUS = 'ECM510' THEN CONVERT(VARCHAR(16), ctm.SEND_DATE_TIME, 120)
+            END) AS CT_ECM510
+        ,MAX(CASE 
+              WHEN ct.POD_STATUS = 'ECM520' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+              WHEN ctm.POD_STATUS = 'ECM520' THEN CONVERT(VARCHAR(16), ctm.SEND_DATE_TIME, 120)
+            END) AS CT_ECM520
+        ,MAX(CASE 
+              WHEN ct.POD_STATUS = 'ECM530' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+              WHEN ctm.POD_STATUS = 'ECM530' THEN CONVERT(VARCHAR(16), ctm.SEND_DATE_TIME, 120)
+            END) AS CT_ECM530
+        ,MAX(CASE 
+              WHEN ct.POD_STATUS = 'ECM540' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+              WHEN ctm.POD_STATUS = 'ECM540' THEN CONVERT(VARCHAR(16), ctm.SEND_DATE_TIME, 120)
+            END) AS CT_ECM540
+        ,MAX(CASE 
+              WHEN ct.POD_STATUS = 'ECM550' THEN CONVERT(VARCHAR(16), ct.SEND_DATE_TIME, 120)
+              WHEN ctm.POD_STATUS = 'ECM550' THEN CONVERT(VARCHAR(16), ctm.SEND_DATE_TIME, 120)
+            END) AS CT_ECM550
+        ,'Y' AS MULTI_YN
+	    FROM TB_ECM_OD od
+	    INNER JOIN TB_ECM_OD_MULTI mt
+	        ON mt.OD_JOB_NO = od.OD_JOB_NO
+	    LEFT JOIN TB_ECM_OD_ADDITIONAL odAdd
+	        ON odAdd.OD_JOB_NO = od.OD_JOB_NO
+	    LEFT JOIN TB_ECM_POD_03 p03
+	        ON p03.OD_JOB_NO = od.OD_JOB_NO
+	        AND p03.BL_NO = mt.DELIVERY_NO
+	    LEFT JOIN TB_ECM_POD_04 p04
+	        ON p04.OD_JOB_NO = od.OD_JOB_NO
+	        AND p04.BL_NO = od.HBL_NO
+	    LEFT JOIN TB_ECM_POD_04_M p04m
+	        ON p04m.OD_JOB_NO = od.OD_JOB_NO
+	        AND p04m.BL_NO = mt.DELIVERY_NO
+	    LEFT JOIN TB_ECM_COUPANG_TRACKING ct
+	        ON ct.OD_JOB_NO = od.OD_JOB_NO
+	        AND ct.HBL_NO = od.HBL_NO
+	    LEFT JOIN TB_ECM_COUPANG_TRACKING ctm
+	        ON ctm.OD_JOB_NO = od.OD_JOB_NO
+	        AND ctm.HBL_NO = mt.DELIVERY_NO
+	    WHERE od.MULTI_YN = 'Y'
+	    AND od.OD_JOB_NO IN (
+	        SELECT DISTINCT OD_JOB_NO
+	        FROM TB_ECM_POD_01
+	        WHERE POD_STATUS >= 'ECM010'
+	    )
+	    GROUP BY
+	        od.OD_JOB_NO, od.ENT_CODE, od.ENT_BUSINESS_CODE, od.BOUND, od.BOUND_TYPE, od.CUST_CODE_LV1, od.CUST_CODE_LV2, od.PO_NO, od.PO_DATE,
+	        od.AR_DATE, mt.DELIVERY_NO, mt.DELIVERY_CODE, mt.RETURN_REQUEST_ID, mt.RETURN_REQ_DATE,
+	        od.CD_TYPE, odAdd.DROP_YN
+	) rst
+	WHERE 1=1
+	AND rst.ENT_CODE = #{srchEntCode}
+	AND rst.ENT_BUSINESS_CODE = #{srchEntBusinessCode}
+	AND rst.CUST_CODE_LV1 = 'COUPANG-HQ'
+	<if test="srchBoundTypeDetTab != null and srchBoundTypeDetTab != ''">
+		AND rst.BOUND_TYPE = 'IMP'
+	    <choose>
+	        <when test='srchBoundTypeDetTab == "AI"'>
+	            AND rst.BOUND = 'AIR'
+	        </when>
+	        <when test='srchBoundTypeDetTab == "SI"'>
+	            AND rst.BOUND = 'SEA'
+	        </when>
+	    </choose>
+	</if>
+	<if test="srchCuslv1 != null and srchCuslv1 != ''">
+	        AND rst.CUST_CODE_LV1 = #{srchCuslv1}
+	</if>
+	<if test="srchCuslv2 != null and srchCuslv2 != ''">
+	        AND rst.CUST_CODE_LV2 = #{srchCuslv2}
+	</if>
+	<if test="srchDelivery != null and srchDelivery != ''">
+	  AND rst.DELIVERY_CODE = #{srchDelivery}
+	</if>
+	<if test="srchReturnYn != null and srchReturnYn != ''">
+		<choose>
+			<when test='srchReturnYn == "Y"'>
+				AND rst.RETURN_REQ_DATE IS NOT NULL
+			</when>
+			<otherwise>
+				AND rst.RETURN_REQ_DATE IS NULL
+			</otherwise>
+		</choose>
+	</if>
+	<if test="srchReturnDeliveryYn != null and srchReturnDeliveryYn != ''">
+		AND rst.RETURN_REQ_DATE IS NOT NULL
+	    <choose>
+	      <when test='srchReturnDeliveryYn == "Y"'>
+	        AND rst.RETURN_REQUEST_ID IS NOT NULL
+	      </when>
+	      <when test='srchReturnDeliveryYn == "N"'>
+	        AND rst.RETURN_REQUEST_ID IS NULL
+	      </when>
+	    </choose>
+	</if>
+	<if test="srchStatusList != null and srchStatusList.size() > 0">
+    AND (
+    <foreach collection="srchStatusList" item="item" separator=" OR ">
+        <choose>
+            <when test="item == '01'">rst.CUSTOMS_START IS NOT NULL</when>
+            <when test="item == '02'">rst.CUSTOMS_CLEAR IS NOT NULL</when>
+            <when test="item == '03'">rst.ECM361 IS NOT NULL</when>
+            <when test="item == '04'">rst.ECM370 IS NOT NULL</when>
+            <when test="item == '05'">rst.ECM380 IS NOT NULL</when>
+            <when test="item == '06'">rst.ECM390 IS NOT NULL</when>
+            <when test="item == '07'">rst.ECM420 IS NOT NULL</when>
+            <when test="item == '08'">rst.ECM510 IS NOT NULL</when>
+            <when test="item == '09'">rst.ECM550 IS NOT NULL</when>
+            <when test="item == '10'">rst.ECM520 IS NOT NULL</when>
+            <when test="item == '11'">rst.ECM530 IS NOT NULL</when>
+            <when test="item == '12'">rst.ECM540 IS NOT NULL</when>
+        </choose>
+    </foreach>
+    )
+</if>
+	<if test="srchNo != null and srchNo != ''">
+	    <choose>
+	        <when test='searchType == "multi"'>
+	            AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+	        </when>
+	        <otherwise>
+	            AND ${srchNoType} LIKE CONCAT(#{srchNo},'%')
+	        </otherwise>
+	    </choose>
+	</if>
+    <if test ="srchDateGbn != null and srchDateGbn != ''" >
+        AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+        AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})) 
+	</if>
+	<if test="loginCustomerCd != null and loginCustomerCd != '' and loginCustomerLev != null and loginCustomerLev != ''">
+		AND rst.CUST_CODE_LV${loginCustomerLev} = #{loginCustomerCd}
+	</if>
+    <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+</select>
+
+<select id="selectOrderMultiList" parameterType="HashMap" resultType="HashMap">
+		/** podMapper.selectOrderMultiList */
+		SELECT
+			od.HBL_NO as hblNo
+			,od.PO_NO as poNo
+			,od.OD_JOB_NO as odjobno
+			,od.DELIVERY_CODE as deliveryCode
+			,od.CUST_CODE_LV1
+			,od.DEST_PORT
+			,od.BOUND
+			,teom.DELIVERY_NO as deliveryNo
+			,CASE WHEN ISNULL(teom.OD_JOB_NO,'') != '' THEN 'multi' ELSE 'N' END multi_chk
+			,teom.SEQ_NO_ID as chkSeq
+			,teom.DELIVERY_CODE as multiChangeDeliveryCode
+			,teom.RETURN_DELIVERY_NO as returnDeliveryNo
+			,teom.DELIVERY_NO_CHANGED as deliveryNoChanged
+			,teom.SEQ_NO_ID as seqNoId
+		FROM
+			TB_ECM_OD od
+			LEFT JOIN
+			TB_ECM_OD_MULTI teom
+			ON od.OD_JOB_NO = teom.OD_JOB_NO 
+		WHERE 
+		od.OD_JOB_NO = #{odJobNo}
+	</select>
+	
+	<select id="selectPodListCommon" parameterType="searchPodList" resultType="PodInfo">
+    /* PodMapper.selectPodList : POD(공통)  List */
+	SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+	<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+	SELECT *
+	FROM (
+	    SELECT
+	        od.OD_JOB_NO
+	        ,od.ENT_CODE
+	        ,od.ENT_BUSINESS_CODE
+	        ,od.BOUND
+	        ,od.BOUND_TYPE
+	        ,od.CUST_CODE_LV1
+	        ,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV1) AS CUST_NAME_LV1	  
+	        ,od.CUST_CODE_LV2
+	        ,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV2) AS CUST_NAME_LV2	  
+	        ,od.PO_NO
+	        ,od.PO_DATE
+	        ,od.AR_DATE
+	        ,od.MBL_NO
+	        ,od.HBL_NO
+	        ,od.DELIVERY_CODE
+	        ,(SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = od.DELIVERY_CODE) AS DELIVERY_NAME
+	        ,od.CD_TYPE
+	        ,od.PIECES
+	        ,od.GWT
+	        ,od.SHIPPER_NAME
+	        ,od.CONSIGNEE_NAME_LOC
+	        ,od.CONSIGNEE_HP
+	        ,odAdd.DROP_YN
+	        ,odAdd.RETURN_REQUEST_ID
+	        ,odAdd.RETURN_REQ_DATE
+	        ,MAX(CASE WHEN p01.POD_STATUS = 'ECM010' THEN CONCAT(p01.POD_DATE, ' ', p01.POD_TIME) END) AS ECM010
+	        ,MAX(CASE WHEN p01.POD_STATUS = 'ECM020' THEN CONCAT(p01.POD_DATE, ' ', p01.POD_TIME) END) AS ECM020
+	        ,MAX(CASE WHEN p01.POD_STATUS = 'ECM005' THEN CONCAT(p01.POD_DATE, ' ', p01.POD_TIME) END) AS ECM005
+	        ,MAX(CASE WHEN p01.POD_STATUS = 'ECM007' THEN CONCAT(p01.POD_DATE, ' ', p01.POD_TIME) END) AS ECM007
+	        ,MAX(CASE WHEN p01.POD_STATUS = 'ECM060' THEN CONCAT(p01.POD_DATE, ' ', p01.POD_TIME) END) AS ECM060
+	        ,MAX(CASE WHEN p01.POD_STATUS = 'ECM070' THEN CONCAT(p01.POD_DATE, ' ', p01.POD_TIME) END) AS ECM070
+	        ,MAX(CASE WHEN p03.POD_STATUS = 'ECM210' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME) END) AS ECM210
+	        ,MAX(CASE
+	            WHEN (od.CD_TYPE IN ('N', 'B') OR odAdd.DROP_YN = 'Y')
+	                AND p03.POD_STATUS = 'ECM250' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	            WHEN (od.CD_TYPE = 'Y' AND odAdd.CARRYIN_DATE IS NOT NULL)
+	            	AND p03.POD_STATUS = 'ECM210' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	        END) AS CUSTOMS_START
+	        ,MAX(CASE
+	            WHEN (od.CD_TYPE IN ('N', 'B') OR odAdd.DROP_YN = 'Y')
+	                AND p03.POD_STATUS = 'ECM280' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	            WHEN od.CD_TYPE = 'Y'
+	                AND p03.POD_STATUS = 'ECM240' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	        END) AS CUSTOMS_CLEAR
+	        ,MAX(CASE WHEN p03.POD_STATUS = 'ECM290' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME) END) AS ECM290
+	        ,MAX(CASE WHEN p04.POD_STATUS = 'ECM360' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM360
+	        ,MAX(CASE WHEN p04.POD_STATUS = 'ECM400' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM400
+	        ,MAX(CASE WHEN p04.POD_STATUS = 'ECM420' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME) END) AS ECM420
+	        ,'N' AS MULTI_YN
+	    FROM TB_ECM_OD od
+	    LEFT JOIN TB_ECM_OD_ADDITIONAL odAdd
+	        ON odAdd.OD_JOB_NO = od.OD_JOB_NO
+        LEFT JOIN TB_ECM_POD_01 p01
+	        ON p01.OD_JOB_NO = od.OD_JOB_NO
+	        AND p01.BL_NO = od.HBL_NO
+	    LEFT JOIN TB_ECM_POD_03 p03
+	        ON p03.OD_JOB_NO = od.OD_JOB_NO
+	        AND p03.BL_NO = od.HBL_NO
+	    LEFT JOIN TB_ECM_POD_04 p04
+	        ON p04.OD_JOB_NO = od.OD_JOB_NO
+	        AND p04.BL_NO = od.HBL_NO
+	    WHERE od.MULTI_YN = 'N'
+	    AND od.OD_JOB_NO IN (
+	        SELECT DISTINCT OD_JOB_NO
+	        FROM TB_ECM_POD_01
+	        WHERE POD_STATUS >= 'ECM010'
+	    )
+	    GROUP BY
+	        od.OD_JOB_NO, od.ENT_CODE, od.ENT_BUSINESS_CODE, od.BOUND, od.BOUND_TYPE, od.CUST_CODE_LV1, od.CUST_CODE_LV2, od.PO_NO,
+	        od.PO_DATE, od.AR_DATE, od.HBL_NO, od.MBL_NO, od.DELIVERY_CODE, od.CD_TYPE, od.PIECES, od.GWT, od.SHIPPER_NAME, od.CONSIGNEE_NAME_LOC,
+	        od.CONSIGNEE_HP, odAdd.DROP_YN, odAdd.RETURN_REQUEST_ID, odAdd.RETURN_REQ_DATE
+
+	    UNION ALL
+
+	    SELECT
+	        od.OD_JOB_NO
+	        ,od.ENT_CODE
+	        ,od.ENT_BUSINESS_CODE
+	        ,od.BOUND
+	        ,od.BOUND_TYPE
+	        ,od.CUST_CODE_LV1
+	        ,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV1) AS CUST_NAME_LV1	  
+	        ,od.CUST_CODE_LV2
+	        ,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV2) AS CUST_NAME_LV2
+	        ,od.PO_NO
+	        ,od.PO_DATE
+	        ,od.AR_DATE
+	        ,od.MBL_NO
+	        ,mt.DELIVERY_NO AS HBL_NO
+	        ,mt.DELIVERY_CODE
+	        ,(SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = mt.DELIVERY_CODE) AS DELIVERY_NAME
+	        ,od.CD_TYPE
+	        ,od.PIECES
+	        ,od.GWT
+	        ,od.SHIPPER_NAME
+	        ,od.CONSIGNEE_NAME_LOC
+	        ,od.CONSIGNEE_HP
+	        ,odAdd.DROP_YN
+	        ,mt.RETURN_REQUEST_ID
+	        ,mt.RETURN_REQ_DATE
+	        ,MAX(CASE WHEN p01.POD_STATUS = 'ECM010' THEN CONCAT(p01.POD_DATE, ' ', p01.POD_TIME) END) AS ECM010
+	        ,MAX(CASE WHEN p01.POD_STATUS = 'ECM020' THEN CONCAT(p01.POD_DATE, ' ', p01.POD_TIME) END) AS ECM020
+	        ,MAX(CASE WHEN p01.POD_STATUS = 'ECM005' THEN CONCAT(p01.POD_DATE, ' ', p01.POD_TIME) END) AS ECM005
+	        ,MAX(CASE WHEN p01.POD_STATUS = 'ECM007' THEN CONCAT(p01.POD_DATE, ' ', p01.POD_TIME) END) AS ECM007
+	        ,MAX(CASE WHEN p01.POD_STATUS = 'ECM060' THEN CONCAT(p01.POD_DATE, ' ', p01.POD_TIME) END) AS ECM060
+	        ,MAX(CASE WHEN p01.POD_STATUS = 'ECM070' THEN CONCAT(p01.POD_DATE, ' ', p01.POD_TIME) END) AS ECM070
+	        ,MAX(CASE WHEN p03.POD_STATUS = 'ECM210' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME) END) AS ECM210
+	        ,MAX(CASE
+	            WHEN (od.CD_TYPE IN ('N', 'B') OR odAdd.DROP_YN = 'Y')
+	                AND p03.POD_STATUS = 'ECM250' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+                WHEN (od.CD_TYPE = 'Y' AND odAdd.CARRYIN_DATE IS NOT NULL)
+	            	AND p03.POD_STATUS = 'ECM210' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	        END) AS CUSTOMS_START
+	        ,MAX(CASE
+	            WHEN (od.CD_TYPE IN ('N', 'B') OR odAdd.DROP_YN = 'Y')
+	                AND p03.POD_STATUS = 'ECM280' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	            WHEN od.CD_TYPE = 'Y'
+	                AND p03.POD_STATUS = 'ECM240' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME)
+	        END) AS CUSTOMS_CLEAR
+	        ,MAX(CASE WHEN p03.POD_STATUS = 'ECM290' THEN CONCAT(p03.POD_DATE, ' ', p03.POD_TIME) END) AS ECM290
+	        ,MAX(CASE 
+              WHEN p04.POD_STATUS = 'ECM360' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM360' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM360
+            ,MAX(CASE 
+              WHEN p04.POD_STATUS = 'ECM400' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM400' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM400
+            ,MAX(CASE 
+              WHEN p04.POD_STATUS = 'ECM420' THEN CONCAT(p04.POD_DATE, ' ', p04.POD_TIME)
+              WHEN p04m.POD_STATUS = 'ECM420' THEN CONCAT(p04m.POD_DATE, ' ', p04m.POD_TIME)
+            END) AS ECM420
+	        ,'Y' AS MULTI_YN
+	    FROM TB_ECM_OD od
+	    INNER JOIN TB_ECM_OD_MULTI mt
+	        ON mt.OD_JOB_NO = od.OD_JOB_NO
+	    LEFT JOIN TB_ECM_OD_ADDITIONAL odAdd
+	        ON odAdd.OD_JOB_NO = od.OD_JOB_NO
+        LEFT JOIN TB_ECM_POD_01 p01
+	        ON p01.OD_JOB_NO = od.OD_JOB_NO
+	        AND p01.BL_NO = od.HBL_NO
+	    LEFT JOIN TB_ECM_POD_03 p03
+	        ON p03.OD_JOB_NO = od.OD_JOB_NO
+	        AND p03.BL_NO = mt.DELIVERY_NO
+	    LEFT JOIN TB_ECM_POD_04 p04
+	        ON p04.OD_JOB_NO = od.OD_JOB_NO
+	        AND p04.BL_NO = od.HBL_NO
+	    LEFT JOIN TB_ECM_POD_04_M p04m
+	        ON p04m.OD_JOB_NO = od.OD_JOB_NO
+	        AND p04m.BL_NO = mt.DELIVERY_NO
+	    WHERE od.MULTI_YN = 'Y'
+	    AND od.OD_JOB_NO IN (
+	        SELECT DISTINCT OD_JOB_NO
+	        FROM TB_ECM_POD_01
+	        WHERE POD_STATUS >= 'ECM010'
+	    )
+	    GROUP BY
+	        od.OD_JOB_NO, od.ENT_CODE, od.ENT_BUSINESS_CODE, od.BOUND, od.BOUND_TYPE, od.CUST_CODE_LV1, od.CUST_CODE_LV2, od.PO_NO, od.PO_DATE,
+	        od.AR_DATE, od.MBL_NO, mt.DELIVERY_NO, mt.DELIVERY_CODE, mt.RETURN_REQUEST_ID, mt.RETURN_REQ_DATE, od.PIECES, od.GWT, od.SHIPPER_NAME, 
+	        od.CONSIGNEE_NAME_LOC, od.CONSIGNEE_HP, od.CD_TYPE, odAdd.DROP_YN
+	) rst
+	WHERE 1=1
+	AND rst.ENT_CODE = #{srchEntCode}
+	AND rst.ENT_BUSINESS_CODE = #{srchEntBusinessCode}
+	AND rst.CUST_CODE_LV1 != 'COUPANG-HQ'
+	<if test="srchBoundTypeDetTab != null and srchBoundTypeDetTab != ''">
+		AND rst.BOUND_TYPE = 'IMP'
+	    <choose>
+	        <when test='srchBoundTypeDetTab == "AI"'>
+	            AND rst.BOUND = 'AIR'
+	        </when>
+	        <when test='srchBoundTypeDetTab == "SI"'>
+	            AND rst.BOUND = 'SEA'
+	        </when>
+	    </choose>
+	</if>
+	<if test="srchCuslv1 != null and srchCuslv1 != ''">
+	        AND rst.CUST_CODE_LV1 = #{srchCuslv1}
+	</if>
+	<if test="srchCuslv2 != null and srchCuslv2 != ''">
+	        AND rst.CUST_CODE_LV2 = #{srchCuslv2}
+	</if>
+	<if test="srchDelivery != null and srchDelivery != ''">
+	  AND rst.DELIVERY_CODE = #{srchDelivery}
+	</if>
+	<if test="srchReturnYn != null and srchReturnYn != ''">
+		<choose>
+			<when test='srchReturnYn == "Y"'>
+				AND rst.RETURN_REQ_DATE IS NOT NULL
+			</when>
+			<otherwise>
+				AND rst.RETURN_REQ_DATE IS NULL
+			</otherwise>
+		</choose>
+	</if>
+	<if test="srchReturnDeliveryYn != null and srchReturnDeliveryYn != ''">
+		AND rst.RETURN_REQ_DATE IS NOT NULL
+	    <choose>
+	      <when test='srchReturnDeliveryYn == "Y"'>
+	        AND rst.RETURN_REQUEST_ID IS NOT NULL
+	      </when>
+	      <when test='srchReturnDeliveryYn == "N"'>
+	        AND rst.RETURN_REQUEST_ID IS NULL
+	      </when>
+	    </choose>
+	</if>
+	<if test="srchStatusList != null and srchStatusList.size() > 0">
+    AND (
+    <foreach collection="srchStatusList" item="item" separator=" OR ">
+        <choose>
+            <when test="item == '01'">rst.ECM010 IS NOT NULL</when>
+            <when test="item == '02'">rst.ECM020 IS NOT NULL</when>
+            <when test="item == '03'">rst.ECM005 IS NOT NULL</when>
+            <when test="item == '04'">rst.ECM007 IS NOT NULL</when>
+            <when test="item == '05'">rst.ECM060 IS NOT NULL</when>
+            <when test="item == '06'">rst.ECM070 IS NOT NULL</when>
+            <when test="item == '07'">rst.ECM210 IS NOT NULL</when>
+            <when test="item == '08'">rst.CUSTOMS_START IS NOT NULL</when>
+            <when test="item == '09'">rst.CUSTOMS_CLEAR IS NOT NULL</when>
+            <when test="item == '10'">rst.ECM290 IS NOT NULL</when>
+            <when test="item == '11'">rst.ECM360 IS NOT NULL</when>
+            <when test="item == '12'">rst.ECM400 IS NOT NULL</when>
+            <when test="item == '13">rst.ECM420 IS NOT NULL</when>
+        </choose>
+    </foreach>
+    )
+</if>
+	<if test="srchNo != null and srchNo != ''">
+	    <choose>
+	        <when test='searchType == "multi"'>
+	            AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+	        </when>
+	        <otherwise>
+	            AND ${srchNoType} LIKE CONCAT(#{srchNo},'%')
+	        </otherwise>
+	    </choose>
+	</if>
+    <if test ="srchDateGbn != null and srchDateGbn != ''" >
+        AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+        AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})) 
+	</if>
+    <if test="loginCustomerCd != null and loginCustomerCd != '' and loginCustomerLev != null and loginCustomerLev != ''">
+		AND rst.CUST_CODE_LV${loginCustomerLev} = #{loginCustomerCd}
+	</if>
+
+    <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+</select>
+</mapper>

@@ -1,0 +1,1000 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.systemMng.SystemMngMapperVE">
+	<select id="selectCustomerCodeList" parameterType="searchQnAListVE" resultType="qnAVE">
+		/* SystemMngMapperVE.selectCustomerCodeList : QnA 거래처 조회 */		
+			SELECT CUSTOMER_CODE
+			FROM TB_SMS_CUSTOMER 
+			WHERE 1=1
+			<if test="entCode != null and entCode != ''">
+				AND ENT_CODE = #{entCode}
+			</if>				
+			<if test="(ecmCustomerType != null and ecmCustomerType != '') and (ecmCustomerCode != null and ecmCustomerCode != '')">
+				<if test='ecmCustomerType == "HC"'>
+					AND CUSTOMER_TYPE IN('HC','SC')
+					AND (PARENT_CUSTOMER_CODE = #{ecmCustomerCode} OR CUSTOMER_CODE = #{ecmCustomerCode})
+				</if>
+				<if test='ecmCustomerType == "SC"'>
+					AND CUSTOMER_TYPE = 'SC'
+					AND CUSTOMER_CODE = #{ecmCustomerCode}
+				</if>
+			</if>		
+	</select>
+	
+	<select id="selectQnAList" parameterType="searchQnAListVE" resultType="qnAVE">
+		/* SystemMngMapperVE.selectQnAList : 문의사항(QnA) List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT 
+			T1.REFERENCE_NO
+			, T1.ENT_CODE
+			, T1.CUSTOMER_CODE
+			, (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{entCode} AND CUSTOMER_CODE = T1.CUSTOMER_CODE) AS CUSTOMER_NAME
+			, T1.PO_NO
+			, T1.HBL_NO
+			, od.HBL_NO AS OD_HBL_NO
+			, od.MULTI_DELIVERY_NO
+			, ISNULL(T1.SEQ_NO_ID, 0) AS SEQ_NO_ID
+			, T1.QUESTION_USER_TYPE
+			, T1.QUESTION_TYPE
+			, (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = T1.ENT_CODE AND GROUP_CODE = 'QUESTION_TYPE_VE' AND CODE = T1.QUESTION_TYPE) AS QUESTION_TYPE_NAME
+			, T1.EMERGENCY_YN
+		    , CASE 
+		          WHEN T1.COMPLETE_YNH = 'Y' THEN '답변완료'
+		          WHEN DT.QANDA_TYPE = 'A' THEN '답변확인요청'
+		          WHEN DT.QANDA_TYPE = 'Q' THEN '답변요청'
+		          ELSE ''
+		      END AS COMPLETE_YNH
+		    , CASE WHEN DT.QANDA_TYPE = 'A' THEN DT.UPDATE_DATE_TIME ELSE NULL END AS ANSWER_DATE_TIME
+			, T1.HOLD_REASON
+			, T1.TITLE
+			, T1.CONTENTS
+			, T1.REGISTER_USER_ID
+			, T1.REGISTER_DATE_TIME
+			, T1.UPDATE_USER_ID
+			, T1.UPDATE_DATE_TIME
+			, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T1.ENT_CODE AND USER_ID = T1.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T1.ENT_CODE AND USER_ID = T1.UPDATE_USER_ID) AS UPDATE_USER_NAME
+
+			, CASE WHEN T1.QUESTION_USER_TYPE = 'C' THEN T1.CUSTOMER_CODE ELSE T1.REGISTER_USER_ID END QUESTION_USER_ID
+			, DT1.ANSWER_USER_ID
+			, CASE WHEN T1.QUESTION_USER_TYPE = 'C' THEN (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{entCode} AND CUSTOMER_CODE = T1.CUSTOMER_CODE)
+													ELSE (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T1.ENT_CODE AND USER_ID = T1.REGISTER_USER_ID) END QUESTION_USER_NAME
+			, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T1.ENT_CODE AND USER_ID = DT1.ANSWER_USER_ID) AS ANSWER_USER_NAME
+			, OD.OD_JOB_NO
+			, OD.CUST_CODE_LV1
+			, OD.CUST_CODE_LV2
+			, DT1.SLA
+			, FS.REFERENCE_NO_ID AS FILE_REFERENCE_NO_ID
+			, CASE WHEN FS.REFERENCE_NO_ID IS NOT NULL AND (LTRIM(RTRIM(T1.FILE_TEMP_NAME)) != '' OR LTRIM(RTRIM(DT1.FILE_TEMP_NAME)) != '') THEN 'Y' ELSE 'N' END AS FILE_SHARE
+			, CONCAT((SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = T1.ENT_CODE AND GROUP_CODE = 'BOUND' AND CODE = OD.BOUND), (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = T1.ENT_CODE AND GROUP_CODE = 'BOUND_TYPE' AND CODE = OD.BOUND_TYPE)) AS BOUND
+		FROM TB_ECM_QANDA T1
+		-- 최근 SEQ_NO를 먼저 찾고 LEFT JOIN
+		LEFT JOIN (
+		    SELECT D1.REFERENCE_NO, D1.QANDA_TYPE, D1.UPDATE_DATE_TIME
+		    FROM TB_ECM_QANDA_DETAIL D1
+		    INNER JOIN (
+		        SELECT REFERENCE_NO, MAX(SEQ_NO) AS MAX_SEQ_NO
+		        FROM TB_ECM_QANDA_DETAIL
+		        GROUP BY REFERENCE_NO
+		    ) AS Latest ON D1.REFERENCE_NO = Latest.REFERENCE_NO AND D1.SEQ_NO = Latest.MAX_SEQ_NO
+		) AS DT ON T1.REFERENCE_NO = DT.REFERENCE_NO
+		
+		LEFT JOIN (
+			SELECT D1.REFERENCE_NO
+				, MAX(CASE WHEN D1.QANDA_TYPE = 'Q' THEN D1.REGISTER_USER_ID END) AS QUESTION_USER_ID
+				, MAX(CASE WHEN D1.QANDA_TYPE = 'A' THEN D1.REGISTER_USER_ID END) AS ANSWER_USER_ID
+				, DATEDIFF(DAY, MAX(CASE WHEN D1.QANDA_TYPE = 'Q' THEN D1.REGISTER_DATE_TIME END), MAX(CASE WHEN D1.QANDA_TYPE = 'A' THEN D1.REGISTER_DATE_TIME END)) AS SLA
+				, CAST(MIN(D1.SEQ_NO) AS VARCHAR) AS MIN_SEQ_NO
+				, MAX(FILE_TEMP_NAME) AS FILE_TEMP_NAME
+			FROM TB_ECM_QANDA_DETAIL D1
+			WHERE EXISTS ( 
+				SELECT 1
+				FROM (SELECT REFERENCE_NO, MAX(SEQ_NO) OVER(PARTITION BY REFERENCE_NO, QANDA_TYPE) AS SEQ_NO, FILE_TEMP_NAME
+						FROM TB_ECM_QANDA_DETAIL) TEMP
+				WHERE TEMP.REFERENCE_NO = D1.REFERENCE_NO
+				AND TEMP.SEQ_NO = D1.SEQ_NO
+			)
+			GROUP BY D1.REFERENCE_NO
+		) AS DT1 ON T1.REFERENCE_NO = DT1.REFERENCE_NO
+		
+		LEFT OUTER JOIN (SELECT FUNC_JOB_NO, MAX(REFERENCE_NO_ID) AS REFERENCE_NO_ID FROM TB_COM_FILE_SHARE GROUP BY FUNC_JOB_NO) FS
+		ON FS.FUNC_JOB_NO = T1.REFERENCE_NO
+		
+		OUTER APPLY (
+		    SELECT TOP 1 *
+			FROM(
+				SELECT 
+					od.OD_JOB_NO
+					, od.CUST_CODE_LV1
+					, od.CUST_CODE_LV2
+					, od.PO_NO
+					, CASE WHEN multi.OD_JOB_NO IS NULL THEN od.HBL_NO ELSE multi.DELIVERY_NO END AS BL_NO 
+					, od.HBL_NO
+					, CASE WHEN multi.OD_JOB_NO IS NOT NULL THEN multi.DELIVERY_NO END AS MULTI_DELIVERY_NO 
+					, od.BOUND
+					, od.BOUND_TYPE
+				FROM TB_ECM_OD od WITH(NOLOCK) 
+				LEFT OUTER JOIN TB_ECM_OD_MULTI multi WITH(NOLOCK) 
+				ON multi.OD_JOB_NO = od.OD_JOB_NO) OD
+		    WHERE ISNULL(od.PO_NO,'') = ISNULL(T1.PO_NO,'') 
+		    AND ISNULL(od.BL_NO,'') = ISNULL(T1.HBL_NO,'') 
+		) AS OD
+		
+		WHERE T1.ENT_CODE = #{entCode}
+			<if test="srchDateGbn != null and srchDateGbn != ''">
+	        	<if test="srchStartDate != null and srchStartDate != ''">
+	        		<choose>
+						<when test='srchDateGbn == "register_date_time" and srchDateGbn != null and srchDateGbn != ""'>
+						AND T1.${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+						</when>
+						<when test='srchDateGbn == "update_date_time" and srchDateGbn != null and srchDateGbn != ""'>
+						AND DT.${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+						</when>
+					</choose>
+	        	</if>
+	        	<if test="srchEndDate != null and srchEndDate != ''">
+	        		<choose>
+						<when test='srchDateGbn == "register_date_time" and srchDateGbn != null and srchDateGbn != ""'>
+						AND T1.${srchDateGbn} <![CDATA[<=]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+						</when>
+						<when test='srchDateGbn == "update_date_time" and srchDateGbn != null and srchDateGbn != ""'>
+						AND DT.${srchDateGbn} <![CDATA[<=]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+						</when>
+					</choose>
+				</if>
+			</if>
+			<if test="(srchPoNo != null and srchPoNo != '') or (srchHblNo != null and srchHblNo != '') or (srchTitle != null and srchTitle != '')">
+				<choose>
+					<when test='srchQnA == "srchPoNo" and srchPoNo != null and srchPoNo != ""'>
+						AND T1.PO_NO LIKE CONCAT('%',#{srchPoNo},'%')
+					</when>
+					<when test='srchQnA == "srchHblNo" and srchHblNo != null and srchHblNo != ""'>
+						AND T1.HBL_NO LIKE CONCAT('%',#{srchHblNo},'%')
+					</when>
+					<when test='srchQnA == "srchTitle" and srchTitle != null and srchTitle != ""'>
+						AND T1.TITLE LIKE CONCAT('%',#{srchTitle},'%')
+					</when>
+				</choose>
+			</if>
+			<if test="srchQuestionType != null and srchQuestionType != ''">
+				 AND T1.QUESTION_TYPE = #{srchQuestionType}
+			</if>
+			<if test="srchCompleteYnh != null and srchCompleteYnh != ''">
+				<choose>
+					<when test='srchCompleteYnh != "Y" and srchCompleteYnh != null and srchCompleteYnh != ""'>
+						AND T1.COMPLETE_YNH != 'Y' AND DT.QANDA_TYPE = #{srchCompleteYnh}
+					</when>
+					<otherwise>
+						 AND T1.COMPLETE_YNH = #{srchCompleteYnh}
+					</otherwise>
+				</choose>
+			</if>
+			<if test="srchCompleteYnhList != null and srchCompleteYnhList.size > 0">
+				AND (1 = 0 OR
+				<foreach collection="srchCompleteYnhList" item="item" separator="OR">
+					<choose>
+						<when test='item == "Q"'>
+						(ISNULL(T1.COMPLETE_YNH,'') != 'Y' AND DT.QANDA_TYPE = #{item})
+						</when>
+						<when test='item == "A"'>
+						(ISNULL(T1.COMPLETE_YNH,'') != 'Y' AND DT.QANDA_TYPE = #{item})
+						</when>
+						<when test='item == "Y"'>
+						ISNULL(T1.COMPLETE_YNH,'') = #{item}
+						</when>
+					</choose>
+				</foreach>
+				)
+			</if>
+			<if test="srchCustomerCodeList != null and srchCustomerCodeList.size() > 0">
+			    AND T1.CUSTOMER_CODE IN
+			    <foreach item="item" index="index" collection="srchCustomerCodeList" open="(" separator="," close=")">
+			        #{item}
+			    </foreach>
+			</if>
+			
+			<if test="srchBound != null and srchBound != ''">
+				 AND OD.BOUND = #{srchBound}
+			</if>
+			
+			<if test="srchBoundType != null and srchBoundType != ''">
+				 AND OD.BOUND_TYPE = #{srchBoundType}
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectSubQnAList" parameterType="searchQnAListVE" resultType="qnAVE">
+		/* SystemMngMapperVE.selectSubQnAList : 서브 문의사항(QnA) List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT 
+			T2.REFERENCE_NO
+			, T2.SEQ_NO
+			, T2.QANDA_TYPE
+			, (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = T1.ENT_CODE AND GROUP_CODE = 'QUESTION_TYPE_VE' AND CODE = t1.QUESTION_TYPE) AS QUESTION_TYPE_NAME
+			, T2.QUESTION_SEQ_NO
+			, T2.CONTENTS
+			, T2.FILE_CONTENT_TYPE
+			, T2.ENT_CODE
+			, CASE WHEN T2.FILE_TEMP_NAME IS NOT NULL AND LTRIM(RTRIM(T2.FILE_TEMP_NAME)) != '' THEN 'Y' ELSE 'N' END AS FILE_SHARE
+			, T2.REGISTER_USER_ID
+			, T2.REGISTER_DATE_TIME
+			, T2.UPDATE_USER_ID
+			, T2.UPDATE_DATE_TIME
+			, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T2.ENT_CODE AND USER_ID = T2.REGISTER_USER_ID) AS REGISTER_USER_NAME 
+			, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T2.ENT_CODE AND USER_ID = T2.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			, T1.QUESTION_USER_TYPE
+			, T1.TITLE
+			, T1.QUESTION_TYPE
+			, T1.FILE_CONTENT_TYPE AS ORIG_FILE_CONTENT_TYPE
+			, T1.FILE_PATH AS ORIG_FILE_PATH
+			, T1.FILE_TEMP_NAME AS ORIG_FILE_TEMP_NAME
+			, T1.FILE_ORIGINAL_NAME AS ORIG_FILE_ORIGINAL_NAME
+			, FS.REFERENCE_NO_ID AS FILE_REFERENCE_NO_ID
+			, FS.SEQ_NO AS FILE_SEQ_NO
+			, FS.FILE_NAME AS FILE_ORIGINAL_NAME
+			, FS.FILE_NAME_REMOTE AS FILE_TEMP_NAME
+			, FS.FILE_PATH_REMOTE AS FILE_PATH
+		FROM TB_ECM_QANDA_DETAIL T2
+		INNER JOIN TB_ECM_QANDA T1 ON T1.REFERENCE_NO = T2.REFERENCE_NO
+		LEFT OUTER JOIN (SELECT fs.REFERENCE_NO_ID
+								, fsf.SEQ_NO
+								, fs.FUNC_JOB_NO
+								, fs.FUNC_REFERENCE_NO
+								, fsf.FILE_NAME
+								, fsf.FILE_NAME_REMOTE
+								, fsf.FILE_PATH_REMOTE 
+							FROM TB_COM_FILE_SHARE fs
+							LEFT OUTER JOIN TB_COM_FILE_SHARE_FILE fsf
+							ON fs.REFERENCE_NO_ID = fsf.REFERENCE_NO_ID ) FS
+		ON FS.FUNC_JOB_NO = T2.REFERENCE_NO
+		AND FS.FUNC_REFERENCE_NO = CAST(T2.SEQ_NO AS VARCHAR)
+		WHERE T2.REFERENCE_NO = #{referenceNo}
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<insert id="insertQnA" parameterType="qnAVE">
+		/* SystemMngMapperVE.insertQnA : 문의사항(QnA) Insert */
+		<selectKey resultType="String" keyProperty="referenceNo" order="BEFORE">
+			SELECT 
+				CONCAT(#{entCode},CONVERT(CHAR(6), GETDATE(), 112),'-',
+					CONCAT(REPLICATE('0', 3 - LEN(A) ), A)
+				)  AS REFERENCE_NO
+			FROM 
+			(SELECT 
+				ISNULL((
+						SELECT MAX(CEILING(SUBSTRING(REFERENCE_NO, 13, 3))) + 1 FROM TB_ECM_QANDA
+						WHERE REFERENCE_NO LIKE CONCAT(#{entCode},CONVERT(CHAR(6), GETDATE(), 112),'%')								  
+						), 1) AS A ) INFO
+ 		</selectKey> 
+		
+		INSERT INTO TB_ECM_QANDA
+		(
+			 REFERENCE_NO
+			, ENT_CODE
+			, CUSTOMER_CODE
+			, CUSTOMER_NAME
+			, PO_NO
+			, HBL_NO
+			, SEQ_NO_ID
+			, QUESTION_USER_TYPE
+			, QUESTION_TYPE
+			, EMERGENCY_YN
+			, COMPLETE_YNH
+			, HOLD_REASON
+			, TITLE
+			, CONTENTS
+			,FILE_CONTENT_TYPE
+			,FILE_PATH
+			,FILE_TEMP_NAME
+			,FILE_ORIGINAL_NAME
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)
+		VALUES
+		(
+			 #{referenceNo}
+			,#{entCode}
+			,#{customerCode}
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{entCode} AND CUSTOMER_CODE = #{customerCode})
+			,#{poNo}
+			,#{hblNo}
+			,#{seqNoId}
+			,#{questionUserType}
+			,#{questionType}
+			,#{emergencyYn}
+			,#{completeYnh}
+			,#{holdReason}
+			,#{title}
+			,#{contents}
+			,#{fileContentType}
+			,#{filePath}
+			,#{fileTempName}
+			,#{fileOriginalName}
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		)	
+		
+		INSERT INTO TB_ECM_QANDA_DETAIL
+		(
+			 REFERENCE_NO
+			, ENT_CODE
+			, SEQ_NO
+			, QANDA_TYPE
+			, QUESTION_SEQ_NO
+			, CONTENTS
+			,FILE_CONTENT_TYPE
+			,FILE_PATH
+			,FILE_TEMP_NAME
+			,FILE_ORIGINAL_NAME
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)
+		VALUES
+		(
+			 #{referenceNo}
+			,#{entCode}
+			,#{seqNo}
+			<choose>
+    			<when test='qandaType == "A"'>
+					,'A'
+				</when>
+				<otherwise> 
+					,'Q'
+				</otherwise>
+			</choose>
+
+			<choose>
+    			<when test='qandaType == "A"'>
+					, #{questionSeqNo}
+				</when>
+				<otherwise>
+					, NULL
+				</otherwise>
+			</choose>
+			,#{contents}
+			,#{fileContentType}
+			,#{filePath}
+			,#{fileTempName}
+			,#{fileOriginalName}
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		)
+	</insert>
+	
+	<insert id="insertSubQnA" parameterType="qnAVE">
+		/* SystemMngMapperVE.insertSubQnA : 문의사항(QnA) Insert */
+		<selectKey keyProperty="seqNo" resultType="int" order="BEFORE">
+        	SELECT ISNULL(MAX(SEQ_NO), 0) + 1 FROM TB_ECM_QANDA_DETAIL WHERE REFERENCE_NO = #{referenceNo}
+   		</selectKey>
+		INSERT INTO TB_ECM_QANDA_DETAIL
+		(
+			 REFERENCE_NO
+			, ENT_CODE
+			, SEQ_NO
+			, QANDA_TYPE
+			, QUESTION_SEQ_NO
+			, CONTENTS
+			,FILE_CONTENT_TYPE
+			,FILE_PATH
+			,FILE_TEMP_NAME
+			,FILE_ORIGINAL_NAME
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)
+		VALUES
+		(
+			 #{referenceNo}
+			,#{entCode}
+			,#{seqNo}
+			,#{qandaType}
+			<choose>
+    			<when test='qandaType == "A"'>
+					,NULL
+				</when>
+				<otherwise>
+					, #{questionSeqNo}
+				</otherwise>
+			</choose>
+			,#{contents}
+			,#{fileContentType}
+			,#{filePath}
+			,#{fileTempName}
+			,#{fileOriginalName}
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			,#{updateUserId}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		)	
+		
+		<!-- 답변인 경우 완료여부, 홀드 사유 업데이트 -->
+		<if test='qandaType == "Q"'>
+			UPDATE TB_ECM_QANDA SET 
+					 COMPLETE_YNH = #{completeYnh}
+					, HOLD_REASON = #{holdReason}
+			WHERE ENT_CODE = #{entCode} 
+			AND REFERENCE_NO = #{referenceNo}
+		</if>
+	</insert>
+	
+	<select id="selectQnADetail" parameterType="searchQnADetailVE" resultType="qnAVE">
+        /* SystemMngMapperVE.selectQnADetail : 문의사항(QnA) Data */
+        SELECT TOP 1
+			T1.REFERENCE_NO
+			, T1.ENT_CODE
+			, T1.CUSTOMER_CODE
+			, (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{entCode} AND CUSTOMER_CODE = T1.CUSTOMER_CODE) AS CUSTOMER_NAME
+			, T1.PO_NO
+			, T1.HBL_NO
+			, T1.QUESTION_TYPE
+			, T1.EMERGENCY_YN
+			, T1.COMPLETE_YNH
+			, T1.HOLD_REASON
+			, T1.TITLE
+			, T1.CONTENTS
+			, T1.FILE_CONTENT_TYPE
+			, T1.FILE_PATH
+			, T1.FILE_TEMP_NAME
+			, T1.FILE_ORIGINAL_NAME
+
+			, D1.SEQ_NO
+			, D1.QANDA_TYPE
+			, D1.QUESTION_SEQ_NO
+			, T1.REGISTER_USER_ID
+			, T1.REGISTER_DATE_TIME
+			, T1.UPDATE_USER_ID
+			, T1.UPDATE_DATE_TIME
+			, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T1.ENT_CODE AND USER_ID = T1.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = T1.ENT_CODE AND USER_ID = T1.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			
+			, (SELECT MAX(CUST_CODE_LV1) FROM TB_ECM_OD WHERE ENT_CODE = T1.ENT_CODE AND PO_NO = T1.PO_NO) AS CUST_CODE_LV1
+			, T1.QUESTION_USER_TYPE
+		FROM TB_ECM_QANDA T1
+		LEFT JOIN TB_ECM_QANDA_DETAIL D1
+			ON T1.REFERENCE_NO = D1.REFERENCE_NO
+		WHERE T1.ENT_CODE = #{entCode}  
+		<if test="customerCode != null and customerCode != ''">
+			AND T1.CUSTOMER_CODE = #{customerCode}
+		</if>
+		<if test="referenceNo != null and referenceNo != ''">
+			AND T1.REFERENCE_NO = #{referenceNo}
+		</if>
+		<if test="seqNo != null and seqNo != ''">
+			AND D1.SEQ_NO = #{seqNo}
+		</if>
+		ORDER BY SEQ_NO DESC
+    </select>
+	
+	<update id="updateQnA" parameterType="qnAVE">
+		/* SystemMngMapperVE.updateQnA : 문의사항(QnA) Update */
+		UPDATE TB_ECM_QANDA SET 
+			 TITLE = #{title}
+			, CONTENTS = #{contents}
+			, FILE_CONTENT_TYPE = #{fileContentType}
+			, FILE_PATH = #{filePath}
+			, FILE_TEMP_NAME = #{fileTempName}
+			, FILE_ORIGINAL_NAME = #{fileOriginalName}
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		WHERE ENT_CODE = #{entCode} 
+		AND REFERENCE_NO = #{referenceNo}
+	</update>
+	
+	<delete id="deleteQnA" parameterType="qnADeleteVE">
+		/* SystemMngMapperVE.deleteQnA : 문의사항(QnA) delete */
+        DELETE FROM  TB_ECM_QANDA
+		WHERE ENT_CODE = #{entCode}  
+		AND REFERENCE_NO = #{referenceNo}
+		
+		DELETE FROM  TB_ECM_QANDA_DETAIL
+		WHERE ENT_CODE = #{entCode}  
+		AND REFERENCE_NO = #{referenceNo}
+	</delete>
+	
+	<select id="selectSubQnADetail" parameterType="searchQnADetailVE" resultType="qnAVE">
+        /* SystemMngMapperVE.selectSubQnADetail : 문의사항(QnA) - subGrid Data */
+        SELECT TOP 1
+			T1.REFERENCE_NO
+			, T1.ENT_CODE
+			, T1.CUSTOMER_CODE
+			, (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{entCode} AND CUSTOMER_CODE = T1.CUSTOMER_CODE) AS CUSTOMER_NAME
+			, T1.PO_NO
+			, T1.HBL_NO
+			, T1.QUESTION_TYPE
+			, T1.EMERGENCY_YN
+			, T1.COMPLETE_YNH
+			, T1.HOLD_REASON
+			, T1.TITLE
+			, D1.SEQ_NO
+			, D1.QANDA_TYPE
+			, D1.QUESTION_SEQ_NO
+			, D1.CONTENTS
+			, D1.FILE_CONTENT_TYPE
+			, D1.FILE_PATH
+			, D1.FILE_TEMP_NAME
+			, D1.FILE_ORIGINAL_NAME
+
+			, D1.REGISTER_USER_ID
+			, D1.REGISTER_DATE_TIME
+			, D1.UPDATE_USER_ID
+			, D1.UPDATE_DATE_TIME
+			, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = D1.ENT_CODE AND USER_ID = D1.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			, (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = D1.ENT_CODE AND USER_ID = D1.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			-- 주문 정보
+			, OD.SHIPPER_NAME
+			, OD.SHIPPER_TEL
+			, OD.SHIPPER_HP
+			, OD.CONSIGNEE_NAME_LOC AS CONSIGNEE_NAME
+			, OD.CONSIGNEE_ADDRESS_LOC AS CONSIGNEE_ADDRESS
+			, OD.CONSIGNEE_TEL
+			, OD.CONSIGNEE_HP
+--			, (SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM item WHERE item.OD_JOB_NO = OD.OD_JOB_NO) AS ITEM_NAME
+--			, (SELECT PIECES FROM TB_ECM_OD_ITEM item WHERE item.OD_JOB_NO = OD.OD_JOB_NO) AS PIECES
+			, (SELECT STUFF((
+			    SELECT ', ' + item.DETAIL_ITEM_NAME + ' / ' + CAST(item.PIECES AS NVARCHAR)
+			    FROM TB_ECM_OD_ITEM item
+			    WHERE item.OD_JOB_NO = OD.OD_JOB_NO
+			    FOR XML PATH(''), TYPE
+			).value('.', 'NVARCHAR(MAX)'), 1, 2, '')
+			) AS ITEM_INFO
+			
+			, OD.CUST_CODE_LV1
+		FROM TB_ECM_QANDA T1
+		LEFT JOIN TB_ECM_QANDA_DETAIL D1
+			ON T1.REFERENCE_NO = D1.REFERENCE_NO
+		LEFT JOIN TB_ECM_OD od
+			ON od.ENT_CODE = T1.ENT_CODE
+			AND od.PO_NO = T1.PO_NO
+		WHERE T1.ENT_CODE = #{entCode}  
+		<if test="customerCode != null and customerCode != ''">
+			AND T1.CUSTOMER_CODE = #{customerCode}
+		</if>
+		<if test="referenceNo != null and referenceNo != ''">
+			AND T1.REFERENCE_NO = #{referenceNo}
+		</if>
+		<if test="seqNo != null and seqNo != ''">
+			AND D1.SEQ_NO = #{seqNo}
+		</if>
+    </select>
+    
+	<update id="updateSubQnA" parameterType="qnAVE">
+		/* SystemMngMapperVE.updateSubQnA : 문의사항(QnA) Update */
+		UPDATE TB_ECM_QANDA_DETAIL SET 
+				 CONTENTS = #{contents}
+				, FILE_CONTENT_TYPE = #{fileContentType}
+				, FILE_PATH = #{filePath}
+				, FILE_TEMP_NAME = #{fileTempName}
+				, FILE_ORIGINAL_NAME = #{fileOriginalName}
+				,UPDATE_USER_ID = #{updateUserId}
+				,UPDATE_DATE_TIME =  CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+		WHERE ENT_CODE = #{entCode} 
+		AND REFERENCE_NO = #{referenceNo}
+		AND SEQ_NO = #{seqNo}
+		
+		<!-- 답변인 경우 완료여부, 홀드 사유 업데이트 -->
+		<if test='qandaType == "A"'>
+			UPDATE TB_ECM_QANDA SET 
+					 COMPLETE_YNH = #{completeYnh}
+					, HOLD_REASON = #{holdReason}
+					<if test="mainContents != null and mainContents != ''">
+						, CONTENTS = #{mainContents}
+					</if>
+			WHERE ENT_CODE = #{entCode} 
+			AND REFERENCE_NO = #{referenceNo}
+		</if>
+	</update>
+
+	<update id="updateFinishSubQnA" parameterType="qnAVE">
+		/* SystemMngMapperVE.updateFinishSubQnA : 문의사항(QnA) 완료 Update */
+		UPDATE TB_ECM_QANDA 
+		SET COMPLETE_YNH = 'Y'
+		WHERE ENT_CODE = #{entCode} 
+		AND REFERENCE_NO = #{referenceNo}
+	</update>
+	
+	<delete id="deleteSubQnA" parameterType="qnADeleteVE">
+		/* SystemMngMapperVE.deleteSubQnA : 문의사항(QnA) delete */
+        DELETE FROM  TB_ECM_QANDA_DETAIL
+		WHERE ENT_CODE = #{entCode}  
+		AND REFERENCE_NO = #{referenceNo}
+		AND SEQ_NO = #{seqNo}
+	</delete>
+	
+	<select id="getDetailCount" parameterType="qnADeleteVE" resultType="int">
+		/* SystemMngMapperVE.getDetailCount : 문의사항(QnA) - Detail Count */
+		SELECT COUNT(*) FROM TB_ECM_QANDA_DETAIL WHERE REFERENCE_NO =#{referenceNo}
+	</select>
+		
+	<update id="updateResendInfo" parameterType="qnAVE">
+		/* SystemMngMapperVE.updateResendInfo : 반품추가 */
+		UPDATE TB_ECM_OD_RESEND_INFO
+		SET 
+			UPDATE_USER_ID = #{updateUserId}
+			,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		WHERE OD_JOB_NO = #{odJobNo}
+		;
+    	
+    	IF @@ROWCOUNT = 0
+    	
+    	INSERT INTO TB_ECM_OD_RESEND_INFO(
+			OD_JOB_NO
+			,INPUT_METHOD
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+		)VALUES(
+			#{odJobNo}
+			,'CS'
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</update>
+	
+	<update id="updateDlvChangeInfo" parameterType="qnAVE">
+		/* SystemMngMapperVE.updateDlvChangeInfo : 송장교체추가 */
+		UPDATE TB_ECM_OD_DLV_CHANGE_INFO
+		SET 
+			UPDATE_USER_ID = #{updateUserId}
+			,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,DELIVERY_CHANGED_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			<if test="consigneeName != null and consigneeName != ''">
+			,DELIVERY_NAME_CHANGED = #{consigneeName}
+			</if>
+			<if test="consigneeZipcode != null and consigneeZipcode != ''">
+			,DELIVERY_ZIPCODE_CHANGED = #{consigneeZipcode}
+			</if>
+			<if test="consigneeAddress != null and consigneeAddress != ''">
+			,DELIVERY_ADDRESS_CHANGED = #{consigneeAddress}
+			</if>
+			<if test="consigneeTel != null and consigneeTel != ''">
+			,DELIVERY_TEL_CHANGED = #{consigneeTel}
+			</if>
+		WHERE OD_JOB_NO = #{odJobNo}
+		AND ISNULL(SEQ_NO_ID, 0) = #{seqNoId}
+		;
+
+		IF @@ROWCOUNT = 0
+    	
+    	INSERT INTO TB_ECM_OD_DLV_CHANGE_INFO(
+			OD_JOB_NO
+			,SEQ_NO_ID
+			,DELIVERY_NAME_CHANGED
+			,DELIVERY_ZIPCODE_CHANGED
+			,DELIVERY_ADDRESS_CHANGED
+			,DELIVERY_TEL_CHANGED
+			,INPUT_METHOD
+			,DELIVERY_CHANGED_DATE
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+		)VALUES(
+			#{odJobNo}
+			,#{seqNoId}
+			,#{consigneeName}
+			,#{consigneeZipcode}
+			,#{consigneeAddress}
+			,#{consigneeTel}
+			,'CS'
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+
+<!--		<if test='odUpdateChk != "" and odUpdateChk != null and odUpdateChk == "Y"'>-->
+<!--			&#45;&#45; 문의사항,송장교체new에서 올경우 오더정보도 업데이트-->
+<!--			UPDATE-->
+<!--			TB_ECM_OD-->
+<!--			SET-->
+<!--			DELIVERY_NAME_CHANGED = #{deliveryCodeNameChanged},-->
+<!--			DELIVERY_ADDRESS_CHANGED = #{consigneeAddress},-->
+<!--			DELIVERY_REASON_CHANGED = 'Shipper 송장교체 요청'-->
+<!--			WHERE OD_JOB_NO = #{odJobNo}-->
+<!--		</if>-->
+	</update>
+	
+	<update id="updateQuickInfo" parameterType="qnAVE">
+		/* SystemMngMapperVE.updateQuickInfo : 퀵요청 */
+		UPDATE TB_ECM_OD_QUICK_INFO
+		SET 
+			REMARK = #{contents}
+			,INCOTERMS = #{incoterms}
+			,UPDATE_USER_ID = #{updateUserId}
+			,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		WHERE OD_JOB_NO = #{odJobNo}
+		AND ISNULL(SEQ_NO_ID, 0) = #{seqNoId}
+		;
+    	
+    	IF @@ROWCOUNT = 0
+    	
+    	INSERT INTO TB_ECM_OD_QUICK_INFO(
+			OD_JOB_NO
+			,SEQ_NO_ID
+			,INCOTERMS
+			,REMARK
+			,TAKE_OVER_DATE
+			,DRIVER_NAME
+			,INPUT_METHOD
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+		)VALUES(
+			#{odJobNo}
+			,#{seqNoId}
+			,#{incoterms}
+			,''
+			,''
+			,''
+			,'CS'
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</update>
+	
+	<insert id="insertCsHistory" parameterType="qnAVE">
+		/* SystemMngMapperVE.insertCsHistory : 히스토리등록 */
+		INSERT INTO TB_ECM_OD_CS_HISTORY(
+			OD_JOB_NO
+			,OD_SEQ_NO_ID
+			,CS_DATE
+			,CS_TYPE
+			,CS_REMARK
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+			,SEQ_NO_ID
+		)
+		VALUES(
+			#{odJobNo}
+			,#{seqNoId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{questionType}
+			,#{contents}
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,(SELECT ISNULL(MAX(SEQ_NO_ID), 0) + 1 FROM TB_ECM_OD_CS_HISTORY WHERE OD_JOB_NO = #{odJobNo} AND ISNULL(OD_SEQ_NO_ID, 0) = #{seqNoId})
+		)
+	</insert>
+	
+	<select id="selectQnAHistoryList" parameterType="searchQnADetailVE" resultType="HashMap">
+        /* SystemMngMapperVE.selectQnAHistoryList : 문의사항(QnA) - 이력관리 */
+        SELECT 
+			ROW_NUMBER() OVER(ORDER BY CS.SEQ_NO_ID) AS NUM
+			,CS.CS_DATE
+			,CS.CS_TYPE
+			,ISNULL((SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{entCode} AND GROUP_CODE='QUESTION_TYPE_VE' AND CODE = CS.CS_TYPE), CS.CS_TYPE) AS CS_TYPE_NAME
+			,ISNULL(CS.CS_REMARK, '') AS CS_REMARK
+		FROM TB_ECM_OD_CS_HISTORY CS
+		JOIN TB_ECM_OD OD
+		ON CS.OD_JOB_NO = OD.OD_JOB_NO 
+		WHERE 
+		1 = 1 
+		<choose>
+			<when test="srchNo != null and srchNo != ''">
+				<choose>
+					<when test='srchNoType == "od.PO_NO"'>
+						AND OD.PO_NO = #{srchNo}
+					</when>
+					<otherwise>
+						AND OD.HBL_NO = #{srchNo}
+					</otherwise>
+				</choose>
+			</when>
+			<otherwise>
+				AND CS.OD_JOB_NO = #{srchOdJobNo}
+			</otherwise>
+		</choose>
+		<if test="seqNo != null and seqNo != '' and seqNo != 0">
+			AND ISNULL(CS.OD_SEQ_NO_ID, 0) = #{seqNo}
+		</if>
+		ORDER BY CS.SEQ_NO_ID
+    </select>
+    
+    <insert id="insertQnafileShare" parameterType="FileShare">
+		/* SystemMngMapperVE.insertQnafileShare : 파일등록 */
+		<selectKey resultType="int" keyProperty="referenceNoId" order="BEFORE">
+		SELECT ISNULL(MAX(REFERENCE_NO_ID), 0) + 1 
+	  	FROM TB_COM_FILE_SHARE
+		</selectKey>
+			
+		INSERT INTO TB_COM_FILE_SHARE(			
+			REFERENCE_NO_ID
+			,ENT_CODE
+			,ENT_BUSINESS_CODE
+			,SOLUTION
+			,FUNC_TYPE
+			,FUNC_SUB_TYPE
+			,FUNC_JOB_NO
+			,FUNC_REFERENCE_NO
+			,FILE_DOC_TYPE
+			,FILE_NAME
+			,FILE_EXT
+			,FILE_SIZE
+			,FILE_NAME_REMOTE
+			,FILE_PATH_REMOTE
+			,SHARE_YN
+			,MEMO_DATE
+			,FS_SERVER_TYPE
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)	
+		VALUES(
+			#{referenceNoId}
+			,#{entCode}
+			,#{entBusinessCode}
+			,'ECM'
+			,'OTHER'
+			,'G'
+			,#{funcJobNo}
+			,#{funcReferenceNo}
+			,'OT'
+			,#{fileName}
+			,#{fileExt}
+			,#{fileSize}
+			,#{fileNameRemote}
+			,#{filePathRemote}
+			,'Y'
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,'WEB'
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+		
+		<if test='fileShareList != null and fileShareList.size > 0'>
+			INSERT INTO TB_COM_FILE_SHARE_FILE(
+				REFERENCE_NO_ID
+				,SEQ_NO
+				,FILE_DOC_TYPE
+				,FILE_NAME
+				,FILE_SIZE
+				,FILE_NAME_REMOTE
+				,FILE_PATH_REMOTE
+			)VALUES
+			<foreach collection="fileShareList" item="item" separator=",">
+			(	
+				#{referenceNoId}
+			  , #{item.seqNo}
+			  , #{item.fileDocType}
+			  , #{item.fileName}
+			  , #{item.fileSize}
+			  , #{item.fileNameRemote}
+			  , #{item.filePathRemote}
+			)
+			</foreach>
+			;
+			</if>
+	</insert>
+	
+	<select id="getOrderInfo" parameterType="qnAVE" resultType="HashMap">
+		/* SystemMngMapperVE.getOrderInfo : 오더정보조회 */
+		SELECT TOP 1
+			OD_JOB_NO
+			,BOUND
+			,BOUND_TYPE
+			,CUST_CODE_LV1
+			,CUST_CODE_LV2
+			,DELIVERY_CODE
+			,PIECES
+			,(SELECT MAX(SEQ_NO_ID) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = OD.OD_JOB_NO) AS MULTI_SEQ_NO_ID
+		FROM TB_ECM_OD OD
+		WHERE OD_JOB_NO = #{odJobNo}
+	</select>
+	
+	<select id="getOrderReturnInfo" parameterType="qnAVE" resultType="HashMap">
+		/* SystemMngMapperVE.getOrderReturnInfo : 오더정보조회(반품데이터 존재여부) */
+		SELECT OD_JOB_NO 
+		FROM TB_ECM_OD_RESEND_INFO 
+		WHERE OD_JOB_NO = #{odJobNo}
+	</select>
+	
+	<update id="updateOrderReturnInfo" parameterType="HashMap">
+		/* SystemMngMapperVE.updateOrderReturnInfo : 오더 반품 처리 */
+		UPDATE TB_ECM_OD SET
+			RETURN_YN = 'Y'
+		WHERE OD_JOB_NO = #{odJobNo};
+		
+		UPDATE TB_ECM_OD_ADDITIONAL SET
+			RETURN_REQ_DATE = GETDATE()
+			,RETURN_REQUEST_ID = #{updateUserId}
+		WHERE OD_JOB_NO = #{odJobNo};
+	</update>
+	
+	<update id="insertMultiInfo" parameterType="HashMap">
+		/* SystemMngMapperVE.insertMultiInfo : 멀티송장처리 */
+		UPDATE TB_ECM_OD_MULTI
+		SET 
+			UPDATE_USER_ID = #{updateUserId}
+			,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			<if test="deliveryCode != null and deliveryCode != ''">
+			,DELIVERY_CODE = #{deliveryCode}
+			</if>
+			<if test="deliveryNoChanged != null and deliveryNoChanged != ''">
+			,DELIVERY_NO_CHANGED = #{deliveryNoChanged}
+			</if>
+			<if test="return != null and return != '' and return == 'return'">
+				<if test="returnDeliveryCode != null and returnDeliveryCode != ''">
+				,RETURN_DELIVERY_CODE = #{returnDeliveryCode}
+				</if>
+			,RETURN_REQ_DATE = GETDATE()
+			</if>
+		WHERE OD_JOB_NO = #{odJobNo}
+		AND ISNULL(SEQ_NO_ID, 0) = #{seqNoId}
+		;
+    	
+    	IF @@ROWCOUNT = 0
+    	
+    	INSERT INTO TB_ECM_OD_MULTI(
+			OD_JOB_NO
+			,SEQ_NO_ID
+			,DELIVERY_NO
+			,DELIVERY_CODE
+			,DELIVERY_NO_CHANGED
+			,PIECES
+			<if test="return != null and return != '' and return == 'return'">
+			,RETURN_DELIVERY_CODE
+			,RETURN_REQ_DATE
+			</if>
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+		)VALUES(
+			#{odJobNo}
+			,(SELECT ISNULL(MAX(SEQ_NO_ID),0) + 1 FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = #{odJobNo})
+			,#{deliveryNo}
+			,#{deliveryCode}
+			,#{deliveryNoChanged}
+			,#{pieces}
+			<if test="return != null and return != '' and return == 'return'">
+			,#{returnDeliveryCode}
+			,GETDATE()
+			</if>
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</update>
+	
+	<update id="updateOrderMultiInfo" parameterType="HashMap">
+		/* SystemMngMapperVE.updateOrderMultiInfo : 오더 멀티 데이터 처리 */
+		UPDATE TB_ECM_OD SET
+			MULTI_YN = 'Y'
+		WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+
+
+	<delete id="deleteQnAFileShare" parameterType="qnADeleteVE">
+		/* SystemMngMapperVE.deleteQnAFileShare : 문의사항(QnA) 업로드파일정보 delete */
+        DELETE FROM TB_COM_FILE_SHARE_FILE
+		WHERE REFERENCE_NO_ID IN (SELECT REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE ENT_CODE = #{entCode} AND FUNC_JOB_NO = #{referenceNo})
+		
+		DELETE FROM TB_COM_FILE_SHARE
+		WHERE ENT_CODE = #{entCode}  
+		AND FUNC_JOB_NO = #{referenceNo}
+	</delete>
+
+	<select id="selectOdInfo" parameterType="searchQnAListVE" resultType="HashMap">
+		/* SystemMngMapperVE.selectOdInfo : 멀티송장번호로 오더 정보조회 */
+		SELECT TOP 1 
+			od.OD_JOB_NO
+			, mul.SEQ_NO_ID
+		FROM TB_ECM_OD od
+		INNER JOIN TB_ECM_OD_MULTI mul
+		ON od.OD_JOB_NO = mul.OD_JOB_NO
+		WHERE mul.DELIVERY_NO = #{srchNo}
+	</select>
+</mapper>

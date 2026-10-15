@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.api.InterfaceMapperVE">
+	<select id="selectReturnOrderInfo" parameterType="HashMap" resultType="HashMap">
+		/** InterfaceMapperVE.selectReturnOrderInfo : 반품처리할 오더 데이터 조회 **/
+		SELECT *
+		FROM TB_ECM_OD OD
+		WHERE OD.ENT_CODE = #{entCode}
+		AND OD.PO_NO = #{orderId}
+	</select>
+
+	<select id="selectReturnOrderInfoPop" parameterType="HashMap" resultType="HashMap">
+		/** InterfaceMapperVE.selectReturnOrderInfoPop : 반품처리할 오더 데이터 조회(팝업에서)**/
+		SELECT *
+		FROM TB_ECM_OD OD
+		WHERE OD.ENT_CODE = #{entCode}
+		  AND OD.OD_JOB_NO = #{odJobNo}
+	</select>
+
+	<select id="selectReturnChk" parameterType="HashMap" resultType="HashMap">
+		/** InterfaceMapperVE.selectReturnChk : 반품처리할 오더 데이터 반품id **/
+		SELECT
+			RETURN_REQUEST_ID
+		FROM
+			TB_ECM_OD_MULTI
+		WHERE
+			OD_JOB_NO = #{odJobNo}
+			<if test="multiDeliveryNo != null and multiDeliveryNo != ''">
+			AND DELIVERY_NO = #{multiDeliveryNo}
+			AND SEQ_NO_ID = #{seqNoId}
+			</if>
+	</select>
+
+	<update id="updateReturnOrder" parameterType="HashMap">
+		/** InterfaceMapperVE.updateReturnOrder : 반품처리할 오더 데이터 수정 **/
+		UPDATE TB_ECM_OD SET
+			RETURN_YN = 'Y'
+		WHERE PO_NO = #{orderId}
+	</update>
+	
+	<update id="updateReturnOrderAd" parameterType="HashMap">
+		/** InterfaceMapperVE.updateReturnOrderAd : 반품처리 requestId 수정 **/
+		UPDATE TB_ECM_OD_ADDITIONAL SET
+			RETURN_REQUEST_ID = #{requestId}
+			,RETURN_REQ_DATE = GETDATE()
+		WHERE OD_JOB_NO IN (SELECT OD_JOB_NO FROM TB_ECM_OD WHERE PO_NO = #{orderId})
+	</update>
+
+
+	<update id="updateReturnOrderJob" parameterType="HashMap">
+		/** InterfaceMapperVE.updateReturnOrderJob : 반품처리할 오더 데이터 수정(잡넘버기준) **/
+		UPDATE TB_ECM_OD SET
+			RETURN_YN = 'Y'
+		WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+
+	<update id="updateReturnOrderAdJob" parameterType="HashMap">
+		/** InterfaceMapperVE.updateReturnOrderAdJob : 반품처리 requestId 수정(잡넘버기준) **/
+		UPDATE TB_ECM_OD_ADDITIONAL SET
+			RETURN_REQUEST_ID = #{returnRequestId}
+			,RETURN_DELIVERY_CODE = #{returnDeliveryCode}
+		  ,RETURN_REQ_DATE = GETDATE()
+		WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+
+	<insert id="insertReturninfo" parameterType="HashMap">
+		/** InterfaceMapperVE.insertReturninfo : 반품정보 저장 **/
+		INSERT INTO TB_ECM_OD_RETURN_INFO (
+					OD_JOB_NO
+				  ,REQUEST_ID
+				  ,SENDER_ZIPCODE
+				  ,SENDER_NAME
+				  ,SENDER_TEL
+				  ,SENDER_HP
+				  ,SENDER_ADDRESS
+				  ,SENDER_ADDRESS_DETAIL
+				  ,RECEIVER_ZIPCODE
+				  ,RECEIVER_NAME
+				  ,RECEIVER_TEL
+				  ,RECEIVER_HP
+				  ,RECEIVER_ADDRESS
+				  ,RECEIVER_ADDRESS_DETAIL
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+		) VALUES (
+				   #{od_job_no}
+				 ,#{requestId}
+				 ,#{senderZipcode}
+				 ,#{senderName}
+				 ,#{senderTel}
+				 ,#{senderHp}
+				 ,#{senderAddress}
+				 ,#{senderAddressDetail}
+				 ,#{receiverZipcode}
+				 ,#{receiverName}
+				 ,#{receiverTel}
+				 ,#{receiverHp}
+				 ,#{receiverAddress}
+				 ,#{receiverAddressDetail}
+				 ,'API'
+				 ,GETDATE()
+				 ,'API'
+				 ,GETDATE()
+				 )
+	</insert>
+	
+	<update id="updateCustomsCancelInfo" parameterType="HashMap">
+		/** InterfaceMapperVE.updateCustomsCancelInfo : 개인통관부호 검증 취소 저장 **/
+		MERGE INTO TB_ECM_CUSTOMS_ID_INFO AS A
+		USING (SELECT #{requestId} AS REQUEST_ID) AS B
+		ON (A.REQUEST_ID = B.REQUEST_ID)
+		WHEN MATCHED THEN
+		UPDATE SET
+			STATUS = '01'	 
+			,UPDATE_USER_ID = 'API'
+			,UPDATE_DATE_TIME = GETDATE()
+		WHEN NOT MATCHED THEN
+		INSERT(
+			CUSTOMS_ID_JOB_NO
+			,ENT_CODE
+			,REQUEST_ID
+			,PO_NO
+			,ORIG_CUSTOMS_ID
+			,ORIG_CONSIGNEE_NAME
+			,ORIG_CONSIGNEE_HP
+			,ORIG_CONSIGNEE_ZIPCODE
+			,INPUT_METHOD
+			,STATUS
+			,COMMODITY_ITEM
+			,CONSIGNEE_ADDRESS
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)
+		VALUES (
+			#{customsIdJobNo}
+			,#{entCode}
+			,#{requestId}
+			,#{poNo}
+			,#{customsId}
+			,#{consigneeName}
+			,#{consigneeHp}
+			,#{consigneeZipcode}
+			,#{inputMethod}
+			,'01'
+			,#{commodityItem}
+			,#{consigneeAddress}
+			,'API'
+			,GETDATE()
+			,'API'
+			,GETDATE()
+		);
+	</update>
+
+
+	<delete id="deleteChkPod" parameterType="order">
+		/* InterfaceMapperVE.deleteChkPod : 반품이력삭제 */
+		DELETE FROM
+			TB_ECM_POD_04
+		WHERE
+			OD_JOB_NO = #{odJobNo}
+		  AND POD_STATUS
+		  IN ('ECM504', 'ECM506', 'ECM510', 'ECM520' , 'ECM530', 'ECM540', 'ECM550', 'ECM551')
+
+		DELETE FROM
+			TB_ECM_POD_04_M
+		WHERE
+			OD_JOB_NO = #{odJobNo}
+		  AND POD_STATUS
+			IN ('ECM504', 'ECM506', 'ECM510', 'ECM520' , 'ECM530', 'ECM540', 'ECM550', 'ECM551')
+	</delete>
+
+
+	<delete id="deleteReturninfo" parameterType="HashMap">
+		/* InterfaceMapperVE.deleteReturninfo : 변경시 반품이력삭제 */
+		DELETE FROM TB_ECM_OD_RETURN_INFO
+		WHERE OD_JOB_NO = #{od_job_no}
+	</delete>
+	
+	<select id="selectDupReqId" parameterType="HashMap" resultType="int">
+		/** InterfaceMapperVE.selectDupReqId : 중복데이터 오더 데이터 조회 **/
+		SELECT COUNT(*)
+		FROM TB_ECM_CUSTOMS_ID_INFO 
+		WHERE REQUEST_ID = #{requestId}
+		<if test="gubun != null and gubun != '' and gubun =='cancel'">
+		AND STATUS = '01'
+		</if>
+	</select>
+
+
+	<update id="insertReturnMulti" parameterType="HashMap">
+		/* InterfaceMapperVE.insertReturnMulti : 반품용멀티등록 */
+		INSERT INTO TB_ECM_OD_MULTI(
+				 OD_JOB_NO
+			   ,SEQ_NO_ID
+			   ,DELIVERY_NO
+			   ,DELIVERY_CODE
+			   ,CUSTOMER_CODE
+			   ,PAYMENT_GUBN
+			   ,DELIVERY_FEE
+			   ,PIECES
+			   ,DIM_WIDTH
+			   ,DIM_LENGTH
+			   ,DIM_HEIGHT
+			   ,VWT
+			   ,RECIPIENT_NAME
+			   ,REMARKS
+			   ,RETURN_REQUEST_ID
+			   ,REGISTER_USER_ID
+			   ,RETURN_DELIVERY_CODE
+			   ,REGISTER_DATE_TIME
+			   ,RETURN_REQ_DATE
+		)VALUES(
+				 #{odJobNo}
+			   ,(SELECT ISNULL(MAX(SEQ_NO_ID), 0) + 1 FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = #{odJobNo})
+			   ,#{deliveryNo}
+			   ,#{deliveryCode}
+			   ,#{customerCode}
+			   ,#{paymentGubn}
+			   ,#{deliveryFee}
+			   ,#{pieces}
+			   ,#{dimWidth}
+			   ,#{dimLength}
+			   ,#{dimHeight}
+			   ,#{vwt}
+			   ,#{recipientName}
+			   ,#{remarks}
+			   ,#{requestId}
+			   ,#{registerUserId}
+			   ,#{returnDeliveryCode}
+			   ,GETDATE()
+			   ,GETDATE()
+			   )
+	</update>
+	
+	<update id="updateReturnMulti" parameterType="HashMap">
+		/* InterfaceMapperVE.updateReturnMulti : 반품용멀티업데이트 */
+		UPDATE TB_ECM_OD_MULTI SET
+			RETURN_REQUEST_ID = #{requestId}
+			,RETURN_DELIVERY_CODE = #{returnDeliveryCode}
+			,RETURN_REQ_DATE = GETDATE()
+			,UPDATE_USER_ID = #{registerUserId}
+			,UPDATE_DATE_TIME = GETDATE()
+		WHERE OD_JOB_NO = #{odJobNo}
+		AND DELIVERY_NO = #{multiDeliveryNo}
+		AND SEQ_NO_ID = #{seqNoId}
+	</update>
+
+	<select id="selectReturnMultiSeqNoId" parameterType="HashMap" resultType="String">
+		/* InterfaceMapperVE.selectReturnMultiSeqNoId : 방금 등록한 반품용 멀티건 SEQ_NO_ID 조회 */
+		SELECT MAX(SEQ_NO_ID)
+		FROM TB_ECM_OD_MULTI
+		WHERE OD_JOB_NO = #{odJobNo}
+		AND RETURN_REQUEST_ID = #{requestId}
+	</select>
+
+	<insert id="insertReturnResendInfo" parameterType="HashMap">
+		/* InterfaceMapperVE.insertReturnResendInfo : 반품관리 조회용 RESEND_INFO 등록 */
+		INSERT INTO TB_ECM_OD_RESEND_INFO(
+			   OD_JOB_NO
+			  ,SEQ_NO_ID
+			  ,INPUT_METHOD
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{odJobNo}
+			  ,#{seqNoId}
+			  ,'CS'
+			  ,#{registerUserId}
+			  ,GETDATE()
+			  ,#{registerUserId}
+			  ,GETDATE()
+		)
+	</insert>
+
+	
+	<insert  id="insertCustomsInfo" parameterType="HashMap">
+		/** InterfaceMapperVE.insertCustomsInfo : PCCC 정보 추가 **/
+		INSERT TB_ECM_CUSTOMS_ID_INFO(
+			CUSTOMS_ID_JOB_NO
+			,ENT_CODE
+			,CUST_CODE_LV1
+			,REQUEST_ID
+			,PO_NO
+			,HBL_NO
+			,ORIG_CUSTOMS_ID
+			,ORIG_CONSIGNEE_NAME
+			,ORIG_CONSIGNEE_HP
+			,ORIG_CONSIGNEE_ZIPCODE
+			,PO_DATE_TIME
+			,PO_NAME
+			,INPUT_METHOD
+			,COMMODITY_ITEM
+			,CONSIGNEE_ADDRESS
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)
+		VALUES (
+			#{customsIdJobNo}
+			,#{entCode}
+			,#{custCodeLv1}
+			,#{requestId}
+			,#{poNo}
+			,#{hblNo}
+			,#{customsId}
+			,#{consigneeName}
+			,#{consigneeHp}
+			,#{consigneeZipcode}
+			,CONVERT(VARCHAR(19), #{poDate}, 120)
+			,#{poName}
+			,#{inputMethod}
+			,#{commodityItem}
+			,#{consigneeAddress}
+			,'API'
+			,GETDATE()
+			,'API'
+			,GETDATE()
+		);
+	</insert>
+
+</mapper>

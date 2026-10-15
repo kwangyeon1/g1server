@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.pda.BmsLocalInspectResultMapper">
+	<select id="selectBmsOutByBlNo"  parameterType="SearchMobInspectResult" resultType="BmsOut" >
+		/* BmsLocalInspectResultMapper.selectBmsOutByBlNo  : 반출 상세 조회 */
+		SELECT 
+			*
+		FROM TB_BMS_OUT WITH (NOLOCK)
+		WHERE
+			BL_NO = #{blNo}
+			AND OUT_CLASS ='61'
+			AND OUT_APPROVAL_NO ='04002001' 
+	</select>
+	<select id="selectBmsLocalInspectResultByBlNo"  parameterType="SearchMobInspectResult" resultType="BmsLocalInspectResult" >
+		/* BmsLocalInspectResultMapper.selectBmsLocalInspectResultByBlNo  : 특송창고 검사결과 조회 */
+		SELECT 
+			*
+		FROM TB_BMS_LOCAL_INSPECT_RESULT
+		WHERE 1=1
+		<choose>
+			<when test="inNo != null and inNo != ''">
+				AND IN_NO = #{inNo}
+			</when>
+			<otherwise>
+				AND BL_NO = #{blNo}
+			</otherwise>
+		</choose>
+	</select>
+	
+	<select id="selectTicData"  parameterType="SearchMobInspectResult" resultType="BmsLocalInspectResult" >
+		/* BmsLocalInspectResultMapper.selectTicData  : 특송창고 검사결과및 이고반입 입고 조회 */
+		SELECT 
+			*
+		FROM TB_BMS_LOCAL_INSPECT_RESULT inspectRst
+		LEFT JOIN (
+			SELECT 
+				IN_NO AS BMS_IN_NO
+				,CT
+				,OD_JOB_NO
+			FROM TB_BMS_IN WITH (NOLOCK)
+			WHERE IN_CLASS = '21'
+				AND IN_APPROVAL_NO = '04002001'	
+			) tbi
+		ON inspectRst.IN_NO = tbi.BMS_IN_NO
+		WHERE inspectRst.BL_NO = #{blNo}
+			AND inspectRst.TIC_OUT_SCAN_USER_ID <![CDATA[<>]]> ''
+	</select>
+	
+	<select id="selectBmsInDetailByBlNo"  parameterType="SearchMobInspectResult" resultType="BmsInForPda" >
+		/* BmsLocalInspectResultMapper.selectBmsInDetailByBlNo  : 반입 BL조회(반출,홀드 포함) */
+		SELECT
+			tbi.IN_NO
+			, tbi.CUSTOMS_REPORT_NO
+			, CONVERT(CHAR(19), tbi.LAST_POD_DATE , 20) AS LAST_POD_DATE
+			, tbi.LAST_POD_STATUS
+			, tbi.LAST_POD_5TL_STATUS
+			, CONVERT(CHAR(19), tbi.LAST_POD_RAQ_DATE , 20) AS LAST_POD_RAQ_DATE
+			, tbi.LAST_POD_R48_DATE
+			, tbi.IN_CLASS
+			, tbi.IN_APPROVAL_NO
+			, tbi.OD_JOB_NO
+			, tbi.IN_PLAN_NO
+			, tbi.CARGO_REFERENCE_NO
+			, tbi.BL_NO
+			, tbi.MBL_NO
+			, tbi.CD_TYPE
+			, tbi.ECM_TYPE
+			, tbi.CD_USE_TYPE
+			, tbi.BIG_SIZE_YN
+			, tbi.XRAY_SCAN_CT
+			, tbi.XRAY_IMAGE_CT
+			, tbi.AR_DATE
+			, tbi.AR_TIME
+			, tbi.COMMODITY_ITEM_LOC
+			, tbi.SHIPPER_CODE
+			, tbi.SHIPPER_NAME
+			, tbi.CONSIGNEE_CODE
+			, tbi.CONSIGNEE_NAME
+			, tbi.NOTIFY_CODE
+			, tbi.NOTIFY_NAME
+			, tbi.CARRYIN_DATE
+			, tbi.OUT_NOTICE_DATE
+			, tbi.PERIOD_OVER_DATE
+			, tbi.CUSTOMER_CODE
+			, tbi.CUSTOMER_NAME
+			, tbi.CT
+			, tbi.WT
+			, tbi.CBM
+			, tbi.DELIVERY_CODE
+			, tbi.DELIVERY_NAME
+			, (tbi.CT - ISNULL(tbo.S_OUT_CT, 0)) AS STOCK_CT
+            , (tbi.WT - ISNULL(tbo.S_OUT_WT, 0)) AS STOCK_WT
+            , oh.CARRYIN_STOP_YN
+            , oh.CARRYOUT_STOP_YN
+            , oh.HOLD_DATE
+            , oh.HOLD_CODE
+            , oh.HOLD_REASON
+            , oh.HOLD_RELEASE_YN
+            , oh.HOLD_RELEASE_ATTN
+            , oh.HOLD_RELEASE_DATE
+		FROM TB_BMS_IN tbi WITH (NOLOCK)
+		LEFT JOIN (
+			SELECT
+	            '' AS HOLD_YN
+	            , MAX(OD_JOB_NO) AS OD_JOB_NO
+	            , MAX(HOLD_CODE) AS HOLD_CODE
+	            , MAX(HOLD_REASON) AS HOLD_REASON
+	            , MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+	            , MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+	            , MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+	            , MAX(HOLD_DATE) AS HOLD_DATE
+	            , MAX(CARRYIN_STOP_YN) AS CARRYIN_STOP_YN
+	            , MAX(CARRYOUT_STOP_YN) AS CARRYOUT_STOP_YN
+            FROM TB_ECM_OD_HOLD
+            GROUP BY OD_JOB_NO 
+        ) AS oh
+        	ON oh.OD_JOB_NO = tbi.OD_JOB_NO
+		LEFT JOIN (
+			SELECT
+				IN_NO
+                , SUM(OUT_CT) AS S_OUT_CT
+                , SUM(OUT_WT) AS S_OUT_WT
+            FROM TB_BMS_OUT WITH (NOLOCK)
+            GROUP BY IN_NO
+		) AS tbo 
+			ON tbo.IN_NO = tbi.IN_NO
+		WHERE 1=1
+		<choose>
+			<when test="inNo != null and inNo != ''">
+				AND tbi.IN_NO = #{inNo}
+			</when>
+			<otherwise>
+				AND tbi.BL_NO = #{blNo}
+			</otherwise>
+		</choose>
+	</select>
+	
+	<select id="selectOneBmsOutPlan"  parameterType="SearchMobInspectResult" resultType="BmsOutPlan" >
+		/* BmsLocalInspectResultMapper.selectOneBmsOutPlan  : 반출 상세 조회 */
+		SELECT 
+			*
+		FROM TB_BMS_OUT_PLAN WITH (NOLOCK)
+		WHERE 1=1
+		<choose>
+			<when test="inNo != null and inNo != ''">
+				AND IN_NO = #{inNo}
+			</when>
+			<otherwise>
+				AND BL_NO = #{blNo}
+			</otherwise>
+		</choose> 
+	</select>
+	
+	<update id="updateBmsLocalInspectResult">
+		/* BmsLocalInspectResultMapper.updateBmsLocalInspectResult  : 특송창고 검사결과 반출확인업데이트 */
+		UPDATE TB_BMS_LOCAL_INSPECT_RESULT
+		SET
+		    TIC_OUT_SCAN_DATE_TIME = GETDATE(),
+			TIC_OUT_SCAN_USER_ID   = #{updateUserId}
+		WHERE BL_NO = #{blNo}
+	</update>
+	
+	<update id="updateBmsTicComebackLocalInspectResult">
+		/* BmsLocalInspectResultMapper.updateBmsTicComebackLocalInspectResult  : 특송창고 검사결과 반입입고확인 업데이트 */
+		UPDATE TB_BMS_LOCAL_INSPECT_RESULT
+		SET
+		    TIC_COME_BACK_SCAN_DATE_TIME = GETDATE(),
+			TIC_COME_BACK_SCAN_USER_ID   = #{updateUserId}
+		WHERE BL_NO = #{blNo}
+	</update>
+	
+	<update id="updateScanDateBmsOutPlan">
+		/* BmsLocalInspectResultMapper.updateScanDateBmsOutPlan  : 반출승인 출고SCAN날짜 업데이트 */
+		UPDATE TB_BMS_OUT_PLAN
+		SET
+		    OUT_SCAN_DATE_TIME = GETDATE(),
+			UPDATE_USER_ID     = #{updateUserId},
+			UPDATE_DATE_TIME   = GETDATE()
+		WHERE OUT_PLAN_NO = #{outPlanNo}
+	</update>
+	
+	<select id="selectMblList" resultType="BmsLocalInspectResult">
+		/* BmsLocalInspectResultMapper.selectMblList  : 반입날자 범위에 해당하는 MBL번호들을 조회 */
+		SELECT
+			*
+		FROM TB_BMS_LOCAL_INSPECT_RESULT
+		WHERE CARRYIN_DATE <![CDATA[>=]]> CONVERT(VARCHAR, DATEADD(DAY, -1, GETDATE()), 23)
+            AND CARRYIN_DATE <![CDATA[<=]]> CONVERT(VARCHAR, GETDATE(), 23);
+	</select>
+	
+	<select id="selectInspectResultFilteredByCodeGroup" parameterType="SearchMblFromInspectResult" resultType="BmsLocalInspectResult">
+		/* BmsLocalInspectResultMapper.selectInspectResultFilteredByCodeGroup  : MBL번호와 검사코드 그룹으로 필터링된 검사결과들을 조회 */
+		<choose>
+		
+		
+		<when test="codeGroup == 'SE,XRAY'">
+		SELECT 
+			IN_NO
+			, BL_NO 
+		    , TCD.NAME_DEFAULT
+		    , CASE WHEN SE_INSPECTION_FINISH_USER_ID <![CDATA[<>]]> '' THEN 'Y'
+			      ELSE 'N' END AS INSPECTION_YN
+			, 'SE' AS INSPECTION_KEYWORD  
+		    , SE_INSPECTION_CODE
+		    , XRAY_INSPECTION_CODE
+		FROM TB_BMS_LOCAL_INSPECT_RESULT
+		LEFT JOIN TB_SMS_CODE_DETAIL TCD
+		ON TB_BMS_LOCAL_INSPECT_RESULT.SE_INSPECTION_CODE = TCD.CODE AND TCD.GROUP_CODE = 'SE_INSPECTION_CODE'
+		WHERE 
+			CARRYIN_DATE <![CDATA[>=]]> CONVERT(VARCHAR, DATEADD(DAY, -1, GETDATE()), 23)
+            AND CARRYIN_DATE <![CDATA[<=]]> CONVERT(VARCHAR, GETDATE(), 23)
+            AND MBL_NO = #{mblNo}
+			AND SE_INSPECTION_CODE <![CDATA[<>]]> '' 
+		
+		UNION ALL
+		
+		SELECT 
+			IN_NO
+			, BL_NO
+		    , TCD.NAME_DEFAULT
+		    , CASE WHEN XRAY_INSPECTION_CODE_FINISH_USER_ID <![CDATA[<>]]> '' THEN 'Y'
+			      ELSE 'N' END AS INSPECTION_YN   
+			, 'XRAY' AS INSPECTION_KEYWORD
+		    , SE_INSPECTION_CODE
+		    , XRAY_INSPECTION_CODE  
+		FROM TB_BMS_LOCAL_INSPECT_RESULT
+		LEFT JOIN TB_SMS_CODE_DETAIL TCD
+		ON TB_BMS_LOCAL_INSPECT_RESULT.XRAY_INSPECTION_CODE = TCD.CODE AND TCD.GROUP_CODE = 'SE_INSPECTION_CODE'
+		WHERE CARRYIN_DATE <![CDATA[>=]]> CONVERT(VARCHAR, DATEADD(DAY, -1, GETDATE()), 23)
+            AND CARRYIN_DATE <![CDATA[<=]]> CONVERT(VARCHAR, GETDATE(), 23)
+            AND MBL_NO = #{mblNo}
+			AND XRAY_INSPECTION_CODE <![CDATA[<>]]> '' 
+		</when>
+		
+		<when test="codeGroup == 'TYPE,TYPE_A,TYPE_B'">
+		SELECT 
+			IN_NO
+			, BL_NO
+		    , TCD.NAME_DEFAULT
+		    , CASE WHEN INSPECTION_TYPE_FINISH_USER_ID <![CDATA[<>]]> '' THEN 'Y'
+			      ELSE 'N' END AS INSPECTION_YN
+			, 'TYPE' AS INSPECTION_KEYWORD
+		    , INSPECTION_TYPE
+		    , INSPECTION_TYPE_A
+		    , INSPECTION_TYPE_B
+		FROM TB_BMS_LOCAL_INSPECT_RESULT
+		LEFT JOIN TB_SMS_CODE_DETAIL TCD
+		ON TB_BMS_LOCAL_INSPECT_RESULT.INSPECTION_TYPE = TCD.CODE AND TCD.GROUP_CODE = 'INSPECTION_TYPE'
+		WHERE 
+			CARRYIN_DATE <![CDATA[>=]]> CONVERT(VARCHAR, DATEADD(DAY, -1, GETDATE()), 23)
+            AND CARRYIN_DATE <![CDATA[<=]]> CONVERT(VARCHAR, GETDATE(), 23)
+            AND MBL_NO = #{mblNo}
+			AND INSPECTION_TYPE <![CDATA[<>]]> '' 
+		
+		UNION ALL
+		
+		SELECT 
+			IN_NO
+			, BL_NO
+		    , TCD.NAME_DEFAULT
+		    , CASE WHEN INSPECTION_TYPE_A_FINISH_USER_ID <![CDATA[<>]]> '' THEN 'Y'
+			      ELSE 'N' END AS INSPECTION_YN
+			, 'TYPE_A' AS INSPECTION_KEYWORD 
+		    , INSPECTION_TYPE
+		    , INSPECTION_TYPE_A
+		    , INSPECTION_TYPE_B
+		FROM TB_BMS_LOCAL_INSPECT_RESULT
+		LEFT JOIN TB_SMS_CODE_DETAIL TCD
+		ON TB_BMS_LOCAL_INSPECT_RESULT.INSPECTION_TYPE_A = TCD.CODE AND TCD.GROUP_CODE = 'INSPECTION_TYPE'
+		WHERE 
+			CARRYIN_DATE <![CDATA[>=]]> CONVERT(VARCHAR, DATEADD(DAY, -1, GETDATE()), 23)
+            AND CARRYIN_DATE <![CDATA[<=]]> CONVERT(VARCHAR, GETDATE(), 23)
+            AND MBL_NO = #{mblNo}
+			AND INSPECTION_TYPE_A <![CDATA[<>]]> '' 
+		
+		UNION ALL
+		
+		SELECT 
+			IN_NO
+			, BL_NO
+		    , TCD.NAME_DEFAULT
+		    , CASE WHEN INSPECTION_TYPE_B_FINISH_USER_ID <![CDATA[<>]]> '' THEN 'Y'
+			      ELSE 'N' END AS INSPECTION_YN
+			, 'TYPE_B' AS INSPECTION_KEYWORD 
+		    , INSPECTION_TYPE
+		    , INSPECTION_TYPE_A
+		    , INSPECTION_TYPE_B
+		FROM TB_BMS_LOCAL_INSPECT_RESULT
+		LEFT JOIN TB_SMS_CODE_DETAIL TCD
+		ON TB_BMS_LOCAL_INSPECT_RESULT.INSPECTION_TYPE_B = TCD.CODE AND TCD.GROUP_CODE = 'INSPECTION_TYPE'
+		WHERE 
+			CARRYIN_DATE <![CDATA[>=]]> CONVERT(VARCHAR, DATEADD(DAY, -1, GETDATE()), 23)
+            AND CARRYIN_DATE <![CDATA[<=]]> CONVERT(VARCHAR, GETDATE(), 23)
+            AND MBL_NO = #{mblNo}
+			AND INSPECTION_TYPE_B <![CDATA[<>]]> '' 
+		</when>
+		
+		<when test="codeGroup == 'PALN5EM'">
+		SELECT
+			IN_NO
+			, BL_NO
+		    , TCD.NAME_DEFAULT
+		    , CASE WHEN PALN5EM_INSPECTION_CODE_FINISH_USER_ID <![CDATA[<>]]> '' THEN 'Y'
+			      ELSE 'N' END AS INSPECTION_YN
+			, 'PALN5EM' AS INSPECTION_KEYWORD
+		    , PALN5EM_INSPECTION_CODE
+		FROM TB_BMS_LOCAL_INSPECT_RESULT
+		LEFT JOIN TB_SMS_CODE_DETAIL TCD
+		ON TB_BMS_LOCAL_INSPECT_RESULT.PALN5EM_INSPECTION_CODE = TCD.CODE AND TCD.GROUP_CODE = 'SE_INSPECTION_CODE'
+		WHERE 
+			CARRYIN_DATE <![CDATA[>=]]> CONVERT(VARCHAR, DATEADD(DAY, -1, GETDATE()), 23)
+            AND CARRYIN_DATE <![CDATA[<=]]> CONVERT(VARCHAR, GETDATE(), 23)
+            AND MBL_NO = #{mblNo}
+			AND PALN5EM_INSPECTION_CODE <![CDATA[<>]]> ''
+		</when>
+		
+		
+		</choose>
+	</select>
+	
+	<update id="updateInspectResultByInspectionKeyword">
+		/* BmsLocalInspectResultMapper.updateInspectResultByInspectionKeyword  : 검사코드완료 업데이트 */
+		<if test="inspectionKeyword != null">
+		UPDATE TB_BMS_LOCAL_INSPECT_RESULT
+		SET 
+			<if test="inspectionKeyword == 'SE'">
+			SE_INSPECTION_FINISH_USER_ID	=	#{finishUserId},
+			SE_INSPECTION_FINISH_DATE_TIME	=	GETDATE()
+			</if>
+			<if test="inspectionKeyword == 'XRAY'">
+			XRAY_INSPECTION_CODE_FINISH_USER_ID		=	#{finishUserId},
+			XRAY_INSPECTION_CODE_FINISH_DATE_TIME	=	GETDATE()
+			</if>
+			<if test="inspectionKeyword == 'TYPE'">
+			INSPECTION_TYPE_FINISH_USER_ID	=	#{finishUserId},
+			INSPECTION_TYPE_FINISH_DATE_TIME	=	GETDATE()
+			</if>
+			<if test="inspectionKeyword == 'TYPE_A'">
+			INSPECTION_TYPE_A_FINISH_USER_ID	=	#{finishUserId},
+			INSPECTION_TYPE_A_FINISH_DATE_TIME	=	GETDATE()
+			</if>
+			<if test="inspectionKeyword == 'TYPE_B'">
+			INSPECTION_TYPE_B_FINISH_USER_ID	=	#{finishUserId},
+			INSPECTION_TYPE_B_FINISH_DATE_TIME	=	GETDATE()
+			</if>
+			<if test="inspectionKeyword == 'PALN5EM'">
+			PALN5EM_INSPECTION_CODE_FINISH_USER_ID	=	#{finishUserId},
+			PALN5EM_INSPECTION_CODE_FINISH_DATE_TIME	=	GETDATE()
+			</if>
+		WHERE IN_NO = #{inNo}
+		</if>
+	</update>
+	
+	<select id="getSelectedInspectResultList" resultType="BmsLocalInspectResult" >
+		/* BmsLocalInspectResultMapper.getSelectedInspectResultList  : 선택한 검사결과 리스트를 조회한다 */
+		SELECT 
+			*
+		FROM TB_BMS_LOCAL_INSPECT_RESULT
+		WHERE IN_NO IN (
+			<foreach collection="list" item="item" separator=",">#{item.inNo}</foreach>
+		)
+	</select>
+	
+	<update id="updateInspectionFinishedYn">
+		/* BmsLocalInspectResultMapper.updateInspectionFinishedYn  : 검사결과의 검사완료여부 업데이트 */
+		UPDATE TB_BMS_LOCAL_INSPECT_RESULT
+		SET 
+			INSPECTION_FINISH_YN	=	#{yn}
+		WHERE IN_NO = #{inNo}
+	</update>
+	
+	<select id="selectBmsInByInNo" resultType="CarryIn" >
+		/* BmsLocalInspectResultMapper.selectBmsInByInNo  : pod에 입력할 OD_JOB_NO참조를 위해서 반입을 조회한다 */
+		SELECT 
+			*
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE IN_NO = #{inNo}
+	</select>
+</mapper>
+

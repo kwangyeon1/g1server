@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsCommMapper">
+    <insert id="insertBmsEcmPod" parameterType="bmsEcmPod">
+        /* common.insertBmsEcmPod : 전자상거래 POD 저장 */
+        INSERT INTO TB_ECM_POD_05 (
+                ENT_CODE
+                , OD_JOB_NO
+                , POD_STATUS
+                , POD_NAME
+                , POD_DATE
+                , POD_TIME
+                , REMARKS
+                , REGISTER_USER_ID
+                , REGISTER_DATE_TIME
+                , UPDATE_USER_ID
+                , UPDATE_DATE_TIME
+        ) VALUES (
+               #{entCode}
+               , #{odJobNo}
+               , 'ECM288'
+               , #{podName}
+                <choose>
+                    <when test='podDate != null and podDate != "" '>
+                        ,CONVERT(DATE, #{podDate} , 120)
+                        , #{podTime}
+                    </when>
+                    <otherwise>
+                        , GETDATE()
+                        , SUBSTRING(CONVERT(VARCHAR(10), GETDATE(), 108), 1, 8)
+                    </otherwise>
+                </choose>
+               , #{remarks}
+               , #{registerUserId}
+               , GETDATE()
+               , #{registerUserId}
+               , GETDATE()
+               );
+    </insert>
+    
+    <select id="selectInspectionTypeByTicInspectResultCode" resultType="String">
+		/* BmsCommMapper.selectInspectionTypeByTicInspectResultCode : 검사결과TB_BMS_INSPECT_RESULT 코드타입 (이고) 리스트 */
+		SELECT v.code
+    	FROM (
+    		VALUES
+		        ('S01'),('S02'),
+		        ('X01'),('X02'),
+		        ('P01'),('P02'),
+		        ('B'),('A'),('T'),('C')
+	    ) AS v(code)
+	</select>
+</mapper>
+

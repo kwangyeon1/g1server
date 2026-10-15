@@ -1,0 +1,214 @@
+[
+	{
+		"size": 3,
+		"func": "setTypeA2"
+	},
+	{
+		"size": 4,
+		"func": "setMsn"
+	},
+	{
+		"size": 20,
+		"func": "setMawb"
+	},
+	{
+		"size": 4,
+		"func": "setHsn"
+	},
+	{
+		"size": 20,
+		"func": "setHawb"
+	},
+	{
+		"size": 11,
+		"func": "setUnloadingNo"
+	},
+	{
+		"size": 1,
+		"func": "setMblType"
+	},
+	{
+		"size": 1,
+		"func": "setCargoClass"
+	},
+	{
+		"size": 4,
+		"func": "setCarrierCode"
+	},
+	{
+		"size": 4,
+		"func": "setCarrierSign"
+	},
+	{
+		"size": 100,
+		"func": "setCarrierName"
+	},
+	{
+		"size": 5,
+		"func": "setLoadingPort"
+	},
+	{
+		"size": 5,
+		"func": "setDestinationPort"
+	},
+	{
+		"size": 2,
+		"func": "setUnloadingGoodsCode"
+	},
+	{
+		"size": 20,
+		"func": "setUnloadingLoc"
+	},
+	{
+		"size": 8,
+		"func": "setBwhLoc"
+	},
+	{
+		"size": 2,
+		"func": "setBwhId"
+	},
+	{
+		"size": 200,
+		"func": "setGoods"
+	},
+	{
+		"size": 10,
+		"func": "setCt"
+	},
+	{
+		"size": 2,
+		"func": "setCtUnit"
+	},
+	{
+		"size": 17,
+		"func": "setWt"
+	},
+	{
+		"size": 13,
+		"func": "setCbm"
+	},
+	{
+		"size": 20,
+		"func": "setLcNo"
+	},
+	{
+		"size": 4,
+		"func": "setSpecialCode1"
+	},
+	{
+		"size": 4,
+		"func": "setSpecialCode2"
+	},
+	{
+		"size": 4,
+		"func": "setSpecialCode3"
+	},
+	{
+		"size": 6,
+		"func": "setTrCode"
+	},
+	{
+		"size": 1,
+		"func": "setCargoType"
+	},
+	{
+		"size": 12,
+		"func": "setUnloadingDateTime"
+	},
+	{
+		"size": 6,
+		"func": "setDetectorLoc"
+	},
+	{
+		"size": 2,
+		"func": "setDetectorInspectionClass"
+	},
+	{
+		"size": 1,
+		"func": "setInspectYn"
+	},
+	{
+		"size": 3,
+		"func": "setTypeA3"
+	},
+	{
+		"size": 100,
+		"func": "setShpName"
+	},
+	{
+		"size": 150,
+		"func": "setShpAddr"
+	},
+	{
+		"size": 2,
+		"func": "setShpNation"
+	},
+	{
+		"size": 5,
+		"func": "setShipCity"
+	},
+	{
+		"size": 25,
+		"func": "setShpTel"
+	},
+	{
+		"size": 3,
+		"func": "setTypeA4"
+	},
+	{
+		"size": 10,
+		"func": "setCneRegno"
+	},
+	{
+		"size": 100,
+		"func": "setCneName"
+	},
+	{
+		"size": 150,
+		"func": "setCneAddr"
+	},
+	{
+		"size": 2,
+		"func": "setCneNation"
+	},
+	{
+		"size": 5,
+		"func": "setCneCity"
+	},
+	{
+		"size": 25,
+		"func": "setCneTel"
+	},
+	{
+		"size": 3,
+		"func": "setTypeA5"
+	},
+	{
+		"size": 10,
+		"func": "setNfyRegno"
+	},
+	{
+		"size": 100,
+		"func": "setNfyName"
+	},
+	{
+		"size": 150,
+		"func": "setNfyAddr"
+	},
+	{
+		"size": 2,
+		"func": "setNfyNation"
+	},
+	{
+		"size": 5,
+		"func": "setNfyCity"
+	},
+	{
+		"size": 25,
+		"func": "setNfyTel"
+	},
+	{
+		"size": 4,
+		"func": "setCntrCnt"
+	}
+]

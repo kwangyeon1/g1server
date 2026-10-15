@@ -1,0 +1,51 @@
+HELP.md
+.gradle
+/build/
+/bin/
+/logs/
+!gradle/wrapper/gradle-wrapper.jar
+
+### STS ###
+.apt_generated
+.factorypath
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+##kiro##
+src/.kiro/
+src/.vscode/
+src/.agents
+
+##codex##
+src/bms-security-results/
+
+##ai agent##
+/AGENTS.md
+/CLAUDE.md
+.codex
+# Harness generated state (kept only in harness-generated-files.zip)
+/install/.venv/
+/install/.runtime/
+/install/**/__pycache__/
+/install/**/*.pyc
+/install/knowledge/generated/
+/install/knowledge/source-baseline.json
+/install/knowledge/hermes/
+/install/dist/
+/install/bridge/config.local.json
+
+# Temporary IDE launch arguments
+/.temp-*-classpath-arg-*.txt

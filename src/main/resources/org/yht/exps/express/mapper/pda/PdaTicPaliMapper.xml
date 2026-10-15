@@ -1,0 +1,1094 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        
+<mapper namespace="org.yht.exps.express.mapper.pda.PdaTicPaliMapper">
+	<select id="selectBmsInRelatedTicBmsOut" parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaTicPaliMapper.selectBmsInRelatedTicBmsOut : 이고반출관련 반입조회 */
+		SELECT
+			I.IN_PLAN_NO
+			, I.IN_NO
+			, I.OD_JOB_NO
+			, I.CARGO_REFERENCE_NO
+			, I.BL_NO
+			, I.CT
+			, I.WT
+			, P.PACKING_NO
+			, P.PACKING_CNT
+		    , CASE WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'S' THEN '선별 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '') 
+			            WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'X' THEN 'XR ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y' AND UPPER(CODE) NOT IN ('C')), '')
+			            WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'P' THEN '통관 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+			            WHEN SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 0, 2) = 'I' THEN '검역 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(C.INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y'), '')          
+			       		WHEN ISNULL(C.INSPECTION_TYPE,'') = 'B' THEN '거대'    
+              			<!-- WHEN ISNULL(C.INSPECTION_TYPE,'') = 'C' THEN '우범' -->
+              			WHEN ISNULL(C.INSPECTION_TYPE,'') = 'T' THEN '지재권'
+              			WHEN ISNULL(C.INSPECTION_TYPE,'') = 'A' THEN '집중'
+			       END AS BMS_INSPECTION_TYPE
+		    , C.INSPECTION_TYPE AS INSPECTION_RESULT_TYPE
+		    , O.OUT_CT AS BMS_OUT_CT
+		    , O.OUT_NO
+		FROM TB_BMS_IN I WITH (NOLOCK)
+		INNER JOIN (
+			SELECT
+				MAX(IN_PLAN_NO) AS IN_PLAN_NO
+				, MAX(PACKING_NO) AS PACKING_NO
+				, COUNT(*) AS PACKING_CNT
+			FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+			WHERE MOVE_OUT_CT = 1 
+				AND MOVE_IN_CT = 0
+			GROUP BY IN_PLAN_NO
+		) P 
+			ON I.IN_PLAN_NO = P.IN_PLAN_NO
+		INNER JOIN (
+			SELECT
+				IN_NO
+				, OUT_NO
+				, OUT_CT
+			FROM TB_BMS_OUT WITH (NOLOCK)
+			WHERE OUT_NO IN
+			(
+				SELECT 
+					MAX(OUT_NO) AS OUT_NO
+				FROM TB_BMS_OUT WITH (NOLOCK)
+				WHERE TIC_OUT_SCAN_YN = 'Y' /* 출고픽킹 */
+					AND OUT_CLASS = '61' AND OUT_APPROVAL_NO = '04002001'
+				GROUP BY IN_NO
+			)
+		) O
+			ON O.IN_NO = I.IN_NO
+		INNER JOIN TB_BMS_INSPECT_RESULT C
+			ON I.IN_NO = C.IN_NO AND C.INSPECTION_FINISH_YN = 'N' AND C.INSPECTION_TYPE IN (
+		                	  	'S01', 'S02', 'X01', 'X02', 'P01', 'P02'
+		                	  	,'B','A','T','C'
+		                	  	)
+		ORDER BY I.IN_NO
+	</select>
+	
+	<select id="selectBoxRelatedTicBmsOut" parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaTicPaliMapper.selectBoxRelatedTicBmsOut : 이고반출관련 반입조회 */
+		SELECT 
+			main.*
+			, (
+				SELECT 
+					STRING_AGG(sub.BMS_INSPECTION_TYPE_STR, ',')
+				FROM (
+					SELECT
+						CASE WHEN SUBSTRING(ISNULL(value,''), 0, 2) = 'S' THEN '선별 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(value,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '') 
+					            WHEN SUBSTRING(ISNULL(value,''), 0, 2) = 'X' THEN 'XR ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(value,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y' AND UPPER(CODE) NOT IN ('C')), '')
+					            WHEN SUBSTRING(ISNULL(value,''), 0, 2) = 'P' THEN '통관 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(value,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+					            WHEN SUBSTRING(ISNULL(value,''), 0, 2) = 'I' THEN '검역 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(value,''), 2, 4) AND ENT_CODE = #{entCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y'), '')          
+					       		WHEN ISNULL(value,'') = 'B' THEN '거대'
+
+			           			WHEN ISNULL(value,'') = 'T' THEN '지재권'
+			           			WHEN ISNULL(value,'') = 'A' THEN '집중'
+			           		END AS BMS_INSPECTION_TYPE_STR
+					FROM STRING_SPLIT(main.INSPECTION_RESULT_TYPE, ',')
+				) sub
+			) AS BMS_INSPECTION_TYPE
+		FROM (
+				SELECT
+					I.IN_PLAN_NO
+					, I.IN_NO
+					, I.OD_JOB_NO
+					, I.CARGO_REFERENCE_NO
+					, I.BL_NO
+					, I.CT
+					, I.WT
+					, P.PACKING_NO
+					, P.PACKING_CT
+				    , (
+				    	SELECT STRING_AGG(INSPECTION_TYPE, ',') 
+				    	FROM TB_BMS_INSPECT_RESULT
+				    	WHERE IN_NO = I.IN_NO AND INSPECTION_TYPE IN (
+				                	  	'S01', 'S02', 'X01', 'X02', 'P01', 'P02'
+				                	  	,'B','A','T','C'
+				                	  	)
+				                	  AND INSPECTION_FINISH_YN = 'N'
+				    	GROUP BY IN_NO
+				    )AS INSPECTION_RESULT_TYPE
+				    , O.OUT_CT AS BMS_OUT_CT
+				    , O.OUT_NO
+				FROM TB_BMS_IN I WITH (NOLOCK)
+				INNER JOIN (
+					SELECT
+						IN_PLAN_NO
+						, PACKING_NO
+						, PACKING_CT
+					FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+					WHERE TIC_STATUS <![CDATA[<>]]> 'P'
+						AND MOVE_OUT_CT = 1 
+						AND MOVE_IN_CT = 0
+						AND DELETE_YN = 'N'
+				) P 
+					ON I.IN_PLAN_NO = P.IN_PLAN_NO
+				INNER JOIN (
+					SELECT
+						IN_NO
+						, OUT_NO
+						, OUT_CT
+					FROM TB_BMS_OUT WITH (NOLOCK)
+					WHERE OUT_NO IN
+					(
+						SELECT 
+							MAX(OUT_NO) AS OUT_NO
+						FROM TB_BMS_OUT WITH (NOLOCK)
+						WHERE TIC_OUT_SCAN_YN = 'Y' /* 출고픽킹 */
+							AND OUT_CLASS = '61' AND OUT_APPROVAL_NO = '04002001'
+						GROUP BY IN_NO
+					)
+				) O
+					ON O.IN_NO = I.IN_NO
+				<!-- INNER JOIN (
+					SELECT
+						DISTINCT IN_NO
+					FROM TB_BMS_INSPECT_RESULT
+					WHERE INSPECTION_FINISH_YN = 'N' AND INSPECTION_TYPE IN (
+				                	  	'S01', 'S02', 'X01', 'X02', 'P01', 'P02'
+				                	  	,'B','A','T','C'
+				                	  	)
+				) C
+					ON I.IN_NO = C.IN_NO -->
+		) main
+		<!-- SELECT
+			I.IN_PLAN_NO
+			, I.IN_NO
+			, I.OD_JOB_NO
+			, I.CARGO_REFERENCE_NO
+			, I.BL_NO
+			, I.CT
+			, I.WT
+			, P.PACKING_NO
+			, P.PACKING_CT AS PACKING_CNT
+		    , C.BMS_INSPECTION_TYPE AS BMS_INSPECTION_TYPE
+		    , C.INSPECTION_TYPE AS INSPECTION_RESULT_TYPE
+		    , O.OUT_CT AS BMS_OUT_CT
+		    , O.OUT_NO
+		FROM TB_BMS_IN I
+		INNER JOIN (
+			SELECT
+				IN_PLAN_NO
+				, PACKING_NO
+				, PACKING_CT
+			FROM TB_BMS_IN_PLAN_PKG
+			WHERE MOVE_OUT_CT = 1 
+				AND MOVE_IN_CT = 0
+				AND DELETE_YN = 'N'
+		) P 
+			ON I.IN_PLAN_NO = P.IN_PLAN_NO
+		INNER JOIN (
+			SELECT
+				IN_NO
+				, OUT_NO
+				, OUT_CT
+			FROM TB_BMS_OUT
+			WHERE TIC_OUT_SCAN_YN = 'Y' /* 출고픽킹 */
+					AND OUT_CLASS = '61' AND OUT_APPROVAL_NO = '04002001'
+		) O
+			ON O.IN_NO = I.IN_NO
+		INNER JOIN (
+			SELECT
+				IN_NO
+				, INSPECTION_TYPE
+				, CASE WHEN SUBSTRING(ISNULL(INSPECTION_TYPE,''), 0, 2) = 'S' THEN '선별 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = 'YHTXX' AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '') 
+		            WHEN SUBSTRING(ISNULL(INSPECTION_TYPE,''), 0, 2) = 'X' THEN 'XR ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = 'YHTXX' AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y' AND UPPER(CODE) NOT IN ('C')), '')
+		            WHEN SUBSTRING(ISNULL(INSPECTION_TYPE,''), 0, 2) = 'P' THEN '통관 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = 'YHTXX' AND GROUP_CODE='SE_INSPECTION_CODE' AND USE_YN='Y'), '')
+		            WHEN SUBSTRING(ISNULL(INSPECTION_TYPE,''), 0, 2) = 'I' THEN '검역 ' + ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = SUBSTRING(ISNULL(INSPECTION_TYPE,''), 2, 4) AND ENT_CODE = 'YHTXX' AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y'), '')          
+		       		WHEN ISNULL(INSPECTION_TYPE,'') = 'B' THEN '거대'    
+
+           			WHEN ISNULL(INSPECTION_TYPE,'') = 'T' THEN '지재권'
+           			WHEN ISNULL(INSPECTION_TYPE,'') = 'A' THEN '집중'
+           		END AS BMS_INSPECTION_TYPE
+			FROM TB_BMS_INSPECT_RESULT
+			WHERE INSPECTION_FINISH_YN = 'N' AND INSPECTION_TYPE IN (
+		                	  	'S01', 'S02', 'X01', 'X02', 'P01', 'P02'
+		                	  	,'B','A','T','C'
+		                	  	)
+		) C
+			ON I.IN_NO = C.IN_NO
+		ORDER BY I.IN_NO -->
+	</select>
+	
+	<select id="selectBmsInRelatedTicBmsOutByPackingNo" parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaTicPaliMapper.selectBmsInRelatedTicBmsOutByPackingNo : 박스번호에 의한 이고반출관련 반입조회 */
+		SELECT
+			I.IN_PLAN_NO
+			, I.IN_NO
+			, I.OD_JOB_NO
+			, I.CARGO_REFERENCE_NO
+			, I.BL_NO
+			, I.CT
+			, I.WT
+			, P.PACKING_NO
+			, P.PACKING_CNT
+		    , O.OUT_CT AS BMS_OUT_CT
+		    , O.OUT_NO
+		FROM TB_BMS_IN I WITH (NOLOCK)
+		INNER JOIN (
+			SELECT
+				MAX(IN_PLAN_NO) AS IN_PLAN_NO
+				, MAX(PACKING_NO) AS PACKING_NO
+				, COUNT(*) AS PACKING_CNT
+			FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+			WHERE MOVE_OUT_CT = 1 
+				AND MOVE_IN_CT = 0
+				AND PACKING_NO = #{scanPackingNo}
+				<if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+					AND IN_PLAN_NO = #{srchInPlanNo}
+				</if>
+				<if test="srchBlNo != null and srchBlNo != ''">
+					AND BL_NO = #{srchBlNo}
+				</if>
+			GROUP BY IN_PLAN_NO
+		) P 
+			ON I.IN_PLAN_NO = P.IN_PLAN_NO
+		INNER JOIN (
+			SELECT
+				IN_NO
+				, OUT_NO
+				, OUT_CT
+			FROM TB_BMS_OUT WITH (NOLOCK)
+			WHERE OUT_NO IN
+			(
+				SELECT 
+					MAX(OUT_NO) AS OUT_NO
+				FROM TB_BMS_OUT WITH (NOLOCK)
+				WHERE TIC_OUT_SCAN_YN = 'Y' /* 출고픽킹 */
+					AND OUT_CLASS = '61' AND OUT_APPROVAL_NO = '04002001'
+				GROUP BY IN_NO
+			)
+		) O
+			ON O.IN_NO = I.IN_NO
+		-- WHERE EXISTS ( SELECT 1 FROM TB_BMS_INSPECT_RESULT _C WHERE I.IN_NO = _C.IN_NO)
+	</select>
+	
+	<select id="selectBoxRelatedTicBmsOutByPackingNo" parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaTicPaliMapper.selectBoxRelatedTicBmsOutByPackingNo : 박스번호에 의한 이고반출관련 반입조회 */
+		SELECT
+			I.IN_PLAN_NO
+			, I.IN_NO
+			, I.OD_JOB_NO
+			, I.CARGO_REFERENCE_NO
+			, I.BL_NO
+			, I.CT
+			, I.WT
+			, P.PACKING_NO
+			, P.PACKING_CNT
+		    , O.OUT_CT AS BMS_OUT_CT
+		    , O.OUT_NO
+		FROM TB_BMS_IN I WITH (NOLOCK)
+		INNER JOIN (
+			SELECT
+				MAX(IN_PLAN_NO) AS IN_PLAN_NO
+				, MAX(PACKING_NO) AS PACKING_NO
+				, COUNT(*) AS PACKING_CNT
+			FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+			WHERE TIC_STATUS <![CDATA[<>]]> 'P'
+				AND MOVE_OUT_CT = 1 
+				AND MOVE_IN_CT = 0
+				AND PACKING_NO = #{scanPackingNo}
+				<if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+					AND IN_PLAN_NO = #{srchInPlanNo}
+				</if>
+				<if test="srchBlNo != null and srchBlNo != ''">
+					AND BL_NO = #{srchBlNo}
+				</if>
+			GROUP BY IN_PLAN_NO
+		) P 
+			ON I.IN_PLAN_NO = P.IN_PLAN_NO
+		INNER JOIN (
+			SELECT
+				IN_NO
+				, OUT_NO
+				, OUT_CT
+			FROM TB_BMS_OUT WITH (NOLOCK)
+			WHERE OUT_NO IN
+			(
+				SELECT 
+					MAX(OUT_NO) AS OUT_NO
+				FROM TB_BMS_OUT WITH (NOLOCK)
+				WHERE TIC_OUT_SCAN_YN = 'Y' /* 출고픽킹 */
+					AND OUT_CLASS = '61' AND OUT_APPROVAL_NO = '04002001'
+				GROUP BY IN_NO
+			)
+		) O
+			ON O.IN_NO = I.IN_NO
+		-- WHERE EXISTS ( SELECT 1 FROM TB_BMS_INSPECT_RESULT _C WHERE I.IN_NO = _C.IN_NO)
+	</select>
+	
+	<select id="selectBoxPkgWhereTicStatus" parameterType="HashMap" resultType="InPlanPkg">
+		/* PdaTicPaliMapper."selectBoxPkgWhereTicStatus" : TIC스캔한 모든 박스 카운트 */
+		SELECT
+			P.IN_PLAN_NO
+			, P.BL_NO
+			, P.PACKING_NO
+		FROM TB_BMS_IN I WITH (NOLOCK)
+		INNER JOIN (
+			SELECT
+				IN_PLAN_NO
+				, BL_NO
+				, PACKING_NO
+			FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+			WHERE TIC_STATUS = 'P'
+				AND MOVE_OUT_CT = 1 
+				AND MOVE_IN_CT = 0
+				<if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+					AND IN_PLAN_NO = #{srchInPlanNo}
+				</if>
+				<if test="srchBlNo != null and srchBlNo != ''">
+					AND BL_NO = #{srchBlNo}
+				</if>
+		) P 
+			ON I.IN_PLAN_NO = P.IN_PLAN_NO
+		INNER JOIN (
+			SELECT
+				IN_NO
+				, OUT_NO
+				, OUT_CT
+			FROM TB_BMS_OUT WITH (NOLOCK)
+			WHERE OUT_NO IN
+			(
+				SELECT 
+					MAX(OUT_NO) AS OUT_NO
+				FROM TB_BMS_OUT WITH (NOLOCK)
+				WHERE TIC_OUT_SCAN_YN = 'Y' /* 출고픽킹 */
+					AND OUT_CLASS = '61' AND OUT_APPROVAL_NO = '04002001'
+				GROUP BY IN_NO
+			)
+		) O
+			ON O.IN_NO = I.IN_NO
+		<!-- INNER JOIN (
+					SELECT
+						DISTINCT IN_NO
+					FROM TB_BMS_INSPECT_RESULT
+					WHERE INSPECTION_FINISH_YN = 'N' AND INSPECTION_TYPE IN (
+				                	  	'S01', 'S02', 'X01', 'X02', 'P01', 'P02'
+				                	  	,'B','A','T','C'
+				                	  	)
+				) C
+			ON I.IN_NO = C.IN_NO -->
+		-- WHERE EXISTS ( SELECT 1 FROM TB_BMS_INSPECT_RESULT _C WHERE I.IN_NO = _C.IN_NO)
+	</select>
+	
+	<select id="selectTicBmsOutRelatedByPackingNo" parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaTicPaliMapper.selectTicBmsOutRelatedByPackingNo : 박스번호와 관련된 이고반출 조회 */
+		SELECT
+			I.IN_PLAN_NO
+			, I.IN_NO
+			, I.OD_JOB_NO
+			, I.CARGO_REFERENCE_NO
+			, I.BL_NO
+			, I.CT
+			, I.WT
+			, P.PACKING_NO
+		    , O.OUT_CT AS BMS_OUT_CT
+		    , O.OUT_NO
+		FROM TB_BMS_IN I WITH (NOLOCK)
+		INNER JOIN (
+			SELECT
+				IN_PLAN_NO
+				, PACKING_NO
+			FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+			WHERE PACKING_NO = #{scanPackingNo}
+				<if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+					AND IN_PLAN_NO = #{srchInPlanNo}
+				</if>
+				<if test="srchBlNo != null and srchBlNo != ''">
+					AND BL_NO = #{srchBlNo}
+				</if>
+		) P 
+			ON I.IN_PLAN_NO = P.IN_PLAN_NO
+		INNER JOIN TB_BMS_OUT O WITH (NOLOCK)
+			ON O.IN_NO = I.IN_NO
+		WHERE O.OUT_CLASS = '61' AND O.OUT_APPROVAL_NO = '04002001'
+	</select>
+	
+	<select id="selectInspectResultNotFinished"  parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaInspectPaisMapper.selectInspectResultNotFinished : (BL)반입단위그룹의 finished안된 이고관련 검사결과 조회 */
+		SELECT
+			*
+		FROM TB_BMS_INSPECT_RESULT
+		WHERE IN_NO = #{inNo}
+			AND INSPECTION_TYPE IN (
+		                	  	'S01', 'S02', 'X01', 'X02', 'P01', 'P02'
+		                	  	,'B','A','T','C'
+		                	  	)
+			AND INSPECTION_FINISH_YN = 'N'
+	</select>
+	
+	<select id="selectAllInspectResultNotFinished"  parameterType="HashMap" resultType="bmsInspectResult">
+		/* PdaInspectPaisMapper.selectAllInspectResultNotFinished : (BL)반입단위그룹의 finished안된 모든 검사결과 조회 */
+		SELECT
+			*
+		FROM TB_BMS_INSPECT_RESULT
+		WHERE IN_NO = #{inNo}
+			AND INSPECTION_FINISH_YN = 'N'
+	</select>
+	
+	<select id="countWaitPkgFromTicMoveScanLog" parameterType="HashMap" resultType="Integer">
+		/* PdaTicPaliMapper.countWaitPkgFromTicMoveScanLog : 하차대기(C)인 박스스캔 데이터 갯수 조회*/
+		SELECT COUNT(*) AS CNT
+		FROM TB_BMS_TIC_MOVE_SCAN WITH (NOLOCK)
+		WHERE SCAN_DATE = CONVERT(VARCHAR(10),GETDATE(),120) 
+			AND SCAN_RESULT = '완료'
+		    AND OUT_BACK_STATUS = 'C' 
+		    AND IN_NO = #{inNo}
+	</select>
+	
+	<select id="selectPkgList" parameterType="HashMap" resultType="inPlanPkg">
+		/* PdaTicPaliMapper.selectPkgList : 반입예정번호와 bl에 해당하는 그룹조회*/
+		SELECT *
+		FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+		WHERE IN_PLAN_NO = #{inPlanNo}
+		AND BL_NO = #{blNo}
+	</select>
+	
+	<select id="selectWaitPkgFromTicMoveScanLog" parameterType="HashMap" resultType="HashMap">
+		/* PdaTicPaliMapper.selectWaitPkgFromTicMoveScanLog : 하차대기(C)인 박스스캔 데이터 중복 조회*/
+		SELECT *
+		FROM TB_BMS_TIC_MOVE_SCAN WITH (NOLOCK)
+		WHERE SCAN_DATE = CONVERT(VARCHAR(10),GETDATE(),120) 
+			AND IN_NO = #{inNo}
+			AND BL_NO = #{blNo}
+			AND SCAN_NO = #{packingNo}
+		    AND OUT_BACK_STATUS = 'C'
+	</select>
+	
+
+	<select id="selectBmsOutTicOutScanPicking" parameterType="HashMap" resultType="inPlanPkg">
+		/* PdaTicPaliMapper.selectBmsOutTicOutScanPicking : 이고반출확정 - 이고반출 출고픽킹된 박스 리스트 조회 */
+		SELECT *, BIG_SIZE_YN_NAME + INSPECTION_CUSTOMS_YN_NAME + XRAY_INSPECTION_NAME + SE_INSPECTION_CODE_NAME + PALN5EM_INSPECTION_NAME + INTELLECTUAL_PROP_YN_NAME AS BMS_INSPECTION_TYPE
+		FROM (
+			SELECT P.PACKING_NO
+				 , P.IN_PLAN_NO
+				 , P.MOVE_IN_CT
+				 , P.MOVE_OUT_CT
+				 <if test="recentFinishedInPlanNo != null and recentFinishedInPlanNo > 0">
+				 , CASE WHEN I.IN_PLAN_NO = #{recentFinishedInPlanNo} THEN 0
+																	  ELSE 1
+				   END AS LIST_ORDER
+				 </if>
+				 , I.IN_NO
+				 , I.BL_NO
+				 , I.MBL_NO
+				 , I.OD_JOB_NO
+				 , I.CARGO_REFERENCE_NO
+				 , I.CT
+				 , I.WT
+			     ,CASE WHEN I.SE_INSPECTION_CODE = '01' THEN '선별 마약 '  
+		               WHEN I.SE_INSPECTION_CODE = '02'  THEN '선별 총기 ' 
+					  ELSE  ''                             
+		          END SE_INSPECTION_CODE_NAME
+				  ,CASE WHEN  I.XRAY_INSPECTION_CODE = '01' THEN 'XR 마약 ' 
+				      WHEN I.XRAY_INSPECTION_CODE = '02'  THEN 'XR 총기 ' 
+					  ELSE  ''    			       
+		          END XRAY_INSPECTION_NAME
+				   ,CASE WHEN  I.PALN5EM_INSPECTION_CODE = '01' THEN '통관 마약 ' 
+				      WHEN I.PALN5EM_INSPECTION_CODE = '02'  THEN '통관 총기 ' 
+					  ELSE  ''    			       
+		          END PALN5EM_INSPECTION_NAME
+				  ,CASE WHEN I.BIG_SIZE_YN = 'Y' THEN '거대 '
+				    ELSE ''
+				  END BIG_SIZE_YN_NAME
+				   ,CASE WHEN I.INSPECTION_CUSTOMS_YN = 'Y' THEN '집중 '
+				    ELSE ''
+				  END INSPECTION_CUSTOMS_YN_NAME
+				     ,CASE WHEN I.INTELLECTUAL_PROP_YN = 'Y' THEN '지재'
+				    ELSE ''
+				  END INTELLECTUAL_PROP_YN_NAME
+				  <!-- ,CASE WHEN I.CRIME_SELECTION_YN = 'Y' THEN '우범 '
+				    ELSE ''
+				  END CRIME_SELECTION_YN_NAME -->
+			     , O.OUT_NO
+			     , O.OUT_CT
+			     , O.LAST_POD_STATUS 
+	        	 , O.OUT_APPROVAL_NO  -- 수입신고번호   
+	       		 , O.TIC_OUT_FTP_SEND_YN
+			FROM TB_BMS_IN I WITH (NOLOCK)
+			INNER JOIN TB_BMS_IN_PLAN_PKG P WITH (NOLOCK)
+			ON I.IN_PLAN_NO = P.IN_PLAN_NO AND P.TIC_STATUS = 'T'
+			INNER JOIN TB_BMS_OUT O WITH (NOLOCK)
+			ON I.IN_NO = O.IN_NO
+			WHERE P.DELETE_YN = 'N'
+			AND NOT EXISTS (
+				SELECT 1
+				FROM TB_BMS_OUT_SCAN S WITH (NOLOCK)
+				WHERE S.SCAN_NO = P.PACKING_NO
+					AND S.SCAN_RESULT = '완료'
+			)
+			<if test="srchPackingNo == null or srchPackingNo == ''">
+			AND P.MOVE_OUT_CT <![CDATA[<>]]> 1
+			</if>
+			AND O.LAST_POD_STATUS IN ('BMS04','BMSA4')
+			AND O.TIC_OUT_SCAN_YN = #{srchTicOutScanYn}
+			AND O.OUT_CLASS = '61' AND O.OUT_APPROVAL_NO = '04002001'
+			AND O.OUT_SCAN_DATE_TIME <![CDATA[<=]]> DATEADD(YEAR, -50, SYSDATETIME())
+<!-- 			AND O.CARRYOUT_DATE >=  DATEADD(DAY, -6, CAST(GETDATE() AS DATE))
+  		    AND O.CARRYOUT_DATE <![CDATA[<=]]> CAST(GETDATE() AS DATE) -->
+			<if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+			AND P.IN_PLAN_NO = #{srchInPlanNo}
+			</if>
+			<if test="srchPackingNo != null and srchPackingNo != ''">
+			AND P.PACKING_NO = #{srchPackingNo}
+			</if>
+			<if test="srchBlNo != null and srchBlNo != ''">
+			AND I.BL_NO = #{srchBlNo}
+			</if>
+		) RST
+		ORDER BY
+		<if test="recentFinishedInPlanNo != null and recentFinishedInPlanNo > 0">
+			LIST_ORDER,
+		</if>
+			OUT_NO, PACKING_NO
+	</select>
+
+	<select id="selectCompletedOutScanCountByPackingNo" parameterType="HashMap" resultType="Integer">
+		/* PdaTicPaliMapper.selectCompletedOutScanCountByPackingNo : 완료된 반출스캔 존재여부 조회 */
+		SELECT
+			COUNT(1)
+		FROM
+			TB_BMS_OUT_SCAN WITH (NOLOCK)
+		WHERE
+			SCAN_NO = #{srchPackingNo}
+			AND SCAN_RESULT = '완료'
+	</select>
+	
+	<select id="selectOneBmsInForNoOut" parameterType="HashMap" resultType="inPlanPkg">
+		/* PdaTicPaliMapper.selectBmsInForNoOut : 반출없는경우 박스번호로 반입 조회 */
+		SELECT TOP 1
+			   PP.PACKING_NO
+			 , PP.IN_PLAN_NO 
+			 , I.IN_NO 
+			 , I.BL_NO 
+			 , I.MBL_NO 
+			 , I.OD_JOB_NO 
+			 , I.CARGO_REFERENCE_NO 
+			 , I.CT 
+			 , I.WT 
+		  FROM TB_BMS_IN I WITH (NOLOCK)
+		  JOIN TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+			ON I.IN_PLAN_NO = PP.IN_PLAN_NO AND PP.TIC_STATUS = 'T'
+		 WHERE PP.DELETE_YN = 'N'
+		   AND PP.PACKING_NO = #{srchPackingNo}
+		   <if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		   AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		   </if>
+		   <if test="srchBlNo != null and srchBlNo != ''">
+		   AND I.BL_NO = #{srchBlNo}
+		   </if>
+	</select>
+	
+	<select id="selectOneBmsInForNoOutStatus" parameterType="HashMap" resultType="HashMap">
+		/* PdaTicPaliMapper.selectOneBmsInForNoOutStatus : TIC 상태 조회 */
+		SELECT TOP 1
+			   PP.PACKING_NO
+			 , PP.TIC_STATUS
+		  FROM TB_BMS_IN I WITH (NOLOCK)
+		  JOIN TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+			ON I.IN_PLAN_NO = PP.IN_PLAN_NO
+		 WHERE PP.DELETE_YN = 'N'
+		   AND PP.PACKING_NO = #{srchPackingNo}
+		   <if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		   AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		   </if>
+		   <if test="srchBlNo != null and srchBlNo != ''">
+		   AND I.BL_NO = #{srchBlNo}
+		   </if>
+	</select>
+	
+	<update id="updateBmsInPlanPkgMoveOutCt" parameterType="HashMap">
+		/* PdaTicPaliMapper.updateBmsInPlanPkgMoveOutCt : 박스스캔 이고반출수량 update */
+		UPDATE PP
+		   SET PP.MOVE_OUT_CT = 1
+		  FROM TB_BMS_IN_PLAN_PKG PP
+		  JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		    ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		 WHERE 1=1
+		<if test="srchInPlanNo !=null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		   AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+	</update>
+	
+	<update id="updateOutScanDateFromBmsOut" parameterType="HashMap">
+		/* PdaTicPaliMapper.updateOutScanDateFromBmsOut : 반출 출고scan날짜 저장 */
+		UPDATE TB_BMS_OUT
+		   SET OUT_SCAN_DATE_TIME = GETDATE()
+		 WHERE OUT_NO = #{outNo}
+	</update>
+	
+	<update id="updateTicOutApprovalNo50FromBmsOut" parameterType="HashMap">
+		/* PdaTicPaliMapper.updateTicOutApprovalNo50FromBmsOut : 박스스캔 이고반출 수입신고번호 저장 */
+		UPDATE TB_BMS_OUT
+		   SET TIC_OUT_APPROVAL_NO_50 = #{dclrNo}
+		 WHERE OUT_NO = #{outNo}
+	</update>
+	
+	<select id="countDuplicatedTicMoveScanLog" parameterType="HashMap" resultType="Integer">
+		/* PdaTicPaliMapper.selectWaitPkgFromTicMoveScanLog : 중복 박스스캔 데이터 갯수 조회*/
+		SELECT COUNT(*)
+		FROM TB_BMS_TIC_MOVE_SCAN WITH (NOLOCK)
+		WHERE SCAN_DATE = #{scanDate}
+			AND IN_NO = #{inNo}
+			AND BL_NO = #{blNo}
+			AND SCAN_NO = #{scanNo}
+			AND SCAN_RESULT = '완료'
+		    AND OUT_BACK_STATUS = #{outBackStatus}
+	</select>
+	
+	<select id="checkBmsPkgAndTicMoveScanCount" parameterType="HashMap" resultType="Integer">
+		/* PdaTicPaliMapper.checkBmsPkgAndTicMoveScanCount : 이고반출 스캔 카운트 체크 */
+		SELECT 
+			COUNT(*) AS CNT
+		FROM (
+			SELECT PP.PACKING_NO
+			FROM TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+			INNER JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+			ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+			WHERE PP.DELETE_YN = 'N' AND P.BL_NO = #{srchBlNo}
+		) P
+		INNER JOIN (
+			SELECT SCAN_NO
+			FROM TB_BMS_TIC_MOVE_SCAN WITH (NOLOCK)
+			WHERE SCAN_DATE = #{currentDate} 
+			AND SCAN_RESULT = '완료'
+		    AND OUT_BACK_STATUS = #{srchOutBackStatus} AND BL_NO = #{srchBlNo}
+			GROUP BY SCAN_NO
+		) SCAN
+		ON P.PACKING_NO = SCAN.SCAN_NO
+	</select>
+	
+	<update id="updateBmsTicMoveOutScanStatus" parameterType="HashMap">
+		/* PdaTicPaliMapper.updateBmsTicMoveOutScanStatus : 박스스캔 이고반출구분 update */
+		UPDATE TB_BMS_TIC_MOVE_SCAN
+		   SET OUT_BACK_STATUS = #{outBackStatus}
+		 WHERE BL_NO = #{srchBlNo}
+		   AND SCAN_DATE = #{currentDate}
+		   AND OUT_BACK_STATUS = #{srchOutBackStatus}
+	</update>
+	
+	<select id="selectBmsTicMoveScanLogInfo" parameterType="HashMap" resultType="HashMap">
+		/* PdaTicPaliMapper.selectBmsTicMoveScanLogInfo : 이고반출 스캔로그 조회 */
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+			SELECT SCAN_NO
+				 , BL_NO
+				 , SCAN_DATE
+				 , SCAN_RESULT
+				 , INSPECTION_STATUS
+				 , REGISTER_USER_ID
+				 , ISNULL((SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = tbis.REGISTER_USER_ID),'') AS REGISTER_USER_NAME
+				 , REGISTER_DATE_TIME
+			FROM TB_BMS_INSPECT_SCAN tbis
+			WHERE 
+			SCAN_DATE BETWEEN CONVERT(VARCHAR(10), ISNULL(#{srchScanDate},''), 120) AND CONVERT(VARCHAR(10), GETDATE(), 120)
+			<if test="srchInspectStatus != null and srchInspectStatus != ''">
+			AND INSPECTION_STATUS = #{srchInspectStatus}
+			</if>
+			 ORDER BY REGISTER_DATE_TIME DESC
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+	
+	<insert id="insertBmsTicMoveScanLog" parameterType="HashMap">
+		/* PdaTicPaliMapper.insertBmsTicMoveScanLog : 이고반출 스캔로그 저장 */
+		INSERT INTO TB_BMS_TIC_MOVE_SCAN (
+			  OUT_NO
+			, SCAN_NO
+			, BL_NO
+			, OUT_CT
+			, OUT_BACK_STATUS
+			, OUT_BACK_USER_ID
+			, OUT_BACK_DATE_TIME
+			, SCAN_RESULT
+			, SCAN_DATE
+			, OUT_BACK_IN_FINISH_YN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, IN_NO
+		)
+		VALUES(
+			  #{outNo}
+			, #{scanNo}
+			, #{blNo}
+			, #{outCt}
+			, #{outBackStatus}
+			, #{outBackUserId}
+			, GETDATE()
+			, #{scanResult}
+			, #{scanDate}
+			, #{outBackInFinishYn}
+			, #{registerUserId}
+			, GETDATE()
+			, #{inNo}
+		)
+	</insert>
+	
+	<insert id="insertTicMoveScanLog" parameterType="HashMap">
+		/* PdaTicPaliMapper.insertTicMoveScanLog : 이고반출SCAN 스캔로그 저장 */
+		INSERT INTO TB_BMS_TIC_MOVE_SCAN (
+			IN_NO
+			, OUT_NO
+			, SCAN_NO
+			, BL_NO
+			, OUT_CT
+			<if test="outBackStatus != null and outBackStatus != ''">
+			, OUT_BACK_STATUS
+			</if>
+			<if test="outBackStatus != null and outBackStatus != ''">
+			, OUT_BACK_USER_ID
+			</if>
+			<if test="outBackStatus != null and outBackStatus != ''">
+			, OUT_BACK_DATE_TIME
+			</if>
+			, SCAN_RESULT
+			, SCAN_DATE
+			<if test="outBackInFinishYn != null and outBackInFinishYn != ''">
+			, OUT_BACK_IN_FINISH_YN
+			</if>
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+		)
+		VALUES(
+			#{inNo}
+			, #{outNo}
+			, #{packingNo}
+			, #{blNo}
+			, #{outCt}
+			<if test="outBackStatus != null and outBackStatus != ''">
+			, #{outBackStatus}
+			</if>
+			<if test="outBackStatus != null and outBackStatus != ''">
+			, #{updateUserId}
+			</if>
+			<if test="outBackStatus != null and outBackStatus != ''">
+			, GETDATE()
+			</if>
+			, #{result}
+			, CONVERT(VARCHAR(10),GETDATE(),120)
+			<if test="outBackInFinishYn != null and outBackInFinishYn != ''">
+			, #{outBackInFinishYn}
+			</if>
+			, #{updateUserId}
+			, GETDATE()
+		)
+	</insert>
+	
+	<update id="updateFinishTicMoveScanLogByInNo" parameterType="HashMap">
+		/* PdaTicPaliMapper.updateFinishTicMoveScanLogByInNo : 이고반출SCAN 최종처리및 이고반입생성대기처리 업데이트 */
+		UPDATE TB_BMS_TIC_MOVE_SCAN
+		SET
+			OUT_BACK_STATUS = #{outBackStatus}
+			, OUT_BACK_USER_ID = #{updateUserId}
+			, OUT_BACK_DATE_TIME = GETDATE()
+			, OUT_BACK_IN_FINISH_YN = #{outBackInFinishYn}
+		WHERE SCAN_DATE = CONVERT(VARCHAR(10),GETDATE(),120) 
+			AND SCAN_RESULT = #{reason}
+		    AND OUT_BACK_STATUS = 'C' 
+		    AND IN_NO = #{inNo}
+		    AND SCAN_NO = #{packingNo}
+	</update>
+	
+	<update id="updateTicMoveScanLogByC" parameterType="HashMap">
+		/* PdaTicPaliMapper.updateTicMoveScanLogByC : 이고반입SCAN 최종처리및 이고반입생성대기처리 업데이트 */
+		UPDATE TB_BMS_TIC_MOVE_SCAN
+		SET
+			OUT_BACK_STATUS = #{outBackStatus}
+			, OUT_BACK_USER_ID = #{updateUserId}
+			, OUT_BACK_DATE_TIME = GETDATE()
+			, SCAN_RESULT = #{reason}
+			, OUT_BACK_IN_FINISH_YN = #{outBackInFinishYn}
+			, SCAN_DATE = CAST(GETDATE() AS DATE)
+		WHERE 
+			SCAN_NO = #{packingNo}
+			AND IN_NO = #{inNo}
+			AND OUT_BACK_STATUS = 'C' 
+	</update>
+	
+	<update id="updateFinishTicMoveScanLogByInNoAndOutNo" parameterType="HashMap">
+		/* PdaTicPaliMapper.updateFinishTicMoveScanLogByInNoAndOutNo : 이고반출SCAN 최종처리및 이고반입생성대기처리 업데이트 (사용안함) */
+		UPDATE TB_BMS_TIC_MOVE_SCAN
+		SET
+			OUT_BACK_STATUS = #{outBackStatus}
+			, OUT_BACK_USER_ID = #{updateUserId}
+			, OUT_BACK_DATE_TIME = GETDATE()
+			, OUT_BACK_IN_FINISH_YN = #{outBackInFinishYn}
+			, SCAN_DATE = CAST(GETDATE() AS DATE)
+		WHERE SCAN_DATE >=  DATEADD(DAY, -6, CAST(GETDATE() AS DATE))
+  		    AND SCAN_DATE <![CDATA[<=]]> CAST(GETDATE() AS DATE) 
+			AND SCAN_RESULT = #{reason}
+		    AND OUT_BACK_STATUS = 'C' 
+		    AND IN_NO = #{inNo}
+		    AND OUT_NO = #{outNo}
+	</update>
+	
+	<update id="updatePkgTicMoveInByInPlanNo" parameterType="HashMap">
+		/* PdaTicPaliMapper.updatePkgTicMoveInByInPlanNo : 박스 이고입고수량 업데이트 */
+		UPDATE TB_BMS_IN_PLAN_PKG
+		SET
+			MOVE_IN_CT = #{moveInCt}
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE IN_PLAN_NO = #{inPlanNo}
+			AND PACKING_NO = #{packingNo}
+			AND BL_NO = #{blNo}
+	</update>
+	
+	<update id="updatePkgTicStatus" parameterType="HashMap">
+		/* PdaTicPaliMapper.updatePkgTicStatus : 박스 이고입고수량 업데이트 */
+		UPDATE TB_BMS_IN_PLAN_PKG
+		SET
+			TIC_STATUS = #{ticStatus}
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE IN_PLAN_NO = #{inPlanNo}
+			AND PACKING_NO = #{packingNo}
+			AND BL_NO = #{blNo}
+	</update>
+	
+	<update id="updateBmsInAllInspectionFinishYn" parameterType="HashMap">
+		/* PdaTicPaliMapper.updateBmsInAllInspectionFinishYn : 박스 이고입고수량 업데이트 */
+		UPDATE TB_BMS_IN
+			SET ALL_INSPECTION_FINISH_YN = #{allInspectionFinishYn}
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = GETDATE()
+		WHERE IN_NO = #{inNo}
+	</update>
+	
+	<update id="updateInspectResultFinishByInspectionResultType">
+		/* PdaTicPaliMapper.updateInspectResultFinishByInspectionResultType : 검사결과 업데이트 */
+	    UPDATE TB_BMS_INSPECT_RESULT
+	    SET 
+	    	INSPECTION_START_USER_ID = #{updateUserId},
+			INSPECTION_START_DATE_TIME = GETDATE(),
+	    	INSPECTION_FINISH_YN = #{inspectionFinishYn},
+			INSPECTION_FINISH_REMARKS = #{remarks},
+			INSPECTION_FINISH_USER_ID = #{updateUserId},
+			INSPECTION_FINISH_DATE_TIME = GETDATE()
+	    WHERE IN_NO = #{inNo}
+	    	AND INSPECTION_TYPE = #{inspectionResultType}
+	</update>
+	
+	<update id="updateAllTicInspectResultFinish">
+		/* PdaTicPaliMapper.updateAllTicInspectResultFinish : 검사결과 업데이트 */
+	    UPDATE TB_BMS_INSPECT_RESULT
+	    SET 
+	    	INSPECTION_START_USER_ID = #{updateUserId},
+			INSPECTION_START_DATE_TIME = GETDATE(),
+	    	INSPECTION_FINISH_YN = #{inspectionFinishYn},
+			INSPECTION_FINISH_REMARKS = #{remarks},
+			INSPECTION_FINISH_USER_ID = #{updateUserId},
+			INSPECTION_FINISH_DATE_TIME = GETDATE()
+	    WHERE IN_NO = #{inNo}
+	    	AND INSPECTION_TYPE IN (
+                	  	'S01', 'S02', 'X01', 'X02', 'P01', 'P02'
+                	  	,'B','A','T','C'
+                	  	)
+	</update>
+
+	<select id="selectBmsOutByOutNo" parameterType="Integer" resultType="bmsOut">
+		/* BmsTicPaliMapper.selectBmsOutByOutNo : 반출조회 */
+		SELECT 
+			*
+		FROM TB_BMS_OUT WITH (NOLOCK)
+		WHERE OUT_NO = #{outNo}
+	</select>
+	<select id="selectBmsInWithInspectResult" parameterType="map" resultType="map">
+		/* BmsTicPaliMapper.selectBmsInWithInspectResult : 이고반출대상조회 : 이고 반출 대상 조회 */
+		SELECT 
+			P.PACKING_NO,
+			P.MOVE_IN_CT,
+			P.MOVE_OUT_CT,
+			I.IN_PLAN_NO,
+			I.BL_NO,
+			I.MBL_NO,
+			I.OD_JOB_NO,
+			I.CT,
+			I.WT AS WEIGHING_WT
+			,CASE WHEN I.SE_INSPECTION_CODE = '01' THEN '선별 마약' 
+				WHEN I.SE_INSPECTION_CODE = '02'  THEN '선별 총기 ' 
+				ELSE  ''
+			END SE_INSPECTION_CODE_NAME
+			,CASE WHEN  I.XRAY_INSPECTION_CODE = '01' THEN 'XR 마약' 
+				WHEN I.XRAY_INSPECTION_CODE = '02'  THEN 'XR 총기 ' 
+				ELSE  ''
+			END XRAY_INSPECTION_NAME
+			,CASE WHEN  I.PALN5EM_INSPECTION_CODE = '01' THEN '통관 마약' 
+				WHEN I.PALN5EM_INSPECTION_CODE = '02'  THEN '통관 총기 ' 
+				ELSE  ''
+			END PALN5EM_INSPECTION_NAME
+			,CASE WHEN I.BIG_SIZE_YN = 'Y' THEN '거대'
+				ELSE ''
+			END BIG_SIZE_YN_NAME
+			,CASE WHEN I.INSPECTION_CUSTOMS_YN = 'Y' THEN '집중'
+				ELSE ''
+			END INSPECTION_CUSTOMS_YN_NAME
+			,CASE WHEN I.INTELLECTUAL_PROP_YN = 'Y' THEN '지재'
+				ELSE ''
+			END INTELLECTUAL_PROP_YN_NAME
+			<!-- ,CASE WHEN I.CRIME_SELECTION_YN = 'Y' THEN '우범'
+				ELSE ''
+			END CRIME_SELECTION_YN_NAME -->
+		    ,I.IN_NO AS IN_NO
+		    ,O.OUT_NO
+		    ,O.OUT_CT
+		FROM 
+			TB_BMS_IN I WITH (NOLOCK)
+			INNER JOIN TB_BMS_IN_PLAN_PKG P WITH (NOLOCK) ON I.IN_PLAN_NO = P.IN_PLAN_NO 
+			INNER JOIN TB_BMS_OUT O WITH (NOLOCK) ON I.IN_NO = O.IN_NO 
+		WHERE 
+			P.TIC_STATUS = ''
+			AND O.OUT_CLASS = '61'
+			AND O.OUT_APPROVAL_NO = '04002001'
+			AND O.LAST_POD_STATUS = 'BMS01'
+			AND NOT EXISTS (
+				SELECT 1
+				FROM TB_BMS_OUT_SCAN S WITH (NOLOCK)
+				WHERE S.SCAN_NO = P.PACKING_NO
+					AND S.SCAN_RESULT = '완료'
+			)
+			<if test="srchPackingNo != null and srchPackingNo != ''">
+				AND P.PACKING_NO = #{srchPackingNo}
+			</if>
+			<if test="srchPackingSeq != null and srchPackingSeq != ''">
+				AND P.SEQ = #{srchPackingSeq}
+			</if>
+		ORDER BY  O.OUT_NO, P.PACKING_NO;
+	</select>
+
+	<select id="selectSrchPkgInOutCt" parameterType="map" resultType="map">
+		/* BmsTicPaliMapper.selectSrchPkgInOutCt : 이고반출대상조회 : 검색 이고 반출 대상 MOVE IN OUT CT 조회 */
+		SELECT 
+			ISNULL(MOVE_IN_CT, '0'),
+			ISNULL(MOVE_OUT_CT, '0')
+		FROM 
+			TB_BMS_IN_PLAN_PKG WITH (NOLOCK)
+		WHERE
+			PACKING_NO = #{srchPackingNo}
+			<if test="srchPackingSeq != null and srchPackingSeq != ''">
+				AND SEQ = #{srchPackingSeq}
+			</if>
+	</select>
+
+	<select id="selectTicOutScanYn" parameterType="map" resultType="String">
+		/* BmsTicPaliMapper.selectTicOutScanYn : 이고반출대상조회 : 검색 이고 반출 대상 TIC_OUT_SCAN_YN 조회 */
+		SELECT 
+			ISNULL(O.TIC_OUT_SCAN_YN, 'N') AS TIC_OUT_SCAN_YN
+		FROM 
+			TB_BMS_OUT O WITH (NOLOCK)
+			INNER JOIN TB_BMS_IN I WITH (NOLOCK) ON O.IN_NO = I.IN_NO 
+			INNER JOIN TB_BMS_IN_PLAN_PKG P WITH (NOLOCK) ON I.IN_PLAN_NO = P.IN_PLAN_NO AND I.IN_PLAN_NO > 0 
+		WHERE 
+			P.PACKING_NO = #{srchPackingNo}
+			<if test="srchPackingSeq != null and srchPackingSeq != ''">
+				AND P.SEQ = #{srchPackingSeq}
+			</if>
+	</select>
+
+	<select id="selectBmsTicMoveScanCount" parameterType="inPlanPkg" resultType="int">
+		/* BmsTicPaliMapper.selectBmsTicMoveScanCount : 이고반출대상조회 : 이고 반출 대상 Scan Count 조회 */
+		SELECT
+			COUNT(*)
+		FROM
+			(
+				SELECT
+					PP.PACKING_NO
+				FROM
+					TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+				INNER JOIN TB_BMS_IN_PLAN P WITH (NOLOCK) ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+				WHERE
+					PP.DELETE_YN = 'N'
+					AND P.BL_NO = #{BL_NO}
+			) P
+			INNER JOIN (
+				SELECT
+					SCAN_NO
+				FROM
+					TB_BMS_TIC_MOVE_SCAN WITH (NOLOCK)
+				WHERE
+					SCAN_DATE = CONVERT(VARCHAR(10),GETDATE(),120)
+					AND SCAN_RESULT = '완료'
+					AND OUT_BACK_STATUS = 'O'
+					AND BL_NO = #{BL_NO}
+				GROUP BY
+					SCAN_NO
+			) SCAN ON P.PACKING_NO = SCAN.SCAN_NO
+	</select>
+
+	<insert id="insertTicMoveScan" parameterType="BmsTicMoveScan">
+		/* BmsTicPaliMapper.insertTicMoveScan : 이고반출대상조회 : 이고 반출 대상 Scan Data Insert */
+		INSERT INTO TB_BMS_TIC_MOVE_SCAN (
+			IN_NO
+			, OUT_NO
+			, SCAN_NO
+			, BL_NO
+			, OUT_CT
+			, OUT_BACK_STATUS
+			, OUT_BACK_USER_ID
+			, OUT_BACK_DATE_TIME
+			, SCAN_RESULT
+			, SCAN_DATE
+			, OUT_BACK_IN_FINISH_YN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+		) VALUES (
+			#{inNo}
+			, #{outNo}
+			, #{scanNo}
+			, #{blNo}
+			, #{outCt}
+			, #{outBackStatus}
+			, #{outBackUserId}
+			, GETDATE()
+			, #{scanResult}
+			, CONVERT(CHAR(10), GETDATE(), 23)
+			, #{outBackInFinishYn}
+			, #{registerUserId}
+			, GETDATE()
+		)
+	</insert>
+
+	<update id="updateTicMoveScan" parameterType="BmsTicMoveScan">
+		/* BmsTicPaliMapper.updateTicMoveScan : 이고반출대상조회 : 이고 반출 대상 Scan Data Update */
+		UPDATE 
+			TB_BMS_TIC_MOVE_SCAN
+		SET
+			OUT_BACK_STATUS = 'P'
+		WHERE
+			BL_NO = #{blNo}
+			AND SCAN_DATE = CONVERT(CHAR(10), GETDATE(), 23)
+			AND OUT_BACK_STATUS = 'O'
+	</update>
+
+	<update id="updateBmsOutTicOutScan" parameterType="inPlanPkg">
+		/* BmsTicPaliMapper.updateBmsOutTicOutScan : 이고반출대상조회 : 반출 Scan Info Update */
+		UPDATE 
+			TB_BMS_OUT
+		SET
+			TIC_OUT_SCAN_YN = 'Y',
+			CARRYOUT_DATE = CONVERT(CHAR(10), GETDATE(), 23),
+			CARRYOUT_TIME = CONVERT(CHAR(8), GETDATE(), 8)
+		WHERE
+			BL_NO = #{BL_NO}
+	</update>
+
+	<select id="selectScanLogInfo" parameterType="HashMap" resultType="HashMap">
+		/* BmsTicPaliMapper.selectScanLogInfo : 이고반출 스캔 로그 조회 */
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+			SELECT 
+				SCAN_NO
+				, BL_NO
+				, SCAN_DATE
+				, SCAN_RESULT
+				, OUT_BACK_STATUS
+				, REGISTER_USER_ID
+				, ISNULL((SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = tbtms.REGISTER_USER_ID),'') AS REGISTER_USER_NAME
+				, REGISTER_DATE_TIME
+			FROM 
+				TB_BMS_TIC_MOVE_SCAN tbtms WITH (NOLOCK)
+			WHERE 
+				SCAN_DATE BETWEEN CONVERT(VARCHAR(10), ISNULL(#{srchScanDate},''), 120) AND CONVERT(VARCHAR(10), GETDATE(), 120)
+				<if test="outBackStatus != null and outBackStatus != ''">
+					AND OUT_BACK_STATUS = #{outBackStatus}
+				</if>
+			 ORDER BY REGISTER_DATE_TIME DESC
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+</mapper>

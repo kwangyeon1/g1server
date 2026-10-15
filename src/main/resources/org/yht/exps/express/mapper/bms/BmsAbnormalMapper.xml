@@ -1,0 +1,543 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsAbnormalMapper">
+    <sql id="searchAbnormal">
+        WHERE 1 = 1
+        <if test='srchDateGbn != "noDateChk"'>
+            <choose>
+                <when test='srchDateType == "dateTime"'>
+                    AND A.${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+                    AND A.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+                </when>
+                <otherwise>
+                    AND A.${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+                    AND A.${srchDateGbn} <![CDATA[<=]]> CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat})
+                </otherwise>
+            </choose>
+        </if>
+        <if test="srchNo != null and srchNo != ''">
+            <choose>
+                <when test='srchInEntry == "Y"'>
+                    <if test='srchAbnormalState == "IN_PLAN"'>
+                        AND A.${srchNoType} = #{srchNo}
+                    </if>
+                    <if test='srchAbnormalState == "ABNORMAL"'>
+                        AND A.${srchNoType} = #{srchNo}
+                    </if>
+                </when>
+                <otherwise>
+                    <!-- AND A.${srchNoType} LIKE CONCAT('%', #{srchNo}, '%') -->
+                    <choose>
+						<when test='searchType == "multi"'>
+						AND A.${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND A.${srchNoType} = #{srchNo}
+						</otherwise>
+					</choose>
+                </otherwise>
+            </choose>
+        </if>
+        <if test="srchLastPodStatus != null and srchLastPodStatus != ''">
+            <if test='srchAbnormalState == "ABNORMAL"'>
+                AND LAST_POD_STATUS = #{srchLastPodStatus}
+            </if>
+        </if>
+        <if test="srchCdType != null and srchCdType != ''">
+            AND CD_TYPE = #{srchCdType}
+        </if>
+        <if test="srchEtcContent != null and srchEtcContent != ''">
+            <if test='srchAbnormalState == "IN_PLAN"'>
+                AND ${srchEtcType} LIKE CONCAT('%', #{srchEtcContent}, '%')
+            </if>
+            <if test='srchAbnormalState == "ABNORMAL"'>
+                AND A.${srchEtcType} LIKE CONCAT('%', #{srchEtcContent}, '%')
+            </if>
+        </if>
+    </sql>
+
+    <select id="selectInPlanList" parameterType="searchCarryInAbnormal" resultType="inPlan" fetchSize="1000">
+        /* bmsInab.selectInPlanList  : 반입예정 리스트 조회 */
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+        , COUNT(*) OVER() AS TOTAL_CNT
+        , SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+        , SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+        FROM (
+            SELECT
+                  A.IN_PLAN_NO
+                , IIF(A.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+                , IIF(A.CD_TYPE = 'N', 1, 0) AS GENERAL_CNT
+        <choose>
+            <when test='srchMode == "excel"'>
+                , A.CD_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'CD_TYPE'  AND CODE = A.CD_TYPE) AS CD_TYPE
+                , A.CD_USE_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'USE_GUBN' AND CODE = A.CD_USE_TYPE ) AS CD_USE_TYPE
+                , A.ECM_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'CCL_ECOMMERCE_TYPE' AND CODE = A.ECM_TYPE) AS ECM_TYPE
+                , A.SE_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = A.SE_INSPECTION_CODE) AS SE_INSPECTION_CODE
+                , A.INSPECTION_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = A.INSPECTION_TYPE) AS INSPECTION_TYPE
+                , A.INSPECTION_TYPE_A + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = A.INSPECTION_TYPE_A) AS INSPECTION_TYPE_A
+                , A.INSPECTION_TYPE_B + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = A.INSPECTION_TYPE_B) AS INSPECTION_TYPE_B
+                , A.PALN5EM_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = A.PALN5EM_INSPECTION_CODE) AS PALN5EM_INSPECTION_CODE
+                , xr.XRAY_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = xr.XRAY_INSPECTION_CODE) AS XRAY_INSPECTION_CODE
+                , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'XRAY_LINE_NO' AND CODE = xr.XRAY_LINE_NO) AS XRAY_LINE_NO
+            </when>
+            <otherwise>
+                , A.CD_TYPE
+                , A.ECM_TYPE
+                , A.CD_USE_TYPE
+                , A.SE_INSPECTION_CODE
+                , A.INSPECTION_TYPE
+                , A.INSPECTION_TYPE_A
+                , A.INSPECTION_TYPE_B
+                , A.PALN5EM_INSPECTION_CODE
+                , xr.XRAY_INSPECTION_CODE
+                , xr.XRAY_LINE_NO
+            </otherwise>
+        </choose>
+                , A.NOTIFY_DATE_TIME
+                , A.IN_APPROVAL_NO
+                , A.TRANS_PERIOD_DATE
+                , A.DEPARTURE_LOCATION
+                , A.LAST_LOCATION
+                , A.REPORT_EMPLOYEE_TEL
+                , A.OD_JOB_NO
+                , A.CARGO_REFERENCE_NO
+                , CASE
+                    WHEN LEN(A.CARGO_REFERENCE_NO) > 15 THEN (
+                    SUBSTRING(A.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 12, 4) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 16, 4)
+                    )
+                    ELSE SUBSTRING(A.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 12, 4)
+                  END AS CARGO_REFERENCE_NO_DISP
+                , A.BL_NO
+                , A.MBL_NO
+                , A.INSPECT_YN
+                , A.NOTICE_INSPECT_YN
+                , A.PKG_TYPE
+                , A.EX_CT
+                , A.EX_WT
+                , A.EX_CBM
+                , A.CUSTOMS_CODE
+                , A.CUSTOMS_DPT_CODE
+                , A.VESSEL_FLIGHT
+                , A.VOYAGE
+                , A.AR_DATE
+                , A.AR_TIME
+                , A.COMMODITY_ITEM_LOC
+                , A.SHIPPER_CODE
+                , A.SHIPPER_NAME
+                , A.SHIPPER_ADDRESS_1
+                , A.SHIPPER_ADDRESS_2
+                , A.CONSIGNEE_CODE
+                , A.CONSIGNEE_NAME
+                , A.CONSIGNEE_ADDRESS_1
+                , A.CONSIGNEE_ADDRESS_2
+                , dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+                , dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_TEL, 1) AS CONSIGNEE_TEL
+                , A.NOTIFY_CODE
+                , A.NOTIFY_NAME
+                , A.NOTIFY_ADDRESS_1
+                , A.NOTIFY_ADDRESS_2
+                , dbo.Cryptography(A.OD_JOB_NO, A.NOTIFY_TEL, 1) AS NOTIFY_TEL
+                , A.SPECIAL_CODE_1
+                , A.SPECIAL_CODE_2
+                , A.SPECIAL_CODE_3
+                , A.CARRIER_CODE
+                , A.CNTR_NO
+                , A.ORIG_COUNTRY
+                , A.SIMPLE_AUTH_NAME
+                , A.BIG_SIZE_YN
+                , A.AMOUNT_USD
+                , A.IN_SCAN_DATE_TIME
+                , A.REFERENCE_NO
+                , A.IN_YN
+                , A.REGISTER_USER_ID
+                , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+                , A.REGISTER_DATE_TIME
+                , A.UPDATE_USER_ID
+                , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+                , A.UPDATE_DATE_TIME
+                , '' AS LAST_POD_STATUS
+                , ISNULL(oh.HOLD_YN,'N') AS HOLD_YN
+                , oh.HOLD_CODE
+                , oh.HOLD_REASON
+                , oh.HOLD_RELEASE_YN
+                , oh.HOLD_RELEASE_ATTN
+                , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = oh.HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN_NAME
+                , oh.HOLD_RELEASE_DATE
+                , xr.XRAY_SCAN_CT
+                , xr.XRAY_IMAGE_CT
+                , xr.RESEND_YN
+                , CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE FUNC_JOB_NO = A.OD_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+                , A.MGN_ISSUE_YN
+                , A.CRIME_SELECTION_YN
+                FROM TB_BMS_IN_PLAN A WITH (NOLOCK)
+                LEFT JOIN (SELECT
+                            '' AS HOLD_YN
+                            ,   MAX(OD_JOB_NO) AS OD_JOB_NO
+                            ,   MAX(HOLD_CODE) AS HOLD_CODE
+                            ,   MAX(HOLD_REASON) AS HOLD_REASON
+                            ,	MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+                            ,	MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+                            ,	MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+                            FROM TB_ECM_OD_HOLD
+                            GROUP BY OD_JOB_NO) oh
+                ON oh.OD_JOB_NO = A.OD_JOB_NO
+                LEFT JOIN TB_BMS_XRAY_RESULT xr
+                ON xr.IN_PLAN_NO = A.IN_PLAN_NO
+                LEFT JOIN TB_BMS_ABNORMAL_BL ab
+                ON ab.CARGO_REFERENCE_NO = A.CARGO_REFERENCE_NO
+                <include refid="org.yht.exps.express.mapper.bms.BmsAbnormalMapper.searchAbnormal"/>
+                <if test='srchMode == "notSearch"'>
+				AND 1 = 0
+				</if>
+                AND ab.CARGO_REFERENCE_NO IS NULL
+                AND A.IN_APPROVAL_NO = ''
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+
+    <select id="selectAbnormalList" parameterType="searchCarryInAbnormal" resultType="carryInAbnormal" fetchSize="1000">
+        /* bmsInab.selectAbnormalList  : 반입이상 리스트 조회 */
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+        , COUNT(*) OVER() AS TOTAL_CNT
+        FROM (
+            SELECT
+                  A.ABN_NO
+                , A.CUSTOMS_REPORT_NO
+                , A.MRN
+                , A.MSN
+                , A.MBL_NO
+                , A.LAST_POD_DATE
+        <choose>
+            <when test='srchMode == "excel"'>
+                , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                    AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = A.LAST_POD_STATUS) AS LAST_POD_STATUS
+            </when>
+            <otherwise>
+                , A.LAST_POD_STATUS
+            </otherwise>
+        </choose>
+                , A.LAST_POD_RAQ_DATE
+                , A.VESSEL_FLIGHT
+                , A.VOYAGE
+                , A.AR_DATE
+                , A.AR_TIME
+                , A.ABN_REQ_DATE
+                , A.REGISTER_USER_ID
+                , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+                , A.REGISTER_DATE_TIME
+                , A.UPDATE_USER_ID
+                , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+                , A.UPDATE_DATE_TIME
+                , (SELECT BMS_CUSTOMS_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_CODE =#{entCode} AND ENT_BUSINESS_CODE = #{entBusinessCode}) AS CUSTOMS_CODE
+                , (SELECT BMS_CUSTOMS_DPT_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_CODE =#{entCode} AND ENT_BUSINESS_CODE = #{entBusinessCode}) AS CUSTOMS_DPT_CODE
+            FROM  TB_BMS_ABNORMAL A
+            <include refid="org.yht.exps.express.mapper.bms.BmsAbnormalMapper.searchAbnormal"/>
+            <if test='srchMode == "notSearch"'>
+			AND 1 = 0
+			</if>
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+
+    <!--반입물품이상HBL 데이터 삭제 1개-->
+    <delete id="deleteAbnormalHBL" parameterType="carryInAbnormal">
+        DELETE FROM TB_BMS_ABNORMAL_BL WHERE ABN_NO = #{abnNo}
+    </delete>
+
+    <!--반입물품이상MASTER 데이터 삭제 1개-->
+    <delete id="deleteAbnormalMaster" parameterType="carryInAbnormal">
+        DELETE FROM TB_BMS_ABNORMAL WHERE ABN_NO = #{abnNo}
+    </delete>
+
+    <select id="checkExistAbnormalByAbnNo" parameterType="Integer" resultType="Integer">
+        SELECT COUNT(*) AS CNT FROM TB_BMS_ABNORMAL WHERE ABN_NO = #{abnNo}
+    </select>
+
+    <select id="checkExistAbnormalBl" parameterType="carryInAbnormal" resultType="Integer">
+        SELECT
+            COUNT(*) AS CNT
+        FROM TB_BMS_ABNORMAL_BL
+        WHERE 1 = 1
+        AND CARGO_REFERENCE_NO = #{cargoReferenceNo}
+    </select>
+
+    <select id="checkExistAbnormal" parameterType="carryInAbnormal" resultType="Integer">
+        SELECT
+            COUNT(*) AS CNT
+        FROM TB_BMS_ABNORMAL
+        WHERE 1 = 1
+          AND MBL_NO = #{mblNo}
+        <if test="arDate != null and arDate != ''">
+          AND AR_DATE = #{arDate}
+        </if>
+    </select>
+
+    <select id="selectMblNoByBlNo" parameterType="String" resultType="String">
+        SELECT MBL_NO FROM TB_BMS_IN_PLAN WITH (NOLOCK) WHERE BL_NO = #{blNo}
+    </select>
+
+    <select id="checkExistInPlan" parameterType="Integer" resultType="Integer">
+        SELECT COUNT(*) AS CNT FROM TB_BMS_IN_PLAN WITH (NOLOCK) WHERE IN_PLAN_NO = #{inPlanNo}
+    </select>
+
+    <select id="selectDetailAbnormal" parameterType="searchCarryInAbnormal" resultType="carryInAbnormal">
+        SELECT
+              A.ABN_NO
+            , A.CUSTOMS_REPORT_NO
+            , A.MRN
+            , A.MSN
+            , A.MBL_NO
+            , A.LAST_POD_DATE
+            , A.LAST_POD_STATUS
+            , A.LAST_POD_RAQ_DATE
+            , A.VESSEL_FLIGHT
+            , A.VOYAGE
+            , A.AR_DATE
+            , A.AR_TIME
+            , A.ABN_REQ_DATE
+            , A.REGISTER_USER_ID
+            , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+            , A.REGISTER_DATE_TIME
+            , A.UPDATE_USER_ID
+            , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+            , A.UPDATE_DATE_TIME
+            , (SELECT BMS_CUSTOMS_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_CODE =#{entCode} AND ENT_BUSINESS_CODE = #{entBusinessCode}) AS CUSTOMS_CODE
+            , (SELECT BMS_CUSTOMS_DPT_CODE FROM TB_SMS_ENT_BUSINESS WHERE ENT_CODE =#{entCode} AND ENT_BUSINESS_CODE = #{entBusinessCode}) AS CUSTOMS_DPT_CODE
+        FROM  TB_BMS_ABNORMAL A
+        WHERE 1 = 1
+        AND A.ABN_NO = #{abnNo}
+        AND A.MBL_NO = #{mblNo}
+        <if test="arDate != null and arDate != ''">
+            AND AR_DATE = #{arDate}
+        </if>
+    </select>
+
+    <select id="selectAbnormalHblNotInList" parameterType="searchCarryInAbnormal" resultType="carryInAbnormal" fetchSize="1000">
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+        , COUNT(*) OVER() AS TOTAL_CNT
+        FROM (
+        SELECT
+          BL_NO
+        , MBL_NO
+        , OD_JOB_NO
+        , CARGO_REFERENCE_NO
+        , SUBSTRING(CARGO_REFERENCE_NO,16,4) AS HSN
+        , PKG_TYPE
+        , EX_CT
+        , EX_WT
+        , IN_PLAN_NO
+        , CONSIGNEE_NAME
+        , COMMODITY_ITEM_LOC
+        FROM TB_BMS_IN_PLAN WITH (NOLOCK)
+        WHERE 1 =1
+        AND MBL_NO = #{mblNo}
+        AND AR_DATE = #{arDate}
+        <if test="blNoList != null and blNoList.size > 0 ">
+            AND BL_NO NOT IN (<foreach collection="blNoList" item="item" separator=",">#{item}</foreach>)
+        </if>
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+
+    <select id="selectAbnormalHblList" parameterType="searchCarryInAbnormal" resultType="carryInAbnormal" fetchSize="1000">
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+        , COUNT(*) OVER() AS TOTAL_CNT
+        FROM (
+        SELECT
+        BL_NO
+        , MBL_NO
+        , CARGO_REFERENCE_NO
+        , SUBSTRING(CARGO_REFERENCE_NO,16,4) AS HSN
+        , PKG_TYPE
+        , EX_CT
+        , EX_WT
+        , IN_PLAN_NO
+        , CONSIGNEE_NAME
+        , COMMODITY_ITEM_LOC
+        FROM TB_BMS_IN_PLAN WITH (NOLOCK)
+        WHERE 1 =1
+        AND MBL_NO = #{mblNo}
+        AND AR_DATE = #{arDate}
+        <if test="srchNo != null and srchNo != ''">
+            AND ${srchNoType} = #{srchNo}
+        </if>
+        <if test="blNoList != null and blNoList.size > 0 ">
+            AND BL_NO NOT IN (<foreach collection="blNoList" item="item" separator=",">#{item}</foreach>)
+        </if>
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+
+    <select id="selectAbnormalHblListByMBL" parameterType="searchCarryInAbnormal" resultType="carryInAbnormalHbl" fetchSize="1000">
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+        , COUNT(*) OVER() AS TOTAL_CNT
+        FROM (
+        SELECT
+              A.ABN_NO
+            , A.CUSTOMS_REPORT_NO
+            , A.MRN
+            , A.MSN
+            , A.MBL_NO
+            , A.LAST_POD_DATE
+            , A.LAST_POD_STATUS
+            , A.LAST_POD_RAQ_DATE
+            , A.VESSEL_FLIGHT
+            , A.VOYAGE
+            , A.AR_DATE
+            , A.AR_TIME
+            , A.ABN_REQ_DATE
+            , A.REGISTER_USER_ID
+            , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+            , A.REGISTER_DATE_TIME
+            , A.UPDATE_USER_ID
+            , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+            , A.UPDATE_DATE_TIME
+            , ab.SEQ_NO
+            , ab.CARGO_REFERENCE_NO
+            , ab.HSN
+            , ab.BL_NO
+            , ab.PKG_TYPE
+            , ab.EX_CT
+            , ab.EX_WT
+            , ab.CT
+            , ab.WT
+            , ab.ACCIDENT_CLASS
+            , ab.ACCIDENT_CT
+            , ab.ACCIDENT_WT
+            , ab.REJECT_REASON
+            , ip.OD_JOB_NO
+            , 'Y' AS ABN_YN
+        FROM  TB_BMS_ABNORMAL_BL ab
+            LEFT JOIN TB_BMS_ABNORMAL A
+                ON  A.ABN_NO = ab.ABN_NO
+            LEFT JOIN TB_BMS_IN_PLAN ip WITH (NOLOCK)
+                ON  ip.BL_NO = ab.BL_NO
+        WHERE 1 = 1
+        AND A.ABN_NO = #{abnNo}
+        AND A.MBL_NO = #{mblNo}
+        AND A.AR_DATE = #{arDate}
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+
+    <select id="callProcBMSAbnormalSeq" statementType="CALLABLE" parameterType="abnormalSpCallVo" resultType="abnormalSpCallVo" >
+        { call   USP_GETNextAbnormal_CUSTOMS_REPORT_NO (
+              #{mode, mode=IN, jdbcType=VARCHAR, javaType=String}
+            , #{bmsWhCode, mode=IN, jdbcType=VARCHAR, javaType=String}
+            , #{retCustomsReportNo, mode=OUT, jdbcType=VARCHAR, javaType=String} )
+            }
+    </select>
+
+    <insert id="insertAbnormal" parameterType="carryInAbnormal">
+        INSERT INTO TB_BMS_ABNORMAL (
+                  LAST_POD_STATUS
+                , CUSTOMS_REPORT_NO
+                , MRN
+                , MSN
+                , MBL_NO
+                , VESSEL_FLIGHT
+                , AR_DATE
+                , AR_TIME
+                , ABN_REQ_DATE
+                , REGISTER_USER_ID
+                , REGISTER_DATE_TIME
+                , UPDATE_USER_ID
+                , UPDATE_DATE_TIME )
+        VALUES (
+                'BMS01'
+               , #{customsReportNo}
+               , #{mrn}
+               , #{msn}
+               , #{mblNo}
+               , #{vesselFlight}
+               , #{arDate}
+               , #{arTime}
+               , #{abnReqDate}
+               , #{registerUserId}
+               , GETDATE()
+               , #{updateUserId}
+               , GETDATE()
+               )
+    </insert>
+
+    <insert id="insertAbnormalHbl" parameterType="carryInAbnormalHbl">
+        INSERT INTO TB_BMS_ABNORMAL_BL(
+                 ABN_NO
+               , SEQ_NO
+               , CARGO_REFERENCE_NO
+               , HSN
+               , BL_NO
+               , PKG_TYPE
+               , EX_CT
+               , EX_WT
+               , CT
+               , WT
+               , ACCIDENT_CLASS
+               , ACCIDENT_CT
+               , ACCIDENT_WT
+               , REJECT_REASON
+               , REGISTER_USER_ID
+               , REGISTER_DATE_TIME
+               , UPDATE_USER_ID
+               , UPDATE_DATE_TIME
+        )
+        VALUES (
+                 #{abnNo}
+               , (SELECT ISNULL(MAX(SEQ_NO),0) + 1 FROM TB_BMS_ABNORMAL_BL WHERE ABN_NO = #{abnNo})
+               , #{cargoReferenceNo}
+               , #{hsn}
+               , #{blNo}
+               , #{pkgType}
+               , #{exCt}
+               , #{exWt}
+               , #{ct}
+               , #{wt}
+               , #{accidentClass}
+               , #{accidentCt}
+               , #{accidentWt}
+               , #{rejectReason}
+               , #{registerUserId}
+               , GETDATE()
+               , #{updateUserId}
+               , GETDATE()
+        )
+    </insert>
+
+    <select id="selectAbnNoByCustomsReportNo" parameterType="String" resultType="Integer">
+        SELECT ABN_NO FROM TB_BMS_ABNORMAL WHERE CUSTOMS_REPORT_NO = #{customsReportNo}
+    </select>
+
+    <update id="updateAbnormal" parameterType="carryInAbnormal">
+        UPDATE TB_BMS_ABNORMAL
+        SET
+            ABN_REQ_DATE = #{abnReqDate}
+          , UPDATE_USER_ID = #{updateUserId}
+          , UPDATE_DATE_TIME = GETDATE()
+        <if test='lastPodStatus == "BMS02" or lastPodStatus == "BMS05" '>
+          , LAST_POD_STATUS = 'BMS01'
+          , LAST_POD_DATE = ''
+          , LAST_POD_RAQ_DATE = ''
+        </if>
+        WHERE 1 = 1
+        AND ABN_NO = #{abnNo}
+    </update>
+</mapper>
+

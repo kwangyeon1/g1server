@@ -1,0 +1,1775 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.consumerService.OrderCustomerMapper">
+	
+	<select id="selectOrderList" parameterType="searchOrderCustomerList" resultType="order" fetchSize="1000">
+		/* OrderCustomerMapper.selectOrderList : Order List(Detail) */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<choose>
+		<when test='srchMode == "listCount"'>
+		SELECT COUNT(*) AS TOTAL
+		FROM 	
+		(
+		</when>
+		<when test='srchMode == "count"'>
+		SELECT 
+			 COUNT(A.OD_JOB_NO) OVER() AS SUM_COUNT
+			,SUM(ISNULL(A.PIECES,0)) OVER() AS SUM_PIECES
+			,SUM(ISNULL(A.GWT,0)) OVER() AS SUM_GWT
+			,SUM(ISNULL(A.CBM,0)) OVER() AS SUM_CBM
+			,COUNT(CASE A.CD_TYPE WHEN 'Y' THEN 1 END) OVER() AS SIMPLE_CNT
+			,COUNT(CASE A.CD_TYPE WHEN 'N' THEN 1 END) OVER() AS GENERAL_CNT
+			,COUNT(CASE A.CD_TYPE WHEN 'B' THEN 1 END) OVER() AS EXCLUDE_CNT
+			,COUNT(CASE A.CD_TYPE WHEN 'E' THEN 1 END) OVER() AS IMPLEMENTATION_CNT
+			,COUNT(CASE A.INSPECTION_YN WHEN 'Y' THEN 1 END) OVER() AS SUM_INSPECTION
+			,COUNT(CASE A.DROP_YN WHEN 'Y' THEN 1 END) OVER() AS SUM_DROP
+		FROM(
+		</when>
+		<otherwise>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+<!-- 		SELECT  -->
+<!-- 			  A.* -->
+<!-- 			,COUNT(A.OD_JOB_NO) OVER() AS SUM_COUNT -->
+<!-- 			,SUM(ISNULL(A.PIECES,0)) OVER() AS SUM_PIECES -->
+<!-- 			,SUM(ISNULL(A.GWT,0)) OVER() AS SUM_GWT -->
+<!-- 			,COUNT(CASE A.INSPECTION_YN WHEN 'Y' THEN 1 END) OVER() AS SUM_INSPECTION -->
+<!-- 			,COUNT(CASE A.DROP_YN WHEN 'Y' THEN 1 END) OVER() AS SUM_DROP -->
+<!-- 			,COUNT(CASE A.CD_TYPE WHEN 'Y' THEN 1 END) OVER() AS SUM_SIMPLE -->
+<!-- 			,COUNT(CASE A.CD_TYPE WHEN 'N' THEN 1 END) OVER() AS SUM_GENERAL -->
+<!-- 			,COUNT(CASE A.CD_TYPE WHEN 'B' THEN 1 END) OVER() AS SUM_EXCLUDE -->
+<!-- 			,COUNT(A.OD_JOB_NO) OVER() AS TOTAL -->
+<!-- 		FROM 	 -->
+<!-- 		(	 -->
+		</otherwise>
+		</choose>
+		
+		SELECT
+			 ad.LAST_POD_STATUS
+			,od.OD_JOB_NO
+			<if test='srchMode != "listCount" and srchMode != "count"'>
+			<choose>
+			<when test="loginCustomerUpperLev != null and loginCustomerUpperLev != ''">
+			<if test='loginCustomerUpperLev != "0"'>
+			,od.CUST_CODE_LV${loginCustomerUpperLev} AS UPPER_CUS_CODE				  
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV${loginCustomerUpperLev}) AS UPPER_CUS_NAME	  
+			</if>
+			<if test='loginCustomerUpperLev == "0"'>
+			,NULL AS UPPER_CUS_CODE				  
+			,NULL AS UPPER_CUS_NAME	  
+			</if>
+			</when>
+			<otherwise>
+			,od.CUST_CODE_LV1 AS UPPER_CUS_CODE				  
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV1) AS UPPER_CUS_NAME	  
+			</otherwise>
+			</choose>
+			
+			<choose>
+			<when test="loginCustomerLowLev != null and loginCustomerLowLev != ''">
+			<if test='loginCustomerLowLev != "8"'>
+			,od.CUST_CODE_LV${loginCustomerLowLev} AS LOW_CUS_CODE				  
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV${loginCustomerLowLev}) AS LOW_CUS_NAME	  
+			</if>
+			<if test='loginCustomerLowLev == "8"'>
+			,NULL AS LOW_CUS_CODE				  
+			,NULL AS LOW_CUS_NAME	  
+			</if>
+			</when>
+			<otherwise>
+			,od.CUST_CODE_LV2 AS LOW_CUS_CODE				  
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV2) AS LOW_CUS_NAME	  
+			</otherwise>
+			</choose>
+<!-- 			,od.CUST_CODE_LV1 -->
+<!-- 			,od.CUST_CODE_LV2 -->
+<!-- 			,od.CUST_CODE_LV3 -->
+<!-- 			,od.CUST_CODE_LV4 -->
+<!-- 			,od.CUST_CODE_LV5 -->
+<!-- 			,od.CUST_CODE_LV6 -->
+<!-- 			,od.CUST_CODE_LV7 -->
+			,od.PO_DATE
+			<if test="srchEntCode != null and srchEntCode != '' and (srchEntCode == 'HUBNK' or srchEntCode == 'YHTXX')">
+				,(SELECT
+				TOP 1 POD.POD_DATE
+				from
+				TB_ECM_POD_04 POD
+				WHERE
+				POD.OD_JOB_NO = od.OD_JOB_NO
+				AND POD.POD_STATUS = 'ECM340'
+				) AS POD_DATE_CHK
+			</if>
+			,od.PO_NO
+			,od.HBL_NO
+			,od.MBL_NO
+			,od.MASTER_OD_JOB_NO
+			,od.MRN
+			,od.SHIPPER_CODE
+			,od.SHIPPER_NAME
+			,od.SHIPPER_ADDRESS
+			,od.SHIPPER_TEL
+			,od.CONSIGNEE_NAME
+			,od.CONSIGNEE_ADDRESS
+			,od.CONSIGNEE_ZIPCODE
+			,(CASE WHEN ad.ZIPCODE_ERROR_YN = 'Y' THEN '오류' END) AS ZIPCODE_ERROR_YN
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+			,od.CURRENCY_CODE
+			,od.EXCHANGE_RATE
+			,od.AMOUNT_CUR
+			,od.AMOUNT_LOC
+			,od.AMOUNT_USD
+			,od.PIECES_REAL
+			,od.PIECES
+			,od.GWT
+			,od.CBM
+			,od.GWT_LBS
+			,ad.PRINT_YN
+			,ad.PRINT_DATE
+			,od.ORIG_CODE
+			,od.ORIG_COUNTRY
+			,od.DEST_CODE
+			,od.OB_DATE
+			,od.AR_DATE
+			,od.VESSEL_FLIGHT
+			,od.FTA_YN
+			,od.FTA_REMARKS
+			,ad.CUSTOMS_ID_ERROR			
+			,od.INSPECTION_YN
+			,ad.SE_INSPECTION_YN
+			,ad.DROP_YN
+			,ad.XRAY_YN
+			,od.COMMODITY_ITEM
+			,od.BOUND
+			,od.BOUND_TYPE
+			,od.CONSOL_YN
+			,od.CUSTOMS_ID_TYPE
+			,od.REMARKS
+			,od.DELIVERY_NOTE
+			,CASE WHEN ISNULL(od.CONSOL_YN,'N') = 'Y' AND ad.LAST_POD_STATUS >= 'ECM030' THEN 'Y' END AS CHK1
+			,CASE WHEN ISNULL(od.CONSOL_YN,'N') = 'N' AND ad.LAST_POD_STATUS >= 'ECM030' THEN 'Y' END AS CHK2
+			,det.NAME_${userLanguage} AS LAST_POD_STATUS_NM		
+		    ,od.CONSIGNEE_NAME_LOC
+		    ,od.CONSIGNEE_ADDRESS_LOC
+		    ,ad.SMS_INFORM_YN
+		    ,CONVERT(VARCHAR(16), DATEADD(hh, -9, ad.SMS_INFORM_DATE), 120) AS SMS_INFORM_DATE
+			,ad.SMS_INFORM_RES_YN
+			,CONVERT(VARCHAR(16), DATEADD(hh, -9, ad.SMS_INFORM_RES_DATE), 120) AS SMS_INFORM_RES_DATE
+		    ,ad.CARRYIN_DATE
+		    ,ad.CARRYOUT_DATE
+<!-- 		    ,(SELECT TOP 1 POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM010') AS POD_RPT -->
+<!-- 			,(SELECT TOP 1 POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM030') AS POD_CARRY_IN -->
+<!-- 			,(SELECT TOP 1 POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM040') AS POD_SEND_HOLD -->
+			
+			,CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE ENT_CODE = od.ENT_CODE AND FUNC_JOB_NO = od.OD_JOB_NO ) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+			
+			,od.DELIVERY_CODE
+			<choose>
+			<when test='srchMode == "excel" or srchMode == "selectCodeName"'>
+			,od.CD_TYPE + ' ' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'CD_TYPE' AND CODE = od.CD_TYPE) AS CD_TYPE
+			,od.CD_USE_TYPE + ' ' +(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND CODE = od.CD_USE_TYPE AND GROUP_CODE = 'USE_GUBN') AS CD_USE_TYPE
+			,od.ECM_TYPE + ' ' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'CCL_ECOMMERCE_TYPE' AND CODE = od.ECM_TYPE) AS ECM_TYPE
+			,ad.CUSTOMS_ID_VERIFY + ' ' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'CUSTOMS_ID_VERIFY' AND CODE = ad.CUSTOMS_ID_VERIFY) AS CUSTOMS_ID_VERIFY
+			</when>
+			<otherwise>
+			,od.CD_TYPE
+			,od.CD_USE_TYPE
+			,od.ECM_TYPE
+			,ad.CUSTOMS_ID_VERIFY	  
+			</otherwise>
+			</choose>
+			,od.ALLOWED_ITEM_CODE
+			,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'DROP_CODE' AND CODE = ad.DROP_CODE) AS DROP_REASON
+			,od.CLEARANCE_VIOLATION_REASON
+			,od.DELIVERY_NAME_CHANGED
+			,od.ECM_BUY_TYPE
+			,od.AGENT_REG_NO
+			,od.AGENT_NAME
+			,od.SELLER_REG_NO
+			,od.SELLER_NAME
+			,od.SALES_BROKER_REG_NO
+			,od.SALES_BROKER_NAME
+			,od.TARIFF_REMARKS
+			,ad.DELIVERY_STATUS
+			,ad.CLEARANCE_RECEIPT_DATE
+			,ad.CLEARANCE_DATE
+			,(
+				SELECT TOP 1 CONCAT(ISNULL(pod.POD_DATE, '1900-01-01'), ' ', ISNULL(pod.POD_TIME, '00:00')) AS POD_DATE_TIME 
+				FROM TB_ECM_POD_03 pod 
+				WHERE pod.OD_JOB_NO = ad.OD_JOB_NO 
+				AND POD_STATUS = 'ECM251'
+			) AS CLEARANCE_VIOLATION_DATE
+			,ad.DELIVERY_RECV_DATE
+			,(
+				SELECT TOP 1 CONCAT(ISNULL(pod.POD_DATE, '1900-01-01'), ' ', ISNULL(pod.POD_TIME, '00:00')) AS POD_DATE_TIME 
+				FROM TB_ECM_POD_04 pod 
+				WHERE OD_JOB_NO = od.OD_JOB_NO 
+				AND POD_STATUS = 'ECM361'
+			) AS PICKUP_DATE
+			,ad.DELIVERY_DATE
+			,(
+				SELECT TOP 1 CONCAT(ISNULL(pod.POD_DATE, '1900-01-01'), ' ', ISNULL(pod.POD_TIME, '00:00')) AS POD_DATE_TIME 
+				FROM TB_ECM_POD_04 pod 
+				WHERE OD_JOB_NO = od.OD_JOB_NO 
+				AND POD_STATUS = 'ECM400'
+			) AS UNDELIVERY_DATE
+			,(
+				SELECT REMARKS
+				FROM TB_ECM_POD_04 pod 
+				WHERE OD_JOB_NO = od.OD_JOB_NO 
+				AND POD_STATUS = 'ECM400'
+			) AS UNDELIVERY_REMARKS
+			,STUFF((SELECT ',' + PO_NO FROM TB_ECM_OD_PO_INFO WHERE OD_JOB_NO = od.OD_JOB_NO FOR XML PATH('')) ,1 ,1, '') AS PO_NO_LIST
+			,od.MULTI_YN
+			
+			
+            ,COUNT(od.OD_JOB_NO) OVER() AS SUM_COUNT
+<!--             ,SUM(ISNULL(od.PIECES,0)) OVER() AS SUM_PIECES -->
+<!--             ,SUM(ISNULL(od.GWT,0)) OVER() AS SUM_GWT -->
+<!--             ,COUNT(CASE od.CD_TYPE WHEN 'Y' THEN 1 END) OVER() AS SIMPLE_CNT -->
+<!-- 			,COUNT(CASE od.CD_TYPE WHEN 'N' THEN 1 END) OVER() AS GENERAL_CNT -->
+<!-- 			,COUNT(CASE od.CD_TYPE WHEN 'B' THEN 1 END) OVER() AS EXCLUDE_CNT -->
+<!-- 			,COUNT(CASE od.CD_TYPE WHEN 'E' THEN 1 END) OVER() AS IMPLEMENTATION_CNT -->
+<!--             ,COUNT(CASE od.INSPECTION_YN WHEN 'Y' THEN 1 END) OVER() AS SUM_INSPECTION -->
+<!--             ,COUNT(CASE ad.DROP_YN WHEN 'Y' THEN 1 END) OVER() AS SUM_DROP -->
+<!--             ,COUNT(CASE od.CD_TYPE WHEN 'Y' THEN 1 END) OVER() AS SUM_SIMPLE -->
+<!--             ,COUNT(CASE od.CD_TYPE WHEN 'N' THEN 1 END) OVER() AS SUM_GENERAL -->
+<!--             ,COUNT(CASE od.CD_TYPE WHEN 'B' THEN 1 END) OVER() AS SUM_EXCLUDE -->
+            
+            ,COUNT(od.OD_JOB_NO) OVER() AS TOTAL
+            ,(SELECT USER_LOGIN_ID FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = od.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			</if>
+			<if test='srchMode == "count"'>
+			,od.PIECES
+			,od.GWT
+			,od.CBM
+			,od.CD_TYPE
+			,od.INSPECTION_YN
+			,ad.DROP_YN
+			</if>
+			<choose>
+			<when test='cryptographyYn == "Y"'>
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS CONSIGNEE_HP
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+			,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS CUSTOMS_ID
+			</when>
+			<otherwise>
+			,od.CONSIGNEE_HP
+			,od.CONSIGNEE_TEL
+			,od.CUSTOMS_ID
+			</otherwise>
+			</choose>
+			,od.CONSIGNEE_FIRST_NAME
+			,od.CONSIGNEE_LAST_NAME
+			,ad.CUSTOMS_ID_END_DATE
+			,ad.CUSTOMS_ID_START_DATE
+			<if test='profileName != null and profileName != ""'>
+				<if test='profileName == "bms11" or profileName == "hubn1"'>
+				,od.SHIPMENT_BOX_ID
+				,ad.RETURN_REQUEST_ID
+				,ad.RETURN_REQ_DATE
+				,ad.RETURN_DELIVERY_CODE
+				,od.RETURN_YN
+				,ad.RETURN_REG_DATE
+				,ad.RETURN_END_DATE
+				,(
+					SELECT TOP 1 CONCAT(ISNULL(pod.POD_DATE, '1900-01-01'), ' ', ISNULL(pod.POD_TIME, '00:00')) AS POD_DATE_TIME 
+					FROM TB_ECM_POD_04 pod 
+					WHERE OD_JOB_NO = od.OD_JOB_NO 
+					AND POD_STATUS = 'ECM530'
+				) AS RETURN_START_DATE
+				,od.RETURN_DELIVERY_NO
+				</if>
+			</if>
+		    ,od.FORWARD_AGENT_CODE
+		    ,od.ORDER_NAME
+		    ,od.ECM_YN
+			,(SELECT COUNT(1) FROM TB_ECM_OD_MULTI teom WHERE teom.OD_JOB_NO = od.OD_JOB_NO ) as multiCnt
+		FROM TB_ECM_OD od
+		LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL ad ON od.OD_JOB_NO = ad.OD_JOB_NO
+		LEFT JOIN TB_SMS_CODE_DETAIL det ON 
+				od.ENT_CODE = det.ENT_CODE AND det.GROUP_CODE = 'STATUS_ORDER_CARGO' AND ad.LAST_POD_STATUS = det.CODE
+		<if test='srchNo != null and srchNo != "" and srchNoType == "multi.DELIVERY_NO"'>
+		LEFT JOIN TB_ECM_OD_MULTI multi ON multi.OD_JOB_NO = od.OD_JOB_NO
+		</if>
+		<!-- parameter 추가시 SearchOrderCustomerList/SearchOrderList/SearchExcelList에 추가 -->
+		<include refid="org.yht.exps.express.mapper.consumerService.OrderCustomerMapper.selectOrderListWhere"/>
+		AND ad.LAST_POD_STATUS  <![CDATA[<>]]>  'ECM002'
+		<if test='srchMode == "listCount" or srchMode == "count"'>
+		) A
+		</if>
+		
+<!-- 		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	<if test='srchMode != "listCount" and srchMode != "count"'>
+	
+	<if test="filter != null">
+		) X
+		<include refid="org.yht.exps.express.mapper.CommonMapper.filter"/>
+		</if>
+		
+	)
+	SELECT *
+	, ROW_NUMBER() OVER(<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>) AS NUM
+	FROM Main_CTE
+	<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+	<if test="srchMode != 'excel' and srchMode != 'client' and page != null and page != 0">
+	OFFSET ${startNum} ROWS FETCH NEXT ${pageSize} ROWS ONLY
+	</if>
+	
+	</if>
+	</select>
+	
+	<!-- parameter 추가시 SearchOrderCustomerList/SearchOrderList/SearchExcelList에 추가 -->
+	<sql id="selectOrderListWhere">
+		WHERE od.ENT_CODE = #{srchEntCode}
+		AND od.BL_TYPE_MH = 'H'
+		<if test='srchNoRecords == "Y"'>
+		AND 1 = 0
+		</if>
+		<if test="(srchEntCode == 'HUBNK' or srchEntCode == 'YHTXX') and srchDeliveryCode != null and srchDeliveryCode != ''">
+			AND od.DELIVERY_CODE = #{srchDeliveryCode}
+		</if>
+		<!-- 거래처 로그인한 경우 화주와 연관된 건만 추출 -->
+		<if test="loginCustomerCd != null and loginCustomerCd != '' and loginCustomerLev != null and loginCustomerLev != ''">
+		AND od.CUST_CODE_LV${loginCustomerLev} = #{loginCustomerCd}
+		</if>  
+		<choose>
+			<when test='srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+			<when test='srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+		</choose>
+		<if test="srchConsolYn != null and srchConsolYn != ''">
+		AND ISNULL(od.CONSOL_YN,'N') = #{srchConsolYn}
+		</if>	
+		<if test="srchPrintYn != null and srchPrintYn != ''">
+			<choose>
+			<when test='srchPrintYn == "N"'>
+			AND ISNULL(ad.PRINT_YN, 'N') = 'N'
+			</when>
+			<otherwise>
+			AND ad.PRINT_YN = #{srchPrintYn}
+			</otherwise>
+			</choose>
+		</if>
+		<if test="srchCdType != null and srchCdType != ''">
+		AND od.CD_TYPE = #{srchCdType}
+		</if>
+		<!-- 통관구분 멀티타입 추가 -->
+		<if test="srchCdTypeList != null and !srchCdTypeList.isEmpty() and (customCompleteYn == null or customCompleteYn == '')">
+		AND (1 = 0
+		<foreach collection="srchCdTypeList" item="item">
+			<choose>
+			<when test='item == "Y" or item == "B" or item == "N" or item == "E"'>
+			OR od.CD_TYPE = #{item}
+			</when>
+			<otherwise>
+			OR od.CD_TYPE IN ('N', 'B') OR ad.DROP_YN = 'Y'
+			</otherwise>
+			</choose>
+		</foreach>
+		)  
+		</if>	
+		<if test='customCompleteYn == "Y"'>
+		AND (od.CD_TYPE IN ('N', 'B') OR ad.DROP_YN = 'Y')
+		</if>
+		<if test='srchDateGbn != "noDateChk"'>
+		<choose>
+			<when test='srchMode == "listCount" or srchMode == "selectCodeName"'>
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</when>
+			<otherwise>
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</otherwise>
+		</choose>
+		</if>
+		<if test="srchCarryList != null and srchCarryList.size > 0">
+		AND(
+			<foreach collection="srchCarryList" item="item" separator=" OR ">
+				<choose>
+				<when test='item == "CARRYIN"'>ad.CARRYIN_DATE IS NOT NULL</when>
+				<when test='item == "NOTCARRYIN"'>ad.CARRYIN_DATE IS NULL</when>
+				<when test='item == "CARRYOUT"'>ad.CARRYOUT_DATE IS NOT NULL</when>
+				<when test='item == "NOTCARRYOUT"'>ad.CARRYOUT_DATE IS NULL</when>
+				<when test='item == "CARRYIN_NOTCARRYOUT"'>(ad.CARRYIN_DATE IS NOT NULL AND ad.CARRYOUT_DATE IS NULL)</when>
+				</choose>
+			</foreach>
+		)
+		</if>
+		<if test='srchSmsInformYn == "Y"'>
+		AND (ad.SMS_INFORM_YN = 'Y' AND (ad.SMS_INFORM_RES_YN IS NULL OR ad.SMS_INFORM_RES_YN = 'N'))
+		</if>
+		<if test='srchSmsInformYn == "N"'>
+		AND (ad.SMS_INFORM_YN IS NULL OR ad.SMS_INFORM_YN = '' OR ad.SMS_INFORM_YN = 'N')
+		</if>
+		<if test='srchSmsInformYn == "A"'>
+		AND (ad.SMS_INFORM_YN = 'Y' AND ad.SMS_INFORM_RES_YN = 'Y')
+		</if>
+		<if test='srchSmsInformYn == "B"'>
+		AND (ad.SMS_INFORM_YN = 'Y' AND ad.SMS_INFORM_RES_YN = 'N')
+		</if>
+<!-- 		<choose> -->
+<!-- 			<when test='srchCusIdVerify == "Y"'> -->
+<!-- 	        AND ISNULL(ad.CUSTOMS_ID_VERIFY, '') = 'Y' -->
+<!-- 	        </when> -->
+<!-- 	        <when test='srchCusIdVerify == "N"'> -->
+<!-- 	        AND ISNULL(ad.CUSTOMS_ID_VERIFY, '') IN ('N','X') -->
+<!-- 	        </when> -->
+<!-- 	        <when test='srchCusIdVerify == "X"'> -->
+<!-- 	        AND (ISNULL(ad.CUSTOMS_ID_VERIFY, '') = 'X' OR ISNULL(od.CUSTOMS_ID, '') = '') -->
+<!-- 	        </when> -->
+<!-- 	        <when test='srchCusIdVerify == "E"'> -->
+<!-- 	        AND ISNULL(ad.CUSTOMS_ID_VERIFY, '') = 'E' -->
+<!-- 	        </when> -->
+<!-- 	        <when test='srchCusIdVerify == "O"'> -->
+<!-- 	        AND ISNULL(ad.CUSTOMS_ID_VERIFY, '') = 'O' -->
+<!-- 	        </when> -->
+<!-- 	        <when test='srchCusIdVerify == "NV"'> -->
+<!-- 	        AND ISNULL(ad.CUSTOMS_ID_VERIFY, '') = '' -->
+<!-- 	        AND ISNULL(od.CUSTOMS_ID, '') != '' -->
+<!-- 	        </when>      -->
+<!--         </choose> -->
+		<if test="srchCusIdVerify != null and srchCusIdVerify != ''">
+		AND ad.CUSTOMS_ID_VERIFY = #{srchCusIdVerify}
+		</if>
+		<if test="srchCusIdVerifyList != null and srchCusIdVerifyList.size > 0">
+		AND ad.CUSTOMS_ID_VERIFY IN (<foreach collection="srchCusIdVerifyList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+			<when test='dynamicCryptographyYn == "Y"'>
+				<choose>
+				<when test='srchNoLikeYn == "Y"'>
+				AND dbo.Cryptography(od.OD_JOB_NO, ${srchNoType}_ENC, 1) LIKE CONCAT('%',#{srchNo},'%')
+				</when>
+				<otherwise>
+					<choose>
+						<when test='searchType == "multi"'>
+						AND dbo.Cryptography(od.OD_JOB_NO, ${srchNoType}_ENC, 1) IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND dbo.Cryptography(od.OD_JOB_NO, ${srchNoType}_ENC, 1) = #{srchNo}
+						</otherwise>
+					</choose>
+				</otherwise>
+				</choose>
+			</when>
+			<otherwise>
+				<choose>
+					<when test='srchNoLikeYn == "Y"'>
+					AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+					</when>
+					<otherwise>
+						<choose>
+							<when test='searchType == "multi"'>
+							AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+							</when>
+							<otherwise>
+							AND ${srchNoType} = #{srchNo}
+							</otherwise>
+						</choose>
+					</otherwise>
+				</choose>
+			</otherwise>
+			</choose>
+		</if>			
+		<if test="srchOdJobNoList != null and srchOdJobNoList != ''">
+		AND od.OD_JOB_NO IN (<foreach collection="srchOdJobNoList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		<!-- 거래처코드 검색어 있는 경우 -->
+		<if test="srchCustomerCode != null and srchCustomerCode != ''">
+			
+			<!-- 도입사 -->
+			<if test='loginCustomerCd == null or loginCustomerCd == ""'>
+			<choose>
+			<!-- 도입사 - 상위업체 검색 -->
+			<when test='srchCusType == "U"'>
+			AND od.CUST_CODE_LV1 = #{srchCustomerCode}
+			</when>
+			<!-- 도입사 - 하위업체 검색 -->
+			<when test='srchCusType == "L"'>
+			AND od.CUST_CODE_LV2 = #{srchCustomerCode}
+			</when>
+			</choose>
+			</if>
+			
+			<!-- 거래처 - 상위업체코드 검색 -->
+			<if test = 'srchCusType == "U" and (loginCustomerCd != null and loginCustomerCd != "")'>
+			<choose>
+			<when test='loginCustomerUpperLev == "0"'>
+			AND 1 = 0
+			</when>
+			<otherwise>
+			AND od.CUST_CODE_LV${loginCustomerUpperLev} = #{srchCustomerCode}
+			</otherwise>
+			</choose>
+			</if>
+			
+			<!-- 거래처 - 하위업체코드 검색 -->
+			<if test='srchCusType == "L" and (loginCustomerCd != null and loginCustomerCd != "")'>
+			<choose>
+			<when test='loginCustomerLowLev == "8"'>
+			AND 1 = 0
+			</when>
+			<otherwise>
+			AND od.CUST_CODE_LV${loginCustomerLowLev} = #{srchCustomerCode}
+			</otherwise>
+			</choose>
+			</if>
+			
+		</if>
+		
+		<!-- 거래처명 검색어 있는 경우 -->
+		<if test="srchCustomerName != null and srchCustomerName != ''">
+			
+			<!-- 도입사 -->
+			<if test='loginCustomerCd == null or loginCustomerCd == ""'>
+			<choose>
+			<!-- 도입사 - 상위업체명 검색 -->
+			<when test='srchCusType == "U"'>
+			AND (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV1) LIKE CONCAT('%',#{srchCustomerName},'%')
+			</when>
+			<!-- 도입사 - 하위업체명 검색 -->
+			<when test='srchCusType == "L"'>
+			AND (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV2) LIKE CONCAT('%',#{srchCustomerName},'%')
+			</when>
+			</choose>
+			</if>
+			
+			<!-- 거래처 - 상위업체명 검색 -->
+			<if test='srchCusType == "U" and (loginCustomerCd != null and loginCustomerCd != "")'>
+			<choose>
+			<when test='loginCustomerUpperLev == "0"'>
+			AND 1 = 0
+			</when>
+			<otherwise>
+			AND (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV${loginCustomerUpperLev}) LIKE CONCAT('%',#{srchCustomerName},'%')
+			</otherwise>
+			</choose>
+			</if>
+			
+			<!-- 거래처 - 하위업체명 검색 -->
+			<if test='srchCusType == "L" and (loginCustomerCd != null and loginCustomerCd != "")'>
+			<choose>
+			<when test='loginCustomerLowLev == "8"'>
+			AND 1 = 0
+			</when>
+			<otherwise>
+			AND (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV${loginCustomerLowLev}) LIKE CONCAT('%',#{srchCustomerName},'%')
+			</otherwise>
+			</choose>
+			</if>
+					
+		</if>
+		
+		<!-- 입력자 검색어 있는 경우 -->
+		<if test="srchRegisterUserName != null and srchRegisterUserName != ''">
+			AND (SELECT USER_LOGIN_ID FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = od.REGISTER_USER_ID) LIKE CONCAT('%',#{srchRegisterUserName},'%')
+		</if>
+		
+		
+		
+		
+		<if test='srchMultiStatusYn == "Y"'>
+			AND(1 = 0
+			<if test="srchInspectionYn != null and srchInspectionYn != ''">
+			OR od.INSPECTION_YN = #{srchInspectionYn}
+			</if>
+			<if test="srchSeInspectionYn != null and srchSeInspectionYn != ''">
+			OR ad.SE_INSPECTION_YN = #{srchSeInspectionYn}
+			</if>
+			<if test="srchXrayYn != null and srchXrayYn != ''">
+			OR ad.XRAY_YN = #{srchXrayYn}
+			</if>
+			<if test="srchDropYn != null and srchDropYn != ''">
+			OR ad.DROP_YN = #{srchDropYn}
+			</if>
+			<if test="srchSimpleEdiStatus != null and srchSimpleEdiStatus != ''">
+			OR ad.SIMPLE_EDI_STATUS = #{srchSimpleEdiStatus}
+			</if>
+			<if test="srchSimpleStatementYn != null and srchSimpleStatementYn != ''">
+			OR ad.SIMPLE_STATEMENT_YN = #{srchSimpleStatementYn}
+			</if>
+			<if test='unusualYn == "Y"'>
+			OR (ISNULL(od.CLEARANCE_VIOLATION_CODE, '') != '' OR ISNULL(od.CLEARANCE_VIOLATION_REASON, '') != '')
+        	OR (SELECT COUNT(*) FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') > 0
+			</if> 
+			<if test='srchAbnormalYn != null and srchAbnormalYn != ""'>
+			AND ISNULL((SELECT TOP 1 ABNORMAL_CODE FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = od.OD_JOB_NO),'') != ''
+			</if> 
+			)
+		</if>
+        
+        <choose>
+		<when test='statusDefault == "waiting"'>
+        AND ad.LAST_POD_STATUS <![CDATA[<]]> 'ECM010'
+        </when>
+        <when test='statusDefault == "accept"'>
+        AND ad.LAST_POD_STATUS >= 'ECM010'
+        </when>
+       </choose>
+       
+		<if test="srchStatus != null and srchStatus != ''">
+		AND ad.LAST_POD_STATUS = #{srchStatus}
+		</if>
+		<if test="srchStatusList != null and !srchStatusList.isEmpty()">
+		AND ad.LAST_POD_STATUS IN (<foreach collection="srchStatusList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		<if test="srchStatusNotList != null and !srchStatusNotList.isEmpty()">
+		AND ad.LAST_POD_STATUS NOT IN (<foreach collection="srchStatusNotList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		<if test='srchSendYn == "Y"'>
+		AND ad.LAST_POD_STATUS = 'ECM040'
+		</if>
+		
+		<choose>
+			<when test='srchMultiYn == "Y"'>
+			AND od.MULTI_YN = 'Y'
+			</when>
+			<when test='srchMultiYn == "N"'>
+			AND ISNULL(od.MULTI_YN, 'N') = 'N'
+-- 				AND od.PIECES > 1
+			</when>
+		</choose>
+		
+		<if test="srchReturnYn != null and srchReturnYn != ''">
+			AND od.RETURN_YN = #{srchReturnYn}
+		</if>
+		<if test="srchReturnDelNoYn != null and srchReturnDelNoYn != ''">
+			<choose>
+				<when test='srchReturnDelNoYn == "Y"'>
+					AND (od.RETURN_YN = 'Y' AND ISNULL(od.RETURN_DELIVERY_NO,'') != '')   
+				</when>
+				<otherwise>
+					AND (od.RETURN_YN = 'Y' AND ISNULL(od.RETURN_DELIVERY_NO,'') = '')   
+				</otherwise>
+			</choose>
+		</if>	
+	</sql>
+		
+	<delete id="deleteOrder" parameterType="order">
+		/* OrderCustomerMapper.deleteOrder : Order Delete */
+		DELETE FROM TB_ECM_OD
+		WHERE OD_JOB_NO = #{odJobNo}			
+	</delete>
+	
+	<delete id="deleteOrderAdditional" parameterType="order">
+		/* OrderCustomerMapper.deleteOrderAdditional : Order Additional Delete */
+		DELETE FROM TB_ECM_OD_ADDITIONAL
+		WHERE OD_JOB_NO = #{odJobNo}		
+	</delete>
+	
+	<delete id="deleteOrderContainer" parameterType="order">
+		/* OrderCustomerMapper.deleteOrderContainer : Order Container Delete */
+		DELETE FROM TB_ECM_OD_CONTAINER
+		WHERE OD_JOB_NO = #{odJobNo};		
+	</delete>
+	
+	<delete id="deleteOrderItem" parameterType="order">
+		/* OrderCustomerMapper.deleteOrderItem : Order Item Delete */
+		DELETE FROM TB_ECM_OD_ITEM
+		WHERE OD_JOB_NO = #{odJobNo}			
+	</delete>
+	
+	<delete id="deleteOrderSpecialItem" parameterType="order">
+		/* OrderCustomerMapper.deleteOrderSpecialItem : Order SpecialItem Delete */
+		DELETE FROM TB_ECM_OD_SPECIAL_ITEM
+		WHERE OD_JOB_NO = #{odJobNo}		
+	</delete>
+	
+	<delete id="deleteOrderCost" parameterType="order">
+		/* OrderCustomerMapper.deleteOrderCost : Order SpecialCost Delete */
+		DELETE FROM TB_ECM_OD_COST
+		WHERE OD_JOB_NO = #{odJobNo}		
+	</delete>
+	
+	<delete id="deleteOrderMulti" parameterType="order">
+		/* OrderCustomerMapper.deleteOrderMulti : Order SpecialMulti Delete */
+		DELETE FROM TB_ECM_OD_MULTI
+		WHERE OD_JOB_NO = #{odJobNo}		
+	</delete>
+	
+	<insert id="insertOrder" parameterType="order">
+		/* OrderCustomerMapper.insertOrder : Order Insert */
+		INSERT INTO TB_ECM_OD
+		(
+			OD_JOB_NO                                                                    
+			,ENT_CODE                              		                                    
+			,ENT_BUSINESS_CODE                     		                                    
+			,SOLUTION                              		                                    
+			,BOUND                                 		                                    
+			,BOUND_TYPE                            		                                    
+			,PO_DATE                               		                                    
+			,PO_NO                                 		
+			,CUST_CODE_LV1                          	                                    
+			,CUST_CODE_LV2                          	                                    
+			,CUST_CODE_LV3                          	                                    
+			,CUST_CODE_LV4                          	                                    
+			,CUST_CODE_LV5                          	                                    
+			,CUST_CODE_LV6                          	                                    
+			,CUST_CODE_LV7                       	  	                                    
+			,BL_TYPE_MH                            		                                 
+			,CONSOL_YN                             		                                    
+			,MBL_NO                                		                                    
+			,HBL_NO                                		                                  
+			,DELIVERY_CODE                         		                                   
+			,DELIVERY_NOTE                      		                                        
+			,CB_CODE                               		                                    
+			,CB_NAME                               		                                 
+			,CD_TYPE                               		                                    
+			,CD_USE_TYPE                           		                                    
+			,ECM_TYPE                              		                                   
+			,CUSTOMS_ID_TYPE                       		                                    
+			,CLEARANCE_VIOLATION_CODE              		                                    
+			,CLEARANCE_VIOLATION_REASON            		                                              
+			,URL                                   		                             
+			,VESSEL_FLIGHT                         		
+			,PIECES                               		                                    
+			,PIECES_REAL
+			,GWT                                   		                                    
+			,GWT_LBS                                	                                    
+			,CBM                                 		                                    
+			,VWT                            		                                    
+			,COMMODITY_ITEM                       		                                    
+			,CURRENCY_CODE                         		                                    
+			,EXCHANGE_RATE                         		                                    
+			,AMOUNT_LOC                            		                                    
+			,AMOUNT_CUR                              		                                    
+			,SHIPPER_CODE                          		                                    
+			,SHIPPER_NAME                          		                                    
+			,SHIPPER_ADDRESS                       		                                    
+			,SHIPPER_ADDRESS_A                     		                                    
+			,SHIPPER_ADDRESS_B                     		                                    
+			,SHIPPER_ADDRESS_C                     		                                    
+			,SHIPPER_ADDRESS_D                     		                                    
+			,SHIPPER_TEL                           		                                    
+			,SHIPPER_ZIPCODE                       		                                    
+			,SHIPPER_COUNTRY_CODE                  		                                    
+			,SHIPPER_STATE_CODE                    		                                    
+			,SHIPPER_PLACE_CODE                    		                                    
+			,SHIPPER_PLACE                         		                                    
+			,SHIPPER_STREET                        		                                    
+			,SHIPPER_BUSINESS_ID                   		                                    
+			,SHIPPER_ATTN_ID                       		                                    
+			,SHIPPER_ATTN                          		                                    
+			,SHIPPER_FAX           
+			,CONSIGNEE_CODE                        		                                    
+			,CONSIGNEE_NAME                        		                                    
+			,CONSIGNEE_ADDRESS                     		                                    
+			,CONSIGNEE_ADDRESS_A                   		                                    
+			,CONSIGNEE_ADDRESS_B                   		                                    
+			,CONSIGNEE_ADDRESS_C                   		                                    
+			,CONSIGNEE_ADDRESS_D                   		                                    
+			,CONSIGNEE_ZIPCODE                     		                                    
+			,CONSIGNEE_COUNTRY_CODE                		                                    
+			,CONSIGNEE_STATE_CODE                  		                                    
+			,CONSIGNEE_PLACE_CODE                  		                                    
+			,CONSIGNEE_PLACE                       		                                    
+			,CONSIGNEE_STREET                      		                                    
+			,CONSIGNEE_BUSINESS_ID                 		                                    
+			,CONSIGNEE_ATTN_ID                     		                                    
+			,CONSIGNEE_ATTN                        		                                    
+			,CONSIGNEE_FAX                         		                                    
+			,CONSIGNEE_NAME_LOC                    		                                    
+			,CONSIGNEE_ADDRESS_LOC                 		
+			,INSPECTION_TYPE    
+			,FTA_YN
+			,FTA_REMARKS
+			,REMARKS
+			,AGENT_REG_NO 
+			,AGENT_NAME
+			,SELLER_REG_NO
+			,SELLER_NAME
+			,SALES_BROKER_REG_NO
+			,SALES_BROKER_NAME           		                                     	
+			,ALLOWED_ITEM_CODE
+			,ORIG_COUNTRY
+			,DIM_WIDTH
+			,DIM_LENGTH
+			,DIM_HEIGHT
+			,INPUT_METHOD
+			,REGISTER_USER_ID                      		                                    
+			,REGISTER_DATE_TIME                    		                                    
+			,UPDATE_USER_ID                        		                                    
+			,UPDATE_DATE_TIME                    	  	                                    
+			<choose>
+			<when test='cryptographyYn == "Y"'>
+			,CONSIGNEE_HP_ENC
+			,CONSIGNEE_TEL_ENC
+			,CUSTOMS_ID_ENC
+			</when>
+			<otherwise>
+			,CONSIGNEE_HP
+			,CONSIGNEE_TEL
+			,CUSTOMS_ID
+			</otherwise>
+			</choose>
+		    ,CONSIGNEE_LAST_NAME
+			,CONSIGNEE_FIRST_NAME
+			,DEST_DELIVERY_NO
+            ,FORWARD_AGENT_CODE
+            ,FORWARD_AGENT_NAME
+            ,ORDER_NAME
+            ,ORDER_TEL
+            ,ORDER_ACCOUNT
+            ,ECM_YN
+			)
+		VALUES
+		(
+			#{odJobNo}                                                                                               
+			,#{entCode}                                                                                          	
+    		,(SELECT TOP 1 ENT_BUSINESS_CODE FROM TB_SMS_ENT_BUSINESS WHERE HEAD_BUSINESS_YN = 'Y')                  
+			,#{solution}                                                                                        
+<!--     		,CASE WHEN #{boundType} IN ('AO','AI') THEN 'AIR' WHEN #{boundType} IN ('SO','SI') THEN 'SEA' END                                                                                               -->
+<!--     		,CASE WHEN #{boundType} IN ('AI','SI') THEN 'EXP' WHEN #{boundType} IN ('AO','SO') THEN 'IMP' END -->
+    		,#{bound}                                                                                              
+    		,#{boundType}                  
+    		,CONVERT(DATE, #{poDate}, ${dateFormat})                                                             
+    		,LTRIM(RTRIM(#{poNo}))                                                                                             
+    		,#{custCodeLv1}                                                                                      
+    		,#{custCodeLv2}                                                                                      
+    		,#{custCodeLv3}                                                                                      
+    		,#{custCodeLv4}                                                                                      
+    		,#{custCodeLv5}                                                                                      
+    		,#{custCodeLv6}                                                                                      
+    		,#{custCodeLv7}                                                                                      
+    		,#{blTypeMh}                                                                                         
+    		,#{consolYn}                                                                                         
+    		,LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))                                                                                            
+    		,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))                                                                                            
+    		,#{deliveryCode}                                                                                     
+    		,#{deliveryNote}                                                                                  
+    		,#{cbCode}                                                                                           
+    		,#{cbName}                                                                                           
+    		,#{cdType}                                                                                           
+    		,#{cdUseType}                                                                                        
+    		,#{ecmType}                                                                                          
+    		,#{customsIdType}                                                                                    
+    		,#{clearanceViolationCode}                                                                           
+    		,#{clearanceViolationReason}                                                                         
+    		,#{url}                                                                                              
+    		,#{vesselFlight}                                                                                     
+    		,#{pieces}
+    		,#{piecesReal}                                                                                          
+    		,#{gwt}                                                                                              
+    		,#{gwtLbs}                                                                                           
+<!--     		,CASE WHEN #{boundType} IN ('AO','AI') THEN #{vwt} END -->
+    		,#{cbm}
+    		,#{vwt}                                                                                        
+    		,UPPER(#{commodityItem})                                                                                  
+    		,#{currencyCode}                                                                                     
+    		,#{exchangeRate}                                                                                     
+    		,#{amountLoc}                                                                                        
+    		,#{amountCur}                                                                                      
+    		,#{shipperCode}                                                                                      
+    		,UPPER(#{shipperName})
+    		,SUBSTRING(UPPER(#{shipperAddress}), 1, 60)                                                                 
+    		,SUBSTRING(UPPER(#{shipperAddress}), 61, 60)                                                                
+    		,SUBSTRING(UPPER(#{shipperAddress}), 121, 60)                                                               
+    		,SUBSTRING(UPPER(#{shipperAddress}), 181, 60)                                                               
+    		,SUBSTRING(UPPER(#{shipperAddress}), 241, 60)                                                               
+    		,#{shipperTel}                                                                                       
+    		,#{shipperZipcode}                                                                                   
+    		,#{shipperCountryCode}                                                                               
+    		,#{shipperStateCode}                                                                                 
+    		,#{shipperPlaceCode}                                                                                 
+    		,#{shipperPlace}                                                                                     
+    		,#{shipperStreet}                                                                                    
+    		,dbo.Cryptography(#{odJobNo}, #{shipperBusinessId}, 0)
+    		,#{shipperAttnId}                                                                                    
+    		,#{shipperAttn}                                                                                      
+    		,#{shipperFax}                                                                                       
+    		,#{consigneeCode}                                                                                    
+    		,UPPER(#{consigneeName})
+    		,SUBSTRING(UPPER(#{consigneeAddress}), 1, 60)                                                               
+    		,SUBSTRING(UPPER(#{consigneeAddress}), 61, 60)                                                              
+    		,SUBSTRING(UPPER(#{consigneeAddress}), 121, 60)                                                             
+    		,SUBSTRING(UPPER(#{consigneeAddress}), 181, 60)                                                             
+    		,SUBSTRING(UPPER(#{consigneeAddress}), 241, 60)                                                             
+    		,#{consigneeZipcode}                                                                                 
+    		,#{consigneeCountryCode}                                                                             
+    		,#{consigneeStateCode}                                                                               
+    		,#{consigneePlaceCode}                                                                               
+    		,#{consigneePlace}                                                                                   
+    		,#{consigneeStreet}                                                                                  
+    		,dbo.Cryptography(#{odJobNo}, #{consigneeBusinessId}, 0)
+    		,#{consigneeAttnId}                                                                                  
+    		,#{consigneeAttn}                                                                                    
+    		,#{consigneeFax}                                                                                     
+    		,#{consigneeNameLoc}                                                                                 
+    		,#{consigneeAddressLoc}                                                                              
+    		,#{inspectionType} 
+    		,#{ftaYn}     
+    		,#{ftaRemarks}
+    		,#{remarks}    
+    		,#{agentRegNo}  
+    		,#{agentName}
+    		,#{sellerRegNo}
+    		,#{sellerName}
+    		,#{salesBrokerRegNo}
+    		,#{salesBrokerName}                                                                        
+    		,#{allowedItemCode}
+    		,#{origCountry}
+    		,#{dimWidth}
+    		,#{dimHeight}
+    		,#{dimLength}
+    		,'WEB'
+    		,#{updateUserId}                                                                                     
+    		,DATEADD(HOUR, ${gmtTime}, GETDATE())                                                                
+    		,#{updateUserId}                                                                                     
+    		,DATEADD(HOUR, ${gmtTime}, GETDATE()) 
+    		<choose>
+			<when test='cryptographyYn == "Y"'>
+			,dbo.Cryptography(#{odJobNo}, #{consigneeHp}, 0)
+			,dbo.Cryptography(#{odJobNo}, #{consigneeTel}, 0)
+			,dbo.Cryptography(#{odJobNo}, #{customsId}, 0)
+			</when>
+			<otherwise>
+			,#{consigneeHp}
+			,#{consigneeTel}
+			,#{customsId}
+			</otherwise>
+			</choose>
+			,#{consigneeLastName}
+			,#{consigneeFirstName}
+			,#{destDeliveryNo}
+            ,#{forwardAgentCode}
+            ,#{forwardAgentName}
+            ,#{orderName}
+            ,#{orderTel}
+            ,#{orderAccount}
+            ,#{ecmYn}
+    	)
+    </insert>	 
+    
+    <insert id="insertOrderAdditonal" parameterType="order">
+		/* OrderCustomerMapper.insertOrderAdditonal : Order Additional Insert */
+		INSERT INTO TB_ECM_OD_ADDITIONAL(
+			OD_JOB_NO
+			,LAST_POD_STATUS
+			<!-- ,LAST_POD_DATE -->
+			,CUSTOMS_ID_VERIFY
+			,MBL_NO
+			,HBL_NO
+			,CD_TYPE
+			,BL_TYPE_MH
+		)VALUES(
+			#{odJobNo}
+			,#{status}
+			<!-- ,DATEADD(HOUR, ${gmtTime}, GETDATE())  -->
+			,'NV'
+			,LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+			,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+			,#{cdType}
+			,#{blTypeMh}
+		)
+	</insert>       
+	
+	<update id="updateOrderAdditonal" parameterType="order">
+		/* OrderCustomerMapper.updateOrderAdditonal : Order Additional Update */
+		UPDATE TB_ECM_OD_ADDITIONAL SET
+			   CUSTOMS_ID_VERIFY = CASE WHEN (#{customsId} IS NULL OR #{customsId} = '') THEN 'X' ELSE 'NV' END
+			  ,MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+			  ,HBL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+			  ,CD_TYPE = #{cdType}
+			  <if test='action == "delSimpleDocNo"'>
+			  ,SIMPLE_DOC_NO = null
+			  </if>
+		WHERE OD_JOB_NO = #{odJobNo}
+	</update>                                                          
+	
+	<update id="updateOrder" parameterType="order">
+		/* OrderCustomerMapper.updateOrder : Order updateOrder */
+		UPDATE TB_ECM_OD SET
+<!-- 			  BOUND = CASE WHEN #{boundType} IN ('AO','AI') THEN 'AIR' WHEN #{boundType} IN ('SO','SI') THEN 'SEA' END                                                                                               -->
+<!--     		  ,BOUND_TYPE = CASE WHEN #{boundType} IN ('AI','SI') THEN 'EXP' WHEN #{boundType} IN ('AO','SO') THEN 'IMP' END -->
+    		  BOUND = #{bound}                                                                                              
+    		  ,BOUND_TYPE = #{boundType}   
+			  ,PO_DATE = CONVERT(DATE, #{poDate}, ${dateFormat})
+			  ,PO_NO = LTRIM(RTRIM(#{poNo}))
+			  ,MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+			  ,HBL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+			  ,CD_TYPE = #{cdType}
+			  ,CD_USE_TYPE = #{cdUseType}
+			  ,ECM_TYPE = #{ecmType}
+			  ,ECM_BUY_TYPE = #{ecmBuyType}
+			  ,PIECES = #{pieces}
+			  ,PIECES_REAL = #{piecesReal}
+			  ,GWT = #{gwt}
+			  ,GWT_LBS = #{gwtLbs}
+			  ,CURRENCY_CODE = #{currencyCode}
+			  ,AMOUNT_CUR = #{amountCur}                          	
+			  ,VWT = #{vwt} 
+<!-- 			  ,CBM = CASE WHEN #{boundType} IN ('AO','AI') THEN #{vwt} END -->
+			  ,CBM = #{cbm} 
+			  ,SHIPPER_NAME = UPPER(#{shipperName})
+			  ,SHIPPER_ADDRESS = SUBSTRING(UPPER(#{shipperAddress}), 1, 60)
+			  ,SHIPPER_ADDRESS_A = SUBSTRING(UPPER(#{shipperAddress}), 61, 60) 
+			  ,SHIPPER_ADDRESS_B = SUBSTRING(UPPER(#{shipperAddress}), 121, 60) 
+			  ,SHIPPER_ADDRESS_C = SUBSTRING(UPPER(#{shipperAddress}), 181, 60)
+			  ,SHIPPER_ADDRESS_D = SUBSTRING(UPPER(#{shipperAddress}), 241, 60)
+			  ,SHIPPER_TEL = #{shipperTel}
+			  ,URL = #{url}
+			  ,CONSIGNEE_NAME = UPPER(#{consigneeName})
+			  ,CONSIGNEE_ADDRESS = SUBSTRING(UPPER(#{consigneeAddress}), 1, 60) 
+			  ,CONSIGNEE_ADDRESS_A = SUBSTRING(UPPER(#{consigneeAddress}), 61, 60)
+			  ,CONSIGNEE_ADDRESS_B = SUBSTRING(UPPER(#{consigneeAddress}), 121, 60)
+			  ,CONSIGNEE_ADDRESS_C = SUBSTRING(UPPER(#{consigneeAddress}), 181, 60)
+			  ,CONSIGNEE_ADDRESS_D = SUBSTRING(UPPER(#{consigneeAddress}), 241, 60)					  
+			  ,CONSIGNEE_BUSINESS_ID = dbo.Cryptography(#{odJobNo}, #{consigneeBusinessId}, 0)
+			  ,CONSIGNEE_NAME_LOC = #{consigneeNameLoc}
+			  ,CONSIGNEE_ADDRESS_LOC = #{consigneeAddressLoc}				  
+			  ,CONSIGNEE_ZIPCODE = #{consigneeZipcode}
+			  <if test='bound == "AIR" and boundType == "EXP"'>
+			  <!-- 항공수출이 아닐경우 AMS정보 제거예정 -->
+			  ,SHIPPER_COUNTRY_CODE = #{shipperCountryCode}
+			  ,SHIPPER_STREET = #{shipperStreet}
+			  ,SHIPPER_PLACE = #{shipperPlace}
+			  ,SHIPPER_STATE_CODE = #{shipperStateCode}
+			  ,CONSIGNEE_COUNTRY_CODE = #{consigneeCountryCode}
+			  ,CONSIGNEE_STREET = #{consigneeStreet}
+			  ,CONSIGNEE_PLACE = #{consigneePlace}
+			  ,CONSIGNEE_STATE_CODE = #{consigneeStateCode}
+			  </if>
+			  ,CUSTOMS_ID_TYPE = #{customsIdType}
+			  ,DELIVERY_CODE = #{deliveryCode}
+			  ,DELIVERY_NOTE = #{deliveryNote}
+			  ,CB_CODE = #{cbCode}
+			  ,CB_NAME = #{cbName}
+			  ,CLEARANCE_VIOLATION_CODE = #{clearanceViolationCode}
+			  ,CLEARANCE_VIOLATION_REASON = #{clearanceViolationReason}
+			  ,FTA_YN = #{ftaYn}     
+    		  ,FTA_REMARKS = #{ftaRemarks} 
+    		  ,AGENT_REG_NO = #{agentRegNo}    
+    		  ,COMMODITY_ITEM = UPPER(#{commodityItem})
+    		  ,ALLOWED_ITEM_CODE = #{allowedItemCode}
+<!--     		  ,ORIG_COUNTRY = #{origCountry} -->
+    		  ,DIM_WIDTH = #{dimWidth}
+    		  ,DIM_LENGTH = #{dimLength}
+    		  ,DIM_HEIGHT = #{dimHeight}
+			  ,UPDATE_USER_ID = #{updateUserId}
+			  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  <choose>
+			  <when test='cryptographyYn == "Y"'>
+			  ,CONSIGNEE_HP_ENC = dbo.Cryptography(#{odJobNo}, #{consigneeHp}, 0)
+			  ,CONSIGNEE_TEL_ENC = dbo.Cryptography(#{odJobNo}, #{consigneeTel}, 0)
+			  ,CUSTOMS_ID_ENC = dbo.Cryptography(#{odJobNo}, #{customsId}, 0)
+			  </when>
+			  <otherwise>
+			  ,CONSIGNEE_HP = #{consigneeHp}
+			  ,CONSIGNEE_TEL = #{consigneeTel}
+			  ,CUSTOMS_ID = #{customsId}
+			  </otherwise>
+			  </choose>
+			  ,CONSIGNEE_LAST_NAME = #{consigneeLastName}
+			  ,CONSIGNEE_FIRST_NAME = #{consigneeFirstName}
+			  ,DEST_DELIVERY_NO = #{destDeliveryNo}
+	            ,FORWARD_AGENT_CODE = #{forwardAgentCode}
+	            ,FORWARD_AGENT_NAME = #{forwardAgentName}
+	            ,ORDER_NAME = #{orderName}
+	            ,ORDER_TEL = #{orderTel}
+	            ,ORDER_ACCOUNT = #{orderAccount}
+	            ,ECM_YN = #{ecmYn}
+		WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updateSumOrder" parameterType="order">
+		/* OrderCustomerMapper.updateSumOrder : Order 수량 중량 볼륨 금액 업데이트 */
+		UPDATE od
+		SET 
+			od.PIECES = A.PIECES
+			,od.GWT = A.GWT
+			,od.GWT_LBS = ROUND(ISNULL(A.GWT,0) * 2.20462262,ROUND(${wtDecimalAir},2),0)
+			,od.VWT = A.VWT
+			,od.CBM = CASE WHEN od.BOUND = 'AIR' THEN A.VWT ELSE od.CBM END 
+			,od.CURRENCY_CODE = A.CURRENCY_CODE
+			,od.AMOUNT_CUR = A.AMOUNT
+			,UPDATE_USER_ID = #{updateUserId}
+			,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		FROM TB_ECM_OD od
+		INNER JOIN (
+			SELECT * 
+			FROM
+			(
+				SELECT 
+					od.OD_JOB_NO
+					,SUM(item.PIECES) OVER(PARTITION BY od.OD_JOB_NO) AS PIECES
+					,ROW_NUMBER() OVER(PARTITION BY od.OD_JOB_NO ORDER BY od.OD_JOB_NO,item.SEQ_NO_ID ) AS ROW_NUM	
+					,SUM(ISNULL(item.GWT,0)) OVER(PARTITION BY od.OD_JOB_NO) AS GWT
+					,SUM(ISNULL(item.VWT,0)) OVER(PARTITION BY od.OD_JOB_NO) AS VWT
+					,item.CURRENCY_CODE
+					,SUM(item.AMOUNT) OVER(PARTITION BY od.OD_JOB_NO) AS AMOUNT
+				FROM TB_ECM_OD od
+				LEFT JOIN TB_ECM_OD_ITEM item ON od.OD_JOB_NO = item.OD_JOB_NO
+				WHERE od.OD_JOB_NO = #{odJobNo}
+			) INFO
+			WHERE ROW_NUM = 1
+		) A ON A.OD_JOB_NO = od.OD_JOB_NO
+		WHERE od.OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<select id="selectOrder" parameterType="searchOrderCustomer" resultType="order">
+		/* OrderCustomerMapper.selectOrder : Order 조회 */
+		SELECT
+			 od.OD_JOB_NO
+			,od.MBL_NO
+			,od.HBL_NO
+			,od.PO_NO
+			,od.PO_DATE
+			,CASE WHEN ISNULL(odAdd.LAST_POD_STATUS,'') = '' THEN ''
+			 ELSE 
+			 CONCAT
+			 ((SELECT ISNULL(sta.NAME_${userLanguage}, sta.NAME_DEFAULT) 
+			  FROM TB_SMS_CODE_DETAIL sta 
+			  WHERE sta.ENT_CODE = od.ENT_CODE 
+			  AND sta.CODE = odAdd.LAST_POD_STATUS
+			  AND sta.GROUP_CODE = 'STATUS_ORDER_CARGO'
+			  ),'[',CONVERT(CHAR(16),odAdd.LAST_POD_DATE, 21),']') END AS LAST_POD_STATUS
+			,od.OB_DATE
+			,od.AR_DATE
+			,od.BOUND
+			,od.BOUND_TYPE
+			,od.CD_TYPE
+			,od.CD_USE_TYPE
+			,od.ECM_BUY_TYPE
+			,od.ECM_TYPE
+			,od.PIECES
+			,od.PIECES_REAL
+			,od.GWT
+			,od.VWT
+			,od.CBM
+			,od.GWT_LBS
+			,od.CURRENCY_CODE
+			,od.AMOUNT_LOC
+			,od.AMOUNT_CUR
+			,od.ALLOWED_ITEM_CODE		
+			,od.INSPECTION_YN
+			,odAdd.SE_INSPECTION_YN
+			,odAdd.XRAY_YN
+			,odAdd.DROP_YN
+			,od.SHIPPER_NAME
+			,CONCAT(ISNULL(od.SHIPPER_ADDRESS, ''), ISNULL(od.SHIPPER_ADDRESS_A, ''), ISNULL(od.SHIPPER_ADDRESS_B, ''), ISNULL(od.SHIPPER_ADDRESS_C, ''), ISNULL(od.SHIPPER_ADDRESS_D, '')) AS SHIPPER_ADDRESS
+			,od.SHIPPER_TEL
+			,od.SHIPPER_STREET
+			,od.SHIPPER_PLACE
+			,od.SHIPPER_STATE_CODE
+			,od.SHIPPER_COUNTRY_CODE
+			,od.URL
+			,od.CONSIGNEE_NAME
+			,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS CONSIGNEE_ADDRESS
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+			,od.CONSIGNEE_NAME_LOC
+			,od.CONSIGNEE_ADDRESS_LOC
+			,od.CONSIGNEE_ZIPCODE
+			,od.CONSIGNEE_STREET
+			,od.CONSIGNEE_PLACE
+			,od.CONSIGNEE_STATE_CODE
+			,od.CONSIGNEE_COUNTRY_CODE
+			,od.ORIG_COUNTRY
+			,od.CUSTOMS_ID_TYPE
+			,od.DELIVERY_CODE
+			,od.DELIVERY_NAME
+			,od.CB_CODE
+			,od.CB_NAME
+			,od.CLEARANCE_VIOLATION_CODE
+			,od.CLEARANCE_VIOLATION_REASON	
+			,od.FTA_YN     
+    		,od.FTA_REMARKS
+    		,od.REMARKS
+    		,od.AGENT_REG_NO
+    		,od.AGENT_NAME
+    		,od.SELLER_REG_NO
+    		,od.SELLER_NAME
+    		,od.SALES_BROKER_REG_NO
+    		,od.SALES_BROKER_NAME
+    		,od.DIM_WIDTH
+    		,od.DIM_LENGTH
+    		,od.DIM_HEIGHT
+    		,od.MULTI_YN
+    		,od.CONSOL_YN
+    		,od.FINISH_YN
+    		,CASE WHEN ISNULL(odAdd.SIMPLE_EDI_STATUS, '') NOT IN ('', 'ERROR') THEN 'Y' END AS SIMPLE_EDI_SEND_YN
+			,od.REGISTER_USER_ID
+			,od.REGISTER_DATE_TIME
+			,od.UPDATE_USER_ID
+			,od.UPDATE_DATE_TIME
+			,(SELECT STUFF((SELECT ',' + DELIVERY_NO FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO FOR XML PATH('')), 1, 1, '')) AS MULTI_DELIVERY_NO
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = od.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = od.UPDATE_USER_ID) AS UPDATE_USER_NAME
+<!-- 			,(SELECT CASE od.BOUND WHEN 'AIR' THEN EDI_ASSIGNMENT_WH_CODE ELSE EDI_WH_CODE END FROM TB_SMS_ENT_BUS_EDI_CODE WHERE ENT_CODE = od.ENT_CODE AND ENT_BUSINESS_CODE = od.ENT_BUSINESS_CODE AND BOUND = od.BOUND AND EDI_CITY_PORT = od.DEST_PORT) AS ASSIGNMENT_WH_CODE -->
+			,mod.ASSIGNMENT_WH_CODE
+	  		,od.DELIVERY_NOTE
+	  		<!-- 도입사일 경우 -->
+	  		<if test="loginCustomerCd == null or loginCustomerCd == ''">
+			,od.CUST_CODE_LV1 as UPPER_CUS_CODE
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV1) as UPPER_CUS_NAME
+			,od.CUST_CODE_LV2 as LOW_CUS_CODE
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV2) as LOW_CUS_NAME
+			</if>  
+			<!-- 거래처일 경우 -->
+			<if test="loginCustomerCd != null and loginCustomerCd != ''">
+			<if test='loginCustomerUpperLev != "0"'>
+			,od.CUST_CODE_LV${loginCustomerUpperLev} as UPPER_CUS_CODE
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV${loginCustomerUpperLev}) as UPPER_CUS_NAME
+			</if>
+			<if test='loginCustomerUpperLev == "0"'>
+			,NULL AS UPPER_CUS_CODE				  
+			,NULL AS UPPER_CUS_NAME	  
+			</if>
+			<if test='loginCustomerLowLev != "8"'>
+			,od.CUST_CODE_LV${loginCustomerLowLev} as LOW_CUS_CODE
+			,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV${loginCustomerLowLev}) as LOW_CUS_NAME
+			</if>
+			<if test='loginCustomerLowLev == "0"'>
+			,NULL as LOW_CUS_CODE
+			,NULL as LOW_CUS_NAME
+			</if>
+			</if>
+<!-- 	  		,od.CUST_CODE_LV1 -->
+<!-- 	  		,od.CUST_CODE_LV2 -->
+<!-- 	  		,od.CUST_CODE_LV3 -->
+<!-- 	  		,od.CUST_CODE_LV4 -->
+<!-- 	  		,od.CUST_CODE_LV5 -->
+<!-- 	  		,od.CUST_CODE_LV6 -->
+<!-- 	  		,od.CUST_CODE_LV7 -->
+			<choose>
+			<when test='cryptographyYn == "Y"'>
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS CONSIGNEE_HP
+			,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+			,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS CUSTOMS_ID
+			</when>
+			<otherwise>
+			,od.CONSIGNEE_HP
+			,od.CONSIGNEE_TEL
+			,od.CUSTOMS_ID
+			</otherwise>
+			</choose>
+			,odAdd.CUSTOMS_ID_START_DATE
+			,odAdd.CUSTOMS_ID_END_DATE
+			,od.CONSIGNEE_LAST_NAME
+			,od.CONSIGNEE_FIRST_NAME
+            ,od.FORWARD_AGENT_CODE
+            ,od.FORWARD_AGENT_NAME
+            ,od.ORDER_NAME
+            ,od.ORDER_TEL
+            ,od.ORDER_ACCOUNT
+            ,od.ECM_YN
+			,od.DEST_DELIVERY_NO
+			<if test='profileName != null and profileName != ""'>
+				<if test='profileName == "local" or profileName == "hubn11"'>
+            ,od.FORWARD_AGENT_CODE
+            ,od.FORWARD_AGENT_NAME
+            ,od.ORDER_NAME
+            ,od.ORDER_TEL
+            ,od.ORDER_ACCOUNT
+            ,od.ECM_YN
+            	</if>
+            </if>
+		FROM TB_ECM_OD od
+		LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+			 LEFT JOIN TB_ECM_OD mod
+			 		   ON mod.OD_JOB_NO = od.MASTER_OD_JOB_NO
+		WHERE od.ENT_CODE = #{entCode}
+		AND od.OD_JOB_NO = #{odJobNo}
+	</select>
+			
+	<insert id="insertItem" parameterType="order">
+		/* OrderCustomerMapper.insertItem : OrderItem insert */
+		<if test="itemList != null and itemList.size > 0">
+			INSERT INTO TB_ECM_OD_ITEM(
+				   OD_JOB_NO
+				  ,SEQ_NO_ID
+				  ,DETAIL_ITEM_NAME
+				  ,DETAIL_ITEM_NAME_LOC
+				  ,ORIGIN_COUNTRY
+				  ,PIECES
+				  ,UNIT_PIECES
+				  ,GWT
+				  ,VWT
+				  ,DIM_WIDTH
+				  ,DIM_LENGTH
+				  ,DIM_HEIGHT
+				  ,HS_CODE
+				  ,ECM_URL
+				  ,UNIT_PRICE
+				  ,AMOUNT
+				  ,CURRENCY_CODE
+				  ,BRAND
+				  ,REMARKS
+					,CUSTOMS_ID
+	                ,CUSTOMS_TEMP_NO
+	                ,CATEGORY_NAME_1
+	                ,CATEGORY_NAME_2
+	                ,CATEGORY_NAME_3
+	                ,CATEGORY_NAME_4
+	                ,CATEGORY_NAME_5
+	                ,CATEGORY_NAME_6
+	                ,CATEGORY_NAME_7
+	                ,CATEGORY_NAME_8
+	                ,CATEGORY_NAME_9
+	                ,OPTION_NAME
+	                ,SELLER_NAME
+	                ,SELLER_ID
+	                ,SELLER_CODE
+	                ,ITEM_MAF_NAME
+	                ,ITEM_MAF_MODEL_NO
+	                ,ITEM_BRAND_NAME
+	                ,ITEM_ID
+	                ,ORDER_NO
+	                ,ORDER_END_DATETIME
+			)VALUES 
+			<foreach collection="itemList" item="item" separator=",">
+			(
+				#{odJobNo}
+				,#{item.seqNoId}
+				,UPPER(#{item.detailItemName})
+				,#{item.detailItemNameLoc}
+				,#{item.originCountry}
+				,#{item.pieces}
+				,#{item.unitPieces}
+				,#{item.gwt}
+				,#{item.vwt}
+				,#{item.dimWidth}
+				,#{item.dimLength}
+				,#{item.dimHeight}
+				,#{item.hsCode}
+				,#{item.ecmUrl}
+				,#{item.unitPrice}
+				,#{item.amount}
+				,#{item.currencyCode}
+				,#{item.brand}
+				,#{item.remarks}
+				,#{item.customsId}
+                ,#{item.customsTempNo}
+                ,#{item.categoryName1}
+                ,#{item.categoryName2}
+                ,#{item.categoryName3}
+                ,#{item.categoryName4}
+                ,#{item.categoryName5}
+                ,#{item.categoryName6}
+                ,#{item.categoryName7}
+                ,#{item.categoryName8}
+                ,#{item.categoryName9}
+                ,#{item.optionName}
+                ,#{item.sellerName}
+                ,#{item.sellerId}
+                ,#{item.sellerCode}
+                ,#{item.itemMafName}
+                ,#{item.itemMafModelNo}
+                ,#{item.itemBrandName}
+                ,#{item.itemId}
+                ,#{item.orderNo}
+                ,#{item.orderEndDatetime}
+			)
+			</foreach>
+		</if>
+	</insert>
+	
+	<update id="deleteSub" parameterType="order">
+		/* OrderCustomerMapper.deleteSub : OrderSub initial */
+		<if test="subDelList != null and subDelList.size > 0">
+		UPDATE TB_ECM_OD
+		SET PARENT_OD_JOB_NO = ''
+		WHERE OD_JOB_NO IN (
+		<foreach collection="subDelList" item="item" separator=",">
+			#{item.odJobNo}
+		</foreach>
+		)
+		</if>
+	</update>
+	
+	<update id="updateSub" parameterType="order">
+		/* OrderCustomerMapper.updateSub : OrderSub update */
+		<if test="subList != null and subList.size > 0">
+		UPDATE TB_ECM_OD
+		SET PARENT_OD_JOB_NO = #{odJobNo}
+		WHERE OD_JOB_NO IN (
+		<foreach collection="subList" item="item" separator=",">
+			#{item.odJobNo}
+		</foreach>
+		)
+		</if>
+	</update>
+	
+	<select id="selectOrderItem" parameterType="searchOrderCustomer" resultType="orderCustomerItem">
+		/* OrderCustomerMapper.selectOrderItem : Order Item */
+			SELECT
+				OD_JOB_NO
+				,SEQ_NO_ID
+				,HS_CODE
+				,ORIGIN_COUNTRY
+ 				,DETAIL_ITEM_NAME
+ 				,DETAIL_ITEM_NAME_LOC
+				,PIECES
+				,UNIT_PIECES
+				,CURRENCY_CODE
+				,UNIT_PRICE
+				,AMOUNT
+				,GWT
+				,VWT	
+				,DIM_WIDTH
+				,DIM_LENGTH
+				,DIM_HEIGHT			
+				,ECM_URL
+				,BRAND
+				,REMARKS
+				,CUSTOMS_ID
+                ,CUSTOMS_TEMP_NO
+                ,CATEGORY_NAME_1
+                ,CATEGORY_NAME_2
+                ,CATEGORY_NAME_3
+                ,CATEGORY_NAME_4
+                ,CATEGORY_NAME_5
+                ,CATEGORY_NAME_6
+                ,CATEGORY_NAME_7
+                ,CATEGORY_NAME_8
+                ,CATEGORY_NAME_9
+                ,OPTION_NAME
+                ,SELLER_NAME
+                ,SELLER_ID
+                ,SELLER_CODE
+                ,ITEM_MAF_NAME
+                ,ITEM_MAF_MODEL_NO
+                ,ITEM_BRAND_NAME
+                ,ITEM_ID
+                ,ORDER_NO
+                ,FORMAT(ORDER_END_DATETIME, 'yyyyMMddHHmmss') AS ORDER_END_DATETIME
+			FROM TB_ECM_OD_ITEM
+			WHERE OD_JOB_NO = #{odJobNo}
+			ORDER BY SEQ_NO_ID
+	</select>
+	
+	<select id="selectOrderMulti" parameterType="searchOrderCustomer" resultType="orderCustomerMulti">
+			/* OrderCustomerMapper.selectOrderMulti : Order 멀티(중량)화물 조회 */
+			SELECT
+				 mti.DELIVERY_NO
+				,mti.DELIVERY_CODE
+				,mti.CUSTOMER_CODE
+				,mti.DELIVERY_NO_CHANGED
+				,mti.PAYMENT_GUBN
+				,mti.DELIVERY_FEE
+				,mti.PIECES
+				,mti.DIM_WIDTH
+				,mti.DIM_LENGTH
+				,mti.DIM_HEIGHT
+				,mti.VWT
+				,mti.RECIPIENT_NAME
+				,mti.SEQ_NO_ID
+				,CONVERT(VARCHAR(10), mti.RECEIPT_DATE, ${dateFormat}) AS RECEIPT_DATE
+				,mti.REMARKS
+				,mti.REGISTER_USER_ID
+				,CONVERT(VARCHAR(16), mti.REGISTER_DATE_TIME, 20) AS REGISTER_DATE_TIME
+				,mti.DELIVERER_USER_ID
+				,CONVERT(VARCHAR(10), mti.DELIVERY_DATE, ${dateFormat}) AS DELIVERY_DATE
+				,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{entCode} AND CUSTOMER_CODE = mti.CUSTOMER_CODE) AS CUSTOMER_NAME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = #{entCode} AND USER_ID = mti.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = #{entCode} AND USER_ID = mti.DELIVERER_USER_ID) AS DELIVERER_USER_NAME
+				,mti.RETURN_DELIVERY_NO
+				,mti.RETURN_REQUEST_ID
+				,CONVERT(VARCHAR(10), mti.RETURN_REQ_DATE, ${dateFormat}) AS RETURN_REQ_DATE
+				,mti.RETURN_DELIVERY_CODE
+				,CONVERT(VARCHAR(10), mti.RETURN_END_DATE, ${dateFormat}) AS RETURN_END_DATE
+				,CONVERT(VARCHAR(10), mti.RETURN_REG_DATE, ${dateFormat}) AS RETURN_REG_DATE
+				,CONVERT(VARCHAR(10), mti.RETURN_DLV_REQ_DATE, ${dateFormat}) AS RETURN_DLV_REQ_DATE
+				,CONVERT(VARCHAR(10), mti.DELIVERY_REG_DATE, ${dateFormat}) AS DELIVERY_REG_DATE
+				,CONVERT(VARCHAR(10), mti.DELIVERY_END_DATE, ${dateFormat}) AS DELIVERY_END_DATE
+				,mti.CONSIGNEE_NAME_LOC_M
+                ,mti.CONSIGNEE_ADDRESS_LOC_M
+                ,mti.CONSIGNEE_TEL_M
+                ,mti.CONSIGNEE_ZIPCODE_M
+			FROM TB_ECM_OD_MULTI mti
+			WHERE mti.OD_JOB_NO = #{odJobNo}
+			ORDER BY mti.SEQ_NO_ID
+	</select>
+	
+	<select id="selectOrderSub" parameterType="searchOrderCustomer" resultType="orderCustomerItem">
+		/* OrderCustomerMapper.selectOrderSub : Order Sub */
+		SELECT 
+			OD_JOB_NO
+			,DETAIL_ITEM_NAME
+			,PIECES
+			,CURRENCY_CODE
+			,GWT
+			,VWT
+			,AMOUNT_LOC AS AMOUNT
+			,CASE WHEN ITEM_CNT = 1 THEN UNIT_PIECES END UNIT_PIECES
+			,CASE WHEN ITEM_CNT = 1 THEN UNIT_PRICE END UNIT_PRICE
+			,CASE WHEN ITEM_CNT = 1 THEN ECM_URL END ECM_URL
+			,CASE WHEN ITEM_CNT = 1 THEN BRAND END BRAND
+		FROM
+		(
+			SELECT
+				od.OD_JOB_NO
+				,od.COMMODITY_ITEM AS DETAIL_ITEM_NAME
+				,SUM(item.PIECES) OVER(PARTITION BY od.OD_JOB_NO) AS PIECES
+				,COUNT(1) OVER(PARTITION BY od.OD_JOB_NO) AS ITEM_CNT
+				,ROW_NUMBER() OVER(PARTITION BY od.OD_JOB_NO ORDER BY od.OD_JOB_NO,item.SEQ_NO_ID ) AS ROW_NUM
+				,od.CURRENCY_CODE
+				,item.UNIT_PIECES
+				,item.UNIT_PRICE
+				,od.AMOUNT_LOC
+				,od.GWT
+				,od.VWT
+				,item.ECM_URL
+				,item.BRAND
+			FROM TB_ECM_OD od		
+			LEFT JOIN TB_ECM_OD_ITEM item ON od.OD_JOB_NO = item.OD_JOB_NO
+			WHERE od.PARENT_OD_JOB_NO = #{odJobNo}
+		) OD
+		WHERE ROW_NUM = 1
+	</select>
+	
+	<select id="selectCusLvl" parameterType="HashMap" resultType="HashMap">
+		/* OrderCustomerMapper.selectCusLvl : Order Customer level 추출 */
+		WITH tree_query 
+		AS 
+		( 
+			SELECT
+				'O' AS GUBUN 
+				,cus.PARENT_CUSTOMER_CODE
+				,cus.CUSTOMER_CODE
+		    	,cus.CUSTOMER_LEVEL
+			FROM TB_SMS_USER usr
+			LEFT OUTER JOIN TB_SMS_CUSTOMER cus ON usr.ENT_CODE = cus.ENT_CODE AND usr.CUSTOMER_CODE = cus.CUSTOMER_CODE
+			WHERE usr.ENT_CODE =#{entCode}
+				AND usr.USER_ID = #{userId}
+			UNION ALL 	
+			SELECT
+				'' AS GUBUN  
+				,B.PARENT_CUSTOMER_CODE
+				,B.CUSTOMER_CODE
+				,B.CUSTOMER_LEVEL
+			FROM TB_SMS_CUSTOMER B, tree_query C 
+			WHERE B.CUSTOMER_CODE = C.PARENT_CUSTOMER_CODE
+			AND ISNULL(C.PARENT_CUSTOMER_CODE,'') != ''
+			AND ISNULL(B.PARENT_CUSTOMER_CODE,'') != B.CUSTOMER_CODE
+		) 
+		
+		SELECT 
+			MAX(CUST_CODE_LV1) AS CUST_CODE_LV1
+			,MAX(CUST_CODE_LV2) AS CUST_CODE_LV2
+			,MAX(CUST_CODE_LV3) AS CUST_CODE_LV3
+			,MAX(CUST_CODE_LV4) AS CUST_CODE_LV4
+			,MAX(CUST_CODE_LV5) AS CUST_CODE_LV5
+			,MAX(CUST_CODE_LV6) AS CUST_CODE_LV6
+			,MAX(CUST_CODE_LV7) AS CUST_CODE_LV7
+			,MAX(USER_CUSTOMER_CODE) AS USER_CUSTOMER_CODE
+		FROM
+		(
+			SELECT 
+				CASE WHEN CUSTOMER_LEVEL = 1 THEN CUSTOMER_CODE END CUST_CODE_LV1
+				,CASE WHEN CUSTOMER_LEVEL = 2 THEN CUSTOMER_CODE END CUST_CODE_LV2
+				,CASE WHEN CUSTOMER_LEVEL = 3 THEN CUSTOMER_CODE END CUST_CODE_LV3
+				,CASE WHEN CUSTOMER_LEVEL = 4 THEN CUSTOMER_CODE END CUST_CODE_LV4
+				,CASE WHEN CUSTOMER_LEVEL = 5 THEN CUSTOMER_CODE END CUST_CODE_LV5
+				,CASE WHEN CUSTOMER_LEVEL = 6 THEN CUSTOMER_CODE END CUST_CODE_LV6
+				,CASE WHEN CUSTOMER_LEVEL = 7 THEN CUSTOMER_CODE END CUST_CODE_LV7
+				,CASE WHEN GUBUN = 'O' THEN CUSTOMER_CODE END USER_CUSTOMER_CODE
+			FROM tree_query
+		) LV
+	</select>
+	
+	<select id="selectUserInfo" parameterType="HashMap" resultType="HashMap">
+		/* OrderCustomerMapper.selectUserInfo : user 거래처 정보 */
+		SELECT 
+			cus.CUSTOMER_CODE
+			,cus.CUSTOMER_LEVEL
+			,CASE WHEN ISNULL(cus.CUSTOMER_LEVEL,'') = '' THEN NULL 
+				  WHEN cus.CUSTOMER_LEVEL = '1' THEN NULL 
+				  ELSE CONVERT(VARCHAR,CONVERT(INT,cus.CUSTOMER_LEVEL)-1) END  UPPER_LEVEL
+			,CASE WHEN ISNULL(cus.CUSTOMER_LEVEL,'') = '' THEN NULL 
+				  WHEN cus.CUSTOMER_LEVEL = '7' THEN NULL 
+				  ELSE CONVERT(VARCHAR,CONVERT(INT,cus.CUSTOMER_LEVEL)+1) END  LOW_LEVEL	  
+		FROM TB_SMS_USER usr
+		LEFT OUTER JOIN TB_SMS_CUSTOMER cus ON usr.ENT_CODE = cus.ENT_CODE AND usr.CUSTOMER_CODE = cus.CUSTOMER_CODE
+		WHERE usr.ENT_CODE = #{entCode}
+			AND usr.USER_ID = #{userId}
+	</select>
+	
+	<select id="dupOrderNo" parameterType="order" resultType="String">
+		/* OrderCustomerMapper.dupOrderNo : OrderNo 중복체크 */
+		SELECT CASE WHEN COUNT(1) > 0 THEN 'Y' ELSE 'N' END 
+		FROM TB_ECM_OD
+		WHERE PO_NO = LTRIM(RTRIM(#{poNo}))
+		<if test="odJobNo != null and odJobNo != ''">
+			AND OD_JOB_NO != #{odJobNo}
+		</if>
+	</select>
+		
+	
+	
+	<select id="selectOrderCustomerChkList" parameterType="HashMap" resultType="HashMap">
+		/* OrderCustomerMapper.selectOrderCustomerChkList : 오더저장체크 */
+			SELECT
+				 od.OD_JOB_NO
+				,ISNULL(od.CONSIGNEE_ADDRESS_LOC, '') AS CONSIGNEE_ADDRESS_LOC
+				,od.HBL_NO
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			<!-- parameter 추가시 SearchOrderCustomerList/SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.consumerService.OrderCustomerMapper.selectOrderListWhere"/>	 			
+	</select>
+	
+	<select id="selectBatchTargetCount" parameterType="searchOrderCustomerList" resultType="string">
+		/* OrderCustomerMapper.selectBatchTargetCount : 일괄변경대상건수조회 */
+			SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+			SELECT COUNT(*) CNT
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			<!-- parameter 추가시 SearchOrderCustomerList/SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.consumerService.OrderCustomerMapper.selectOrderListWhere"/>
+	</select>
+	
+	<select id="selectPoInfo" parameterType="searchOrderCustomer" resultType="string">
+		/* OrderCustomerMapper.selectPoInfo : Order 주문번호 조회 */
+			SELECT PO_NO
+			FROM TB_ECM_OD_PO_INFO
+			WHERE OD_JOB_NO = #{odJobNo}
+	</select>
+	
+	<insert id="insertMulti" parameterType="order">
+	/* OrderCustomerMapper.insertMulti : Order 멀티(중량)화물 insert */
+		<if test="multiList != null and multiList.size > 0">
+		INSERT INTO TB_ECM_OD_MULTI(
+			   OD_JOB_NO
+			  ,SEQ_NO_ID
+			  ,DELIVERY_NO
+			  ,DELIVERY_CODE
+			  ,CUSTOMER_CODE
+			  ,DELIVERY_NO_CHANGED
+			  ,PAYMENT_GUBN
+			  ,DELIVERY_FEE
+			  ,PIECES
+			  ,DIM_WIDTH
+			  ,DIM_LENGTH
+			  ,DIM_HEIGHT
+			  ,VWT
+			  ,RECIPIENT_NAME
+			  ,RECEIPT_DATE
+			  ,REMARKS
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,DELIVERER_USER_ID
+			  ,DELIVERY_DATE
+			  ,RETURN_DELIVERY_NO
+			  ,RETURN_REQUEST_ID
+			  ,RETURN_REQ_DATE
+			  ,RETURN_DELIVERY_CODE
+			  ,RETURN_END_DATE
+			  ,RETURN_REG_DATE
+			  ,DELIVERY_REG_DATE
+			  ,DELIVERY_END_DATE
+			  ,CONSIGNEE_NAME_LOC_M
+			  ,CONSIGNEE_ADDRESS_LOC_M
+			  ,CONSIGNEE_TEL_M
+			  ,CONSIGNEE_ZIPCODE_M
+		)VALUES
+		<foreach collection="multiList" item="item" separator="," index="index">
+		(
+			   #{odJobNo}
+			  ,#{index} + 1
+			  ,#{item.deliveryNo}
+			  ,#{item.deliveryCode}
+			  ,#{item.customerCode}
+			  ,#{item.deliveryNoChanged}
+			  ,#{item.paymentGubn}
+			  ,#{item.deliveryFee}
+			  ,#{item.pieces}
+			  ,#{item.dimWidth}
+			  ,#{item.dimLength}
+			  ,#{item.dimHeight}
+			  ,#{item.vwt}
+			  ,#{item.recipientName}
+			  <choose>
+			  <when test="item.receiptDate == ''">
+			  ,NULL
+			  </when>
+			  <otherwise>
+			  ,CONVERT(DATE, #{item.receiptDate}, ${dateFormat})
+			  </otherwise>
+			  </choose>
+			  ,#{item.remarks}
+			  <choose>
+			  <when test="item.registerUserId != null and item.registerUserId != ''">
+			  ,#{item.registerUserId}
+			  ,#{item.registerDateTime}
+			  </when>
+			  <otherwise>
+			  ,#{registerUserId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  </otherwise>
+			  </choose>
+			  ,#{item.delivererUserId}
+			  <choose>
+			  <when test="item.deliveryDate == ''">
+			  ,NULL
+			  </when>
+			  <otherwise>
+			  ,CONVERT(DATE, #{item.deliveryDate}, ${dateFormat})
+			  </otherwise>
+			  </choose>
+			  ,#{item.returnDeliveryNo}
+			  ,#{item.returnRequestId}
+			  <choose>
+			  <when test="item.returnReqDate == ''">
+			  ,NULL
+			  </when>
+			  <otherwise>
+			  ,CONVERT(DATE, #{item.returnReqDate}, ${dateFormat})
+			  </otherwise>
+			  </choose>
+			  ,#{item.returnDeliveryCode}
+			  <choose>
+			  <when test="item.returnEndDate == ''">
+			  ,NULL
+			  </when>
+			  <otherwise>
+			  ,CONVERT(DATE, #{item.returnEndDate}, ${dateFormat})
+			  </otherwise>
+			  </choose>
+			  <choose>
+			  <when test="item.returnRegDate == ''">
+			  ,NULL
+			  </when>
+			  <otherwise>
+			  ,CONVERT(DATE, #{item.returnRegDate}, ${dateFormat})
+			  </otherwise>
+			  </choose>
+			  <choose>
+			  <when test="item.deliveryRegDate == ''">
+			  ,NULL
+			  </when>
+			  <otherwise>
+			  ,CONVERT(DATE, #{item.deliveryRegDate}, ${dateFormat})
+			  </otherwise>
+			  </choose>
+			  <choose>
+			  <when test="item.deliveryEndDate == ''">
+			  ,NULL
+			  </when>
+			  <otherwise>
+			  ,CONVERT(DATE, #{item.deliveryEndDate}, ${dateFormat})
+			  </otherwise>
+			  </choose>
+			  ,#{item.consigneeNameLocM}
+			  ,#{item.consigneeAddressLocM}
+			  ,#{item.consigneeTelM}
+			  ,#{item.consigneeZipcodeM}
+		)
+		</foreach>
+		</if>
+	</insert>
+	
+	<delete id="deleteMulti" parameterType="HashMap">
+		/* OrderCustomerMapper.deleteMulti : Order 멀티(중량)화물 Delete */
+			DELETE TB_ECM_OD_MULTI
+			WHERE OD_JOB_NO = #{odJobNo}
+	</delete>
+	
+</mapper>

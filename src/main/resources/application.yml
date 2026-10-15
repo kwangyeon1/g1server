@@ -1,0 +1,2212 @@
+spring:
+  autoconfigure.exclude: "******"
+  # server 선택
+  profiles:
+    active: "******"
+    
+  servlet:
+    multipart:
+      enabled: "******"
+      max-file-size: "******"
+      max-request-size: "******"
+      
+  mvc:
+    view:
+      suffix: "******"
+      
+  thymeleaf:
+    cache: "******"
+    
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+    
+  lifecycle:
+    timeout-per-shutdown-phase: "******"
+    
+  mail:
+    host: "******"
+    port: "******"
+    username: "******"
+    password: "******"
+    rawKey: "******"
+    error:
+      host: "******"
+      port: "******"
+      username: "******"
+      password: "******"
+      rawKey: "******"
+      properties:
+        mail:
+          smtp:
+            auth: "******"
+            starttls:
+              enable: "******"
+    job:
+      host: "******"
+      port: "******"
+      username: "******"
+      password: "******"
+      rawKey: "******"
+      properties:
+        mail:
+          smtp:
+            auth: "******"
+            starttls:
+              enable: "******"
+
+server:
+  port: "******"
+  shutdown: "******"
+  error:
+    include-exception: "******"
+    include-stacktrace: "******"
+  
+# mybatis 매핑 type을 짧게 쓰기 위한 설정
+mybatis:
+  type-aliases-package: "******"
+  configuration:
+    map-underscore-to-camel-case: "******"
+    default-fetch-size: "******"
+    default-statement-timeout: "******"
+    
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+   
+# Token Properties 설정
+# 3600000 - 1시간
+jwt:
+  secretKey: "******"
+  validity-in-ms: "******" # 31분
+  validity-in-ms-refresh: "******" # 24시간
+
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    enabled: "******"
+    
+custom:
+#  ernterprises: "******"
+  system-db-list: "******"
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-xray: "******"
+  db-pwd-xray: "******"
+  db-url-cwhp: "******"
+  db-pwd-cwhp: "******"
+  db-url-newbilling: "******"
+  db-pwd-newbilling: "******"
+  db-url-sejong: "******"
+  db-url-korex: "******"
+  db-pwd-korex: "******"
+  db-url-korexadd1: "******"
+  db-url-korexadd2: "******"
+  db-pwd-korexadd: "******"
+  db-url-hanjin: "******"
+  elasticsearch-scroll-page: "******"
+  unipass-base-url: "******"
+  unipass-port: "******"
+  unipass-cargo-progress-path: "******"
+  unipass-cargo-progress-key: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  #EDI전송여부       2024-07-16 edi-send-yn값으로 운영서버여부 처리함
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #eHub QnA 첨부파일 저장
+  file-qna-dir : "******"
+  
+  #ebMS RESTful Service API
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-access-key: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  #HMS RESTful Service API
+  hms-url: "******"
+  hms-client-id: "******"
+  hms-client-secret: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  exAgent-send: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  manager_email : "******"
+  
+  #Ubi 설정
+  label-dir: "******"
+  report_url: "******"
+  report_domain: "******"
+  report_jrf_top_loc: "******"
+  report_font_loc: "******"
+  report_ds: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+      
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+  
+  thymeleaf:
+    cache: "******"
+
+  devtools:
+    livereload:
+      enabled: "******"
+
+server:
+  address:  "******"
+  port: "******"
+
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    enabled: "******"
+      
+custom:
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  interface-server-yn: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+
+  thymeleaf:
+    cache: "******"
+
+  devtools:
+    livereload:
+      enabled: "******"
+
+server:
+  address:  "******"
+  port: "******"
+
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    enabled: "******"
+      
+custom:
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  interface-server-yn: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+
+---
+
+spring:
+  # server 선택(dev3 = "******"
+  profiles: "******"
+
+  thymeleaf:
+    cache: "******"
+
+  devtools:
+    livereload:
+      enabled: "******"
+
+server:
+  address:  "******"
+  port: "******"
+
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    enabled: "******"
+      
+custom:
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  interface-server-yn: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+  
+  servlet:
+    multipart:
+      enabled: "******"
+      max-file-size: "******"
+      max-request-size: "******"
+      
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+            
+server:
+  port: "******"
+    
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+# Token Properties 설정
+# 3600000 - 1시간
+jwt:
+  secretKey: "******"
+  validity-in-ms: "******" # 31분
+  validity-in-ms-refresh: "******" # 4시간
+  
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    
+custom:
+  #업체DB
+  system-db-list: "******"
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-xray: "******"
+  db-pwd-xray: "******"
+  db-url-sejong: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  #HMS RESTful Service API
+  hms-url: "******"
+  hms-client-id: "******"
+  hms-client-secret: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+  #Ubi 설정
+  report_url: "******"
+  report_domain: "******"
+  report_jrf_top_loc: "******"
+  report_font_loc: "******"
+  report_ds: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+  
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+            
+server:
+  #address:  "******"
+  port: "******"
+    
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+# Token Properties 설정
+# 3600000 - 1시간
+jwt:
+  secretKey: "******"
+  validity-in-ms: "******" # 31분
+  validity-in-ms-refresh: "******" # 4시간
+  
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    
+custom:
+  #업체DB
+  system-db-list: "******"
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-xray: "******"
+  db-pwd-xray: "******"
+  db-url-sejong: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+  #Ubi 설정
+  report_url: "******"
+  report_domain: "******"
+  report_jrf_top_loc: "******"
+  report_font_loc: "******"
+  report_ds: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+  
+  servlet:
+    multipart:
+      enabled: "******"
+      max-file-size: "******"
+      max-request-size: "******"
+      
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+            
+server:
+  port: "******"
+    
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+# Token Properties 설정
+# 3600000 - 1시간
+jwt:
+  secretKey: "******"
+  validity-in-ms: "******" # 31분
+  validity-in-ms-refresh: "******" # 4시간
+  
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    
+custom:
+  #업체DB
+  system-db-list: "******"
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-xray: "******"
+  db-pwd-xray: "******"
+  db-url-sejong: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  #HMS RESTful Service API
+  hms-url: "******"
+  hms-client-id: "******"
+  hms-client-secret: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+  #Ubi 설정
+  report_url: "******"
+  report_domain: "******"
+  report_jrf_top_loc: "******"
+  report_font_loc: "******"
+  report_ds: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+    
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+  
+  servlet:
+    multipart:
+      enabled: "******"
+      max-file-size: "******"
+      max-request-size: "******"
+      
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+            
+server:
+  port: "******"
+    
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+# Token Properties 설정
+# 3600000 - 1시간
+jwt:
+  secretKey: "******"
+  validity-in-ms: "******" # 31분
+  validity-in-ms-refresh: "******" # 4시간
+  
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    
+custom:
+  #업체DB
+  system-db-list: "******"
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-xray: "******"
+  db-pwd-xray: "******"
+  db-url-sejong: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  #HMS RESTful Service API
+  hms-url: "******"
+  hms-client-id: "******"
+  hms-client-secret: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+  #Ubi 설정
+  report_url: "******"
+  report_domain: "******"
+  report_jrf_top_loc: "******"
+  report_font_loc: "******"
+  report_ds: "******"
+  
+  #eHub QnA 첨부파일 저장
+  file-qna-dir : "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+  
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+            
+server:
+  #address:  "******"
+  port: "******"
+    
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+# Token Properties 설정
+# 3600000 - 1시간
+jwt:
+  secretKey: "******"
+  validity-in-ms: "******" # 31분
+  validity-in-ms-refresh: "******" # 4시간
+  
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    
+custom:
+  #업체DB
+  system-db-list: "******"
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-xray: "******"
+  db-pwd-xray: "******"
+  db-url-sejong: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+  #Ubi 설정
+  report_url: "******"
+  report_domain: "******"
+  report_jrf_top_loc: "******"
+  report_font_loc: "******"
+  report_ds: "******"
+  
+  #eHub QnA 첨부파일 저장
+  file-qna-dir : "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+  
+  servlet:
+    multipart:
+      enabled: "******"
+      max-file-size: "******"
+      max-request-size: "******"
+      
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+            
+server:
+  port: "******"
+
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+custom:
+  #업체DB
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-sejong: "******"
+  db-url-korex: "******"
+  db-pwd-korex: "******"
+  db-url-korexadd1: "******"
+  db-url-korexadd2: "******"
+  db-pwd-korexadd: "******"
+  db-url-hanjin: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  #ebms-url: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+  #Ubi 설정
+  label-dir: "******"
+  report_url: "******"
+  report_domain: "******"
+  report_jrf_top_loc: "******"
+  report_font_loc: "******"
+  report_ds: "******"
+    
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+    
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+
+  servlet:
+    multipart:
+      enabled: "******"
+      max-file-size: "******"
+      max-request-size: "******"
+      
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+    
+server:
+  #address:  "******"
+  address:  "******"
+  port: "******"
+
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    enabled: "******"
+    
+custom:
+  #업체DB
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-sejong: "******"
+  db-url-korex: "******"
+  db-pwd-korex: "******"
+  db-url-korexadd1: "******"
+  db-url-korexadd2: "******"
+  db-pwd-korexadd: "******"
+  db-url-hanjin: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+  #Ubi 설정
+  label-dir: "******"
+  report_url: "******"
+  report_domain: "******"
+  report_jrf_top_loc: "******"
+  report_font_loc: "******"
+  report_ds: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+    
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+  
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+            
+server:
+  address:  "******"
+  port: "******"
+    
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    enabled: "******"
+    
+custom:
+  #업체DB
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-sejong: "******"
+  db-url-korex: "******"
+  db-pwd-korex: "******"
+  db-url-korexadd1: "******"
+  db-url-korexadd2: "******"
+  db-pwd-korexadd: "******"
+  db-url-hanjin: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+    
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+    
+server:
+  address:  "******"
+  port: "******"
+
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    enabled: "******"
+    
+custom:
+  #업체DB
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-sejong: "******"
+  db-url-korex: "******"
+  db-pwd-korex: "******"
+  db-url-korexadd1: "******"
+  db-url-korexadd2: "******"
+  db-pwd-korexadd: "******"
+  db-url-hanjin: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+    
+server:
+  port: "******"
+  #address:  "******"
+  #port: "******"
+  
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    #protocol: "******"
+    #port: "******"
+    #enabled: "******"
+    
+custom:
+  #업체DB
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-sejong: "******"
+  db-url-korex: "******"
+  db-pwd-korex: "******"
+  db-url-korexadd1: "******"
+  db-url-korexadd2: "******"
+  db-pwd-korexadd: "******"
+  db-url-hanjin: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+  #Ubi 설정
+  label-dir: "******"
+  report_url: "******"
+  report_domain: "******"
+  report_jrf_top_loc: "******"
+  report_font_loc: "******"
+  report_ds: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+  
+  servlet:
+    multipart:
+      enabled: "******"
+      max-file-size: "******"
+      max-request-size: "******"
+      
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+            
+server:
+  #address:  "******"
+  address:  "******"
+  port: "******"
+    
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+# Token Properties 설정
+# 3600000 - 1시간
+jwt:
+  secretKey: "******"
+  validity-in-ms: "******" # 31분
+  validity-in-ms-refresh: "******" # 24시간
+  
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    enabled: "******"
+    
+custom:
+  #업체DB
+  system-db-list: "******"
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-sejong: "******"
+  db-url-korex: "******"
+  db-pwd-korex: "******"
+  db-url-korexadd1: "******"
+  db-url-korexadd2: "******"
+  db-pwd-korexadd: "******"
+  db-url-hanjin: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  #ebms-url: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+  
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+            
+server:
+  address:  "******"
+  port: "******"
+    
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+# Token Properties 설정
+# 3600000 - 1시간
+jwt:
+  secretKey: "******"
+  validity-in-ms: "******" # 31분
+  validity-in-ms-refresh: "******" # 24시간
+  
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    enabled: "******"
+    
+custom:
+  #업체DB
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-sejong: "******"
+  db-url-korex: "******"
+  db-pwd-korex: "******"
+  db-url-korexadd1: "******"
+  db-url-korexadd2: "******"
+  db-pwd-korexadd: "******"
+  db-url-hanjin: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+    
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+  
+  servlet:
+    multipart:
+      enabled: "******"
+      max-file-size: "******"
+      max-request-size: "******"
+      
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+   
+server:
+  port: "******"
+
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+# Token Properties 설정
+# 3600000 - 1시간
+jwt:
+  secretKey: "******"
+  validity-in-ms: "******" # 31분
+  validity-in-ms-refresh: "******" # 8시간
+  
+custom:
+  #업체DB
+  system-db-list: "******"
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-xray: "******"
+  db-pwd-xray: "******"
+  db-url-newbilling: "******"
+  db-pwd-newbilling: "******"
+  db-url-sejong: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  #ebms-url: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+  #Ubi 설정
+  report_url: "******"
+  report_domain: "******"
+  report_jrf_top_loc: "******"
+  report_font_loc: "******"
+  report_ds: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+    
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+    
+server:
+  port: "******"
+  
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+  
+# Token Properties 설정
+# 3600000 - 1시간
+jwt:
+  secretKey: "******"
+  validity-in-ms: "******" # 31분
+  validity-in-ms-refresh: "******" # 8시간
+  
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    
+custom:
+  #업체DB
+  system-db-list: "******"
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-xray: "******"
+  db-pwd-xray: "******"
+  db-url-sejong: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+    
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+  
+  servlet:
+    multipart:
+      enabled: "******"
+      max-file-size: "******"
+      max-request-size: "******"
+      
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+
+#  mail:
+#    host: "******"
+#    port: "******"
+#    username: "******"
+#    password: "******"
+#    rawKey: "******"
+#    error:
+#      host: "******"
+#      port: "******"
+#      username: "******"
+#      password: "******"
+#      rawKey: "******"
+#      properties:
+#        mail:
+#          smtp:
+#            auth: "******"
+#            starttls:
+#              enable: "******"
+#    job:
+#      host: "******"
+#      port: "******"
+#      username: "******"
+#      password: "******"
+#      rawKey: "******"
+#      properties:
+#        mail:
+#          smtp:
+#            auth: "******"
+#            starttls:
+#              enable: "******"
+            
+server:
+  port: "******"
+
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+
+# Token Properties 설정
+# 3600000 - 1시간
+jwt:
+  secretKey: "******"
+  validity-in-ms: "******" # 31분
+  validity-in-ms-refresh: "******" # 8시간
+
+custom:
+  #업체DB
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+    
+  file-upload-dir: "******"
+#  db-url-master: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+#  db-url-base: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-sejong: "******"
+  db-url-hanjin: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  #ebms-url: "******"
+#  ebms-url: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+   
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"
+    
+---
+
+spring:
+  # server 선택
+  profiles: "******"
+
+  redis:
+    lettuce:
+      pool:
+        max-active: "******"
+        max-idle: "******"
+        min-idle: "******"
+    host: "******"
+    port: "******"
+    database: "******"
+    password: "******"
+    rawKey: "******"
+    
+server:
+  port: "******"
+  
+elasticsearch:
+  hosts: "******"
+  port: "******"
+  user: "******"
+  pass: "******"
+
+# Token Properties 설정
+# 3600000 - 1시간
+jwt:
+  secretKey: "******"
+  validity-in-ms: "******" # 31분
+  validity-in-ms-refresh: "******" # 8시간
+
+tomcat:
+  ajp:
+    protocol: "******"
+    port: "******"
+    
+custom:
+  #업체DB
+  ent-db-list: "******"
+  logging:
+    level: "******"
+    dir: "******"
+
+  file-upload-dir: "******"
+  db-url-master: "******"
+  db-pwd-master: "******"
+  db-pwd-exps: "******"
+  db-url-base: "******"
+  db-url-base2: "******"
+  db-url-sejong: "******"
+  db-url-hanjin: "******"
+  elasticsearch-scroll-page: "******"
+  excel-template: "******"
+  excel-download: "******"
+  enterprise-dir: "******"
+  interface-dir: "******"
+  backup-dir: "******"
+  xsd-dir: "******"
+  
+  #EDI전송여부
+  edi-send-yn: "******"
+  interface-server-yn: "******"
+  #ebMS RESTful Service API URL
+  ebms-ip: "******"
+  ebms-port: "******"
+  ebms-url: "******"
+  ebms-ftp-pw: "******"
+  ebms-ftp-path: "******"
+  
+  # interface 스키마 (XSD)  로컬 임시 
+  api-customs-xsd: "******"
+  
+  # interface 경로 (XML)  
+  api-customs-xml: "******"
+  
+  # 우체국 기업연계(exAgent) 경로
+  exAgent-path: "******"
+  
+  # 롯데택배 배송요청 API URL
+  lotte-url: "******"
+  
+  # 호출 url
+  pre-url : "******"
+  interface-url : "******"
+  
+  # 이지페이
+  esaypay-protocol : "******"
+  esaypay-url : "******"
+  
+  #DB오류 파일 생성
+  err-file-dir: "******"
+  
+customId:
+  thread:
+    pool:
+      core-size: "******"
+      max-size: "******"
+    pati-size: "******"

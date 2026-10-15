@@ -1,0 +1,1998 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.DeliveryMapper">
+	
+	<!-- parameter 추가시 SearchDeliveryMList/UpdateDelivery에 추가 -->
+	<sql id="searchDeliveryList">
+		<if test="srchDateGbn != null and srchDateGbn != ''">
+			AND od.${srchDateGbn} >= CONVERT(DATETIME, #{srchStartDate} + ' 00:00:00')
+			AND od.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}))
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+			<when test='srchNoLikeYn == "Y"'>
+			AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+			</when>
+			<otherwise>
+				<choose>
+					<when test='searchType == "multi"'>
+					AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<when test='srchNoType == "RETURN_REQUEST_ID"'>
+					AND (ad.RETURN_REQUEST_ID = #{srchNo} OR multi.RETURN_REQUEST_ID = #{srchNo})
+					</when>
+					<otherwise>
+					AND ${srchNoType} = #{srchNo}
+					</otherwise>
+				</choose>
+			</otherwise>
+			</choose>
+		</if>	
+		<if test="srchCus != null and srchCus != ''">
+				<choose>
+			<when test='srchCusLikeYn == "Y"'>
+			AND od.${srchCusType} LIKE CONCAT('%',#{srchCus},'%')
+			</when>
+			<otherwise>
+			AND od.${srchCusType} = #{srchCus} 
+			</otherwise>
+			</choose>
+		</if>
+		<if test="srchStatus != null and srchStatus != ''">
+			<choose>
+			<when test='srchStatus == "ECMNULL"'>
+			AND ISNULL(od.DELIVERY_CODE, '') != '' AND ISNULL(ad.DELIVERY_STATUS, '') <![CDATA[<]]> 'ECM340'
+			</when>
+			<otherwise>
+			AND ad.DELIVERY_STATUS = #{srchStatus} 
+			</otherwise>
+			</choose>
+		</if>
+		<if test="srchDeliveryStatus != null and srchDeliveryStatus != ''">
+			<choose>
+			<when test='srchDeliveryStatus == "ECMNULL"'>
+			AND ISNULL(od.DELIVERY_CODE, '') != '' AND ISNULL(ad.DELIVERY_STATUS, '') <![CDATA[<]]> 'ECM340'
+			</when>
+			<otherwise>
+			AND ((ISNULL(multi.OD_JOB_NO,'') = '' AND ad.DELIVERY_STATUS = #{srchDeliveryStatus}) OR (SELECT MAX(POD_STATUS) FROM TB_ECM_POD_04_M pod4 WHERE OD_JOB_NO = multi.OD_JOB_NO AND BL_NO = multi.DELIVERY_NO) = #{srchDeliveryStatus}) 
+			</otherwise>
+			</choose>
+		</if>												
+		<choose>
+			<when test='srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+			<when test='srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+		</choose>	
+		<if test="srchDeliveryCode != null and srchDeliveryCode != ''">
+			<choose>
+				<when test='srchDeliveryCode == "X"'>AND ISNULL(od.DELIVERY_CODE, '') = ''</when>
+				<otherwise>AND od.DELIVERY_CODE = #{srchDeliveryCode}</otherwise>
+			</choose>
+		</if>	
+		<if test="srchDeliveryPaymentType != null and srchDeliveryPaymentType != ''">
+			AND od.DELIVERY_PAYMENT_TYPE = #{srchDeliveryPaymentType}
+		</if>
+		<if test="srchMasterOdJobNoListStr != null and srchMasterOdJobNoListStr != ''">
+		AND od.MASTER_OD_JOB_NO IN ${srchMasterOdJobNoListStr}
+		</if>
+		<if test="srchOdJobNoList != null and srchOdJobNoList != ''">
+		AND od.OD_JOB_NO IN (<foreach collection="srchOdJobNoList" item="item" separator=",">#{item}</foreach>)
+		</if>				
+		<choose>
+			<when test='srchMultiYn == "Y"'>
+			AND od.MULTI_YN = 'Y'
+			</when>
+			<when test='srchMultiYn == "N"'>
+			AND ISNULL(od.MULTI_YN, 'N') = 'N'
+-- 				AND od.PIECES > 1
+			</when>
+		</choose>
+		<if test="srchReturnYn != null and srchReturnYn != ''">
+			<choose>
+				<when test='srchReturnYn == "Y"'>
+					AND (
+						(ISNULL(multi.OD_JOB_NO, '') = ''
+				         AND ad.RETURN_REG_DATE IS NOT NULL)
+				        OR
+				        (ISNULL(multi.OD_JOB_NO, '') != ''
+				         AND multi.RETURN_REG_DATE IS NOT NULL)
+					)
+				</when>
+				<when test='srchReturnYn == "N"'>
+					AND (
+				        (ISNULL(multi.OD_JOB_NO, '') = ''
+				         AND ad.RETURN_REG_DATE IS NULL)
+				        OR
+				        (ISNULL(multi.OD_JOB_NO, '') != ''
+				         AND multi.RETURN_REG_DATE IS NULL)
+				    )
+				</when>
+			</choose>
+		</if>			
+	</sql>
+
+
+	<select id="selectDeliveryMList" parameterType="searchDeliveryMList" resultType="deliveryM">
+		/* deliveryMapper.selectDeliveryMList : Delivery-M List(main) 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			A.*
+			, COUNT(A.MBL_NO) OVER() AS SUM_COUNT
+			, SUM(A.HBL_CNT) OVER() AS SUM_HBLNO
+			, SUM(A.HBL_PIECES) OVER() AS SUM_PIECES
+			, SUM(A.HBL_GWT) OVER() AS SUM_GWT
+		FROM
+		(		
+			SELECT  MAX(ISNULL(od2.AR_DATE, '')) AS AR_DATE
+				   , MAX(ISNULL(od2.OB_DATE, '')) AS OB_DATE
+			  	   <!-- , MAX(ISNULL(ad.LAST_POD_STATUS, '')) AS LAST_POD_STATUS -->
+				   , MAX(ISNULL(od2.VESSEL_FLIGHT, '')) AS VESSEL_FLIGHT
+				   , MAX(ISNULL(od2.ORIG_CODE, '')) AS ORIG_CODE
+				   , MAX(ISNULL(od2.DEST_CODE, '')) AS DEST_CODE
+				   , MAX(ISNULL(od2.MBL_NO, '')) AS MBL_NO
+				   , MAX(ISNULL(od2.OD_JOB_NO, '')) AS OD_JOB_NO
+				   , MAX(ISNULL(od2.MASTER_OD_JOB_NO, '')) AS MASTER_OD_JOB_NO
+				   , COUNT(ISNULL(od.HBL_NO, 0)) AS HBL_CNT
+				   , COUNT(CASE WHEN ISNULL(od.DELIVERY_CODE, '') = '' THEN 1 END) AS DELIVERY_UNSPECIFY_CNT <!-- 배송사미지정건수 -->
+				   , COUNT(CASE WHEN ISNULL(od.DELIVERY_CODE, '') != '' THEN 1 END) AS DELIVERY_DESIGNATE_CNT <!-- 배송사지정건수 -->
+				   , COUNT(CASE WHEN ISNULL(od.DELIVERY_CODE, '') != '' AND ISNULL(ad.DELIVERY_STATUS, '') <![CDATA[<]]> 'ECM340' THEN 1 END) AS DELIVERY_WAITING_CNT <!-- 배송요청대기건수 -->
+				   , COUNT(CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM340' THEN 1 END) AS DELIVERY_REQ_CNT <!-- 배송요청건수 -->
+				   , COUNT(CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM360' THEN 1 END) AS DELIVERY_RECV_CNT <!-- 배송접수건수 -->
+				   , COUNT(CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM400' THEN 1 END) AS UNDELIVERY_CNT <!-- 미배송건수 -->
+				   , COUNT(CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM410' THEN 1 END) AS DELIVERY_REQ_ERR_CNT <!-- 배송요청오류건수 -->
+				   , COUNT(CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM420' THEN 1 END) AS DELIVERY_CNT <!-- 배송완료건수 -->
+				   , COUNT(CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM361' THEN 1 END) AS DELIVERY_PICKUP_CNT <!-- 집하처리건수 -->
+				   , COUNT(CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM390' THEN 1 END) AS DELIVERY_START_CNT  <!-- 배송출발건수 -->
+			 	   , MAX(ISNULL(od2.BL_TYPE_MH, '')) AS BL_TYPE_MH
+			 	   , MAX(ISNULL(od.CUST_CODE_LV1, '')) AS AGENT_CODE
+			 	   , MAX(ISNULL(od2.BOUND, '')) AS BOUND
+			 	   , MAX(ISNULL(od2.HBL_NO, '')) AS HBL_NO
+			 	   , SUM(od2.PIECES) AS HBL_PIECES
+				   , SUM(od2.GWT) AS HBL_GWT
+				   <!-- , (SELECT COUNT(HBL_NO) FROM TB_ECM_OD WHERE BL_TYPE_MH = 'H' AND MASTER_OD_JOB_NO = od2.OD_JOB_NO) AS TOTAL_HBL_CNT -->
+				   , COUNT(DISTINCT od.HBL_NO) AS TOTAL_HBL_CNT
+			FROM TB_ECM_OD od2	
+			INNER JOIN TB_ECM_OD od ON od.MASTER_OD_JOB_NO = od2.OD_JOB_NO AND od.BL_TYPE_MH = 'H'
+			INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			<if test='srchNo != null and srchNo != "" and srchNoType == "multi.DELIVERY_NO"'>
+			LEFT JOIN TB_ECM_OD_MULTI multi
+			 		  ON multi.OD_JOB_NO = od.OD_JOB_NO
+			</if>
+			WHERE od2.ENT_CODE = #{srchEntCode} AND od2.BL_TYPE_MH = 'M'
+			<!-- parameter 추가시 SearchDeliveryMList/UpdateDelivery에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.DeliveryMapper.searchDeliveryList"/>			
+			GROUP BY od2.OD_JOB_NO
+		)A			
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />	
+	</select>
+	
+	<select id="selectDeliveryHList" parameterType="searchDeliveryMList" resultType="deliveryH">
+		/* deliveryMapper.selectDeliveryHList : Delivery-H List(sub) 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			A.*
+			, COUNT(A.HBL_NO) OVER() AS SUM_COUNT
+			, SUM(A.HBL_PIECES) OVER() AS SUM_PIECES
+			, SUM(A.HBL_GWT) OVER() AS SUM_GWT
+			, SUM(A.DELIVERY_DESIGNATE) OVER() AS SUM_DESIGNATE
+			, SUM(A.DELIVERY_REQ) OVER() AS SUM_REQ
+			, SUM(A.DELIVERY_REQ_ERR) OVER() AS SUM_REQ_ERR
+			, SUM(A.DELIVERY_RECV) OVER() AS SUM_RECV
+			, SUM(A.UNDELIVERY) OVER() AS SUM_UNDELIVERY
+			, SUM(A.DELIVERY) OVER() AS SUM_DELIVERY
+			, SUM(A.DELIVERY_PICKUP) OVER() AS SUM_PICKUP
+			, SUM(A.DELIVERY_START) OVER() AS SUM_START
+		FROM
+		(	 
+			SELECT
+				 ad.DELIVERY_STATUS
+				 , (SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = DELIVERY_STATUS AND GROUP_CODE ='STATUS_ORDER_CARGO') AS DELIVERY_STATUS_NAME
+				 , CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM330' THEN 1 END AS DELIVERY_DESIGNATE
+				 , CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM340' THEN 1 ELSE 0 END AS DELIVERY_REQ
+				 , CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM350' THEN 1 ELSE 0 END AS DELIVERY_REQ_ERR
+				 , CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM360' THEN 1 ELSE 0 END AS DELIVERY_RECV
+				 , CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM361' THEN 1 ELSE 0 END AS DELIVERY_PICKUP
+				 , CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM390' THEN 1 ELSE 0 END AS DELIVERY_START
+				 , CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM400' THEN 1 ELSE 0 END AS UNDELIVERY
+				 , CASE ISNULL(ad.DELIVERY_STATUS, '') WHEN 'ECM420' THEN 1 ELSE 0 END AS DELIVERY
+				 , od.CD_TYPE
+				 , od.TR_CODE
+				 , od.DELIVERY_CODE
+				 , od.PO_DATE
+				 , od.AR_DATE
+				 , od.OB_DATE
+				 <!-- 쿼리 속도로 인하여 주석처리
+				 , (SELECT AR_DATE FROM TB_ECM_OD mod WHERE mod.OD_JOB_NO = od.MASTER_OD_JOB_NO) AS AR_DATE
+				 , (SELECT OB_DATE FROM TB_ECM_OD mod WHERE mod.OD_JOB_NO = od.MASTER_OD_JOB_NO) AS OB_DATE -->
+				 , od.ORIG_CODE
+				 , od.DEST_CODE
+				 , od.PO_NO
+				 , od.HBL_NO
+				 , od.CONSIGNEE_NAME
+				 , (ISNULL(od.CONSIGNEE_ADDRESS, '') + ISNULL(od.CONSIGNEE_ADDRESS_A,'') + ISNULL(od.CONSIGNEE_ADDRESS_B,'') + ISNULL(od.CONSIGNEE_ADDRESS_C,'') + ISNULL(od.CONSIGNEE_ADDRESS_D,'')) AS CONSIGNEE_ADDRESS
+				 , od.COMMODITY_ITEM
+				 , od.DELIVERY_ADDRESS_CHANGED
+				 --, od.DELIVERY_NAME_CHANGED
+				 --, od.DELIVERY_PAYMENT_TYPE
+				 --, od.DELIVERY_FEE
+				 , od.SHIPPER_NAME
+				 , od.MBL_NO
+				 , od.OD_JOB_NO
+				 , od.BL_TYPE_MH
+				 , CASE WHEN pod.POD_JOB_NO IS NULL THEN pod2.DELIVERY_IRRE_CODE ELSE pod.DELIVERY_IRRE_CODE END AS DELIVERY_IRRE_CODE
+				 , CASE WHEN pod.POD_JOB_NO IS NULL THEN pod2.REMARKS ELSE pod.REMARKS END AS REMARKS
+				 , od.CUST_CODE_LV1 AS AGENT_CODE
+				 , od.CONSIGNEE_NAME_LOC
+				 , od.CONSIGNEE_ADDRESS_LOC
+				 , od.CONSIGNEE_ZIPCODE
+				 , od.BOUND
+				 , CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE ENT_CODE = od.ENT_CODE AND FUNC_JOB_NO = od.OD_JOB_NO ) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE				 
+				 , od.ENT_BUSINESS_CODE
+			 	 , od.PIECES_REAL AS HBL_PIECES
+				 , od.GWT AS HBL_GWT		
+				 , od.DELIVERY_FEE_NOTICE_YN
+				 , od.DELIVERY_FEE_NOTICE_DATE
+				 
+				 , od.CB_CODE
+				 
+				 , od.CLEARANCE_VIOLATION_CODE
+				 , od.CLEARANCE_VIOLATION_REASON
+				 
+				 , od.CUST_CODE_LV1
+				 , od.CUST_CODE_LV2
+
+				 ,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE='ECM_DELIVERY_CODE' AND CODE = (SELECT MAX(DELIVERY_CODE) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO)) AS DELIVERY_NAME_CHANGED
+				 ,(SELECT MAX(DELIVERY_NO_CHANGED) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO) AS DELIVERY_NO_CHANGED
+				 ,(ISNULL((SELECT SUM(DELIVERY_FEE) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO),0) + ISNULL(od.DELIVERY_FEE,0)) AS DELIVERY_FEE
+				 ,ISNULL((SELECT MAX(PAYMENT_GUBN) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO), od.DELIVERY_PAYMENT_TYPE) AS DELIVERY_PAYMENT_TYPE
+				 ,ad.DELIVERY_DATE
+				<choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS CONSIGNEE_HP
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+				</when>
+				<otherwise>
+				,od.CONSIGNEE_HP
+				,od.CONSIGNEE_TEL
+				</otherwise>
+				</choose>
+			FROM TB_ECM_OD od	
+			INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			LEFT JOIN TB_ECM_POD pod ON od.OD_JOB_NO = pod.OD_JOB_NO AND pod.POD_STATUS = 'ECM400'
+			LEFT JOIN TB_ECM_POD_04 pod2 ON od.OD_JOB_NO = pod2.OD_JOB_NO AND pod2.POD_STATUS = 'ECM400'
+			<if test='srchNo != null and srchNo != "" and srchNoType == "multi.DELIVERY_NO"'>
+			LEFT JOIN TB_ECM_OD_MULTI multi
+			 		  ON multi.OD_JOB_NO = od.OD_JOB_NO
+			</if>
+			<!-- parameter 추가시 SearchDeliveryMList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.DeliveryMapper.selectDeliveryHListWhere"/>
+		)A		
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />	
+	</select>
+	
+	<!-- parameter 추가시 SearchDeliveryMList/SearchExcelList에 추가 -->
+	<sql id="selectDeliveryHListWhere">
+		WHERE od.ENT_CODE = #{srchEntCode} AND od.BL_TYPE_MH = 'H'
+		<if test="srchMasterOdJobNo != null and srchMasterOdJobNo != ''">
+			AND od.MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+		</if>								
+		<if test='blTypeMh == "M"'>
+		 AND od.MASTER_OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		<if test='blTypeMh == "H"'>
+		 AND od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		</if>						
+		<if test='deliveryCodeYn == "Y"' >
+			AND od.DELIVERY_CODE IS NOT NULL
+		</if>
+		<if test='deliveryCodeYn == "N"' >
+			AND od.DELIVERY_CODE IS NULL
+		</if>
+		<if test='deliveryStatus != null and deliveryStatus != "" and deliveryStatus != "ECM330"'>
+		AND ad.DELIVERY_STATUS = #{deliveryStatus} 
+		</if>
+		<if test='deliveryStatus == "ECM330"'><!-- 배송요청대기일 경우  NULL 이거나 ECM340 보다 상태값이 낮아야함 -->
+		AND ((ad.DELIVERY_STATUS IS NULL) OR (ad.DELIVERY_STATUS <![CDATA[<]]> 'ECM340'))
+		</if>
+		<!-- parameter 추가시 SearchDeliveryMList/UpdateDelivery에 추가 -->
+		<include refid="org.yht.exps.express.mapper.eCommerce.DeliveryMapper.searchDeliveryList"/>	
+	</sql>
+	
+	<select id="selectAssignDeliveryList" parameterType="UpdateDelivery" resultType="HashMap">
+		/* deliveryMapper.selectAssignDeliveryList :  */
+		SELECT
+			 od.OD_JOB_NO
+			,od.MBL_NO
+			,od.HBL_NO
+			,od.BOUND
+			,od.BOUND_TYPE
+			,(
+				SELECT TOP 1 A.POD_JOB_NO FROM(
+					SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM330'
+					UNION ALL
+					SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM330'
+				)A
+			 ) AS POD_ECM330
+		FROM TB_ECM_OD od	
+		INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO
+		<if test='srchNo != null and srchNo != "" and srchNoType == "multi.DELIVERY_NO"'>
+		LEFT JOIN TB_ECM_OD_MULTI multi
+		 		  ON multi.OD_JOB_NO = od.OD_JOB_NO
+		</if> 
+		WHERE od.ENT_CODE = #{entCode} AND od.BL_TYPE_MH = 'H'	AND (ISNULL(ad.DELIVERY_STATUS,'') <![CDATA[<]]> 'ECM340' or ISNULL(ad.DELIVERY_STATUS,'') ='ECM350')
+		<if test="action == 'select'">
+			<choose>
+			<when test='blTypeMh == "M" '>
+				AND od.MBL_NO = #{srchMblNo}
+				<include refid="org.yht.exps.express.mapper.eCommerce.DeliveryMapper.searchDeliveryList"/>	
+			</when>
+			<otherwise>
+				AND od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			</otherwise>
+			</choose>
+		</if>
+		<if test="action == 'search'">
+			<!-- parameter 추가시 SearchDeliveryMList/UpdateDelivery에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.DeliveryMapper.searchDeliveryList"/>	
+		</if>
+	</select>
+	
+	<select id="selectAssignDeliveryExcel" parameterType="HashMap" resultType="HashMap">
+		/* deliveryMapper.selectAssignDeliveryExcel :  */
+		SELECT
+			 od.OD_JOB_NO
+			,(
+				SELECT TOP 1 A.POD_JOB_NO FROM(
+					SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM330'
+					UNION ALL
+					SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM330'
+				) A
+			 ) AS ECM330_POD_JOB_NO
+		FROM TB_ECM_OD od	
+		INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO 
+		WHERE od.ENT_CODE = #{entCode} 
+		AND od.BL_TYPE_MH = 'H'	
+		AND (ISNULL(DELIVERY_STATUS,'') <![CDATA[<]]> 'ECM340' or ISNULL(DELIVERY_STATUS,'') ='ECM350')
+		AND od.MBL_NO = LTRIM(RTRIM(#{mblNo})) AND od.HBL_NO = LTRIM(RTRIM(#{hblNo})) 
+	</select>
+	
+ 	<update id="assignDelivery" parameterType="HashMap">
+		/* deliveryMapper.assignDelivery : Delivery 배송사 지정 */
+			UPDATE TB_ECM_OD
+			SET DELIVERY_CODE = #{deliveryCode}
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			WHERE ENT_CODE = #{entCode} 
+			AND OD_JOB_NO = #{odJobNo}
+	</update> 	
+	
+ 	<update id="assignDeliveryExcel" parameterType="HashMap">
+		/* deliveryMapper.assignDeliveryExcel : Delivery 배송사 지정 엑셀 업로드 */
+			UPDATE TB_ECM_OD SET 
+			DELIVERY_CODE = #{deliveryCode}
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			WHERE ENT_CODE = #{entCode} AND MBL_NO = LTRIM(RTRIM(#{mblNo})) AND HBL_NO = LTRIM(RTRIM(#{hblNo})) 
+	</update>	
+	
+ 	<update id="updateDelivery" parameterType="UpdateDelivery">
+		/* deliveryMapper.updateDelivery : Delivery 배송지 정보 변경 */
+			UPDATE TB_ECM_OD 
+			SET UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			<if test="consigneeName != null and consigneeName != ''">
+				, CONSIGNEE_NAME_LOC = #{consigneeName}
+			</if>
+			<if test="consigneeZipcode != null and consigneeZipcode != ''">
+				, CONSIGNEE_ZIPCODE = #{consigneeZipcode}
+			</if>			
+			<if test="deliveryAddressChanged != null and deliveryAddressChanged != ''">
+				<!-- , DELIVERY_ADDRESS_CHANGED = #{deliveryAddressChanged} -->
+				, CONSIGNEE_ADDRESS_LOC = #{deliveryAddressChanged}
+			</if>
+			<if test="deliveryPaymentType != null and deliveryPaymentType != ''">
+				, DELIVERY_PAYMENT_TYPE = #{deliveryPaymentType}
+			</if>
+			, DELIVERY_NAME_CHANGED = DELIVERY_NAME
+			<!-- , DELIVERY_REASON_CHANGED = '주소지 변경' -->
+			
+			<!-- DELIVERY_CHANGE_DATE_TIME수정은 배송지변경신고 화면에서만 처리하기로 함(일괄변경/엑셀업로드) -->
+<!-- 			, DELIVERY_CHANGE_DATE_TIME = CASE WHEN DELIVERY_CHANGE_DATE_TIME IS NULL AND (ISNULL(DELIVERY_NAME, '') != '' OR ISNULL(#{deliveryAddressChanged}, '') != '') THEN DATEADD(HOUR, ${gmtTime}, GETDATE()) -->
+<!-- 											   WHEN ISNULL(DELIVERY_NAME, '') = '' AND ISNULL(#{deliveryAddressChanged}, '') = '' THEN NULL -->
+<!-- 											   ELSE DELIVERY_CHANGE_DATE_TIME END -->
+
+			  <choose>
+			  <when test='cryptographyYn == "Y"'>
+				<if test="consigneeTel != null and consigneeTel != ''">
+					, CONSIGNEE_TEL_ENC = dbo.Cryptography(#{odJobNo}, #{consigneeTel}, 0)
+					, CONSIGNEE_HP_ENC = dbo.Cryptography(#{odJobNo}, #{consigneeTel}, 0)
+				</if>
+			  </when>
+			  <otherwise>
+				<if test="consigneeTel != null and consigneeTel != ''">
+					, CONSIGNEE_TEL = #{consigneeTel} 
+					, CONSIGNEE_HP = #{consigneeTel}
+				</if>
+			  </otherwise>
+			  </choose>
+			WHERE ENT_CODE = #{entCode} AND OD_JOB_NO = #{odJobNo}
+	</update> 		
+	
+ 	<update id="cancelDelivery" parameterType="UpdateDelivery">
+		/* deliveryMapper.cancelDelivery : Delivery 배송사 취소,보류 */
+		<if test="action == 'select'"> <!-- 선택건 -->
+			<foreach collection="dataList" item="item">
+				UPDATE TB_ECM_OD_ADDITIONAL SET
+				DELIVERY_STATUS = 'ECM350' <!-- 발송보류 -> 배송사지정으로 변경 -->
+				<!-- , LAST_POD_STATUS = CASE WHEN ISNULL(LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM350' THEN 'ECM350' ELSE LAST_POD_STATUS END -->
+				<!-- , LAST_POD_DATE = CASE WHEN ISNULL(LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM350' THEN CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20) ELSE LAST_POD_DATE END -->
+				WHERE OD_JOB_NO = #{item.odJobNo};
+			</foreach>			
+		</if>
+		<if test="action == 'search'"> <!-- 검색건 -->
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+			DELIVERY_STATUS = 'ECM350' <!-- 발송보류 -> 배송사지정으로 변경 -->
+			<!-- , LAST_POD_STATUS = CASE WHEN ISNULL(LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM350' THEN 'ECM350' ELSE LAST_POD_STATUS END -->
+			<!-- , LAST_POD_DATE = CASE WHEN ISNULL(LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM350' THEN CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20) ELSE LAST_POD_DATE END -->
+			WHERE OD_JOB_NO IN (
+				SELECT od.OD_JOB_NO
+				FROM TB_ECM_OD od	
+				INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO 
+				<if test='srchNo != null and srchNo != "" and srchNoType == "multi.DELIVERY_NO"'>
+				LEFT JOIN TB_ECM_OD_MULTI multi ON multi.OD_JOB_NO = od.OD_JOB_NO
+				</if>
+				WHERE od.ENT_CODE = #{entCode} AND od.BL_TYPE_MH = 'H'		
+				<!-- parameter 추가시 SearchDeliveryMList/UpdateDelivery에 추가 -->
+				<include refid="org.yht.exps.express.mapper.eCommerce.DeliveryMapper.searchDeliveryList"/>
+			)
+		</if>		
+	</update> 	
+	
+	<select id="selectCancelDeliveryList" parameterType="HashMap" resultType="HashMap">
+		/* deliveryMapper.selectCancelDeliveryList : 오더정보 조회 */
+			SELECT
+				 od.OD_JOB_NO AS odJobNo
+				,od.HBL_NO AS blNo
+				,od.DELIVERY_CODE AS deliveryCode
+				,(
+					SELECT TOP 1 A.POD_JOB_NO FROM(
+						SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM350'
+						UNION ALL
+						SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM350'
+					) A
+				 ) AS ECM350_POD_JOB_NO
+			FROM TB_ECM_OD od
+			<choose>
+			<when test='blTypeMh == "M"'>
+			WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			</when>
+			<otherwise>
+			WHERE od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			</otherwise>
+			</choose>
+			AND od.BL_TYPE_MH = 'H'
+	</select>
+	
+	<select id="selectOdJobNos" parameterType="UpdateDelivery" resultType="HashMap">
+		/* deliveryMapper.selectOdJobNos : Delivery 검색으로 선택하여 배송사 취소,보류시 검색건 데이터 조회 */
+			SELECT
+				 od.OD_JOB_NO AS odJobNo
+				,od.HBL_No AS blNo
+				,od.DELIVERY_CODE AS deliveryCode
+				,(
+					SELECT TOP 1 A.POD_JOB_NO FROM(
+						SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM350'
+						UNION ALL
+						SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM350'
+					) A
+				 ) AS ECM350_POD_JOB_NO
+			FROM TB_ECM_OD od	
+			INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			<if test='srchNo != null and srchNo != "" and srchNoType == "multi.DELIVERY_NO"'>
+			LEFT JOIN TB_ECM_OD_MULTI multi ON multi.OD_JOB_NO = od.OD_JOB_NO
+			</if>
+			WHERE od.ENT_CODE = #{entCode} AND od.BL_TYPE_MH = 'H'		
+			<!-- parameter 추가시 SearchDeliveryMList/UpdateDelivery에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.DeliveryMapper.searchDeliveryList"/>		
+	</select>
+	
+	<select id="selectHoldDeliveryList" parameterType="HashMap" resultType="HashMap">
+		/* deliveryMapper.selectHoldDeliveryList : 보류 대상(마스터/선택) 조회 - 멀티건은 seqNo 단위로 전개 */
+			SELECT
+				 od.OD_JOB_NO AS odJobNo
+				,od.HBL_NO AS hblNo
+				,ISNULL(multi.DELIVERY_CODE, od.DELIVERY_CODE) AS deliveryCode
+				,multi.OD_JOB_NO AS multiOdJobNo
+				,multi.SEQ_NO_ID AS seqNoId
+				,multi.DELIVERY_NO AS deliveryNo
+			FROM TB_ECM_OD od
+			LEFT JOIN TB_ECM_OD_MULTI multi ON multi.OD_JOB_NO = od.OD_JOB_NO
+			<choose>
+			<when test='blTypeMh == "M"'>
+			WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			</when>
+			<otherwise>
+			WHERE od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			</otherwise>
+			</choose>
+			AND od.BL_TYPE_MH = 'H'
+	</select>
+	
+	<select id="selectHoldOdJobNos" parameterType="UpdateDelivery" resultType="HashMap">
+		/* deliveryMapper.selectHoldOdJobNos : 보류 대상(검색조건) 조회 - 멀티건은 seqNo 단위로 전개 */
+		/* multi : 멀티 전개 + 멀티송장번호 검색 겸용 단일 조인 (if 중복 조인 제거) */
+			SELECT
+				 od.OD_JOB_NO AS odJobNo
+				,od.HBL_No AS hblNo
+				,ISNULL(multi.DELIVERY_CODE, od.DELIVERY_CODE) AS deliveryCode
+				,multi.OD_JOB_NO AS multiOdJobNo
+				,multi.SEQ_NO_ID AS seqNoId
+				,multi.DELIVERY_NO AS deliveryNo
+			FROM TB_ECM_OD od	
+			INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			LEFT JOIN TB_ECM_OD_MULTI multi ON multi.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.ENT_CODE = #{entCode} AND od.BL_TYPE_MH = 'H'		
+			<include refid="org.yht.exps.express.mapper.eCommerce.DeliveryMapper.searchDeliveryList"/>		
+	</select>
+	
+ 	<update id="updateDeliveryPod350" parameterType="HashMap">
+		/* deliveryMapper.updateDeliveryPod350 : Delivery 배송사 취소,보류(ECM350)      사용안함  */
+
+			UPDATE TB_ECM_POD SET
+			POD_DATE = DATEADD(HOUR, cast(#{gmtTime} AS int), GETDATE())
+			, POD_TIME = CONVERT(VARCHAR(5), DATEADD(HOUR, cast(#{gmtTime} AS int), GETDATE()), 108)
+			, UPDATE_USER_ID = #{updateUserId}
+			, UPDATE_DATE_TIME = CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			WHERE POD_STATUS = 'ECM350' AND OD_JOB_NO = #{odJobNo}
+						
+			IF @@ROWCOUNT = 0
+			
+			BEGIN
+			INSERT INTO TB_ECM_POD(
+				 POD_JOB_NO
+				,ENT_CODE
+				,OD_JOB_NO
+				,POD_STATUS
+				,POD_NAME
+				,POD_DATE
+				,POD_TIME
+				,BL_NO
+				,DELIVERY_CODE
+				,REGISTER_USER_ID
+				,REGISTER_DATE_TIME
+				,UPDATE_USER_ID
+				,UPDATE_DATE_TIME
+			)VALUES(
+				 #{podJobNo}
+				,#{entCode}
+				,#{odJobNo}
+				,'ECM350'
+				,'배송사지정'
+				,DATEADD(HOUR, cast(#{gmtTime} AS int), GETDATE())
+				,CONVERT(VARCHAR(5), DATEADD(HOUR, cast(#{gmtTime} AS int), GETDATE()), 108)
+				,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+				,#{deliveryCode}
+				,#{registerUserId}
+				,DATEADD(HOUR, cast(#{gmtTime} AS int), GETDATE())
+				,#{registerUserId}
+				,DATEADD(HOUR, cast(#{gmtTime} AS int), GETDATE())
+			);			
+			END
+	</update> 	
+	
+	
+	<select id="selectDeliveryInterface" parameterType="HashMap" resultType="HashMap">
+		/* deliveryMapper.selectDeliveryInterface : 배송사 Interface 정보 조회 */
+			SELECT  
+				TOP 1
+				*
+			FROM TB_SMS_DELIVERY_COMP_INFO
+			WHERE ENT_CODE = #{entCode}
+			AND CUSTOMER_CODE = #{srchCustomerCode}
+			<choose> <!--   AIR SEA -->
+				<when test='srchBoundType == "AO" or srchBoundType == "AI" or srchBound == "AIR"'>AND BOUND = 'AIR'</when>
+				<when test='srchBoundType == "SO" or srchBoundType == "SI" or srchBound == "SEA"'>AND BOUND = 'SEA'</when>
+			</choose>
+			
+			<!-- 2024-03-07 LOGISTICS_CODE는 BOUND별로 여러개 존재 가능 -->
+			<if test="srchLogisticsCode != null and srchLogisticsCode != ''">
+			AND LOGISTICS_CODE = #{srchLogisticsCode}
+			</if>
+			<!-- 2022-05-30 BOUND는 COM과 AIR(or SEA)가 같이 존재할수없고 LOGISTICS_CODE는 BOUND별로 하나만 존재가능 -->
+<!-- 			<choose> -->
+<!-- 				<when test="srchLogisticsCode != null and srchLogisticsCode != ''"> -->
+<!-- 				AND LOGISTICS_CODE = #{logisticsCode}	 -->
+<!-- 				</when> -->
+<!-- 				<otherwise> -->
+<!-- 				AND LOGISTICS_CODE = 'ICN'	 -->
+<!-- 				</otherwise> -->
+<!-- 			</choose>			 -->
+			
+	</select>
+	
+	<select id="selectSendDeliveryList" parameterType="UpdateDelivery" resultType="HashMap">
+		/* deliveryMapper.selectSendDeliveryList : Delivery 각 배송사에 해당하는 데이터 조회 */
+			SELECT  od.HBL_NO 
+			 	  , od.OD_JOB_NO 
+			 	  , od.HSN
+			 	  , od.CUST_CODE_LV1 AS AGENT_CODE
+			 	  , od.DEST_PORT
+			 	  , ad.LAST_POD_STATUS 
+			 	  , od.VESSEL_FLIGHT 
+			 	  , CASE ISNULL(od.PO_NO,'') WHEN '' THEN od.HBL_NO  ELSE od.PO_NO  END PO_NO 
+			 	  , od.CONSIGNEE_NAME_LOC
+				  , od.CONSIGNEE_NAME
+				  , od.CONSIGNEE_ZIPCODE
+				  , od.CONSIGNEE_ADDRESS
+				  , od.CONSIGNEE_ADDRESS_A
+				  , od.CONSIGNEE_ADDRESS_B
+				  , od.PIECES
+				  , od.CBM
+				  , od.GWT
+				  , od.DELIVERY_NOTE
+				  , od.AMOUNT_CUR
+				  , REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '1'),'|','') as commodityItem1
+				  , REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '2'),'|','') as commodityItem2
+				  , REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '3'),'|','') as commodityItem3
+				  , REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '4'),'|','') as commodityItem4
+				  , REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '5'),'|','') as commodityItem5
+				  , od.COMMODITY_ITEM AS  commodityItemLocConvert
+			 	  , od.PIECES_REAL
+				  , od.SHIPPER_NAME AS shipperNameConvert
+				  , CASE WHEN ISNULL(od.CONSIGNEE_NAME_LOC,'') = '' THEN ISNULL(od.CONSIGNEE_NAME,'') ELSE ISNULL(od.CONSIGNEE_NAME_LOC,'') END AS consigneeNameLocConvert
+			 	  , od.SHIPPER_ZIPCODE AS shipperZipcodeConvert
+				  , od.SHIPPER_ADDRESS + ISNULL(od.SHIPPER_ADDRESS_A,'') + ISNULL(od.SHIPPER_ADDRESS_B,'') + ISNULL(od.SHIPPER_ADDRESS_C,'') + ISNULL(od.SHIPPER_ADDRESS_D,'') AS shipperAddressLocConvert
+				  , od.SHIPPER_TEL AS shipperTelConvert
+				  , od.SHIPPER_HP AS shipperMobileConvert
+				  , od.CONSIGNEE_ZIPCODE AS consigneeZipcodeLocConvert
+				  , LEFT(REPLACE(ISNULL(od.CONSIGNEE_ADDRESS_LOC, od.CONSIGNEE_ADDRESS + ISNULL(od.CONSIGNEE_ADDRESS_A,'') + ISNULL(od.CONSIGNEE_ADDRESS_B,'') + ISNULL(od.CONSIGNEE_ADDRESS_C,'') + ISNULL(od.CONSIGNEE_ADDRESS_D,'')),'|',' '), 200) AS consigneeAddressLocConvert
+				  , od.TR_CODE
+				  , od.DELIVERY_CODE
+				  , od.MBL_NO
+				  , od.DELIVERY_PAYMENT_TYPE
+				  , od.BOUND
+				  , od.BOUND_TYPE
+				  , #{registerUserId}  AS registerUserId
+				  , #{registerUserName} AS registerUserName
+				  , #{gmtTime} AS gmtTime
+				  ,(
+				  	SELECT TOP 1 A.POD_JOB_NO FROM(
+				  		SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+				  		UNION ALL
+				  		SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+				  	) A
+				   ) AS ECM340_POD_JOB_NO
+				  , mti.DELIVERY_NO
+				  <choose>
+				<when test='cryptographyYn == "Y"'>
+				, CASE WHEN ISNULL(od.CONSIGNEE_HP_ENC,'') = '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) END AS CONSIGNEE_TEL
+				, CASE WHEN ISNULL(od.CONSIGNEE_TEL_ENC,'') = '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) END AS CONSIGNEE_HP
+				, dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS consigneeHpConvert
+				, dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS consigneeTelConvert
+				</when>
+				<otherwise>
+				, CASE WHEN ISNULL(od.CONSIGNEE_HP,'') = '' THEN ISNULL(od.CONSIGNEE_TEL,'') ELSE ISNULL(od.CONSIGNEE_HP,'') END AS CONSIGNEE_TEL
+				, CASE WHEN ISNULL(od.CONSIGNEE_TEL,'') = '' THEN ISNULL(od.CONSIGNEE_HP,'') ELSE ISNULL(od.CONSIGNEE_TEL,'') END AS CONSIGNEE_HP
+				, od.CONSIGNEE_HP AS consigneeHpConvert
+				, od.CONSIGNEE_TEL AS consigneeTelConvert
+				</otherwise>
+				</choose>
+			FROM TB_ECM_OD od
+			INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			LEFT JOIN TB_ECM_OD_MULTI mti ON od.OD_JOB_NO = mti.OD_JOB_NO
+			WHERE od.CONSOL_YN = 'Y' 
+			AND ISNULL(od.HBL_NO,'') != ''  
+			AND (ISNULL(ad.DELIVERY_STATUS,'') <![CDATA[<]]> 'ECM340' OR ad.DELIVERY_STATUS = 'ECM350') <!--  'ECM340' 배송요청 전이거나 'ECM350(미집하)'의 상태인것만 요청 할 수 있도록 -->
+			<!-- 멀티건은 멀티의 반품배송상태(RETURN_DELIVERY_STATUS), 단건은 배송상태(DELIVERY_STATUS)가 보류(ECM425)가 아닌 건만 -->
+			AND (
+				(ISNULL(mti.OD_JOB_NO,'') != '' AND ISNULL(mti.RETURN_DELIVERY_STATUS,'') != 'ECM425')
+				OR
+				(ISNULL(mti.OD_JOB_NO,'') = '' AND ISNULL(ad.DELIVERY_STATUS,'') != 'ECM425')
+			)
+			<if test="deliveryCode != null and deliveryCode != ''">
+			AND od.DELIVERY_CODE = #{deliveryCode}
+			</if>
+			<if test="srchStatus != null and srchStatus != ''">
+				<choose>
+				<when test='srchStatus == "ECMNULL"'>
+				AND ISNULL(od.DELIVERY_CODE, '') != '' AND ISNULL(ad.DELIVERY_STATUS, '') <![CDATA[<]]> 'ECM340'
+				</when>
+				<otherwise>
+				AND ad.DELIVERY_STATUS = #{srchStatus}
+				</otherwise>
+				</choose>
+			</if>		
+			<choose>
+				<when test='srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+				<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+				<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+			</choose>			
+			<if test="srchCustomerCode != null and srchCustomerCode != ''">
+				AND od.CUST_CODE_LV1 = #{srchEcmCustomerCode}
+			</if>
+			<if test="blTypeMh != null and blTypeMh != ''">
+				<if test='blTypeMh == "M"'> <!-- 마스터로 조회 -->
+				 AND od.MBL_NO IN
+				 <foreach collection="dataList" item="item" open="(" close=")" separator=",">
+					#{item.mblNo}
+				</foreach>				
+				</if>
+				<if test='blTypeMh == "H"'> <!-- 하우스로 조회 -->
+				 AND od.OD_JOB_NO IN
+				 <foreach collection="dataList" item="item" open="(" close=")" separator=",">
+					#{item.odJobNo}
+				</foreach>
+				</if>				
+			</if>
+			ORDER BY od.CUST_CODE_LV1
+	</select>
+	
+	
+	<update id="updateDeliveryStatus" parameterType="HashMap">
+		/* deliveryMapper.updateDeliveryStatus : Delivery 각 배송사 배송요청 후 상태값 업데이트(ECM340)       사용안함 */
+			UPDATE TB_ECM_OD_ADDITIONAL SET  
+			  DELIVERY_STATUS = 'ECM340' <!-- 배송요청 -->
+			, LAST_POD_STATUS = CASE WHEN ISNULL(LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM340' THEN 'ECM340' ELSE LAST_POD_STATUS END
+			<!-- , LAST_POD_DATE = CASE WHEN ISNULL(LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM340' THEN CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20) ELSE LAST_POD_DATE END -->
+			WHERE OD_JOB_NO = #{OD_JOB_NO};
+			
+			UPDATE TB_ECM_POD SET
+			POD_DATE = DATEADD(HOUR, cast(#{gmtTime} AS int), GETDATE())
+			, POD_TIME = CONVERT(VARCHAR(5), DATEADD(HOUR, cast(#{gmtTime} AS int), GETDATE()), 108)
+			, UPDATE_USER_ID = #{registerUserId}
+			, UPDATE_DATE_TIME = CONVERT(VARCHAR,DATEADD(hh, cast(#{gmtTime} AS int), GETDATE()), 20)
+			WHERE POD_STATUS = 'ECM340' AND OD_JOB_NO = #{OD_JOB_NO}
+						
+			IF @@ROWCOUNT = 0
+			
+			BEGIN
+			INSERT INTO TB_ECM_POD(
+				 POD_JOB_NO
+				,ENT_CODE
+				,OD_JOB_NO
+				,POD_STATUS
+				,POD_NAME
+				,POD_DATE
+				,POD_TIME
+				,BL_NO
+				,DELIVERY_CODE
+				,REGISTER_USER_ID
+				,REGISTER_DATE_TIME
+				,UPDATE_USER_ID
+				,UPDATE_DATE_TIME
+			)VALUES(
+				 #{podJobNo}
+				,#{entCode}
+				,#{OD_JOB_NO}
+				,'ECM340'
+				,'배송요청'
+				,DATEADD(HOUR, cast(#{gmtTime} AS int), GETDATE())
+				,CONVERT(VARCHAR(5), DATEADD(HOUR, cast(#{gmtTime} AS int), GETDATE()), 108)
+				,(SELECT HBL_NO FROM TB_ECM_OD WHERE ENT_CODE = #{entCode} AND DELIVERY_CODE = #{DELIVERY_CODE} AND OD_JOB_NO = #{OD_JOB_NO})
+				,#{DELIVERY_CODE}
+				,#{registerUserId}
+				,DATEADD(HOUR, cast(#{gmtTime} AS int), GETDATE())
+				,#{registerUserId}
+				,DATEADD(HOUR, cast(#{gmtTime} AS int), GETDATE())
+			);			
+			END			
+			
+	</update> 
+	
+	<select id="selectKorexDeliveryOrderPK" parameterType="String" resultType="String">
+	/* deliveryMapper.selectKorexDeliveryOrderPK */
+		SELECT MPCK_KEY 
+		FROM TB_RCPT_YHT010
+		WHERE MPCK_KEY = #{value}
+	</select>	
+	
+	<insert id="insertKorexDeliveryOrderDB2DB" parameterType="HashMap">
+		/* deliveryMapper.insertKorexDeliveryOrderDB2DB : 대한통운(oracle) DB에 배송요청 접수(TB_RCPT_YHT010)  */
+			INSERT INTO TB_RCPT_YHT010(
+				  CUST_ID
+				, RCPT_YMD
+				, CUST_USE_NO
+				, RCPT_DV
+				, WORK_DV_CD
+				, REQ_DV_CD
+				, MPCK_KEY
+				, MPCK_SEQ
+				, CAL_DV_CD
+				, FRT_DV_CD
+				, CNTR_ITEM_CD
+				, BOX_TYPE_CD
+				, BOX_QTY
+				, FRT
+				, CUST_MGMT_DLCM_CD
+				, SENDR_NM
+				, SENDR_TEL_NO1
+				, SENDR_TEL_NO2
+				, SENDR_TEL_NO3
+				, SENDR_CELL_NO1
+				, SENDR_CELL_NO2
+				, SENDR_CELL_NO3
+				, SENDR_ZIP_NO
+				, SENDR_ADDR
+				, SENDR_DETAIL_ADDR
+				, RCVR_NM
+				, RCVR_TEL_NO1
+				, RCVR_TEL_NO2
+				, RCVR_TEL_NO3
+				, RCVR_CELL_NO1
+				, RCVR_CELL_NO2
+				, RCVR_CELL_NO3
+				, RCVR_ZIP_NO
+				, RCVR_ADDR
+				, RCVR_DETAIL_ADDR
+				, INVC_NO
+				, PRT_ST
+				, REMARK_1
+				, GDS_NM
+				, DLV_DV
+				, RCPT_ERR_YN
+				, EAI_PRGS_ST
+				, REG_EMP_ID
+				, REG_DTIME
+				, MODI_EMP_ID
+				, MODI_DTIME
+				)
+		     VALUES
+				(
+				#{custId}
+				, #{rcptYmd}
+				, #{custUseNo}
+				, #{rcptDv}
+				, #{workDvCd}
+				, #{reqDvCd}
+				, #{mpckKey}
+				, #{mpckSeq}
+				, #{calDvCd}
+				, #{deliveryPaymentType}
+				, #{cntrItemCd}
+				, #{boxTypeCd}
+				, #{boxQty}
+				, #{frt}
+				, #{custMgmtDlcmCd}
+				, #{sendrNm}
+				, #{sendrTelNo1}
+				, #{sendrTelNo2}
+				, #{sendrTelNo3}
+				, #{sendrCellNo1}
+				, #{sendrCellNo2}
+				, #{sendrCellNo3}
+				, #{sendrZipNo}
+				, #{sendrAddr}
+				, #{sendrDetailAddr}
+				, #{rcvrNm}
+				, #{rcvrTelNo1}
+				, #{rcvrTelNo2}
+				, #{rcvrTelNo3}
+				, #{rcvrCellNo1}
+				, #{rcvrCellNo2}
+				, #{rcvrCellNo3}
+				, #{rcvrZipNo}
+				, #{rcvrAddr}
+				, #{rcvrDetailAddr}
+				, #{invcNo}
+				, #{prtSt}
+				, #{remark1}
+				, #{gdsNm}
+				, #{dlvDv}
+				, #{rcptErrYn}
+				, #{eaiPrgsSt}
+				, #{regEmpId}
+				, SYSDATE
+				, #{modiEmpId}
+				, SYSDATE
+				)		
+	</insert>
+	
+
+	<select id="insertHanjinDeliveryOrderDB2DB"  parameterType="HashMap" statementType="CALLABLE">
+		/* deliveryMapper.insertHanjinDeliveryOrderDB2DB : 한진택배(oracle) DB에 배송요청 접수 */
+			{call insert_cst_ord_mtr_mm(
+			     #{ediCod, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{ordNum, mode=IN, jdbcType=VARCHAR, javaType=String}	
+			   , #{wblNum, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{dlvDiv, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{cusNum, mode=IN, jdbcType=VARCHAR, javaType=String}			   
+			   , #{picYmd, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{sndZip, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{sndAd1, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{sndAd2, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{sndNam, mode=IN, jdbcType=VARCHAR, javaType=String}			   
+			   , #{sndTel, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{sndHph, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{sndCrg, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{rcvZip, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{rcvAd1, mode=IN, jdbcType=VARCHAR, javaType=String}					   
+			   , #{rcvAd2, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{rcvNam, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{rcvTel, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{rcvHph, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{rcvCrg, mode=IN, jdbcType=VARCHAR, javaType=String}				
+			   , #{dlvMsg, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{godNam, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{boxQty, mode=IN, jdbcType=INTEGER, javaType=Integer}
+			   , #{payCon, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{boxTyp, mode=IN, jdbcType=VARCHAR, javaType=String}				   
+			   , #{memNo1, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{memNo2, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{memNo3, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{memNo4, mode=IN, jdbcType=VARCHAR, javaType=String}
+			   , #{O_YN,  mode=OUT, jdbcType=VARCHAR, javaType=String}				   			   		
+			   , #{O_SQLCODE, mode=OUT, jdbcType=VARCHAR, javaType=String}
+			   , #{O_SQLERRM, mode=OUT, jdbcType=VARCHAR, javaType=String}		
+			)}			
+	</select>
+
+	<select id="selectSendDeliveryListToMultiVE" parameterType="UpdateDelivery" resultType="HashMap">
+		/* deliveryMapper.selectSendDeliveryListToMultiVE : Delivery 각 배송사에 해당하는 데이터 조회(반품처리용) */
+		SELECT
+		mti.PAYMENT_GUBN AS DELIVERY_PAYMENT_TYPE_MULTI
+		,od.COMMODITY_ITEM  AS  commodityItemLocConvertMulti
+		,mti.DIM_WIDTH AS DIM_WIDTH_MULTI
+		,mti.DIM_LENGTH AS DIM_LENGTH_MULTI
+		,mti.DIM_HEIGHT AS DIM_HEIGHT_MULTI
+		,od.GWT AS GWT_MULTI
+		,od.DIM_WIDTH  AS DIM_WIDTH
+		,od.DIM_LENGTH  AS DIM_LENGTH
+		,od.DIM_HEIGHT AS DIM_HEIGHT
+		,od.GWT AS GWT
+		,(SELECT COUNT(*) FROM TB_ECM_OD_MULTI chkMul WHERE chkMul.OD_JOB_NO = od.OD_JOB_NO) AS MULTI_COUNT
+		,(
+		SELECT TOP 1 A.POD_JOB_NO
+		FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM360'
+		AND BL_NO = COALESCE(NULLIF(mti.DELIVERY_NO_CHANGED, ''), mti.DELIVERY_NO)
+		) A
+		) AS ECM360_POD_JOB_NO_MULTI
+		,(
+		SELECT TOP 1 A.POD_JOB_NO FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM360'
+		UNION ALL
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM360'
+		) A
+		) AS ECM360_POD_JOB_NO
+		,(
+		SELECT TOP 1 A.POD_JOB_NO
+		FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM410'
+		AND BL_NO = COALESCE(NULLIF(mti.DELIVERY_NO_CHANGED, ''), mti.DELIVERY_NO)
+		--mti.DELIVERY_NO
+		) A
+		) AS ECM410_POD_JOB_NO_MULTI
+		,(
+		SELECT TOP 1 A.POD_JOB_NO FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+		AND BL_NO = COALESCE(NULLIF(mti.DELIVERY_NO_CHANGED, ''), mti.DELIVERY_NO)
+		--mti.DELIVERY_NO
+		) A
+		) AS ECM340_POD_JOB_NO_MULTI
+		,(SELECT TOP 1 POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM504') AS ECM504_POD_JOB_NO
+		,(SELECT TOP 1 POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM504' AND BL_NO = mti.DELIVERY_NO) AS ECM504_POD_JOB_NO_MULTI
+		, od.HBL_NO
+		, od.OD_JOB_NO
+		, od.HSN
+		, od.CUST_CODE_LV1 AS AGENT_CODE
+		, od.DEST_PORT
+		, ad.LAST_POD_STATUS
+		, od.VESSEL_FLIGHT
+		, od.PO_NO AS CHK_PO_NO
+		, CASE ISNULL(od.PO_NO,'') WHEN '' THEN od.HBL_NO  ELSE od.PO_NO  END PO_NO
+		, od.CONSIGNEE_NAME_LOC
+		, od.CONSIGNEE_NAME
+		, od.CONSIGNEE_ZIPCODE
+		, od.CONSIGNEE_ADDRESS
+		, od.CONSIGNEE_ADDRESS_A
+		, od.CONSIGNEE_ADDRESS_B
+		, od.PIECES
+		, od.CBM
+		, od.GWT
+		, od.DELIVERY_NOTE
+		, od.AMOUNT_CUR
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '1'),'|','') as commodityItem1
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '2'),'|','') as commodityItem2
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '3'),'|','') as commodityItem3
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '4'),'|','') as commodityItem4
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '5'),'|','') as commodityItem5
+		, od.COMMODITY_ITEM AS  commodityItemLocConvert
+		, od.PIECES_REAL
+		, od.SHIPPER_NAME AS shipperNameConvert
+		, COALESCE(NULLIF(mti.CONSIGNEE_NAME_LOC_M, ''), (CASE WHEN ISNULL(od.CONSIGNEE_NAME_LOC,'') = '' THEN ISNULL(od.CONSIGNEE_NAME,'') ELSE ISNULL(od.CONSIGNEE_NAME_LOC,'') END)) AS consigneeNameLocConvert
+		, od.SHIPPER_ZIPCODE AS shipperZipcodeConvert
+		, od.SHIPPER_ADDRESS + ISNULL(od.SHIPPER_ADDRESS_A,'') + ISNULL(od.SHIPPER_ADDRESS_B,'') + ISNULL(od.SHIPPER_ADDRESS_C,'') + ISNULL(od.SHIPPER_ADDRESS_D,'') AS shipperAddressLocConvert
+		, od.SHIPPER_TEL AS shipperTelConvert
+		, od.SHIPPER_HP AS shipperMobileConvert
+		, COALESCE(NULLIF(mti.CONSIGNEE_ZIPCODE_M, ''), 	od.CONSIGNEE_ZIPCODE) AS consigneeZipcodeLocConvert
+		, COALESCE(NULLIF(mti.CONSIGNEE_ADDRESS_LOC_M, ''), 	(LEFT(REPLACE(ISNULL(od.CONSIGNEE_ADDRESS_LOC, od.CONSIGNEE_ADDRESS + ISNULL(od.CONSIGNEE_ADDRESS_A, '') + ISNULL(od.CONSIGNEE_ADDRESS_B, '') + ISNULL(od.CONSIGNEE_ADDRESS_C, '') + ISNULL(od.CONSIGNEE_ADDRESS_D, '')), '|', ' '),200))) AS consigneeAddressLocConvert
+		, od.TR_CODE
+		, od.DELIVERY_CODE
+		, od.MBL_NO
+		, od.DELIVERY_PAYMENT_TYPE
+		, od.BOUND
+		, od.BOUND_TYPE
+		, mti.DELIVERY_CODE AS DELIVERY_CODE_MULTI
+		, #{registerUserId}  AS registerUserId
+		, #{registerUserName} AS registerUserName
+		, #{gmtTime} AS gmtTime
+		,(
+		SELECT TOP 1 A.POD_JOB_NO FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+		UNION ALL
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+		) A
+		) AS ECM340_POD_JOB_NO
+-- 		, mti.DELIVERY_NO
+		,COALESCE(NULLIF(mti.DELIVERY_NO_CHANGED, ''), mti.DELIVERY_NO) AS DELIVERY_NO
+		, mti.SEQ_NO_ID
+		<choose>
+			<when test='cryptographyYn == "Y"'>
+				, CASE WHEN ISNULL(od.CONSIGNEE_HP_ENC,'') = '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) END AS CONSIGNEE_TEL
+				, CASE WHEN ISNULL(od.CONSIGNEE_TEL_ENC,'') = '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) END AS CONSIGNEE_HP
+				, COALESCE(NULLIF(mti.CONSIGNEE_TEL_M, ''), 	(dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1))) AS consigneeHpConvert
+				, dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS consigneeTelConvert
+			</when>
+			<otherwise>
+				, CASE WHEN ISNULL(od.CONSIGNEE_HP,'') = '' THEN ISNULL(od.CONSIGNEE_TEL,'') ELSE ISNULL(od.CONSIGNEE_HP,'') END AS CONSIGNEE_TEL
+				, CASE WHEN ISNULL(od.CONSIGNEE_TEL,'') = '' THEN ISNULL(od.CONSIGNEE_HP,'') ELSE ISNULL(od.CONSIGNEE_TEL,'') END AS CONSIGNEE_HP
+				, COALESCE(NULLIF(mti.CONSIGNEE_TEL_M, ''), 	od.CONSIGNEE_HP) AS consigneeHpConvert
+				, od.CONSIGNEE_TEL AS consigneeTelConvert
+			</otherwise>
+		</choose>
+		FROM TB_ECM_OD od
+		INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO
+		LEFT JOIN TB_ECM_OD_MULTI mti ON od.OD_JOB_NO = mti.OD_JOB_NO
+		WHERE 1=1
+		AND (
+		ISNULL(od.HBL_NO,'') != ''
+		OR od.DELIVERY_CODE = 'KD'
+		)
+		<if test='srchReturnYn != null and srchReturnYn != "Y"'>
+		AND (ISNULL(ad.DELIVERY_STATUS,'') <![CDATA[<]]> 'ECM340' OR ad.DELIVERY_STATUS = 'ECM350') <!--  'ECM340' 배송요청 전이거나 'ECM350(미집하)'의 상태인것만 요청 할 수 있도록 -->
+		</if>
+		<if test="deliveryCode != null and deliveryCode != ''">
+		AND od.DELIVERY_CODE = #{deliveryCode}
+		</if>
+		<if test="srchStatus != null and srchStatus != ''">
+			<choose>
+				<when test='srchStatus == "ECMNULL"'>
+					AND ISNULL(od.DELIVERY_CODE, '') != '' AND ISNULL(ad.DELIVERY_STATUS, '') <![CDATA[<]]> 'ECM340'
+				</when>
+				<otherwise>
+					AND ad.DELIVERY_STATUS = #{srchStatus}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchDeliveryStatus != null and srchDeliveryStatus != ''">
+			<choose>
+			<when test='srchDeliveryStatus == "ECMNULL"'>
+			AND ISNULL(od.DELIVERY_CODE, '') != '' AND ISNULL(ad.DELIVERY_STATUS, '') <![CDATA[<]]> 'ECM340'
+			</when>
+			<otherwise>
+			AND ((ISNULL(mti.OD_JOB_NO,'') = '' AND ad.DELIVERY_STATUS = #{srchDeliveryStatus}) OR (SELECT MAX(POD_STATUS) FROM TB_ECM_POD_04_M pod4 WHERE OD_JOB_NO = mti.OD_JOB_NO AND BL_NO = COALESCE(NULLIF(mti.DELIVERY_NO_CHANGED, ''), mti.DELIVERY_NO)) = #{srchDeliveryStatus})
+			</otherwise>
+			</choose>
+		</if>
+		<if test='multiChk != null and multiChk == "multi"'>
+			AND COALESCE(NULLIF(mti.DELIVERY_NO_CHANGED, ''), mti.DELIVERY_NO) = #{srchHblNo}
+			AND mti.SEQ_NO_ID = (
+			SELECT MAX(sub.SEQ_NO_ID)
+			FROM TB_ECM_OD_MULTI sub
+			WHERE COALESCE(NULLIF(sub.DELIVERY_NO_CHANGED, ''), sub.DELIVERY_NO) = #{srchHblNo}
+			)
+		</if>
+		<choose>
+			<when test='srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+			<when test='srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+		</choose>
+<!--		<if test="srchCustomerCode != null and srchCustomerCode != ''">-->
+<!--			AND od.CUST_CODE_LV1 = #{srchEcmCustomerCode}-->
+<!--		</if>-->
+		<if test="blTypeMh != null and blTypeMh != ''">
+			<if test='blTypeMh == "M"'> <!-- 마스터로 조회 -->
+				AND od.MBL_NO IN
+				<foreach collection="dataList" item="item" open="(" close=")" separator=",">
+					#{item.mblNo}
+				</foreach>
+			</if>
+			<if test='blTypeMh == "H"'> <!-- 하우스로 조회 -->
+				AND od.OD_JOB_NO IN
+				<foreach collection="dataList" item="item" open="(" close=")" separator=",">
+					#{item.odJobNo}
+				</foreach>
+			</if>
+		</if>
+		ORDER BY od.CUST_CODE_LV1
+	</select>
+
+	<select id="countMulti" parameterType="searchList" resultType="int">
+		/** OdMapper.countMulti */
+		SELECT count(*)
+		FROM TB_ECM_OD_MULTI
+		WHERE
+			OD_JOB_NO = #{odJobNo}
+	</select>
+
+	<select id="selectSendDeliveryListToMulti" parameterType="UpdateDelivery" resultType="HashMap">
+		/* deliveryMapper.selectSendDeliveryListToMulti : Delivery 각 배송사에 해당하는 데이터 조회(반품관리 반품접수시에도 사용(일반적으론 배송사 배송접수에 사용)) */
+		SELECT
+		mti.PAYMENT_GUBN AS DELIVERY_PAYMENT_TYPE_MULTI
+		,od.COMMODITY_ITEM  AS  commodityItemLocConvertMulti
+		,mti.DIM_WIDTH AS DIM_WIDTH_MULTI
+		,mti.DIM_LENGTH AS DIM_LENGTH_MULTI
+		,mti.DIM_HEIGHT AS DIM_HEIGHT_MULTI
+		,od.GWT AS GWT_MULTI
+		,mti.VWT AS VWT_MULTI
+		,od.DIM_WIDTH  AS DIM_WIDTH
+		,od.DIM_LENGTH  AS DIM_LENGTH
+		,od.DIM_HEIGHT AS DIM_HEIGHT
+		,mti.DELIVERY_NO_CHANGED AS DELIVERY_NO_CHANGED
+		-- 		,od.GWT AS GWT
+		,od.VWT AS VWT
+		,(SELECT COUNT(*) FROM TB_ECM_OD_MULTI chkMul WHERE chkMul.OD_JOB_NO = od.OD_JOB_NO) AS MULTI_COUNT
+		,(
+		SELECT TOP 1 A.POD_JOB_NO
+		FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM360'
+		AND BL_NO = COALESCE(NULLIF(mti.DELIVERY_NO_CHANGED, ''), mti.DELIVERY_NO)
+		) A
+		) AS ECM360_POD_JOB_NO_MULTI
+		,(
+		SELECT TOP 1 A.POD_JOB_NO FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM360'
+		UNION ALL
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM360'
+		) A
+		) AS ECM360_POD_JOB_NO
+		,(
+		SELECT TOP 1 A.POD_JOB_NO
+		FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM410'
+		AND BL_NO = COALESCE(NULLIF(mti.DELIVERY_NO_CHANGED, ''), mti.DELIVERY_NO)
+		) A
+		) AS ECM410_POD_JOB_NO_MULTI
+		,(
+		SELECT TOP 1 A.POD_JOB_NO
+		FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM410'
+		) A
+		) AS ECM410_POD_JOB_NO
+		,(
+		SELECT TOP 1 A.POD_JOB_NO FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+		AND BL_NO = COALESCE(NULLIF(mti.DELIVERY_NO_CHANGED, ''), mti.DELIVERY_NO)
+		) A
+		) AS ECM340_POD_JOB_NO_MULTI
+		,(SELECT TOP 1 POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM504') AS ECM504_POD_JOB_NO
+		,(SELECT TOP 1 POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM504' AND BL_NO = mti.DELIVERY_NO) AS ECM504_POD_JOB_NO_MULTI
+		, od.HBL_NO
+		, od.OD_JOB_NO
+		, od.HSN
+		, od.CUST_CODE_LV1 AS AGENT_CODE
+		, od.DEST_PORT
+		, ad.LAST_POD_STATUS
+		, od.VESSEL_FLIGHT
+		, od.PO_NO AS CHK_PO_NO
+		, CASE ISNULL(od.PO_NO,'') WHEN '' THEN od.HBL_NO  ELSE od.PO_NO  END PO_NO
+		, od.CONSIGNEE_NAME_LOC
+		, od.CONSIGNEE_NAME
+		, od.CONSIGNEE_ZIPCODE
+		, od.CONSIGNEE_ADDRESS
+		, od.CONSIGNEE_ADDRESS_A
+		, od.CONSIGNEE_ADDRESS_B
+		, od.PIECES
+		, od.CBM
+		, od.GWT
+		, od.DELIVERY_NOTE
+		, od.AMOUNT_CUR
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '1'),'|','') as commodityItem1
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '2'),'|','') as commodityItem2
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '3'),'|','') as commodityItem3
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '4'),'|','') as commodityItem4
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '5'),'|','') as commodityItem5
+		, od.COMMODITY_ITEM AS  commodityItemLocConvert
+		, od.PIECES_REAL
+		, od.SHIPPER_NAME AS shipperNameConvert
+		, COALESCE(NULLIF(mti.CONSIGNEE_NAME_LOC_M, ''), (CASE WHEN ISNULL(od.CONSIGNEE_NAME_LOC,'') = '' THEN ISNULL(od.CONSIGNEE_NAME,'') ELSE ISNULL(od.CONSIGNEE_NAME_LOC,'') END)) AS consigneeNameLocConvert
+		, od.SHIPPER_ZIPCODE AS shipperZipcodeConvert
+		, od.SHIPPER_ADDRESS + ISNULL(od.SHIPPER_ADDRESS_A,'') + ISNULL(od.SHIPPER_ADDRESS_B,'') + ISNULL(od.SHIPPER_ADDRESS_C,'') + ISNULL(od.SHIPPER_ADDRESS_D,'') AS shipperAddressLocConvert
+		, od.SHIPPER_TEL AS shipperTelConvert
+		, od.SHIPPER_HP AS shipperMobileConvert
+		, COALESCE(NULLIF(mti.CONSIGNEE_ZIPCODE_M, ''), 	od.CONSIGNEE_ZIPCODE) AS consigneeZipcodeLocConvert
+		, COALESCE(NULLIF(mti.CONSIGNEE_ADDRESS_LOC_M, ''), 	(LEFT(REPLACE(ISNULL(od.CONSIGNEE_ADDRESS_LOC, od.CONSIGNEE_ADDRESS + ISNULL(od.CONSIGNEE_ADDRESS_A, '') + ISNULL(od.CONSIGNEE_ADDRESS_B, '') + ISNULL(od.CONSIGNEE_ADDRESS_C, '') + ISNULL(od.CONSIGNEE_ADDRESS_D, '')), '|', ' '),200))) AS consigneeAddressLocConvert
+		, od.TR_CODE
+		<choose>
+			<when test='returnDeliveryCodeChk != null and returnDeliveryCodeChk == "Y"'>
+				, ad.RETURN_DELIVERY_CODE
+				, ad.RETURN_DELIVERY_CODE AS DELIVERY_CODE
+			</when>
+			<otherwise>
+				, od.DELIVERY_CODE
+			</otherwise>
+		</choose>
+		, od.MBL_NO
+		, od.DELIVERY_PAYMENT_TYPE
+		, od.BOUND
+		, od.BOUND_TYPE
+		<choose>
+			<when test='returnDeliveryCodeChk != null and returnDeliveryCodeChk == "Y"'>
+				,mti.RETURN_DELIVERY_CODE
+				,mti.RETURN_DELIVERY_CODE AS DELIVERY_CODE_MULTI
+			</when>
+			<otherwise>
+				,mti.DELIVERY_CODE AS DELIVERY_CODE_MULTI
+			</otherwise>
+		</choose>
+		, #{registerUserId}  AS registerUserId
+		, #{registerUserName} AS registerUserName
+		, #{gmtTime} AS gmtTime
+		,(
+		SELECT TOP 1 A.POD_JOB_NO FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+		UNION ALL
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+		) A
+		) AS ECM340_POD_JOB_NO
+		--, mti.DELIVERY_NO
+		,COALESCE(NULLIF(mti.DELIVERY_NO_CHANGED, ''), mti.DELIVERY_NO) AS DELIVERY_NO
+		, mti.SEQ_NO_ID
+		<choose>
+			<when test='cryptographyYn == "Y"'>
+				, CASE WHEN ISNULL(od.CONSIGNEE_HP_ENC,'') = '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) END AS CONSIGNEE_TEL
+				, CASE WHEN ISNULL(od.CONSIGNEE_TEL_ENC,'') = '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) END AS CONSIGNEE_HP
+				,COALESCE(NULLIF(mti.CONSIGNEE_TEL_M, ''), 	(dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1))) AS consigneeHpConvert
+				, dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS consigneeTelConvert
+			</when>
+			<otherwise>
+				, CASE WHEN ISNULL(od.CONSIGNEE_HP,'') = '' THEN ISNULL(od.CONSIGNEE_TEL,'') ELSE ISNULL(od.CONSIGNEE_HP,'') END AS CONSIGNEE_TEL
+				, CASE WHEN ISNULL(od.CONSIGNEE_TEL,'') = '' THEN ISNULL(od.CONSIGNEE_HP,'') ELSE ISNULL(od.CONSIGNEE_TEL,'') END AS CONSIGNEE_HP
+				,COALESCE(NULLIF(mti.CONSIGNEE_TEL_M, ''), 	od.CONSIGNEE_HP) AS consigneeHpConvert
+				, od.CONSIGNEE_TEL AS consigneeTelConvert
+			</otherwise>
+		</choose>
+		FROM TB_ECM_OD od
+		INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO
+		LEFT JOIN TB_ECM_OD_MULTI mti ON od.OD_JOB_NO = mti.OD_JOB_NO
+		WHERE od.CONSOL_YN = 'Y'
+		AND (
+		ISNULL(od.HBL_NO,'') != ''
+		OR od.DELIVERY_CODE = 'KD'
+		)
+		<if test='srchReturnYn != null and srchReturnYn != "Y" and chkPage != null and chkPage != "" and chkPage != "changeDelivery"'>
+		AND (ISNULL(ad.DELIVERY_STATUS,'') <![CDATA[<]]> 'ECM340' OR ad.DELIVERY_STATUS = 'ECM350') <!--  'ECM340' 배송요청 전이거나 'ECM350(미집하)'의 상태인것만 요청 할 수 있도록 -->
+		</if>	                                                                                                             
+		<if test="deliveryCode != null and deliveryCode != ''">
+			AND od.DELIVERY_CODE = #{deliveryCode}
+		</if>
+		<if test="srchStatus != null and srchStatus != ''">
+			<choose>
+				<when test='srchStatus == "ECMNULL"'>
+					AND ISNULL(od.DELIVERY_CODE, '') != '' AND ISNULL(ad.DELIVERY_STATUS, '') <![CDATA[<]]> 'ECM340'
+				</when>
+				<otherwise>
+					AND ad.DELIVERY_STATUS = #{srchStatus}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchDeliveryStatus != null and srchDeliveryStatus != ''">
+			<choose>
+			<when test='srchDeliveryStatus == "ECMNULL"'>
+			<if test="chkPage != null and chkPage != '' and chkPage != 'changeDelivery'">
+			AND ISNULL(od.DELIVERY_CODE, '') != '' AND ISNULL(ad.DELIVERY_STATUS, '') <![CDATA[<]]> 'ECM340'
+			</if>
+			</when>
+			<otherwise>
+			AND ((ISNULL(mti.OD_JOB_NO,'') = '' AND ad.DELIVERY_STATUS = #{srchDeliveryStatus}) OR (SELECT MAX(POD_STATUS) FROM TB_ECM_POD_04_M pod4 WHERE OD_JOB_NO = mti.OD_JOB_NO AND BL_NO = COALESCE(NULLIF(mti.DELIVERY_NO_CHANGED, ''), mti.DELIVERY_NO)) = #{srchDeliveryStatus})
+			</otherwise>
+			</choose>
+		</if>
+		<choose>
+			<when test='srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+			<when test='srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+		</choose>
+<!--		<if test="srchCustomerCode != null and srchCustomerCode != ''">-->
+<!--			AND od.CUST_CODE_LV1 = #{srchEcmCustomerCode}-->
+<!--		</if>-->
+		<if test="blTypeMh != null and blTypeMh != ''">
+			<if test='blTypeMh == "M"'> <!-- 마스터로 조회 -->
+				AND od.MBL_NO IN
+				<foreach collection="dataList" item="item" open="(" close=")" separator=",">
+					#{item.mblNo}
+				</foreach>
+			</if>
+			<if test='blTypeMh == "H"'> <!-- 하우스로 조회 -->
+				AND 
+				<trim prefix="(" suffix=")" prefixOverrides="OR">
+				<if test="multiOdList != null and multiOdList.size() > 0">
+				OR
+					<foreach collection="multiOdList" item="item" separator="OR">
+						(
+						mti.OD_JOB_NO = #{item.odJobNo}
+						AND mti.SEQ_NO_ID = #{item.seqNoId}
+						)
+					</foreach>
+				</if>
+
+
+				
+				<if test="hblOdList != null and hblOdList.size() > 0">
+				OR od.OD_JOB_NO IN
+				<foreach collection="hblOdList" item="item" open="(" close=")" separator=",">
+					#{item.odJobNo}
+				</foreach>
+				</if>
+				</trim>
+			</if>
+		</if>
+		ORDER BY od.CUST_CODE_LV1
+	</select>
+
+	<select id="countMultiByDelNo" parameterType="searchList" resultType="int">
+		/** OdMapper.countMultiByDelNo */
+		SELECT count(*)
+		FROM TB_ECM_OD_MULTI
+		WHERE
+			DELIVERY_NO = #{deliveryNo}
+	</select>
+
+	<select id="countOdbyHbl" parameterType="searchList" resultType="int">
+		/** OdMapper.countOdbyHbl */
+		SELECT count(*)
+		FROM TB_ECM_OD
+		WHERE
+			HBL_NO = #{hblNo}
+	</select>
+
+
+	<select id="selectSendDeliveryListToOdSingle" parameterType="UpdateDelivery" resultType="HashMap">
+		/* deliveryMapper.selectSendDeliveryListToOdSingle : Delivery 각 배송사에 해당하는 데이터 조회 */
+		SELECT
+		mti.PAYMENT_GUBN AS DELIVERY_PAYMENT_TYPE_MULTI
+		,od.COMMODITY_ITEM  AS  commodityItemLocConvertMulti
+		,mti.DIM_WIDTH AS DIM_WIDTH_MULTI
+		,mti.DIM_LENGTH AS DIM_LENGTH_MULTI
+		,mti.DIM_HEIGHT AS DIM_HEIGHT_MULTI
+		,mti.VWT AS VWT_MULTI
+		,mti.DELIVERY_NO_CHANGED AS DELIVERY_NO_CHANGED
+		,od.DIM_WIDTH  AS DIM_WIDTH
+		,od.DIM_LENGTH  AS DIM_LENGTH
+		,od.DIM_HEIGHT AS DIM_HEIGHT
+		,od.VWT AS VWT
+		,(SELECT COUNT(*) FROM TB_ECM_OD_MULTI chkMul WHERE chkMul.OD_JOB_NO = od.OD_JOB_NO) AS MULTI_COUNT
+		,(
+		SELECT TOP 1 A.POD_JOB_NO
+		FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM360'
+		AND BL_NO = mti.DELIVERY_NO
+		) A
+		) AS ECM360_POD_JOB_NO_MULTI
+		,(
+		SELECT TOP 1 A.POD_JOB_NO FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM360'
+		UNION ALL
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM360'
+		) A
+		) AS ECM360_POD_JOB_NO
+		,(
+		SELECT TOP 1 A.POD_JOB_NO
+		FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM410'
+		AND BL_NO = mti.DELIVERY_NO
+		) A
+		) AS ECM410_POD_JOB_NO_MULTI
+		,(
+		SELECT TOP 1 A.POD_JOB_NO
+		FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM410'
+		) A
+		) AS ECM410_POD_JOB_NO
+		,(
+		SELECT TOP 1 A.POD_JOB_NO FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+		AND BL_NO = mti.DELIVERY_NO
+		) A
+		) AS ECM340_POD_JOB_NO_MULTI
+		,(SELECT TOP 1 POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM504') AS ECM504_POD_JOB_NO
+		,(SELECT TOP 1 POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM504' AND BL_NO = mti.DELIVERY_NO) AS ECM504_POD_JOB_NO_MULTI
+		, od.HBL_NO
+		, od.OD_JOB_NO
+		, od.HSN
+		, od.CUST_CODE_LV1 AS AGENT_CODE
+		, od.DEST_PORT
+		, ad.LAST_POD_STATUS
+		, od.VESSEL_FLIGHT
+		, od.PO_NO AS CHK_PO_NO
+		, CASE ISNULL(od.PO_NO,'') WHEN '' THEN od.HBL_NO  ELSE od.PO_NO  END PO_NO
+		, od.CONSIGNEE_NAME_LOC
+		, od.CONSIGNEE_NAME
+		, od.CONSIGNEE_ZIPCODE
+		, od.CONSIGNEE_ADDRESS
+		, od.CONSIGNEE_ADDRESS_A
+		, od.CONSIGNEE_ADDRESS_B
+		, od.PIECES
+		, od.CBM
+		, od.GWT
+		, od.DELIVERY_NOTE
+		, od.AMOUNT_CUR
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '1'),'|','') as commodityItem1
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '2'),'|','') as commodityItem2
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '3'),'|','') as commodityItem3
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '4'),'|','') as commodityItem4
+		, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '5'),'|','') as commodityItem5
+		, od.COMMODITY_ITEM AS  commodityItemLocConvert
+		, od.PIECES_REAL
+		, od.SHIPPER_NAME AS shipperNameConvert
+		, COALESCE(NULLIF(mti.CONSIGNEE_NAME_LOC_M, ''), (CASE WHEN ISNULL(od.CONSIGNEE_NAME_LOC,'') = '' THEN ISNULL(od.CONSIGNEE_NAME,'') ELSE ISNULL(od.CONSIGNEE_NAME_LOC,'') END)) AS consigneeNameLocConvert
+		, od.SHIPPER_ZIPCODE AS shipperZipcodeConvert
+		, od.SHIPPER_ADDRESS + ISNULL(od.SHIPPER_ADDRESS_A,'') + ISNULL(od.SHIPPER_ADDRESS_B,'') + ISNULL(od.SHIPPER_ADDRESS_C,'') + ISNULL(od.SHIPPER_ADDRESS_D,'') AS shipperAddressLocConvert
+		, od.SHIPPER_TEL AS shipperTelConvert
+		, od.SHIPPER_HP AS shipperMobileConvert
+		,COALESCE(NULLIF(mti.CONSIGNEE_ZIPCODE_M, ''), 	od.CONSIGNEE_ZIPCODE) AS consigneeZipcodeLocConvert
+		,COALESCE(NULLIF(mti.CONSIGNEE_ADDRESS_LOC_M, ''), 	(LEFT(REPLACE(ISNULL(od.CONSIGNEE_ADDRESS_LOC, od.CONSIGNEE_ADDRESS + ISNULL(od.CONSIGNEE_ADDRESS_A, '') + ISNULL(od.CONSIGNEE_ADDRESS_B, '') + ISNULL(od.CONSIGNEE_ADDRESS_C, '') + ISNULL(od.CONSIGNEE_ADDRESS_D, '')), '|', ' '),200))) AS consigneeAddressLocConvert
+		, od.TR_CODE
+		, od.DELIVERY_CODE
+		, od.MBL_NO
+		, od.DELIVERY_PAYMENT_TYPE
+		, od.BOUND
+		, od.BOUND_TYPE
+		, mti.DELIVERY_CODE AS DELIVERY_CODE_MULTI
+		, #{registerUserId}  AS registerUserId
+		, #{registerUserName} AS registerUserName
+		, GETDATE() AS gmtTime
+		,(
+		SELECT TOP 1 A.POD_JOB_NO FROM(
+		SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+		UNION ALL
+		SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+		) A
+		) AS ECM340_POD_JOB_NO
+		, mti.DELIVERY_NO
+		, mti.SEQ_NO_ID
+		<choose>
+			<when test='cryptographyYn == "Y"'>
+				, CASE WHEN ISNULL(od.CONSIGNEE_HP_ENC,'') = '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) END AS CONSIGNEE_TEL
+				, CASE WHEN ISNULL(od.CONSIGNEE_TEL_ENC,'') = '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) END AS CONSIGNEE_HP
+				, COALESCE(NULLIF(mti.CONSIGNEE_TEL_M, ''), 	(dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1))) AS consigneeHpConvert
+				, dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS consigneeTelConvert
+			</when>
+			<otherwise>
+				, CASE WHEN ISNULL(od.CONSIGNEE_HP,'') = '' THEN ISNULL(od.CONSIGNEE_TEL,'') ELSE ISNULL(od.CONSIGNEE_HP,'') END AS CONSIGNEE_TEL
+				, CASE WHEN ISNULL(od.CONSIGNEE_TEL,'') = '' THEN ISNULL(od.CONSIGNEE_HP,'') ELSE ISNULL(od.CONSIGNEE_TEL,'') END AS CONSIGNEE_HP
+				, COALESCE(NULLIF(mti.CONSIGNEE_TEL_M, ''), 	od.CONSIGNEE_HP) AS consigneeHpConvert
+				, od.CONSIGNEE_TEL AS consigneeTelConvert
+			</otherwise>
+		</choose>
+		FROM TB_ECM_OD od
+		INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO
+		LEFT JOIN TB_ECM_OD_MULTI mti ON od.OD_JOB_NO = mti.OD_JOB_NO
+		WHERE  (
+		ISNULL(od.HBL_NO,'') != ''
+		OR od.DELIVERY_CODE = 'KD'
+		)
+		<!--		AND (ISNULL(ad.DELIVERY_STATUS,'') <![CDATA[<]]> 'ECM340' OR ad.DELIVERY_STATUS = 'ECM350') &lt;!&ndash;  'ECM340' 배송요청 전이거나 'ECM350(미집하)'의 상태인것만 요청 할 수 있도록 &ndash;&gt;-->
+		<if test="deliveryCode != null and deliveryCode != ''">
+			AND od.DELIVERY_CODE = #{deliveryCode}
+		</if>
+		AND od.HBL_NO = #{deliveryNoChanged}
+		AND mti.SEQ_NO_ID = #{seq}
+		ORDER BY od.CUST_CODE_LV1
+	</select>
+
+
+	<select id="selectSendDeliveryListToMultiSingle" parameterType="UpdateDelivery" resultType="HashMap">
+		/* deliveryMapper.selectSendDeliveryListToMultiSingle : Delivery 각 배송사에 해당하는 데이터 조회 */
+		SELECT
+			mti.PAYMENT_GUBN AS DELIVERY_PAYMENT_TYPE_MULTI
+			,od.COMMODITY_ITEM  AS  commodityItemLocConvertMulti
+			,mti.DIM_WIDTH AS DIM_WIDTH_MULTI
+			,mti.DIM_LENGTH AS DIM_LENGTH_MULTI
+			,mti.DIM_HEIGHT AS DIM_HEIGHT_MULTI
+			,mti.VWT AS VWT_MULTI
+			,od.DIM_WIDTH  AS DIM_WIDTH
+			,od.DIM_LENGTH  AS DIM_LENGTH
+			,od.DIM_HEIGHT AS DIM_HEIGHT
+			,od.VWT AS VWT
+		    ,mti.DELIVERY_NO_CHANGED AS DELIVERY_NO_CHANGED
+			,(SELECT COUNT(*) FROM TB_ECM_OD_MULTI chkMul WHERE chkMul.OD_JOB_NO = od.OD_JOB_NO) AS MULTI_COUNT
+			,(
+			SELECT TOP 1 A.POD_JOB_NO
+			FROM(
+			SELECT POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM360'
+			AND BL_NO = mti.DELIVERY_NO
+			) A
+			) AS ECM360_POD_JOB_NO_MULTI
+			,(
+			SELECT TOP 1 A.POD_JOB_NO FROM(
+			SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM360'
+			UNION ALL
+			SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM360'
+			) A
+			) AS ECM360_POD_JOB_NO
+			,(
+			SELECT TOP 1 A.POD_JOB_NO
+			FROM(
+			SELECT POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM410'
+			AND BL_NO = mti.DELIVERY_NO
+			) A
+			) AS ECM410_POD_JOB_NO_MULTI
+			,(
+			SELECT TOP 1 A.POD_JOB_NO
+			FROM(
+			SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM410'
+			) A
+			) AS ECM410_POD_JOB_NO
+			,(
+			SELECT TOP 1 A.POD_JOB_NO FROM(
+			SELECT POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+			AND BL_NO = mti.DELIVERY_NO
+			) A
+			) AS ECM340_POD_JOB_NO_MULTI
+			,(SELECT TOP 1 POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM504') AS ECM504_POD_JOB_NO
+			,(SELECT TOP 1 POD_JOB_NO FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM504' AND BL_NO = mti.DELIVERY_NO) AS ECM504_POD_JOB_NO_MULTI
+			, od.HBL_NO
+			, od.OD_JOB_NO
+			, od.HSN
+			, od.CUST_CODE_LV1 AS AGENT_CODE
+			, od.DEST_PORT
+			, ad.LAST_POD_STATUS
+			, od.VESSEL_FLIGHT
+			, od.PO_NO AS CHK_PO_NO
+			, CASE ISNULL(od.PO_NO,'') WHEN '' THEN od.HBL_NO  ELSE od.PO_NO  END PO_NO
+			, od.CONSIGNEE_NAME_LOC
+			, od.CONSIGNEE_NAME
+			, od.CONSIGNEE_ZIPCODE
+			, od.CONSIGNEE_ADDRESS
+			, od.CONSIGNEE_ADDRESS_A
+			, od.CONSIGNEE_ADDRESS_B
+			, od.PIECES
+			, od.CBM
+			, od.GWT
+			, od.DELIVERY_NOTE
+			, od.AMOUNT_CUR
+			, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '1'),'|','') as commodityItem1
+			, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '2'),'|','') as commodityItem2
+			, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '3'),'|','') as commodityItem3
+			, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '4'),'|','') as commodityItem4
+			, REPLACE((SELECT DETAIL_ITEM_NAME FROM TB_ECM_OD_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO and SEQ_NO_ID = '5'),'|','') as commodityItem5
+			, od.COMMODITY_ITEM AS  commodityItemLocConvert
+			, od.PIECES_REAL
+			, od.SHIPPER_NAME AS shipperNameConvert
+			, COALESCE(NULLIF(mti.CONSIGNEE_NAME_LOC_M, ''), (CASE WHEN ISNULL(od.CONSIGNEE_NAME_LOC,'') = '' THEN ISNULL(od.CONSIGNEE_NAME,'') ELSE ISNULL(od.CONSIGNEE_NAME_LOC,'') END)) AS consigneeNameLocConvert
+			, od.SHIPPER_ZIPCODE AS shipperZipcodeConvert
+			, od.SHIPPER_ADDRESS + ISNULL(od.SHIPPER_ADDRESS_A,'') + ISNULL(od.SHIPPER_ADDRESS_B,'') + ISNULL(od.SHIPPER_ADDRESS_C,'') + ISNULL(od.SHIPPER_ADDRESS_D,'') AS shipperAddressLocConvert
+			, od.SHIPPER_TEL AS shipperTelConvert
+			, od.SHIPPER_HP AS shipperMobileConvert
+		    ,COALESCE(NULLIF(mti.CONSIGNEE_ZIPCODE_M, ''), 	od.CONSIGNEE_ZIPCODE) AS consigneeZipcodeLocConvert
+		    , COALESCE(NULLIF(mti.CONSIGNEE_ADDRESS_LOC_M, ''), 	(LEFT(REPLACE(ISNULL(od.CONSIGNEE_ADDRESS_LOC, od.CONSIGNEE_ADDRESS + ISNULL(od.CONSIGNEE_ADDRESS_A, '') + ISNULL(od.CONSIGNEE_ADDRESS_B, '') + ISNULL(od.CONSIGNEE_ADDRESS_C, '') + ISNULL(od.CONSIGNEE_ADDRESS_D, '')), '|', ' '),200))) AS consigneeAddressLocConvert
+		    , od.TR_CODE
+			, od.DELIVERY_CODE
+			, od.MBL_NO
+			, od.DELIVERY_PAYMENT_TYPE
+			, od.BOUND
+			, od.BOUND_TYPE
+			, mti.DELIVERY_CODE AS DELIVERY_CODE_MULTI
+			, #{registerUserId}  AS registerUserId
+			, #{registerUserName} AS registerUserName
+			, GETDATE() AS gmtTime
+			,(
+			SELECT TOP 1 A.POD_JOB_NO FROM(
+			SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+			UNION ALL
+			SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM340'
+			) A
+			) AS ECM340_POD_JOB_NO
+			, mti.DELIVERY_NO
+			, mti.SEQ_NO_ID
+			<choose>
+				<when test='cryptographyYn == "Y"'>
+					, CASE WHEN ISNULL(od.CONSIGNEE_HP_ENC,'') = '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) END AS CONSIGNEE_TEL
+					, CASE WHEN ISNULL(od.CONSIGNEE_TEL_ENC,'') = '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) END AS CONSIGNEE_HP
+					, COALESCE(NULLIF(mti.CONSIGNEE_TEL_M, ''), 	(dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1))) AS consigneeHpConvert
+					, dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS consigneeTelConvert
+				</when>
+				<otherwise>
+					, CASE WHEN ISNULL(od.CONSIGNEE_HP,'') = '' THEN ISNULL(od.CONSIGNEE_TEL,'') ELSE ISNULL(od.CONSIGNEE_HP,'') END AS CONSIGNEE_TEL
+					, CASE WHEN ISNULL(od.CONSIGNEE_TEL,'') = '' THEN ISNULL(od.CONSIGNEE_HP,'') ELSE ISNULL(od.CONSIGNEE_TEL,'') END AS CONSIGNEE_HP
+					, COALESCE(NULLIF(mti.CONSIGNEE_TEL_M, ''), 	od.CONSIGNEE_HP) AS consigneeHpConvert
+					, od.CONSIGNEE_TEL AS consigneeTelConvert
+				</otherwise>
+			</choose>
+		FROM TB_ECM_OD od
+		INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO
+		LEFT JOIN TB_ECM_OD_MULTI mti ON od.OD_JOB_NO = mti.OD_JOB_NO
+		WHERE
+		(
+		ISNULL(od.HBL_NO,'') != ''
+		OR od.DELIVERY_CODE = 'KD'
+		)
+		<!--		AND (ISNULL(ad.DELIVERY_STATUS,'') <![CDATA[<]]> 'ECM340' OR ad.DELIVERY_STATUS = 'ECM350') &lt;!&ndash;  'ECM340' 배송요청 전이거나 'ECM350(미집하)'의 상태인것만 요청 할 수 있도록 &ndash;&gt;-->
+		<if test="deliveryCode != null and deliveryCode != ''">
+			AND od.DELIVERY_CODE = #{deliveryCode}
+		</if>
+		AND mti.DELIVERY_NO = #{deliveryNoChanged}
+		ORDER BY od.CUST_CODE_LV1
+	</select>
+
+
+	<select id="beforeOdChk" parameterType="HashMap" resultType="HashMap">
+		/* deliveryMapper.beforeOdChk : 잡넘버로 기본적인 데이터 조회 */
+		SELECT BOUND,BOUND_TYPE,CUSTOMS_CODE FROM TB_ECM_OD
+		WHERE OD_JOB_NO = 	#{odJobNo}
+	</select>
+
+	<select id="countRecOd" parameterType="searchList" resultType="int">
+		/** OdMapper.countRecOd */
+		SELECT count(*)
+		FROM TB_ECM_POD_04
+		WHERE
+			BL_NO = #{hblNo}
+		  AND POD_STATUS = 'ECM360'
+	</select>
+
+	<select id="countRecMulti" parameterType="searchList" resultType="int">
+		/** OdMapper.countRecMulti */
+		SELECT count(*)
+		FROM TB_ECM_POD_04_M
+		WHERE
+			BL_NO = #{deliveryNo}
+		  AND POD_STATUS = 'ECM360'
+	</select>
+	
+	<select id="selectDeliveryMListVE" parameterType="searchDeliveryMList" resultType="deliveryM">
+		/* deliveryMapper.selectDeliveryMListVE : Delivery-M List(main) 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			A.*
+			, COUNT(A.MBL_NO) OVER() AS SUM_COUNT
+			, SUM(A.HBL_CNT) OVER() AS SUM_HBLNO
+			, SUM(A.HBL_PIECES) OVER() AS SUM_PIECES
+			, SUM(A.HBL_GWT) OVER() AS SUM_GWT
+		FROM(
+		SELECT 
+				MAX(ISNULL(AR_DATE, '')) AS AR_DATE
+				, MAX(ISNULL(OB_DATE, '')) AS OB_DATE
+				, MAX(ISNULL(VESSEL_FLIGHT, '')) AS VESSEL_FLIGHT
+				, MAX(ISNULL(ORIG_CODE, '')) AS ORIG_CODE
+				, MAX(ISNULL(DEST_CODE, '')) AS DEST_CODE
+				, MAX(ISNULL(MBL_NO, '')) AS MBL_NO
+				, MAX(ISNULL(OD_JOB_NO, '')) AS OD_JOB_NO
+				, MAX(ISNULL(MASTER_OD_JOB_NO, '')) AS MASTER_OD_JOB_NO
+				, MAX(ISNULL(BOUND, '')) AS BOUND
+				,COUNT(CASE ISNULL(DELIVERY_STATUS, '') WHEN 'ECM340' THEN 1 END) + COUNT(DELIVERY_REQ) AS DELIVERY_REQ_CNT 
+			    , COUNT(CASE ISNULL(DELIVERY_STATUS, '') WHEN 'ECM360' THEN 1 END) + COUNT(DELIVERY_RECV) AS DELIVERY_RECV_CNT 
+			    , COUNT(CASE ISNULL(DELIVERY_STATUS, '') WHEN 'ECM400' THEN 1 END) + COUNT(UNDELIVERY) AS UNDELIVERY_CNT 
+			    , COUNT(CASE ISNULL(DELIVERY_STATUS, '') WHEN 'ECM410' THEN 1 END) + COUNT(DELIVERY_REQ_ERR) AS DELIVERY_REQ_ERR_CNT 
+			    , COUNT(CASE ISNULL(DELIVERY_STATUS, '') WHEN 'ECM420' THEN 1 END) + COUNT(DELIVERY) AS DELIVERY_CNT 
+			    , COUNT(CASE ISNULL(DELIVERY_STATUS, '') WHEN 'ECM361' THEN 1 END) + COUNT(DELIVERY_PICKUP) AS DELIVERY_PICKUP_CNT 
+			    , COUNT(CASE ISNULL(DELIVERY_STATUS, '') WHEN 'ECM390' THEN 1 END) + COUNT(DELIVERY_START) AS DELIVERY_START_CNT 
+				, COUNT(CASE WHEN ISNULL(DELIVERY_CODE, '') = '' THEN 1 END) AS DELIVERY_UNSPECIFY_CNT 
+			    , COUNT(CASE WHEN ISNULL(DELIVERY_CODE, '') != '' THEN 1 END) AS DELIVERY_DESIGNATE_CNT 
+			    , COUNT(CASE WHEN ISNULL(DELIVERY_CODE, '') != '' AND ISNULL(DELIVERY_STATUS, '')  <![CDATA[<]]>  'ECM340' THEN 1 END) AS DELIVERY_WAITING_CNT 
+		   		,COUNT(DELIVERY_REQ) AS MUL_DELIVERY_REQ_CNT 
+ 				,COUNT(DELIVERY_RECV) AS MUL_DELIVERY_RECV_CNT 
+				,COUNT(UNDELIVERY) AS MUL_UNDELIVERY_CNT 
+				,COUNT(DELIVERY_REQ_ERR) AS MUL_DELIVERY_REQ_ERR_CNT 
+				,COUNT(DELIVERY) AS MUL_DELIVERY_CNT 
+				,COUNT(DELIVERY_PICKUP) AS MUL_DELIVERY_PICKUP_CNT 
+				,COUNT(DELIVERY_START) AS MUL_DELIVERY_START_CNT  
+				, SUM(PIECES) AS HBL_PIECES
+				, SUM(GWT) AS HBL_GWT
+				, COUNT(ISNULL(HBL_NO, 0)) AS HBL_CNT
+				, COUNT(ISNULL(HBL_NO, 0)) AS TOTAL_HBL_CNT
+		FROM (		
+			SELECT  
+			od2.OD_JOB_NO 
+			,od2.MBL_NO
+			,od2.DEST_CODE
+			,od2.ORIG_CODE
+			,od2.VESSEL_FLIGHT
+			,od2.AR_DATE
+			,od2.OB_DATE
+			,od2.MASTER_OD_JOB_NO
+			,od2.BOUND
+			,od2.PIECES
+			,od2.GWT
+			,od.HBL_NO
+			,CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN ad.DELIVERY_STATUS ELSE '' END AS DELIVERY_STATUS
+			,od.DELIVERY_CODE
+			,(SELECT MAX(POD_STATUS) FROM TB_ECM_POD_04_M pod4 WHERE OD_JOB_NO = multi.OD_JOB_NO AND POD_STATUS = 'ECM340') AS DELIVERY_REQ
+			,(SELECT MAX(POD_STATUS) FROM TB_ECM_POD_04_M pod4 WHERE OD_JOB_NO = multi.OD_JOB_NO AND POD_STATUS = 'ECM360') AS DELIVERY_RECV
+			,(SELECT MAX(POD_STATUS) FROM TB_ECM_POD_04_M pod4 WHERE OD_JOB_NO = multi.OD_JOB_NO AND POD_STATUS = 'ECM400') AS UNDELIVERY
+			,(SELECT MAX(POD_STATUS) FROM TB_ECM_POD_04_M pod4 WHERE OD_JOB_NO = multi.OD_JOB_NO AND POD_STATUS = 'ECM410') AS DELIVERY_REQ_ERR
+			,(SELECT MAX(POD_STATUS) FROM TB_ECM_POD_04_M pod4 WHERE OD_JOB_NO = multi.OD_JOB_NO AND POD_STATUS = 'ECM420') AS DELIVERY
+			,(SELECT MAX(POD_STATUS) FROM TB_ECM_POD_04_M pod4 WHERE OD_JOB_NO = multi.OD_JOB_NO AND POD_STATUS = 'ECM361') AS DELIVERY_PICKUP
+			,(SELECT MAX(POD_STATUS) FROM TB_ECM_POD_04_M pod4 WHERE OD_JOB_NO = multi.OD_JOB_NO AND POD_STATUS = 'ECM390') AS DELIVERY_START
+			FROM TB_ECM_OD od2	
+			INNER JOIN TB_ECM_OD od ON od.MASTER_OD_JOB_NO = od2.OD_JOB_NO AND od.BL_TYPE_MH = 'H'
+			INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			LEFT JOIN TB_ECM_OD_MULTI multi ON multi.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od2.ENT_CODE = #{srchEntCode} AND od2.BL_TYPE_MH = 'M'
+			<!-- parameter 추가시 SearchDeliveryMList/UpdateDelivery에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.DeliveryMapper.searchDeliveryList"/>			
+		) AA 
+		GROUP BY OD_JOB_NO
+		)A			
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />	
+	</select>
+	
+	<select id="selectDeliveryHListVE" parameterType="searchDeliveryMList" resultType="deliveryH">
+		/* deliveryMapper.selectDeliveryHListVE : Delivery-H List(sub) 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			A.*
+			, COUNT(A.HBL_NO) OVER() AS SUM_COUNT
+			, SUM(A.HBL_PIECES) OVER() AS SUM_PIECES
+			, SUM(A.HBL_GWT) OVER() AS SUM_GWT
+			, SUM(A.DELIVERY_DESIGNATE+MUL_DELIVERY_DESIGNATE) OVER() AS SUM_DESIGNATE
+			, SUM(A.DELIVERY_REQ+MUL_DELIVERY_REQ) OVER() AS SUM_REQ
+			, SUM(A.DELIVERY_REQ_ERR+MUL_DELIVERY_REQ_ERR) OVER() AS SUM_REQ_ERR
+			, SUM(A.DELIVERY_RECV+MUL_DELIVERY_RECV) OVER() AS SUM_RECV
+			, SUM(A.UNDELIVERY+MUL_UNDELIVERY) OVER() AS SUM_UNDELIVERY
+			, SUM(A.DELIVERY+MUL_DELIVERY) OVER() AS SUM_DELIVERY
+			, SUM(A.DELIVERY_PICKUP+MUL_DELIVERY_PICKUP) OVER() AS SUM_PICKUP
+			, SUM(A.DELIVERY_START+MUL_DELIVERY_START) OVER() AS SUM_START
+		FROM
+		(	 
+			SELECT 
+				 CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' AND ISNULL(ad.DELIVERY_STATUS, '') = 'ECM330' THEN 1 END AS DELIVERY_DESIGNATE
+				 , CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' AND ISNULL(ad.DELIVERY_STATUS, '') = 'ECM340' THEN 1 ELSE 0 END AS DELIVERY_REQ
+				 , CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' AND ISNULL(ad.DELIVERY_STATUS, '') = 'ECM350' THEN 1 ELSE 0 END AS DELIVERY_REQ_ERR
+				 , CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' AND ISNULL(ad.DELIVERY_STATUS, '') = 'ECM360' THEN 1 ELSE 0 END AS DELIVERY_RECV
+				 , CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' AND ISNULL(ad.DELIVERY_STATUS, '') = 'ECM361' THEN 1 ELSE 0 END AS DELIVERY_PICKUP
+				 , CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' AND ISNULL(ad.DELIVERY_STATUS, '') = 'ECM390' THEN 1 ELSE 0 END AS DELIVERY_START
+				 , CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' AND ISNULL(ad.DELIVERY_STATUS, '') = 'ECM400' THEN 1 ELSE 0 END AS UNDELIVERY
+				 , CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' AND ISNULL(ad.DELIVERY_STATUS, '') = 'ECM420' THEN 1 ELSE 0 END AS DELIVERY
+				 , CASE ISNULL(MUL_POD_STATUS, '') WHEN 'ECM330' THEN 1 END AS MUL_DELIVERY_DESIGNATE
+ 				 , CASE ISNULL(MUL_POD_STATUS, '') WHEN 'ECM340' THEN 1 ELSE 0 END AS MUL_DELIVERY_REQ
+				 , CASE ISNULL(MUL_POD_STATUS, '') WHEN 'ECM350' THEN 1 ELSE 0 END AS MUL_DELIVERY_REQ_ERR
+				 , CASE ISNULL(MUL_POD_STATUS, '') WHEN 'ECM360' THEN 1 ELSE 0 END AS MUL_DELIVERY_RECV
+				 , CASE ISNULL(MUL_POD_STATUS, '') WHEN 'ECM361' THEN 1 ELSE 0 END AS MUL_DELIVERY_PICKUP
+				 , CASE ISNULL(MUL_POD_STATUS, '') WHEN 'ECM390' THEN 1 ELSE 0 END AS MUL_DELIVERY_START
+				 , CASE ISNULL(MUL_POD_STATUS, '') WHEN 'ECM400' THEN 1 ELSE 0 END AS MUL_UNDELIVERY
+				 , CASE ISNULL(MUL_POD_STATUS, '') WHEN 'ECM420' THEN 1 ELSE 0 END AS MUL_DELIVERY
+				 , od.CD_TYPE
+				 , od.TR_CODE
+				 , od.DELIVERY_CODE
+				 , od.PO_DATE
+				 , od.AR_DATE
+				 , od.OB_DATE
+				 <!-- 쿼리 속도로 인하여 주석처리
+				 , (SELECT AR_DATE FROM TB_ECM_OD mod WHERE mod.OD_JOB_NO = od.MASTER_OD_JOB_NO) AS AR_DATE
+				 , (SELECT OB_DATE FROM TB_ECM_OD mod WHERE mod.OD_JOB_NO = od.MASTER_OD_JOB_NO) AS OB_DATE -->
+				 , od.ORIG_CODE
+				 , od.DEST_CODE
+				 , od.PO_NO
+				 , od.HBL_NO 
+				 , od.CONSIGNEE_NAME
+				 , (ISNULL(od.CONSIGNEE_ADDRESS, '') + ISNULL(od.CONSIGNEE_ADDRESS_A,'') + ISNULL(od.CONSIGNEE_ADDRESS_B,'') + ISNULL(od.CONSIGNEE_ADDRESS_C,'') + ISNULL(od.CONSIGNEE_ADDRESS_D,'')) AS CONSIGNEE_ADDRESS
+				 , od.COMMODITY_ITEM
+				 , od.DELIVERY_ADDRESS_CHANGED
+				 --, od.DELIVERY_NAME_CHANGED
+				 --, od.DELIVERY_PAYMENT_TYPE
+				 --, od.DELIVERY_FEE
+				 , od.SHIPPER_NAME
+				 , od.MBL_NO
+				 , od.OD_JOB_NO
+				 , od.BL_TYPE_MH
+				 , CASE WHEN pod.POD_JOB_NO IS NULL THEN pod2.DELIVERY_IRRE_CODE ELSE pod.DELIVERY_IRRE_CODE END AS DELIVERY_IRRE_CODE
+				 , CASE WHEN pod.POD_JOB_NO IS NULL THEN pod2.REMARKS ELSE pod.REMARKS END AS REMARKS
+				 , od.CUST_CODE_LV1 AS AGENT_CODE
+				 , od.CONSIGNEE_NAME_LOC
+				 , od.CONSIGNEE_ADDRESS_LOC
+				 , od.CONSIGNEE_ZIPCODE
+				 , od.BOUND
+				 , CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE ENT_CODE = od.ENT_CODE AND FUNC_JOB_NO = od.OD_JOB_NO ) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE				 
+				 , od.ENT_BUSINESS_CODE
+			 	 , od.PIECES_REAL AS HBL_PIECES
+				 , od.GWT AS HBL_GWT		
+				 , od.DELIVERY_FEE_NOTICE_YN
+				 , od.DELIVERY_FEE_NOTICE_DATE
+				 
+				 , od.CB_CODE
+				 
+				 , od.CLEARANCE_VIOLATION_CODE
+				 , od.CLEARANCE_VIOLATION_REASON
+				 
+				 , od.CUST_CODE_LV1
+				 , od.CUST_CODE_LV2
+				 , multi.DELIVERY_NO
+				 , multi.SEQ_NO_ID
+				  <choose>
+				  	<when test='profileName == "local" or profileName == "bms11" or profileName == "hubn1"'>
+					 ,CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN '' ELSE (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE='ECM_DELIVERY_CODE' AND CODE = multi.DELIVERY_CODE) END AS DELIVERY_NAME_CHANGED
+					 ,CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN '' ELSE multi.DELIVERY_CODE END AS DELIVERY_NO_CHANGED
+					 ,CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN od.DELIVERY_FEE ELSE multi.DELIVERY_FEE END AS DELIVERY_FEE 
+					 ,CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN od.DELIVERY_PAYMENT_TYPE ELSE multi.PAYMENT_GUBN END AS DELIVERY_PAYMENT_TYPE
+				  	 ,multi.OD_JOB_NO AS MULTI_OD_JOB_NO
+				  	 ,CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN (SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = ad.DELIVERY_STATUS AND GROUP_CODE ='STATUS_ORDER_CARGO')
+				  	 		ELSE (SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = (SELECT MAX(POD_STATUS) FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = multi.OD_JOB_NO AND BL_NO = multi.DELIVERY_NO) AND GROUP_CODE ='STATUS_ORDER_CARGO')
+				  	 		END AS DELIVERY_STATUS_NAME
+				  	 ,CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN ad.DELIVERY_STATUS ELSE (SELECT MAX(POD_STATUS) FROM TB_ECM_POD_04_M WHERE OD_JOB_NO = multi.OD_JOB_NO AND BL_NO = multi.DELIVERY_NO) END AS DELIVERY_STATUS 
+				  	</when>
+				  	<otherwise>
+					 ,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE='ECM_DELIVERY_CODE' AND CODE = (SELECT MAX(DELIVERY_CODE) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO)) AS DELIVERY_NAME_CHANGED
+					 ,(SELECT MAX(DELIVERY_NO_CHANGED) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO) AS DELIVERY_NO_CHANGED
+					 ,(ISNULL((SELECT SUM(DELIVERY_FEE) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO),0) + ISNULL(od.DELIVERY_FEE,0)) AS DELIVERY_FEE
+					 ,ISNULL((SELECT MAX(PAYMENT_GUBN) FROM TB_ECM_OD_MULTI WHERE OD_JOB_NO = od.OD_JOB_NO), od.DELIVERY_PAYMENT_TYPE) AS DELIVERY_PAYMENT_TYPE
+				  	 ,(SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = DELIVERY_STATUS AND GROUP_CODE ='STATUS_ORDER_CARGO') AS DELIVERY_STATUS_NAME
+				  	 ,ad.DELIVERY_STATUS
+				  	</otherwise>
+				  </choose>
+				 ,ad.DELIVERY_DATE
+				<choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS CONSIGNEE_HP
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+				</when>
+				<otherwise>
+				,od.CONSIGNEE_HP
+				,od.CONSIGNEE_TEL
+				</otherwise>
+				</choose>
+				, CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN ad.RETURN_DELIVERY_CODE ELSE multi.RETURN_DELIVERY_CODE END AS RETURN_DELIVERY_CODE
+				, CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN od.RETURN_DELIVERY_NO ELSE multi.RETURN_DELIVERY_NO END AS RETURN_DELIVERY_NO
+				, CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN ad.RETURN_REQUEST_ID ELSE multi.RETURN_REQUEST_ID END AS RETURN_REQUEST_ID
+				, CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN ad.RETURN_REG_DATE ELSE multi.RETURN_REG_DATE END AS RETURN_REG_DATE
+				, CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN ad.RETURN_END_DATE ELSE multi.RETURN_END_DATE END AS RETURN_END_DATE
+				, CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN od.SHIPMENT_BOX_ID ELSE '' END AS SHIPMENT_BOX_ID
+				, CASE WHEN ISNULL(multi.OD_JOB_NO,'') = '' THEN ad.DELIVERY_RECV_DATE ELSE multi.DELIVERY_REG_DATE END AS DELIVERY_RECV_DATE
+				,CONCAT(pod2.POD_DATE, ' ', pod2.POD_TIME) AS PICKUP_DATE
+				,od.DELIVERY_NOTE
+			FROM TB_ECM_OD od	
+			INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			LEFT JOIN TB_ECM_POD pod ON od.OD_JOB_NO = pod.OD_JOB_NO AND pod.POD_STATUS = 'ECM400'
+			LEFT JOIN TB_ECM_POD_04 pod2 ON od.OD_JOB_NO = pod2.OD_JOB_NO AND pod2.POD_STATUS = 'ECM400'
+			LEFT JOIN TB_ECM_POD_04 pod3 ON od.OD_JOB_NO = pod3.OD_JOB_NO AND pod3.POD_STATUS = 'ECM361'
+			LEFT JOIN TB_ECM_OD_MULTI multi
+			 		  ON multi.OD_JOB_NO = od.OD_JOB_NO
+			LEFT JOIN (SELECT MAX(POD_STATUS) AS MUL_POD_STATUS , OD_JOB_NO, BL_NO  FROM TB_ECM_POD_04_M GROUP BY OD_JOB_NO, BL_NO) tepm 
+					  ON multi.OD_JOB_NO = tepm.OD_JOB_NO 
+					  	AND multi.DELIVERY_NO = tepm.BL_NO 		  
+			<!-- parameter 추가시 SearchDeliveryMList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.DeliveryMapper.selectDeliveryHListWhere"/>
+		)A		
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />	
+	</select>
+
+
+	<update id="updateChangeDelivery" parameterType="HashMap">
+		/* deliveryMapper.updateChangeDelivery : Delivery 배송사 지정 */
+		UPDATE TB_ECM_OD_MULTI
+		SET DELIVERY_CODE = #{deliveryCode}
+		  , UPDATE_USER_ID = #{registerUserId}
+		  , UPDATE_DATE_TIME = GETDATE()
+		WHERE SEQ_NO_ID = #{seqNoId}
+		  AND OD_JOB_NO = #{odJobNo}
+	</update>
+
+	<update id="updateMulDate" parameterType="mobEcodMulti">
+		/* deliveryMapper.updateMulDate : 멀티변경송장번호 변경(송장교체)*/
+		UPDATE TB_ECM_OD_MULTI
+		SET
+			DELIVERY_NO_CHANGED = #{stockMutliNo}
+		WHERE OD_JOB_NO = #{odJobNo}
+		AND SEQ_NO_ID = #{seqNoId}
+
+		UPDATE TB_ECM_OD_DLV_CHANGE_INFO
+		SET
+			DELIVERY_NO_CHANGED = #{stockMutliNo}
+		WHERE OD_JOB_NO = #{odJobNo}
+		  AND SEQ_NO_ID = #{seqNoId}
+	</update>
+
+	<delete id="deleteChkPod" parameterType="HashMap">
+	/* InvoiceMapper.deleteChkPod : 변경송장 이전데이터 삭제 */
+			DELETE FROM TB_ECM_POD_04_M
+			WHERE OD_JOB_NO = #{odJobNo}
+			AND BL_NO = #{checkDelNo}
+		</delete>
+
+	<select id="selectCheckNo" parameterType="HashMap" resultType="string">
+		/* InvoiceMapper.selectCheckNo : 변경송장 이전데이터 삭제정보 */
+		SELECT TOP 1 DELIVERY_NO from TB_ECM_OD_MULTI
+		WHERE OD_JOB_NO = #{odJobNo}
+		  AND SEQ_NO_ID = #{seqNoId}
+	</select>
+
+	<select id="selectHoldSingleStatus" parameterType="HashMap" resultType="string">
+		/* deliveryMapper.selectHoldSingleStatus : 보류 대상 단건 현재 배송상태 조회 */
+		SELECT ISNULL(DELIVERY_STATUS, '') FROM TB_ECM_OD_ADDITIONAL
+		WHERE OD_JOB_NO = #{odJobNo}
+	</select>
+
+	<select id="selectHoldMultiStatus" parameterType="HashMap" resultType="string">
+		/* deliveryMapper.selectHoldMultiStatus : 보류 대상 멀티 현재 배송상태(POD_04_M MAX) 조회 */
+		SELECT ISNULL(MAX(POD_STATUS), '') FROM TB_ECM_POD_04_M
+		WHERE OD_JOB_NO = #{odJobNo}
+		  AND BL_NO = LTRIM(RTRIM(REPLACE(#{blNo},char(9),'')))
+	</select>
+
+	<update id="holdDeliverySingle" parameterType="HashMap">
+		/* deliveryMapper.holdDeliverySingle : Delivery 보류(ECM425) - 단건 배송상태 업데이트 + POD(TB_ECM_POD_04) 저장 */
+		UPDATE TB_ECM_OD_ADDITIONAL
+		SET DELIVERY_STATUS = 'ECM425'
+		WHERE OD_JOB_NO = #{odJobNo};
+
+		INSERT INTO TB_ECM_POD_04(
+			 POD_JOB_NO
+			,ENT_CODE
+			,OD_JOB_NO
+			,BL_NO
+			,DELIVERY_CODE
+			,POD_STATUS
+			,POD_DATE
+			,POD_TIME
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)VALUES(
+			 #{podJobNo}
+			,#{entCode}
+			,#{odJobNo}
+			,LTRIM(RTRIM(REPLACE(#{blNo},char(9),'')))
+			,#{deliveryCode}
+			,'ECM425'
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		);
+	</update>
+
+	<update id="holdDeliveryMulti" parameterType="HashMap">
+		/* deliveryMapper.holdDeliveryMulti : Delivery 보류(ECM425) - 멀티 반품배송상태 업데이트(seqNo 기준) + POD(TB_ECM_POD_04_M) 저장 */
+		UPDATE TB_ECM_OD_MULTI
+		SET RETURN_DELIVERY_STATUS = 'ECM425'
+		  , UPDATE_USER_ID = #{updateUserId}
+		  , UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		WHERE OD_JOB_NO = #{odJobNo}
+		  AND SEQ_NO_ID = #{seqNoId};
+
+		INSERT INTO TB_ECM_POD_04_M(
+			 POD_JOB_NO
+			,ENT_CODE
+			,OD_JOB_NO
+			,BL_NO
+			,DELIVERY_CODE
+			,POD_STATUS
+			,POD_DATE
+			,POD_TIME
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)VALUES(
+			 #{podJobNo}
+			,#{entCode}
+			,#{odJobNo}
+			,LTRIM(RTRIM(REPLACE(#{blNo},char(9),'')))
+			,#{deliveryCode}
+			,'ECM425'
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,CONVERT(VARCHAR(5), DATEADD(HOUR, ${gmtTime}, GETDATE()), 108)
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{updateUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		);
+	</update>
+
+
+</mapper>

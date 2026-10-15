@@ -1,0 +1,697 @@
+<!-- edited with XMLSpy v2009 sp1 (http://www.altova.com) by 김권희 (Yuhantechnos) -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:annotation>
+		<xs:appinfo>Air Outbound 2.6</xs:appinfo>
+		<xs:documentation>ExpressWeb Air Outbound Interface</xs:documentation>
+	</xs:annotation>
+	<xs:element name="root">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="AccessIdentifier" minOccurs="0">
+					<xs:complexType>
+						<xs:all>
+							<xs:element name="SenderIdentifier" minOccurs="0">
+								<xs:simpleType>
+									<xs:restriction base="xs:string">
+										<xs:minLength value="0"/>
+										<xs:maxLength value="10"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+							<xs:element name="ReceiverIdentifier" minOccurs="0">
+								<xs:simpleType>
+									<xs:restriction base="xs:string">
+										<xs:minLength value="0"/>
+										<xs:maxLength value="5"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+							<xs:element name="AccessKey" minOccurs="0">
+								<xs:simpleType>
+									<xs:restriction base="xs:string">
+										<xs:minLength value="0"/>
+										<xs:maxLength value="64"/>
+									</xs:restriction>
+								</xs:simpleType>
+							</xs:element>
+						</xs:all>
+					</xs:complexType>
+				</xs:element>
+				<xs:element name="OrderManifest" maxOccurs="1000">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="OrderInfo">
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="Operation">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:enumeration value="0"/>
+													<xs:enumeration value="1"/>
+													<xs:enumeration value="2"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="OrdId">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:minLength value="1"/>
+													<xs:maxLength value="60"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="OrdDt">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:pattern value="\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+<!-- 										<xs:element name="CustomerCode" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="20"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+										<xs:element name="AgentCode">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:minLength value="1"/>
+													<xs:maxLength value="10"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="HBLNo">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:minLength value="1"/>
+													<xs:maxLength value="20"/>
+													<xs:pattern value="[A-Z0-9]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="MBLNo" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="20"/>
+													<xs:pattern value="[A-Z0-9]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="BLTypeIE" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:enumeration value=""/>
+													<xs:enumeration value="E"/>
+													<xs:enumeration value="R"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="FlightNo" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="7"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ETD" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:pattern value="[0-9]{4}-[0-9]{2}-[0-9]{2}|"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ETA" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:pattern value="[0-9]{4}-[0-9]{2}-[0-9]{2}|"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="DepPort" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="3"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ArrPort" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="3"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ShipperName">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:minLength value="1"/>
+													<xs:maxLength value="100"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ShipperAddress">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:minLength value="1"/>
+													<xs:maxLength value="300"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ShipperState" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="9"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ShipperPlace" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="17"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ShipperStreet" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="35"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ShipperTel" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="35"/>
+													<xs:pattern value="[0-9:#., \+\-\(\)]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ShipperMobile" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="20"/>
+													<xs:pattern value="[0-9:#., \+\-\(\)]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ShipperZipcode" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="10"/>
+													<xs:pattern value="[0-9a-zA-Z \-]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ShipperCountryCode" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="2"/>
+													<xs:pattern value="[A-Z]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ShipperBusinessId" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="20"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+<!-- 										<xs:element name="ShipperNameLocal" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="60"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+<!-- 										<xs:element name="ShipperAddressLocal" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="300"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+										<xs:element name="ConsigneeName">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:minLength value="1"/>
+													<xs:maxLength value="100"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ConsigneeAddress">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:minLength value="1"/>
+													<xs:maxLength value="300"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ConsigneeTel" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="35"/>
+													<xs:pattern value="[0-9:#., \+\-\(\)]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ConsigneeMobile" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="20"/>
+													<xs:pattern value="[0-9:#., \+\-\(\)]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ConsigneeZipcode" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="10"/>
+													<xs:pattern value="[0-9a-zA-Z \-]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ConsigneeBusinessId" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="20"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ConsigneeState" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="9"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ConsigneePlace" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="17"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ConsigneeStreet" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="35"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ConsigneeCountryCode" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="2"/>
+													<xs:pattern value="[A-Z]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<!-- 수출(항공,해상)은 신분증타입, 신분증번호 안 받음 -->
+<!-- 										<xs:element name="ConsigneeIdCardType" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:enumeration value=""/> -->
+<!-- 													<xs:enumeration value="1"/> -->
+<!-- 													<xs:enumeration value="2"/> -->
+<!-- 													<xs:enumeration value="3"/> -->
+<!-- 													<xs:enumeration value="A"/> -->
+<!-- 													<xs:enumeration value="B"/> -->
+<!-- 													<xs:enumeration value="C"/> -->
+<!-- 													<xs:enumeration value="D"/> -->
+<!-- 													<xs:enumeration value="E"/> -->
+<!-- 													<xs:enumeration value="F"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+<!-- 										<xs:element name="ConsigneeIdCardNo" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="20"/> -->
+<!-- 													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+										<xs:element name="ConsigneeNameLocal" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="60"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ConsigneeAddressLocal" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="300"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+<!-- 										<xs:element name="ConsigneeRegionLocal" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="60"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+<!-- 										<xs:element name="ConsigneeCityLocal" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="60"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+<!-- 										<xs:element name="ConsigneeStateLocal" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="60"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+<!-- 										<xs:element name="ConsigneeZipcodeLocal" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="10"/> -->
+<!-- 													<xs:pattern value="[0-9\-]*"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+<!-- 										<xs:element name="ConsigneeTelLocal" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="20"/> -->
+<!-- 													<xs:pattern value="[0-9:#., \-\(\)]*"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+										<xs:element name="SpecialShipperCode" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="10"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="CType">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:enumeration value="Y"/>
+													<xs:enumeration value="N"/>
+													<xs:enumeration value="E"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="DocumentYn" >
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:enumeration value="Y"/>
+													<xs:enumeration value="N"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ETradeType">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:enumeration value="01"/>
+													<xs:enumeration value="02"/>
+													<xs:enumeration value="99"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="Url" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:anyURI">
+													<xs:maxLength value="100"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="CommodityItem">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="300"/>
+													<xs:minLength value="1"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="CommodityItemLocal" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="300"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="HSCode" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="10"/>
+													<xs:minLength value="0"/>
+													<xs:pattern value="[0-9]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="TotalQty">
+											<xs:simpleType>
+												<xs:restriction base="xs:nonNegativeInteger">
+													<xs:totalDigits value="10"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="TotalWeight">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:pattern value="[0-9]{1,13}\.[0-9]{1,3}|[0-9]{1,13}"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="CurrencyCode" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="AmountTotal" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="DeliveryNo" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="2000"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="DimWidth" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:pattern value="[0-9]{1,9}\.[0-9]{1}|[0-9]{0,9}"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="DimLength" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:pattern value="[0-9]{1,9}\.[0-9]{1}|[0-9]{0,9}"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="DimHeight" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:pattern value="[0-9]{1,9}\.[0-9]{1}|[0-9]{0,9}"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="Remark" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="200"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="DeliveryRequest" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="200"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="BrokerRequest" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="200"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+<!-- 										<xs:element name="BagNumber" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="10"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="ItemInfo" maxOccurs="4000" minOccurs = "0">
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="ItemNo" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="30"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ItemNm" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="200"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+<!-- 										<xs:element name="ItemNmLocal" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="200"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!--										</xs:element> -->
+										<xs:element name="ItemModelNm" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="100"/>
+													<xs:pattern value="[a-zA-Z0-9!@#$%^_+=:;/.,'`~{} \[\]\?\-\(\)\*\|\\&amp;&lt;&gt;&quot;&apos;]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+<!--										<xs:element name="ItemModelNmLocal" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="100"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+<!-- 										<xs:element name="ItemProductId" minOccurs="0"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:maxLength value="30"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+										<xs:element name="ItemQty" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:pattern value="[0-9]{1,10}"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ItemQtyUnit" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:pattern value="[A-Z]{0,3}"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ItemGrossWeight" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:pattern value="[0-9]{1,13}\.[0-9]{1,3}|[0-9]{1,13}"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ItemRate" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:pattern value="[0-9]{1,13}\.[0-9]{1,4}|[0-9]{0,13}"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+<!-- 										<xs:element name="ItemNetWeight"> -->
+<!-- 											<xs:simpleType> -->
+<!-- 												<xs:restriction base="xs:string"> -->
+<!-- 													<xs:pattern value="[0-9]{1,13}\.[0-9]{1,3}|[0-9]{1,13}"/> -->
+<!-- 												</xs:restriction> -->
+<!-- 											</xs:simpleType> -->
+<!-- 										</xs:element> -->
+										<xs:element name="ItemAmount" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:pattern value="[0-9]{1,10}\.[0-9]{1,2}|[0-9]{1,10}"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ItemCurrencyCode" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="3"/>
+													<xs:pattern value="[A-Z]{3}"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ItemHsCode" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="10"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ItemOrigin" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="2"/>
+													<xs:pattern value="[A-Z]*"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ItemUrl" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="200"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+										<xs:element name="ItemRemark" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="500"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+							<xs:element name="CustomsInfo" minOccurs="0" maxOccurs="99">
+								<xs:complexType>
+									<xs:all>
+										<xs:element name="CustomNm" minOccurs="0">
+											<xs:simpleType>
+												<xs:restriction base="xs:string">
+													<xs:maxLength value="22"/>
+												</xs:restriction>
+											</xs:simpleType>
+										</xs:element>
+									</xs:all>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

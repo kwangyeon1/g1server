@@ -1,0 +1,2433 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.systemMng.SystemMngMapper">
+
+	<select id="selectAlarm" parameterType="HashMap" resultType="alarm">
+		/* SystemMngMapper.selectAlarm : 알림톡 조회 */
+			SELECT
+				 JOB_TYPE
+				,(SELECT LABEL_NAME FROM TB_MMS_MANAGEMENT WHERE TEMPLATE_TYPE = JOB_TYPE AND TEMPLATE_CODE = JOB_CODE) AS JOB_TYPE_NAME
+				,ALARM_ATTN_ID
+				,CONVERT(VARCHAR(16), SEND_DATE_TIME, 120) AS SEND_DATE_TIME
+				,BEFORE_VALUE
+				,AFTER_VALUE
+				,CONVERT(VARCHAR(16), DATEADD(hh, -9, RECV_DATE_TIME), 120) AS RECV_DATE_TIME
+			FROM TB_SMS_ALARM
+			WHERE ENT_CODE = #{entCode}
+			<choose>
+			<when test="refJobNo != null and refJobNo != ''">
+			AND REF_JOB_NO = #{refJobNo}
+			</when>
+			<otherwise>
+			AND SEQ_NO_ID = #{seqNoId}
+			</otherwise>
+			</choose>
+	</select>
+	
+	<delete id="deleteAlarm" parameterType="HashMap">
+		/* SystemMngMapper.deleteAlarm : 알림톡 삭제 */
+			DELETE TB_SMS_ALARM
+			WHERE ENT_CODE = #{entCode}
+			<choose>
+			<when test="refJobNo != null and refJobNo != ''">
+			AND REF_JOB_NO = #{refJobNo}
+			</when>
+			<otherwise>
+			AND SEQ_NO_ID = #{seqNoId}
+			</otherwise>
+			</choose>
+	</delete>
+	
+	<select id="selectInterfaceKeyList" parameterType="searchInterfaceKeyList" resultType="interfaceKey">
+		/* SystemMngMapper.selectInterfaceKeyList : InterfaceKey List */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 ENT_CODE
+				,CUSTOMER_CODE
+				,ACCESS_KEY
+				,USE_YN
+				,REGISTER_USER_ID
+				,REGISTER_DATE_TIME
+				,UPDATE_USER_ID
+				,UPDATE_DATE_TIME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = interface.ENT_CODE AND USER_ID = interface.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = interface.ENT_CODE AND USER_ID = interface.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			    ,ISNULL(ORDER_CNT,0) AS ORDER_CNT
+			    ,ISNULL(DELIVERY_CODE_CNT,0) AS DELIVERY_CODE_CNT
+			FROM TB_SMS_INTERFACE_INFO interface
+			WHERE 1 = 1
+			<if test="srchEntCode != null and srchEntCode != ''">
+			AND interface.ENT_CODE = #{srchEntCode}
+			</if>
+			<if test="srchCustomerCode != null and srchCustomerCode != ''">
+			AND interface.CUSTOMER_CODE = #{srchCustomerCode}
+			</if>
+			<if test="srchUseYn != null and srchUseYn != ''">
+			AND interface.USE_YN = #{srchUseYn}
+			</if>
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			</if>
+			<if test="srchEndDate != null and srchEndDate != ''">
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectInterfaceKeyCountList" parameterType="searchInterfaceKeyCountList" resultType="interfaceKeyCount">
+		/* SystemMngMapper.selectInterfaceKeyCountList : InterfaceKeyCount List */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 INTERFACE_YYMM
+				,API_AO_CNT
+				,API_AI_CNT
+				,API_OO_CNT
+				,API_OI_CNT
+				,API_HANJIN_CNT
+				,API_KOREX_CNT
+				,API_TRACKING_CNT
+			FROM TB_MIS_INTERFACE_VOLUME
+			WHERE ENT_CODE = #{srchEntCode}
+			AND CUSTOMER_CODE = #{srchCustomerCode}
+			AND INTERFACE_YYMM LIKE CONCAT(#{srchYear}, '%')
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectInterfaceKeyDupChk" parameterType="interfaceKey" resultType="HashMap">
+		/* SystemMngMapper.selectInterfaceKeyDupChk : InterfaceKey List */
+			SELECT ENT_CODE
+			FROM TB_SMS_INTERFACE_INFO
+			WHERE ENT_CODE = #{entCode}
+			AND CUSTOMER_CODE = #{customerCode}
+	</select>
+	
+	<update id="updateInterfaceKey" parameterType="interfaceKey">
+		/* SystemMngMapper.updateInterfaceKey : InterfaceKey Update */
+			UPDATE TB_SMS_INTERFACE_INFO SET
+				   USE_YN = #{useYn}
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE ENT_CODE = #{entCode}
+			AND CUSTOMER_CODE = #{customerCode}
+	</update>
+	
+	<insert id="insertInterfaceKey" parameterType="interfaceKey">
+		/* SystemMngMapper.insertInterfaceKey : InterfaceKey Insert */
+			INSERT INTO TB_SMS_INTERFACE_INFO(
+				   ENT_CODE
+				  ,CUSTOMER_CODE
+				  ,ACCESS_KEY
+				  ,USE_YN
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{entCode}
+				  ,#{customerCode}
+				  ,#{accessKey}
+				  ,#{useYn}
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+	
+	<delete id="deleteInterfaceKey" parameterType="HashMap">
+		/* SystemMngMapper.deleteInterfaceKey : InterfaceKey Delete */
+			DELETE FROM TB_SMS_INTERFACE_INFO
+			WHERE ENT_CODE = #{srchEntCode}
+			AND CUSTOMER_CODE IN (<foreach collection="customerCodeList" item="item" separator=",">#{item.srchCustomerCode}</foreach>)
+	</delete>
+	
+	<select id="selectInterfaceKey" parameterType="searchInterfaceKey" resultType="interfaceKey">
+		/* SystemMngMapper.selectInterfaceKey : InterfaceKey 조회 */
+			SELECT
+				 ENT_CODE
+				,CUSTOMER_CODE
+				,ACCESS_KEY
+				,USE_YN
+				,REGISTER_USER_ID
+				,REGISTER_DATE_TIME
+				,UPDATE_USER_ID
+				,UPDATE_DATE_TIME
+				,(SELECT CUSTOMER_NAME_ENG FROM TB_SMS_CUSTOMER WHERE ENT_CODE = interface.ENT_CODE AND CUSTOMER_CODE = interface.CUSTOMER_CODE) AS CUSTOMER_NAME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = interface.ENT_CODE AND USER_ID = interface.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = interface.ENT_CODE AND USER_ID = interface.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			FROM TB_SMS_INTERFACE_INFO interface
+			WHERE ENT_CODE = #{srchEntCode}
+			AND CUSTOMER_CODE = #{srchCustomerCode}
+	</select>
+	
+	<select id="selectDeliveryInterfaceList" parameterType="searchDeliveryInterfaceList" resultType="deliveryInterface">
+		/* SystemMngMapper.selectDeliveryInterfaceList : 배송사 Interface List */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+					ENT_CODE
+				  , BOUND
+				  , CASE BOUND WHEN 'AIR' THEN '항공' WHEN 'SEA' THEN '해상' END AS BOUND_ENG
+				  , CUSTOMER_CODE
+				  , LOGISTICS_CODE
+				  <!-- ,	CASE LOGISTICS_CODE WHEN 'ICN' THEN '인천' WHEN 'PTK' THEN '평택' WHEN 'PUS' THEN '부산' WHEN 'KUV' THEN '군산' END AS LOGISTICS_NAME -->
+				  , CASE WHEN LOGISTICS_CODE IN ('ICN','KRINC') THEN '인천'
+				  		 WHEN LOGISTICS_CODE = 'KRPTK' THEN '평택' 
+				  		 WHEN LOGISTICS_CODE = 'KRPUS' THEN '부산'
+				  		 WHEN LOGISTICS_CODE = 'KRKUV' THEN '군산' END AS LOGISTICS_NAME
+				  ,	USE_YN
+				  ,	TRACKING_KOREX_YN
+				  ,	TRACKING_EMS_YN
+				  ,	TRACKING_EPOST_YN
+				  ,	TRACKING_COPAS_YN
+				  ,	TRACKING_SMART_YN
+				  ,	TRACKING_LOGEN_YN
+				  ,	TRACKING_CHUNIL_YN		
+				  , TRACKING_HANJIN_YN
+				  , (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = ENT_CODE AND USER_ID = REG_ID) AS REGISTER_USER_NAME
+				  , REG_DATE
+				  , (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = ENT_CODE AND USER_ID = UPD_ID) AS UPDATE_USER_NAME
+				  , UPD_DATE
+				  , TRACKING_LOTTE_YN
+
+			FROM TB_SMS_DELIVERY_COMP_INFO 
+			WHERE 1 = 1
+ 			<if test="srchEntCode != null and srchEntCode != ''">
+			AND ENT_CODE = #{srchEntCode}
+			</if>
+			<if test="srchCustomerCode != null and srchCustomerCode != ''">
+			AND CUSTOMER_CODE = #{srchCustomerCode}
+			</if>
+			<if test="srchBoundType != null and srchBoundType != ''">
+			AND BOUND = #{srchBoundType}
+			</if>			
+			<if test="srchUseYn != null and srchUseYn != ''">
+			AND USE_YN = #{srchUseYn}
+			</if>
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+			</if>
+			<if test="srchEndDate != null and srchEndDate != ''">
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</if>
+			
+			<if test="srchCompany == 'KOREX'">
+			AND	TRACKING_KOREX_YN = 'Y'
+			</if>
+			<if test="srchCompany == 'EMS'">
+			AND	TRACKING_EMS_YN = 'Y'
+			</if>
+			<if test="srchCompany == 'EPOST_API'">
+			AND	TRACKING_EPOST_YN = 'Y'
+			</if>
+			<if test="srchCompany == 'COPAS'">
+			AND	TRACKING_COPAS_YN = 'Y'
+			</if>
+			<if test="srchCompany == 'SMART'">
+			AND	TRACKING_SMART_YN = 'Y'
+			</if>
+			<if test="srchCompany == 'LOGEN'">
+			AND	TRACKING_LOGEN_YN = 'Y'
+			</if>
+			<if test="srchCompany == 'CHUNIL'">
+			AND	TRACKING_CHUNIL_YN = 'Y'
+			</if>	
+			<if test="srchCompany == 'HANJIN'">
+			AND	TRACKING_HANJIN_YN = 'Y'
+			</if>								
+
+
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>	
+	
+	<select id="selectDeliveryInterfaceCheck" parameterType="HashMap" resultType="HashMap">
+		/* SystemMngMapper.selectDeliveryInterfaceCheck : 배송사 Interface 저장 전 체크 */
+			SELECT TOP 1 CUSTOMER_CODE
+			FROM TB_SMS_DELIVERY_COMP_INFO
+			WHERE ENT_CODE = #{srchEntCode}
+			AND CUSTOMER_CODE = #{srchCustomerCode}
+			<!-- AND BOUND IN(${srchBoundIn}) -->
+			AND BOUND = #{srchBound}
+			AND LOGISTICS_CODE = #{srchLogisticsCode}
+	</select>
+	
+	<select id="selectDeliveryInterface" parameterType="searchDeliveryInterface" resultType="deliveryinterface">
+		/* SystemMngMapper.selectDeliveryInterface : 배송사 Interface 조회(Entry) */
+			SELECT
+					info.ENT_CODE 
+				  , info.CUSTOMER_CODE
+				  , info.BOUND
+				  , CASE info.BOUND WHEN 'AI' THEN '항공수입' WHEN 'AO' THEN '항공수출' WHEN 'OI' THEN '해상수입' WHEN 'OO' THEN '해상수출' END AS BOUNDENG
+				  , info.LOGISTICS_CODE
+				  <!-- , CASE info.LOGISTICS_CODE WHEN 'ICN' THEN '인천' WHEN 'PTK' THEN '평택' WHEN 'PUS' THEN '부산' WHEN 'KUV' THEN '군산' END AS LOGISTICS_NAME -->
+				  , CASE WHEN info.LOGISTICS_CODE IN ('ICN','KRINC') THEN '인천'
+				  		 WHEN info.LOGISTICS_CODE = 'KRPTK' THEN '평택' 
+				  		 WHEN info.LOGISTICS_CODE = 'KRPUS' THEN '부산'
+				  		 WHEN info.LOGISTICS_CODE = 'KRKUV' THEN '군산' END AS LOGISTICS_NAME
+				  , info.TRACKING_KOREX_YN
+				  , info.KOREX_ID
+				  , info.KOREX_CUST_ID
+				  , info.SENDER_TELNO1
+				  , info.SENDER_TELNO2
+				  , info.SENDER_TELNO3
+				  , info.SENDER_ZIPCODE 
+				  , info.SENDER_ADDR
+				  , info.SENDER_ADDR_DTL
+				  , info.SENDER_INFO_USEYN
+				  , info.TRACKING_EMS_YN
+				  , info.EMS_ID
+				  , info.TRACKING_EPOST_YN
+				  , info.EPOST_AUTH_KEY
+				  , info.EPOST_OFFICE_SER
+				  , info.EPOST_APPR_NO
+				  , info.EPOST_SECURITY_KEY
+				  , info.EPOST_CUST_NO
+				  , info.TRACKING_COPAS_YN
+				  , info.TRACKING_SMART_YN
+				  , info.FTP_PASSIVEMODE
+				  , info.FTP_TYPE
+				  , info.FTP_IP
+				  , info.FTP_PORT
+				  , info.FTP_ID
+				  , info.FTP_PW
+				  , info.FTP_SENDER_DIR
+				  , info.FTP_RECEIVER_DIR
+				  , info.TRACKING_LOGEN_YN
+				  , info.LOGEN_FREIGHT
+				  , info.LOGEN_PRICE
+				  , info.LOGEN_ID
+				  , info.LOGEN_PW
+				  , info.TRACKING_CHUNIL_YN
+				  , info.TRACKING_HANJIN_YN 
+				  , info.HANJIN_CUS_NUM 
+				  , info.HANJIN_ZIPCODE 
+				  , info.HANJIN_ADDR1 
+				  , info.HANJIN_ADDR2 
+				  , info.HANJIN_NAME 
+				  , info.HANJIN_TEL 
+				  , info.HANJIN_MOBILE	
+				  , info.HANJIN_CLIENT_ID
+				  , info.HANJIN_API_CODE			  
+				  , info.USE_YN			
+				  , info.REG_ID
+				  , info.REG_DATE
+				  , info.UPD_ID
+				  , info.UPD_DATE
+				  , info.EPOST_DELIV_AREA_KEY
+				  ,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = info.ENT_CODE AND USER_ID = info.REG_ID) AS REGISTER_USER_NAME
+				  ,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = info.ENT_CODE AND USER_ID = info.UPD_ID) AS UPDATE_USER_NAME	
+				  , info.TRACKING_LOTTE_YN
+				  , info.LOTTE_AUTH_KEY
+				  , info.LOTTE_CUST_ID
+				  , info.LOTTE_ZIPCODE
+				  , info.LOTTE_ADDR
+				  , info.LOTTE_BOX_TYPE
+				  , info.LOTTE_MOBILE
+				  , info.LOTTE_NAME
+				  , info.LOTTE_TEL		  	  
+			FROM TB_SMS_DELIVERY_COMP_INFO  info
+			WHERE info.ENT_CODE = #{srchEntCode} AND info.BOUND = #{srchBound} 
+			AND info.CUSTOMER_CODE = #{srchCustomerCode} AND info.LOGISTICS_CODE = #{srchLogisticsCode}
+	</select>	
+	
+<!-- 	<select id="selectDeliveryInterfaceApi" parameterType="searchDeliveryInterface" resultType="HashMap">
+		/* SystemMngMapper.selectDeliveryInterfaceApi : 배송사 Interface 조회(Entry) - API */
+			SELECT
+					DELIVERY_CODE
+				  , RECV_API_URL
+				  , RECV_API_CODE 
+				  , RECV_API_ID 
+				  , RECV_API_PW 
+				  , ADDR_API_URL
+				  , ADDR_API_ID 
+				  , ADDR_API_PW 
+			FROM TB_SMS_DELIVERY_API_INFO 
+			WHERE ENT_CODE = #{srchEntCode}
+	</select> -->
+	
+	<insert id="insertDeliveryInterface" parameterType="deliveryInterface">
+		/* SystemMngMapper.insertDeliveryInterface : DeliveryInterface Insert */
+			INSERT INTO TB_SMS_DELIVERY_COMP_INFO(
+					ENT_CODE
+				  , BOUND
+				  , CUSTOMER_CODE
+				  , LOGISTICS_CODE
+				  , TRACKING_KOREX_YN
+				  , KOREX_ID
+				  , KOREX_CUST_ID
+				  , SENDER_TELNO1
+				  , SENDER_TELNO2
+				  , SENDER_TELNO3
+				  , SENDER_ZIPCODE
+				  , SENDER_ADDR
+				  , SENDER_ADDR_DTL
+				  , SENDER_INFO_USEYN
+				  , TRACKING_EMS_YN
+				  , EMS_ID
+				  , TRACKING_EPOST_YN
+				  , EPOST_AUTH_KEY
+				  , EPOST_OFFICE_SER
+				  , EPOST_APPR_NO
+				  , EPOST_SECURITY_KEY
+				  , EPOST_CUST_NO
+				  , TRACKING_COPAS_YN
+				  , TRACKING_SMART_YN
+				  , FTP_TYPE
+				  , FTP_IP
+				  , FTP_PORT
+				  , FTP_ID
+				  , FTP_PW
+				  , FTP_PASSIVEMODE
+				  , FTP_SENDER_DIR
+				  , FTP_RECEIVER_DIR
+				  , TRACKING_LOGEN_YN
+				  , LOGEN_ID
+				  , LOGEN_PW
+				  , LOGEN_FREIGHT
+				  , LOGEN_PRICE
+				  , TRACKING_CHUNIL_YN
+				  , TRACKING_HANJIN_YN 
+				  , HANJIN_CUS_NUM 
+				  , HANJIN_ZIPCODE 
+				  , HANJIN_ADDR1 
+				  , HANJIN_ADDR2 
+				  , HANJIN_NAME 
+				  , HANJIN_TEL 
+				  , HANJIN_MOBILE
+				  , HANJIN_CLIENT_ID
+				  , HANJIN_API_CODE				  
+				  , USE_YN
+				  , REG_ID
+				  , REG_DATE
+				  , EPOST_DELIV_AREA_KEY
+				  , TRACKING_LOTTE_YN
+				  , LOTTE_AUTH_KEY
+				  , LOTTE_CUST_ID
+				  , LOTTE_ZIPCODE
+				  , LOTTE_ADDR
+				  , LOTTE_BOX_TYPE
+				  , LOTTE_MOBILE
+				  , LOTTE_NAME
+				  , LOTTE_TEL
+			)VALUES(
+					#{entCode}
+				  , #{bound}
+				  , #{customerCode}
+				  , #{logisticsCode}
+				  , #{trackingKorexYn}
+				  , #{korexId}
+				  , #{korexCustId}
+				  , #{senderTelNo1}
+				  , #{senderTelNo2}
+				  , #{senderTelNo3}
+				  , #{senderZipcode}
+				  , #{senderAddr}
+				  , #{senderAddrDtl}
+				  , #{senderInfoUseYn}
+				  , #{trackingEmsYn}
+				  , #{emsId}
+				  , #{trackingEpostYn}
+				  , #{epostAuthKey}
+				  , #{epostOfficeSer}
+				  , #{epostApprNo}
+				  , #{epostSecurityKey}
+				  , #{epostCustNo}
+				  , #{trackingCopasYn}
+				  , #{trackingSmartYn}
+				  , #{ftpType}
+				  , #{ftpIp}
+				  , #{ftpPort}
+				  , #{ftpId}
+				  , #{ftpPw}
+				  , #{ftpPassivemode}
+				  , #{ftpSenderDir}
+				  , #{ftpReceiverDir}
+				  , #{trackingLogenYn}
+				  , #{logenId}
+				  , #{logenPw}
+				  , #{logenFreight}
+				  , #{logenPrice}
+				  , #{trackingChunilYn}
+				  , #{trackingHanjinYn}
+				  , #{hanjinCusNum} 
+				  , #{hanjinZipcode} 
+				  , #{hanjinAddr1} 
+				  , #{hanjinAddr2} 
+				  , #{hanjinName} 
+				  , #{hanjinTel} 
+				  , #{hanjinMobile}		
+				  , #{hanjinClientId}
+				  , #{hanjinApiCode}
+				  , #{useYn}
+				  , #{regId}
+				  , DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  , #{epostDelivAreaKey}
+				  , #{trackingLotteYn}
+				  , #{lotteAuthKey}
+				  , #{lotteCustId}
+				  , #{lotteZipcode}
+				  , #{lotteAddr}
+				  , #{lotteBoxType}
+				  , #{lotteMobile}
+				  , #{lotteName}
+				  , #{lotteTel}
+			);
+			
+			DELETE FROM TB_SMS_DELIVERY_API_INFO
+			WHERE ENT_CODE = #{entCode};
+			<if test='gridData != null and gridData.size > 0'>
+			INSERT INTO TB_SMS_DELIVERY_API_INFO(
+					ENT_CODE
+				  , DELIVERY_CODE
+				  , RECV_API_URL
+				  , RECV_API_CODE
+				  , RECV_API_ID
+				  , RECV_API_PW
+				  , ADDR_API_URL
+				  , ADDR_API_ID
+				  , ADDR_API_PW
+				  , REGISTER_USER_ID
+				  , REGISTER_DATE_TIME
+				  , UPDATE_USER_ID
+				  , UPDATE_DATE_TIME
+			)VALUES
+			<foreach collection="gridData" item="item" separator=",">
+			(	
+					#{entCode}
+				  , #{item.DELIVERY_CODE}
+				  , #{item.RECV_API_URL}
+				  , #{item.RECV_API_CODE}
+				  , #{item.RECV_API_ID}
+				  , #{item.RECV_API_PW}
+				  , #{item.ADDR_API_URL}
+				  , #{item.ADDR_API_ID}
+				  , #{item.ADDR_API_PW}
+				  , #{regId}
+				  , GETDATE()
+				  , #{updId}
+				  , GETDATE()
+			)
+			</foreach>
+			;
+			</if>
+			
+	</insert>	
+	
+	<update id="updateDeliveryInterface" parameterType="interfaceKey">
+		/* SystemMngMapper.updateDeliveryInterface : DeliveryInterface Update */
+			UPDATE TB_SMS_DELIVERY_COMP_INFO SET
+					ENT_CODE = #{entCode}
+				  , BOUND = #{bound}
+				  , CUSTOMER_CODE = #{customerCode}
+				  , LOGISTICS_CODE = #{logisticsCode}
+				  , TRACKING_KOREX_YN = #{trackingKorexYn}
+				  , KOREX_ID = #{korexId}
+				  , KOREX_CUST_ID = #{korexCustId}
+				  , SENDER_TELNO1 = #{senderTelNo1}
+				  , SENDER_TELNO2 = #{senderTelNo2}
+				  , SENDER_TELNO3 = #{senderTelNo3}
+				  , SENDER_ZIPCODE = #{senderZipcode}
+				  , SENDER_ADDR = #{senderAddr}
+				  , SENDER_ADDR_DTL = #{senderAddrDtl}
+				  , SENDER_INFO_USEYN = #{senderInfoUseYn}
+				  , TRACKING_EMS_YN = #{trackingEmsYn}
+				  , EMS_ID = #{emsId}
+				  , TRACKING_EPOST_YN = #{trackingEpostYn}
+				  , EPOST_AUTH_KEY = #{epostAuthKey}
+				  , EPOST_OFFICE_SER = #{epostOfficeSer}
+				  , EPOST_APPR_NO = #{epostApprNo}
+				  , EPOST_SECURITY_KEY = #{epostSecurityKey}
+				  , EPOST_CUST_NO = #{epostCustNo}
+				  , TRACKING_COPAS_YN = #{trackingCopasYn}
+				  , TRACKING_SMART_YN = #{trackingSmartYn}
+				  , TRACKING_HANJIN_YN = #{trackingHanjinYn}
+				  , HANJIN_CUS_NUM = #{hanjinCusNum}
+				  , HANJIN_ZIPCODE = #{hanjinZipcode}
+				  , HANJIN_ADDR1 = #{hanjinAddr1}
+				  , HANJIN_ADDR2 = #{hanjinAddr2}
+				  , HANJIN_NAME = #{hanjinName}
+				  , HANJIN_TEL = #{hanjinTel} 
+				  , HANJIN_MOBILE = #{hanjinMobile}
+				  , HANJIN_CLIENT_ID = #{hanjinClientId}
+				  , HANJIN_API_CODE = #{hanjinApiCode}
+				  , FTP_TYPE = #{ftpType}
+				  , FTP_IP = #{ftpIp}
+				  , FTP_PORT = #{ftpPort}
+				  , FTP_ID = #{ftpId}
+				  , FTP_PW = #{ftpPw}
+				  , FTP_PASSIVEMODE = #{ftpPassivemode}
+				  , FTP_SENDER_DIR = #{ftpSenderDir}
+				  , FTP_RECEIVER_DIR = #{ftpReceiverDir}
+				  , TRACKING_LOGEN_YN = #{trackingLogenYn}
+				  , LOGEN_ID = #{logenId}
+				  , LOGEN_PW = #{logenPw}
+				  , LOGEN_FREIGHT = #{logenFreight}
+				  , LOGEN_PRICE = #{logenPrice}
+				  , TRACKING_CHUNIL_YN = #{trackingChunilYn}
+				  , USE_YN = #{useYn}
+				  , UPD_ID = #{updId}
+				  , UPD_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  , EPOST_DELIV_AREA_KEY = #{epostDelivAreaKey}
+				  , TRACKING_LOTTE_YN = #{trackingLotteYn}
+				  , LOTTE_AUTH_KEY = #{lotteAuthKey}
+				  , LOTTE_CUST_ID = #{lotteCustId}
+				  , LOTTE_ZIPCODE = #{lotteZipcode}
+				  , LOTTE_ADDR = #{lotteAddr}
+				  , LOTTE_BOX_TYPE = #{lotteBoxType}
+				  , LOTTE_MOBILE = #{lotteMobile}
+				  , LOTTE_NAME = #{lotteName}
+				  , LOTTE_TEL = #{lotteTel}
+			WHERE ENT_CODE = #{entCode}
+			AND CUSTOMER_CODE = #{customerCode}
+			AND BOUND = #{bound}
+			AND LOGISTICS_CODE = #{logisticsCode};
+			
+			DELETE FROM TB_SMS_DELIVERY_API_INFO
+			WHERE ENT_CODE = #{entCode};
+			<if test='gridData != null and gridData.size > 0'>
+			INSERT INTO TB_SMS_DELIVERY_API_INFO(
+					ENT_CODE
+				  , DELIVERY_CODE
+				  , RECV_API_URL
+				  , RECV_API_CODE
+				  , RECV_API_ID
+				  , RECV_API_PW
+				  , ADDR_API_URL
+				  , ADDR_API_ID
+				  , ADDR_API_PW
+				  , REGISTER_USER_ID
+				  , REGISTER_DATE_TIME
+				  , UPDATE_USER_ID
+				  , UPDATE_DATE_TIME
+			)VALUES
+			<foreach collection="gridData" item="item" separator=",">
+			(	
+					#{entCode}
+				  , #{item.DELIVERY_CODE}
+				  , #{item.RECV_API_URL}
+				  , #{item.RECV_API_CODE}
+				  , #{item.RECV_API_ID}
+				  , #{item.RECV_API_PW}
+				  , #{item.ADDR_API_URL}
+				  , #{item.ADDR_API_ID}
+				  , #{item.ADDR_API_PW}
+				  , #{regId}
+				  , GETDATE()
+				  , #{updId}
+				  , GETDATE()
+			)
+			</foreach>
+			;
+			</if>
+	</update>	
+	
+	<delete id="deleteDeliveryInterface" parameterType="interfaceKey">
+	/* SystemMngMapper.deleteDeliveryInterface : DeliveryInterface Delete */
+			DELETE FROM TB_SMS_DELIVERY_COMP_INFO
+			WHERE ENT_CODE = #{entCode} AND BOUND = #{bound} 
+			AND CUSTOMER_CODE = #{customerCode} AND LOGISTICS_CODE = #{logisticsCode}
+	</delete>
+	
+	<select id="selectMonthlyCountList" parameterType="searchInterfaceKeyList" resultType="monthlyCount">
+		/* SystemMngMapper.selectMonthlyCountList : 월별건수 List 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 ENT_CODE
+				,OD_YYMM
+				,TOT_CNT
+				,AO_CNT
+				,AI_CNT
+				,OO_CNT
+				,OI_CNT
+				,KTNET_CNT
+				,KCNET_CNT
+				,KLNET_CNT
+				,API_TOT_CNT
+				,API_AO_CNT
+				,API_AI_CNT
+				,API_OO_CNT
+				,API_OI_CNT
+				,API_HANJIN_CNT
+				,API_KOREX_CNT
+				,ISNULL(API_TRACKING_CNT,0) AS API_TRACKING_CNT
+			FROM TB_MIS_MONTHLY_VOLUME mv
+			WHERE OD_YYMM >= #{srchStartDate}
+			AND OD_YYMM <![CDATA[<=]]> #{srchEndDate}
+			<if test="srchEntCode != null and srchEntCode != ''">
+			AND mv.ENT_CODE = #{srchEntCode}
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />	
+	</select>
+	
+	<select id="selectMonthlyUserCountList" parameterType="searchInterfaceKeyList" resultType="monthlyCount">
+		/* SystemMngMapper.selectMonthlyUserCountList : 월별 사용자및업체 건수 List 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 ENT_CODE
+				,OD_YYMM
+				,TOT_CNT
+				,AO_CNT
+				,AI_CNT
+				,OO_CNT
+				,OI_CNT
+			FROM TB_MIS_MONTHLY_VOLUME mv
+			WHERE OD_YYMM >= #{srchStartDate}
+			AND OD_YYMM <![CDATA[<=]]> #{srchEndDate}
+			<if test="srchEntCode != null and srchEntCode != ''">
+			AND mv.ENT_CODE = #{srchEntCode}
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />	
+	</select>
+	
+	<delete id="deleteAlarmGroup" parameterType="searchAlarmGroup">
+		/* SystemMngMapper.deleteAlarmGroup : 알림 서비스 삭제 */
+			DELETE FROM TB_SMS_ALARM_GROUP WHERE GROUP_ID = #{srchGroupId}
+	</delete>
+	
+	<insert id="insertAlarmGroup" parameterType="searchAlarmGroup">
+		/* SystemMngMapper.insertAlarmGroup : 알림 서비스 insert */
+			INSERT INTO TB_SMS_ALARM_GROUP(
+				   GROUP_ID
+				  ,GROUP_NAME
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{srchGroupId}
+				  ,(SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode} AND CODE = #{srchGroupId} AND GROUP_CODE = 'ALARM_GROUP')
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+	
+	<insert id="insertAlarmGroupUser" parameterType="searchAlarmGroup">
+		/* SystemMngMapper.insertAlarmGroupUser : 알림 서비스 수신자 insert */
+			INSERT INTO TB_SMS_ALARM_GROUP_USER(
+				   GROUP_ID
+				  ,SEQ_NO_ID
+				  ,ALARM_TYPE
+				  ,NAME
+				  ,TEL
+				  ,EMAIL
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{srchGroupId}
+				  ,(SELECT ISNULL(MAX(SEQ_NO_ID), 0) + 1 FROM TB_SMS_ALARM_GROUP_USER WHERE GROUP_ID = #{srchGroupId})
+				  ,#{srchAlarmType}
+				  ,#{srchName}
+				  ,#{srchTel}
+				  ,#{srchEmail}
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{userId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+	
+	<update id="updateAlarmGroupUser" parameterType="searchAlarmGroup">
+		/* SystemMngMapper.updateAlarmGroupUser : 알림 서비스 수신자 update */
+			UPDATE TB_SMS_ALARM_GROUP_USER SET
+				   NAME = #{srchName}
+				  ,TEL = #{srchTel}
+				  ,EMAIL = #{srchEmail}
+			WHERE GROUP_ID = #{srchGroupId}
+			AND SEQ_NO_ID = #{srchSeqNoId}
+	</update>
+	
+	<delete id="deleteAlarmGroupUser" parameterType="searchAlarmGroup">
+		/* SystemMngMapper.deleteAlarmGroupUser : 알림 서비스 수신자 삭제 */
+			DELETE FROM TB_SMS_ALARM_GROUP_USER WHERE <foreach collection="alarmGroupList" item="item" separator="OR">(GROUP_ID = #{item.groupId} AND SEQ_NO_ID = #{item.seqNoId})</foreach>
+	</delete>
+	
+	<select id="selectAlarmGroupUserSaveChk" parameterType="searchAlarmGroup" resultType="Integer">
+		/* SystemMngMapper.selectAlarmGroupUserSaveChk : 알림 서비스 수신자 저장 전 체크 */
+			SELECT COUNT(GROUP_ID) AS CNT
+			FROM TB_SMS_ALARM_GROUP_USER
+			WHERE GROUP_ID = #{srchGroupId}
+			AND ALARM_TYPE = #{srchAlarmType}
+			<choose>
+			<when test='srchAlarmType == "S"'>
+			AND TEL = #{srchTel}
+			</when>
+			<otherwise>
+			AND EMAIL = #{srchEmail}
+			</otherwise>
+			</choose>
+			<if test="srchSeqNoId != null and srchSeqNoId != ''">
+			AND SEQ_NO_ID != #{srchSeqNoId}
+			</if>
+	</select>
+	
+	<select id="selectAlarmGroupList" parameterType="searchAlarmGroup" resultType="alarmGroup">
+		/* SystemMngMapper.selectAlarmGroupList : 알림 서비스 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 arm.GROUP_ID
+				,arm.GROUP_NAME
+				,(SELECT ETC1 FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode} AND CODE = arm.GROUP_ID AND GROUP_CODE = 'ALARM_GROUP') AS SOLUTION
+				,(
+					SELECT COUNT(GROUP_ID)
+					FROM TB_SMS_ALARM_GROUP_USER
+					WHERE GROUP_ID = arm.GROUP_ID
+					<if test="srchStartDate != null and srchStartDate != ''">
+					AND REGISTER_DATE_TIME >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+					</if>
+					<if test="srchEndDate != null and srchEndDate != ''"> 
+					AND REGISTER_DATE_TIME <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+					</if>
+					<if test="srchName != null and srchName != ''">
+					AND NAME = #{srchName}
+					</if>
+					<if test="srchTel != null and srchTel != ''">
+					AND TEL = #{srchTel}
+					</if>
+					<if test="srchEmail != null and srchEmail != ''">
+					AND EMAIL = #{srchEmail}
+					</if>
+				 ) AS USER_COUNT
+			FROM TB_SMS_ALARM_GROUP arm
+			<if test="srchGroupId != null and srchGroupId != ''">
+			WHERE arm.GROUP_ID = #{srchGroupId}
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectAlarmGroupUserList" parameterType="searchAlarmGroup" resultType="alarmGroup">
+		/* SystemMngMapper.selectAlarmGroupUserList : 알림 서비스 수신자 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 usr.GROUP_ID
+				,(SELECT ETC1 FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode} AND CODE = usr.GROUP_ID AND GROUP_CODE = 'ALARM_GROUP') AS SOLUTION
+				,usr.SEQ_NO_ID
+				,usr.NAME
+				,usr.TEL
+				,usr.EMAIL
+			FROM TB_SMS_ALARM_GROUP_USER usr
+			WHERE usr.GROUP_ID = #{srchGroupId}
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND usr.REGISTER_DATE_TIME >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+			</if>
+			<if test="srchEndDate != null and srchEndDate != ''"> 
+			AND usr.REGISTER_DATE_TIME <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</if>
+			<if test="srchName != null and srchName != ''">
+			AND usr.NAME = #{srchName}
+			</if>
+			<if test="srchTel != null and srchTel != ''">
+			AND usr.TEL = #{srchTel}
+			</if>
+			<if test="srchEmail != null and srchEmail != ''">
+			AND usr.EMAIL = #{srchEmail}
+			</if>
+			<if test="srchAlarmType != null and srchAlarmType != ''">
+			AND usr.ALARM_TYPE = #{srchAlarmType}
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectAlimTalkEntList" parameterType="searchAlimTalkEnt" resultType="alimTalkEnt">
+		/* SystemMngMapper.selectAlimTalkEntList : 알림톡 업체등록정보 List(main) 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT  ENT_CODE
+				  , ENT_NAME 
+				  , SMS_SEND_TEL_NO
+				  , SMS_USER_ID
+				  , SMS_CID_NUM
+			FROM exps_master.dbo.TB_SMS_ENTERPRISE
+			WHERE 1 = 1
+			<if test="srchEntCode != null and srchEntCode != ''">
+			AND ENT_CODE = #{srchEntCode}
+			</if>
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND CONTRACT_DATE >= CONVERT(VARCHAR,#{srchStartDate}, CAST(#{srchDateFormat} AS INT))
+			</if>
+			<if test="srchEndDate != null and srchEndDate != ''">
+			AND CONTRACT_DATE <![CDATA[<=]]> CONVERT(VARCHAR,#{srchEndDate}, CAST(#{srchDateFormat} AS INT))
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />	
+	</select>	
+	
+	<select id="selectAlimTalkEntTemplateList" parameterType="searchAlimTalkEnt" resultType="alimTalkEntTemplate">
+		/* SystemMngMapper.selectAlimTalkEntTemplateList : 알림톡 업체에 등록된 템플릿 List(sub) 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		
+			SELECT 
+				  M.ENT_CODE 
+				, M.TEMPLATE_SEQ_NO 
+				, M.TEMPLATE_TYPE 
+				, M.TEMPLATE_CODE 
+				, T.TEMPLATE_NAME 
+				, M.LABEL_NAME 
+				, M.RESEND_MSG_TYPE 
+				, M.CREATE_AUTO_YN 
+				, M.FINISH_AUTO_YN 
+				, M.MSG_TYPE 
+				, T.TEMPLATE 
+				, T.RESEND_TEMPLATE
+				, T.SUBJECT
+				, T.BUTTON1_TYPE
+				, T.BUTTON1_NAME
+				, T.BUTTON1_URL
+				, T.BUTTON2_TYPE
+				, T.BUTTON2_NAME
+				, T.BUTTON2_URL
+				, T.BUTTON3_TYPE
+				, T.BUTTON3_NAME
+				, T.BUTTON3_URL
+				, T.BUTTON4_TYPE
+				, T.BUTTON4_NAME
+				, T.BUTTON4_URL
+				, T.BUTTON5_TYPE
+				, T.BUTTON5_NAME
+				, T.BUTTON5_URL
+		
+			FROM TB_MMS_MANAGEMENT M
+			LEFT JOIN exps_master.dbo.TB_MMS_TEMPLATE T ON M.TEMPLATE_TYPE = T.TEMPLATE_TYPE AND M.TEMPLATE_SEQ_NO = T.TEMPLATE_SEQ_NO
+			WHERE M.ENT_CODE = #{srchEntCode}
+			<if test="srchTemplateType != null and srchTemplateType != ''">
+			AND M.TEMPLATE_TYPE = #{srchTemplateType}
+			</if>
+			<if test="srchTemplateSeqNo != null and srchTemplateSeqNo != ''">
+			AND M.TEMPLATE_SEQ_NO = #{srchTemplateSeqNo}
+			</if>
+
+
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />	
+	</select>		
+	
+	<insert id="updateEnt" parameterType="alimTalkEntInsert">
+		/* SystemMngMapper.updateEnt : 알림톡 송신정보수정 */
+			UPDATE TB_SMS_ENTERPRISE SET
+				   SMS_USER_ID = #{smsUserId}
+				  ,SMS_CID_NUM = #{smsCidNum}
+				  ,SMS_SEND_TEL_NO = #{smsSendTelNo}
+			WHERE ENT_CODE = #{entCode}
+	</insert>
+	 
+	<insert id="insertTemplate" parameterType="alimTalkTemplateInsert">
+		/* SystemMngMapper.insertTemplate : 알림톡 알림톡 데이터 등록 */
+		   INSERT INTO TB_MMS_TEMPLATE(
+		   
+			TEMPLATE_TYPE
+			, TEMPLATE_SEQ_NO
+			, TEMPLATE_NAME
+			, TEMPLATE_CODE
+			, SUBJECT
+			, TEMPLATE
+			, RESEND_TEMPLATE
+			, BUTTON1_TYPE
+			, BUTTON1_NAME
+			, BUTTON1_URL
+			, BUTTON2_TYPE
+			, BUTTON2_NAME
+			, BUTTON2_URL
+			, BUTTON3_TYPE
+			, BUTTON3_NAME
+			, BUTTON3_URL
+			, BUTTON4_TYPE
+			, BUTTON4_NAME
+			, BUTTON4_URL
+			, BUTTON5_TYPE
+			, BUTTON5_NAME
+			, BUTTON5_URL
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+		   
+		   )VALUES(
+		   
+			#{templateType}
+			, ISNULL((SELECT MAX(TEMPLATE_SEQ_NO) FROM TB_MMS_TEMPLATE WHERE TEMPLATE_TYPE = #{templateType}),0) + 1
+			, #{templateName}
+			, #{templateCode}
+			, #{subject}
+			, #{template}
+			, #{resendTemplate}
+			, #{button1Type}
+			, #{button1Name}
+			, #{button1Url}
+			, #{button2Type}
+			, #{button2Name}
+			, #{button2Url}
+			, #{button3Type}
+			, #{button3Name}
+			, #{button3Url}
+			, #{button4Type}
+			, #{button4Name}
+			, #{button4Url}
+			, #{button5Type}
+			, #{button5Name}
+			, #{button5Url}
+			, #{registerUserId}
+			, GETDATE()
+		   
+		   )
+	</insert>	
+	
+	<insert id="updateTemplate" parameterType="alimTalkTemplateInsert">
+		/* SystemMngMapper.updateTemplate : 알림톡 알림톡 데이터 수정 */
+		UPDATE TB_MMS_TEMPLATE SET
+			   TEMPLATE_NAME = #{templateName}
+			  ,TEMPLATE_CODE = #{templateCode} 
+			  ,SUBJECT = #{subject}
+			  ,TEMPLATE = #{template}
+			  ,RESEND_TEMPLATE = #{resendTemplate}
+			  ,BUTTON1_TYPE = #{button1Type}
+			  ,BUTTON1_NAME = #{button1Name}
+			  ,BUTTON1_URL = #{button1Url}
+			  ,BUTTON2_TYPE = #{button2Type}
+			  ,BUTTON2_NAME = #{button2Name}
+			  ,BUTTON2_URL = #{button2Url}
+			  ,BUTTON3_TYPE = #{button3Type}
+			  ,BUTTON3_NAME = #{button3Name}
+			  ,BUTTON3_URL = #{button3Url}
+			  ,BUTTON4_TYPE = #{button4Type}
+			  ,BUTTON4_NAME = #{button4Name}
+			  ,BUTTON4_URL = #{button4Url}
+			  ,BUTTON5_TYPE = #{button5Type}
+			  ,BUTTON5_NAME = #{button5Name}
+			  ,BUTTON5_URL = #{button5Url}
+			  ,UPDATE_USER_ID = #{updateUserId}
+			  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		WHERE TEMPLATE_TYPE = #{templateType}
+		AND TEMPLATE_SEQ_NO = #{templateSeqNo}
+	</insert>
+	
+	<select id="selectAlimTalkTemplateList" parameterType="searchAlimTalkTemplate" resultType="alimTalkTemplate">
+		/* SystemMngMapper.selectAlimTalkTemplateList : 알림톡 템플릿 List(sub2) 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		
+			SELECT 
+				TEMPLATE_TYPE 
+				, TEMPLATE_SEQ_NO 
+				, TEMPLATE_NAME
+				, TEMPLATE_CODE 
+				, SUBJECT
+				, TEMPLATE
+				, RESEND_TEMPLATE
+				, BUTTON1_TYPE
+				, BUTTON1_NAME
+				, BUTTON1_URL
+				, BUTTON2_TYPE
+				, BUTTON2_NAME
+				, BUTTON2_URL
+				, BUTTON3_TYPE
+				, BUTTON3_NAME
+				, BUTTON3_URL
+				, BUTTON4_TYPE
+				, BUTTON4_NAME
+				, BUTTON4_URL
+				, BUTTON5_TYPE
+				, BUTTON5_NAME
+				, BUTTON5_URL				
+		
+			FROM exps_master.dbo.TB_MMS_TEMPLATE 
+			WHERE 1=1
+			<if test="srchNo != null and srchNo != ''">
+			AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+			</if>
+			<if test="srchTemplateType != null and srchTemplateType != ''">
+			AND TEMPLATE_TYPE = #{srchTemplateType}
+			</if>
+			<if test="srchTemplateSeqNo != null and srchTemplateSeqNo != ''">
+			AND TEMPLATE_SEQ_NO = #{srchTemplateSeqNo}
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />	
+	</select>	
+	
+	<insert id="insertEntTemplate" parameterType="alimTalkEntTemplateInsert">
+		/* SystemMngMapper.insertEntTemplate : 알림톡 업체-템플릿 연결 등록  */
+		   INSERT INTO TB_MMS_MANAGEMENT(
+		   
+				ENT_CODE
+				, TEMPLATE_TYPE
+				, TEMPLATE_SEQ_NO
+				, TEMPLATE_CODE
+				, LABEL_NAME
+				, MSG_TYPE
+				, RESEND_MSG_TYPE
+				, CREATE_AUTO_YN
+				, FINISH_AUTO_YN
+				, REGISTER_USER_ID
+				, REGISTER_DATE_TIME
+		   
+		   )VALUES(
+		   
+			   	  #{entCode}
+				, #{templateType}
+				, #{templateSeqNo}
+				, #{templateCode}
+				, #{labelName}
+				, #{msgType}
+				, #{resendMsgType}
+				, #{createAutoYn}
+				, #{finishAutoYn}
+				, #{registerUserId}
+				, GETDATE()
+		   
+		   )
+	</insert>
+	
+	<select id="selectEntTemplateDupChk" parameterType="alimTalkEntTemplateInsert" resultType="int">
+		/* SystemMngMapper.selectEntTemplateDupChk : 알림톡 템플릿 중복체크 */
+			SELECT COUNT(ENT_CODE) AS CNT
+			FROM TB_MMS_MANAGEMENT
+			WHERE ENT_CODE = #{entCode}
+			AND TEMPLATE_TYPE = #{templateType}
+			AND TEMPLATE_SEQ_NO = #{templateSeqNo}
+	</select>
+	
+	<select id="selectEntTemplateDupChk2" parameterType="alimTalkEntTemplateInsert" resultType="int">
+		/* SystemMngMapper.selectEntTemplateDupChk2 : 알림톡 템플릿 중복체크2 (template_code값도 중복 없도록 하기 위함) */
+			SELECT COUNT(ENT_CODE) AS CNT
+			FROM TB_MMS_MANAGEMENT
+			WHERE ENT_CODE = #{entCode}
+			AND TEMPLATE_TYPE = #{templateType}
+			AND TEMPLATE_CODE = #{templateCode}
+	</select>
+	
+	<update id="updateEntTemplate" parameterType="alimTalkEntTemplateInsert">
+		/* SystemMngMapper.updateEntTemplate : 알림톡 업체-템플릿 연결 수정  */
+		   UPDATE TB_MMS_MANAGEMENT SET
+		   		  TEMPLATE_CODE = #{templateCode}
+		   		 ,LABEL_NAME = #{labelName}
+		   		 ,MSG_TYPE = #{msgType}
+		   		 ,RESEND_MSG_TYPE = #{resendMsgType}
+		   		 ,CREATE_AUTO_YN = #{createAutoYn}
+		   		 ,FINISH_AUTO_YN = #{finishAutoYn}
+		   		 ,UPDATE_USER_ID = #{updateUserId}
+		   		 ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE ENT_CODE = #{entCode}
+			AND TEMPLATE_TYPE = #{templateType}
+			AND TEMPLATE_SEQ_NO = #{templateSeqNo}
+	</update>
+	
+	<delete id="deleteEnt" parameterType="alimTalkEntDelete">
+	/* SystemMngMapper.deleteEnt : 알림톡 업체 삭제 */
+			DELETE FROM TB_MMS_INFO
+			WHERE ENT_CODE = #{entCode} AND BOUND = #{bound} 
+			AND KAKAO_PLUS_ID = #{kakaoPlusId} AND KAKAO_PLUS_NAME = #{kakaoPlusName}
+	</delete>		
+
+	<delete id="deleteTemplate" parameterType="alimTalkTemplateDelete">
+	/* SystemMngMapper.deleteTemplate : 알림톡 템플릿 삭제 */
+			DELETE FROM TB_MMS_TEMPLATE
+			WHERE TEMPLATE_TYPE = #{templateType}
+			AND TEMPLATE_SEQ_NO = #{templateSeqNo}
+	</delete>	
+	
+	<delete id="deleteEntTemplate" parameterType="alimTalkEntTemplateDelete">
+	/* SystemMngMapper.deleteEntTemplate : 알림톡 업체 - 템플릿 삭제 삭제 */
+			DELETE FROM TB_MMS_MANAGEMENT
+			WHERE ENT_CODE = #{entCode}
+			AND TEMPLATE_TYPE = #{templateType}
+		 	AND TEMPLATE_SEQ_NO = #{templateSeqNo}
+	</delete>	
+		
+	<select id="sendAlimTalkEnt" parameterType="alimTalkSend" resultType="java.util.HashMap">
+	/* SystemMngMapper.sendAlimTalkEnt : 알림톡 전송을 위한 업체,템플릿 정보 조회 */
+			SELECT TOP 1 INFO.ENT_CODE
+			 , INFO.BOUND
+			 , INFO.KAKAO_PLUS_ID
+			 , INFO.KAKAO_PLUS_NAME
+			 , INFO.SENDER_KEY
+			 , INFO.TEL
+			 , INFO.SUB_ID
+			 , INFO.CID_NO
+			 , INFO.USE_YN
+			 , MNGT.TEMPLATE_TYPE
+			 , MNGT.TEMPLATE_SEQ_NO
+			 , MNGT.TEMPLATE_CODE
+			 , MNGT.MSG_TYPE
+			 , MNGT.RESEND_MSG_TYPE
+			 , TMPT.TEMPLATE_NAME
+			 , TMPT.SUBJECT
+			 , TMPT.TEMPLATE
+			 , TMPT.RESEND_TEMPLATE
+			 , TMPT.BUTTON1_TYPE
+			 , TMPT.BUTTON1_NAME
+			 , TMPT.BUTTON1_URL
+			 , TMPT.BUTTON2_TYPE
+			 , TMPT.BUTTON2_NAME
+			 , TMPT.BUTTON2_URL
+			 , TMPT.BUTTON3_TYPE
+			 , TMPT.BUTTON3_NAME
+			 , TMPT.BUTTON3_URL
+			 , TMPT.BUTTON4_TYPE
+			 , TMPT.BUTTON4_NAME
+			 , TMPT.BUTTON4_URL
+			 , TMPT.BUTTON5_TYPE
+			 , TMPT.BUTTON5_NAME
+			 , TMPT.BUTTON5_URL
+			 
+		FROM TB_MMS_INFO INFO
+		INNER JOIN TB_MMS_MANAGEMENT MNGT ON INFO.ENT_CODE = MNGT.ENT_CODE AND INFO.BOUND = MNGT.BOUND 
+		INNER JOIN exps_master.dbo.TB_MMS_TEMPLATE TMPT ON MNGT.TEMPLATE_TYPE = TMPT.TEMPLATE_TYPE AND MNGT.TEMPLATE_SEQ_NO = TMPT.TEMPLATE_SEQ_NO
+		WHERE 1 = 1
+		AND INFO.ENT_CODE = #{entCode}
+		<!-- AND INFO.BOUND IN (#{bound},'CC') -->
+		AND MNGT.TEMPLATE_TYPE = #{templateType}
+	</select>
+	
+	<select id="selectTemplateDataList" parameterType="alimTalkSend" resultType="java.util.HashMap">
+	/* SystemMngMapper.selectTemplateDataList : 알림톡 템플릿에 들어갈 파라메터 조회 */
+			 SELECT od.ENT_CODE 
+			 	  ,	od.SHIPPER_NAME
+			 	  , CASE ISNULL(od.CONSIGNEE_NAME_LOC, '') WHEN '' THEN od.CONSIGNEE_NAME ELSE od.CONSIGNEE_NAME_LOC END CONSIGNEE_NAME 
+				  , od.HBL_NO
+<!-- 				  , od.DELIVERY_NO_CHANGED -->
+				  , od.OD_JOB_NO
+				  , od.OB_DATE
+
+				  , od.ORIG_CODE
+				  , od.ORIG_NAME
+				  , od.DEST_CODE
+				  , od.DEST_NAME
+				  , (CONVERT(VARCHAR ,od.AR_DATE,23) + ' ' + od.AR_TIME) AS AR_DATE
+				  , od.CONSOL_YN
+				  , od.SHIPPER_TEL
+				  , odAdd.LAST_POD_STATUS
+				  , (CONVERT(VARCHAR ,od.OB_DATE,23) + ' ' + od.OB_TIME) AS OB_DATE
+<!-- 				  , (SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'EDI_BONDED_WAREHOUSE' AND Code = CASE od.BOUND WHEN 'AIR' THEN edi.EDI_ASSIGNMENT_WH_CODE ELSE edi.EDI_WH_CODE END) AS WHName -->
+				  <choose>
+				  <when test='entCode == "UPSXK"'>
+				  , (SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'EDI_BONDED_WAREHOUSE' AND Code = od.ASSIGNMENT_WH_CODE) AS WHName
+				  </when>
+				  <otherwise>
+				  , (SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE GROUP_CODE = 'EDI_BONDED_WAREHOUSE' AND Code = mod.ASSIGNMENT_WH_CODE) AS WHName
+				  </otherwise>
+				  </choose>
+				  , odAdd.CARRYIN_DATE
+				  , odAdd.CARRYOUT_DATE
+				  , odAdd.CLEARANCE_RECEIPT_DATE
+				  , od.COMMODITY_ITEM
+				  , odAdd.DELIVERY_RECV_DATE
+				  , odAdd.DELIVERY_DATE
+				  , od.ORIG_COUNTRY
+				  , od.DEST_COUNTRY
+				  , od.TR_NAME
+				  , od.DELIVERY_NAME_CHANGED
+				  , odAdd.CUSTOMS_ID_VERIFY	
+				  , od.CB_NAME			
+				  <!-- 추후수정 E01 ~ E05 (출항정보, 입항정보, 통관정보, 배송정보, 배송완료) 
+				  ,  E06 ~ E09(개인통관) , E11~ --> 
+				  , (SELECT RECV_DATE_TIME FROM TB_SMS_ALARM WHERE ENT_CODE = od.ENT_CODE AND REF_JOB_NO = od.OD_JOB_NO AND SOLUTION = 'ECM' AND JOB_TYPE = #{templateType}) AS RECV_DATE_TIME
+				     
+					<!-- => SmsReqDateTime, ReturnDeliverySmsReqDateTime
+					, CustomsFeeSmsReqDateTime, ChangeDeliverySmsReqDateTime
+					, ClearanceHoldSmsReqDateTime			
+					, SHIPPER_COUNTRY_CODE -->  
+				  , ISNULL(od.CONSIGNEE_ADDRESS_LOC, od.CONSIGNEE_ADDRESS) AS CONSIGNEE_ADDRESS
+				  , od.VESSEL_FLIGHT
+				  , od.DELIVERY_FEE
+				  , od.DELIVERY_PAYMENT_TYPE
+				  , od.BOUND
+				  <choose>
+				  <when test='cryptographyYn == "Y"'>
+				  ,CASE ISNULL(od.CONSIGNEE_HP_ENC, '') WHEN '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) END AS CONSIGNEE_HP
+				  ,CASE ISNULL(od.CONSIGNEE_HP_ENC, '') WHEN '' THEN dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) ELSE dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) END AS CONSIGNEE_TEL
+				  ,dbo.Cryptography(od.OD_JOB_NO, od.CUSTOMS_ID_ENC, 1) AS CUSTOMS_ID
+				  </when>
+				  <otherwise>
+				  ,CASE ISNULL(od.CONSIGNEE_HP, '') WHEN '' THEN od.CONSIGNEE_TEL ELSE od.CONSIGNEE_HP END AS CONSIGNEE_HP
+				  ,CASE ISNULL(od.CONSIGNEE_HP, '') WHEN '' THEN od.CONSIGNEE_TEL ELSE od.CONSIGNEE_HP END AS CONSIGNEE_TEL
+				  , od.CUSTOMS_ID
+				  </otherwise>
+				  </choose>
+			 FROM TB_ECM_OD od
+			 	  INNER JOIN TB_ECM_OD_ADDITIONAL odAdd
+			 	  			 ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+			 	  LEFT JOIN TB_ECM_OD mod
+			 	  			ON mod.OD_JOB_NO = od.MASTER_OD_JOB_NO
+<!-- 				 LEFT JOIN TB_SMS_ENT_BUS_EDI_CODE edi -->
+<!-- 				 		   ON edi.ENT_CODE = od.ENT_CODE -->
+<!-- 				 		   AND edi.ENT_BUSINESS_CODE = od.ENT_BUSINESS_CODE -->
+<!-- 				 		   AND edi.BOUND = od.BOUND -->
+<!-- 				 		   AND edi.EDI_CITY_PORT = od.DEST_PORT -->
+			 WHERE od.ENT_CODE = #{entCode}	
+			 AND od.HBL_NO IN(<foreach collection="hblNoList" item="item" separator=",">#{item}</foreach>)
+			<choose>
+				<when test='srchBoundType == "AO" or srchBoundType == "AI"'>AND od.BOUND = 'AIR'</when>
+				<when test='srchBoundType == "SO" or srchBoundType == "SI"'>AND od.BOUND = 'SEA'</when>
+			</choose>
+			<choose>
+				<when test='srchBoundType == "AO" or srchBoundType == "SO" '>AND od.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "AI" or srchBoundType == "SI" '>AND od.BOUND_TYPE = 'EXP'</when>
+			</choose>
+			<if test="srchConsolYn != null and srchConsolYn != ''">
+			AND od.CONSOL_YN = #{srchConsolYn}
+			</if>	
+				
+			<if test="srchPrintYn != null and srchPrintYn != ''">
+			AND odAdd.PRINT_YN = #{srchPrintYn}
+			</if>
+			<if test="srchStatus != null and srchStatus != ''">
+			AND odAdd.LAST_POD_STATUS = #{srchStatus}
+			</if>		
+			<if test="srchCdType != null and srchCdType != ''">
+			AND od.CD_TYPE = #{srchCdType}
+			</if>
+			<if test='srchSendYn == "Y"'>
+			AND odAdd.LAST_POD_STATUS = 'ECM040'
+			</if>
+			<if test="srchDateGbn != null and srchDateGbn != ''">
+				AND ${srchDateGbn} BETWEEN #{srchStartDate} + ' 00:00:00' AND #{srchEndDate} + ' 23:59:00'
+			</if>
+			
+			<choose>
+				<when test='srchCusIdVerify == "Y"'>
+		        AND ISNULL(odAdd.CUSTOMS_ID_VERIFY, '') = 'Y'
+		        </when>
+		        <when test='srchCusIdVerify == "N"'>
+		        AND ISNULL(odAdd.CUSTOMS_ID_VERIFY, '') IN ('N','X')
+		        </when>
+		        <when test='srchCusIdVerify == "X"'>
+		        AND (ISNULL(odAdd.CUSTOMS_ID_VERIFY, '') = 'X' OR ISNULL(od.CUSTOMS_ID, '') = '')
+		        </when>
+		        <when test='srchCusIdVerify == "E"'>
+		        AND ISNULL(odAdd.CUSTOMS_ID_VERIFY, '') = 'E'
+		        </when>
+		        <when test='srchCusIdVerify == "O"'>
+		        AND ISNULL(odAdd.CUSTOMS_ID_VERIFY, '') = 'O'
+		        </when>
+		        <when test='srchCusIdVerify == "NV"'>
+		        AND ISNULL(odAdd.CUSTOMS_ID_VERIFY, '') = ''
+		       		<choose>
+					<when test='cryptographyYn == "Y"'>
+					AND od.CUSTOMS_ID_ENC != ''
+					</when>
+					<otherwise>
+					AND ISNULL(od.CUSTOMS_ID, '') != ''
+					</otherwise>
+					</choose>
+		        </when>     
+	        </choose>
+	        		
+			<if test="srchNo != null and srchNo != ''">
+				AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+			</if>
+			
+			<if test="srchCustomerCode != null and srchCustomerCode != ''">
+				<!-- 상위업체인 경우 -->			
+				<if test='srchCusType == "U" and (srchLoginCustomerUpperLev != null and srchLoginCustomerUpperLev != "")'>
+				AND #{srchCustomerCode} = od.CUST_CODE_LV${srchLoginCustomerUpperLev}
+				</if>
+				<if test='srchCusType == "U" and (srchLoginCustomerUpperLev == null or srchLoginCustomerUpperLev == "")'>
+				AND 1 = 0
+				</if>
+				
+				<!-- 하위업체인 경우 -->
+				<if test='srchCusType == "L" and (srchLoginCustomerLowLev != null and srchLoginCustomerLowLev != "")'>
+				AND #{srchCustomerCode} = od.CUST_CODE_LV${srchLoginCustomerLowLev}
+				</if>
+				<if test='srchCusType == "L" and (srchLoginCustomerLowLev == null or srchLoginCustomerLowLev == "")'>
+				AND 1 = 0
+				</if>
+			</if>
+			
+			<if test="srchCustomerName != null and srchCustomerName != ''">
+				<!-- 상위업체인 경우 -->
+				<if test='srchCusType == "U" and (srchLoginCustomerUpperLev != null and srchLoginCustomerUpperLev != "")'>
+				AND (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV${srchLoginCustomerUpperLev}) 
+				 	LIKE CONCAT('%',#{srchCustomerName},'%')
+				</if>
+				<if test='srchCusType == "U" and (srchLoginCustomerUpperLev == null or srchLoginCustomerUpperLev == "")'>
+				AND 1 = 0
+				</if>
+				
+				<!-- 하위업체인 경우 -->
+				<if test='srchCusType == "L" and (srchLoginCustomerLowLev != null and srchLoginCustomerLowLev != "")'>
+				AND (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CUST_CODE_LV${srchLoginCustomerLowLev})
+				     LIKE CONCAT('%',#{srchCustomerName},'%')
+				</if>
+				<if test='srchCusType == "L" and (srchLoginCustomerLowLev == null or srchLoginCustomerLowLev == "")'>
+				AND 1 = 0
+				</if>		
+			</if>			 
+	</select>
+	
+
+	<insert id="sendSMS" parameterType="java.util.HashMap">
+	/* SystemMngMapper.sendSMS */
+		INSERT INTO msg_queue(
+			  subid
+			, cidnum
+			, msg_type
+			, dstaddr
+			, callback
+			, stat
+			, subject
+			, text
+			, text2
+			, k_template_code
+			, k_next_type
+			, sender_key
+			, k_at_send_type
+			, expiretime
+			<if test="k_attach != null and k_attach != ''">
+			, k_attach
+			</if>
+		)VALUES(
+			  #{subid}
+			, #{cidnum}
+			, #{msg_type}
+			, #{dstaddr}
+			, #{callback}
+		 	, '0'
+		 	, #{subject}
+			, #{text}
+		 	, #{text2}
+			, #{k_template_code}
+			, #{k_next_type}
+			, #{sender_key}
+			, '0'
+			, 120
+			<if test="k_attach != null and k_attach != ''">
+			, #{k_attach}
+			</if>
+		)
+		<selectKey keyProperty="mseq" resultType="java.lang.Integer"> 
+	      SELECT IDENT_CURRENT('msg_queue') 
+	   </selectKey>
+	</insert>	
+	
+	<insert id="updateSmsDateTime" parameterType="java.util.HashMap">
+	/* SystemMngMapper.updateSmsDateTime */
+			
+	
+			MERGE TB_SMS_ALARM AS A 
+			USING (SELECT #{OD_JOB_NO} AS REF_JOB_NO, #{TEMPLATE_TYPE} AS JOB_TYPE, #{ENT_CODE} AS ENT_CODE, ) AS B 
+			ON (A.REF_JOB_NO = B.REF_JOB_NO AND A.JOB_TYPE = B.JOB_TYPE AND A.ENT_CODE = B.ENT_CODE)  
+			WHEN MATCHED THEN   <!--  재전송시  -->
+			UPDATE SET
+				  , SEND_DATE_TIME = GETDATE()
+				  , UPDATE_USER_ID = #{updateUserId}
+				  , UPDATE_DATE_TIME = GETDATE();
+				  
+			WHEN NOT MATCHED BY TARGET THEN  <!--  첫 전송 INSERT -->
+			INSERT(
+			
+					SEQ_NO_ID
+				  , ENT_CODE
+				  , ENT_BUSINESS_CODE
+				  , SOLUTION
+				  , REF_JOB_NO
+				  , JOB_TYPE
+				  , MSG_KEY
+				  , ALARM_ATTN_ID
+				  , SEND_DATE_TIME
+				  , RECV_DATE_TIME
+				  , BEFORE_VALUE
+				  , AFTER_VALUE
+				  , STATUS
+				  , RESULT_TYPE
+				  , RESULT_CODE
+				  , RESULT_LOG
+				  , REGISTER_USER_ID
+				  , REGISTER_DATE_TIME
+
+
+				)VALUES(
+				
+			
+						
+				
+				);			
+	 
+	</insert>		
+	
+	<select id="selectZipCodeList" parameterType="searchZipCodeList" resultType="zipCode">
+		/* SystemMngMapper.selectZipCodeList : ZipCodeList */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT 
+				ZIPCODE
+				,BRANCH_NAME1
+				,BRANCH_NAME2
+				,BRANCH_NAME3
+				,BRANCH_NAME4
+				,BRANCH_NAME5
+				,BRANCH_NAME6
+				,GUBUN
+				,REGISTER_DATE_TIME
+				,UPDATE_DATE_TIME
+				
+			FROM exps_master.dbo.TB_SMS_EPOST_DELIVERY
+      		WHERE 1=1
+      		<if test="srchZipCode != null and srchZipCode != ''">
+			AND ZIPCODE = #{srchZipCode} 
+			</if> 
+			<if test="srchBranchNameCode.equals('BranchName1') and srchBranchName != null and srchBranchName != ''">
+			AND BRANCH_NAME1 = #{srchBranchName} 
+			</if>
+			<if test="srchBranchNameCode.equals('BranchName2') and srchBranchName != null and srchBranchName != ''">
+			AND BRANCH_NAME2 = #{srchBranchName} 
+			</if>
+			<if test="srchBranchNameCode.equals('BranchName3') and srchBranchName != null and srchBranchName != ''">
+			AND BRANCH_NAME3 = #{srchBranchName} 
+			</if>
+			<if test="srchBranchNameCode.equals('BranchName4') and srchBranchName != null and srchBranchName != ''">
+			AND BRANCH_NAME4 = #{srchBranchName} 
+			</if>
+			<if test="srchBranchNameCode.equals('BranchName5') and srchBranchName != null and srchBranchName != ''">
+			AND BRANCH_NAME5 = #{srchBranchName} 
+			</if>
+			<if test="srchBranchNameCode.equals('BranchName6') and srchBranchName != null and srchBranchName != ''">
+			AND BRANCH_NAME6 = #{srchBranchName} 
+			</if>
+			<if test="srchStartDate != null and srchStartDate != ''">
+      		AND exps_master.dbo.TB_SMS_EPOST_DELIVERY .${srchDateGbn} >= CONCAT(#{srchStartDate}, ' 00:00:00')
+      		</if>
+      		<if test="srchEndDate != null and srchEndDate != ''"> 
+			AND exps_master.dbo.TB_SMS_EPOST_DELIVERY .${srchDateGbn} <![CDATA[<=]]> CONCAT(#{srchEndDate}, ' 23:59:59')
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectZipCode" parameterType="SearchZipCode" resultType="zipCode">
+		/* SystemMngMapper.selectZipCode : ZipCode 조회 */
+		SELECT  TOP 1
+				ZIPCODE
+				,BRANCH_NAME1
+				,BRANCH_NAME2
+				,BRANCH_NAME3
+				,BRANCH_NAME4
+				,BRANCH_NAME5
+				,BRANCH_NAME6
+				,GUBUN
+				,REGISTER_DATE_TIME
+				,UPDATE_DATE_TIME
+		
+		FROM exps_master.dbo.TB_SMS_EPOST_DELIVERY
+      	WHERE 1 = 1
+		<if test="zipCode != null and zipCode != ''">
+			AND ZIPCODE = #{zipCode}
+		</if>
+	</select>
+	
+	<insert id="insertZipCode" parameterType="zipCode">
+		/* SystemMngMapper.insertZipCode : ZipCode Insert */
+		INSERT INTO exps_master.dbo.TB_SMS_EPOST_DELIVERY (
+			 ZIPCODE
+				,BRANCH_NAME1
+				,BRANCH_NAME2
+				,BRANCH_NAME3
+				,BRANCH_NAME4
+				,BRANCH_NAME5
+				,BRANCH_NAME6
+				,GUBUN
+				,REGISTER_DATE_TIME
+				,UPDATE_DATE_TIME
+		) VALUES (
+			 #{zipCode}
+            ,#{BranchName1}
+            ,#{BranchName2}
+            ,#{BranchName3}
+            ,#{BranchName4}
+            ,#{BranchName5}
+            ,#{BranchName6}
+            ,#{Gubun}
+			,GETDATE()
+			,GETDATE()
+		)
+	</insert>
+	
+	<insert id="updateZipCode" parameterType="zipCode">
+		/* SystemMngMapper.updateZipCode : ZipCode Update */
+		UPDATE exps_master.dbo.TB_SMS_EPOST_DELIVERY
+			SET 
+			ZIPCODE	= #{zipCode}
+			,BRANCH_NAME1  	= #{BranchName1}
+			,BRANCH_NAME2 	= #{BranchName2}
+			,BRANCH_NAME3 	= #{BranchName3}
+			,BRANCH_NAME4 	= #{BranchName4}
+			,BRANCH_NAME5 	= #{BranchName5}
+			,BRANCH_NAME6 	= #{BranchName6}
+			,GUBUN			= #{Gubun}
+			,UPDATE_DATE_TIME = GETDATE()
+		WHERE ZIPCODE = #{zipCode}
+	</insert>
+	
+	<delete id="deleteZipCode" parameterType="HashMap">
+		/* SystemMngMapper.deleteZipCode : ZipCode Delete */
+		DELETE FROM exps_master.dbo.TB_SMS_EPOST_DELIVERY
+		WHERE ZIPCODE = #{zipCode}
+	</delete>
+	
+	<select id="selectAddressZipCodeList" parameterType="searchAddressZipCodeList" resultType="AddressZipCode">
+		/* SystemMngMapper.selectAddressZipCodeList : AddressZipCode List */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 ZIPCODE
+				,CENTRAL_STATION_NO
+				,CENTRAL_STATION
+				,DELIVERY_NO
+				,DELIVERY
+				,DELIVERY_TEAM_NO
+				,DELIVERY_PEOPLE_NO
+				,SIDO
+				,SIGUNGU
+				,EUPMYEON
+				,ROAD
+				,BUILDING_MAIN_NO
+				,BUILDING_SUB_NO
+				,BUILDING_NAME
+				,COURT_DONG
+				,LI
+				,STROKE_DONG
+				,ADDR_MAIN_NO
+				,ADDR_SUB_NO
+				,UNDER_YN
+				,MOUNT_YN
+				,REGISTER_DATE_TIME
+				,UPDATE_DATE_TIME
+				,GUBUN
+			FROM exps_master.dbo.TB_SMS_EPOST_ADDR_DELIVERY  WITH(NOLOCK) 
+			where 1=1
+			<if test="srchStartDate != null and srchStartDate != ''">
+			AND ${srchDateGbn} >= CONCAT(#{srchStartDate}, ' 00:00:00')
+			</if>
+			<if test="srchEndDate != null and srchEndDate != ''">
+			AND ${srchDateGbn} <![CDATA[<=]]> CONCAT(#{srchEndDate}, ' 23:59:59')
+			</if>
+			<if test="srchZipCode != null and srchZipCode != ''">
+			AND ZIPCODE = #{srchZipCode}
+			</if>
+			<if test="srchSido != null and srchSido != ''">
+			AND SIDO = #{srchSido}
+			</if>
+			<if test="srchString != null and srchString != ''">
+			AND ${srchType} LIKE CONCAT('%', #{srchString}, '%')
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="insertAddressZipCode" parameterType="HashMap">
+		/*SystemMngMapper.insertAddressZipCode : AddressZipCode insert*/
+			MERGE exps_master.dbo.TB_SMS_EPOST_ADDR_DELIVERY A
+			USING (SELECT #{ZIPCODE} AS ZIPCODE, #{SIDO} AS SIDO, #{SIGUNGU} AS SIGUNGU, #{EUPMYEON} AS EUPMYEON, #{ROAD} AS ROAD
+						, #{UNDER_YN} AS UNDER_YN, #{BUILDING_MAIN_NO} AS BUILDING_MAIN_NO, #{BUILDING_SUB_NO} AS BUILDING_SUB_NO, #{BUILDING_NAME} AS BUILDING_NAME, #{LI} AS LI
+						, #{STROKE_DONG} AS STROKE_DONG, #{ADDR_MAIN_NO} AS ADDR_MAIN_NO, #{ADDR_SUB_NO} AS ADDR_SUB_NO) B
+			ON (A.ZIPCODE = B.ZIPCODE AND A.SIDO = B.SIDO AND A.SIGUNGU = B.SIGUNGU AND A.EUPMYEON = B.EUPMYEON AND A.ROAD = B.ROAD
+			 	AND A.UNDER_YN = B.UNDER_YN AND A.BUILDING_MAIN_NO = B.BUILDING_MAIN_NO AND A.BUILDING_SUB_NO = B.BUILDING_SUB_NO AND A.BUILDING_NAME = B.BUILDING_NAME AND A.LI = B.LI
+			  	AND A.STROKE_DONG = B.STROKE_DONG AND A.ADDR_MAIN_NO = B.ADDR_MAIN_NO AND A.ADDR_SUB_NO = B.ADDR_SUB_NO)
+			WHEN NOT MATCHED BY TARGET THEN
+			INSERT (
+				 ZIPCODE
+				, SIDO
+				, SIGUNGU
+				, EUPMYEON
+				, ROAD
+				, UNDER_YN
+				, BUILDING_MAIN_NO
+				, BUILDING_SUB_NO
+				, BUILDING_NAME
+				, COURT_DONG
+				, LI
+				, STROKE_DONG
+				, MOUNT_YN
+				, ADDR_MAIN_NO
+				, ADDR_SUB_NO
+				, CENTRAL_STATION_NO
+				, CENTRAL_STATION
+				, DELIVERY_NO
+				, DELIVERY
+				, DELIVERY_TEAM_NO
+				, DELIVERY_PEOPLE_NO
+				, GUBUN
+			)VALUES(
+				#{ZIPCODE}
+				, #{SIDO}
+				, #{SIGUNGU}
+				, #{EUPMYEON}
+				, #{ROAD}
+				, #{UNDER_YN}
+				, #{BUILDING_MAIN_NO}
+				, #{BUILDING_SUB_NO}
+				, #{BUILDING_NAME}
+				, #{COURT_DONG}
+				, #{LI}
+				, #{STROKE_DONG}
+				, #{MOUNT_YN}
+				, #{ADDR_MAIN_NO}
+				, #{ADDR_SUB_NO}
+				, #{CENTRAL_STATION_NO}
+				, #{CENTRAL_STATION}
+				, #{DELIVERY_NO}
+				, #{DELIVERY}
+				, #{DELIVERY_TEAM_NO}
+				, #{DELIVERY_PEOPLE_NO}
+				, #{GUBUN}
+			);
+	</select>
+	
+		
+	<update id="updateAddressZipCode" parameterType="HashMap">
+	/*expressSystem_sql.updateAddressZipCode : AddressZipCode update*/
+  			MERGE exps_master.dbo.TB_SMS_EPOST_ADDR_DELIVERY A
+			USING (SELECT #{ZIPCODE} AS ZIPCODE, #{SIDO} AS SIDO, #{SIGUNGU} AS SIGUNGU, #{EUPMYEON} AS EUPMYEON, #{ROAD} AS ROAD
+						, #{UNDER_YN} AS UNDER_YN, #{BUILDING_MAIN_NO} AS BUILDING_MAIN_NO, #{BUILDING_SUB_NO} AS BUILDING_SUB_NO, #{BUILDING_NAME} AS BUILDING_NAME, #{LI} AS LI
+						, #{STROKE_DONG} AS STROKE_DONG, #{ADDR_MAIN_NO} AS ADDR_MAIN_NO, #{ADDR_SUB_NO} AS ADDR_SUB_NO) B
+			ON (A.ZIPCODE = B.ZIPCODE AND A.SIDO = B.SIDO AND A.SIGUNGU = B.SIGUNGU AND A.EUPMYEON = B.EUPMYEON AND A.ROAD = B.ROAD
+			 	AND A.UNDER_YN = B.UNDER_YN AND A.BUILDING_MAIN_NO = B.BUILDING_MAIN_NO AND A.BUILDING_SUB_NO = B.BUILDING_SUB_NO AND A.BUILDING_NAME = B.BUILDING_NAME AND A.LI = B.LI
+			  	AND A.STROKE_DONG = B.STROKE_DONG AND A.ADDR_MAIN_NO = B.ADDR_MAIN_NO AND A.ADDR_SUB_NO = B.ADDR_SUB_NO)
+			WHEN MATCHED THEN
+			UPDATE SET
+					CENTRAL_STATION_NO = #{CENTRAL_STATION_NO}
+					, CENTRAL_STATION = #{CENTRAL_STATION}
+					, DELIVERY_NO = #{DELIVERY_NO}
+					, DELIVERY = #{DELIVERY}
+					, DELIVERY_TEAM_NO = #{DELIVERY_TEAM_NO}
+					, DELIVERY_PEOPLE_NO = #{DELIVERY_PEOPLE_NO}
+					, GUBUN = #{GUBUN}
+					, UPDATE_DATE_TIME = GETDATE();	
+	</update>		
+		
+	<delete id="deleteAddressZipCode" parameterType="HashMap">
+		/*SystemMngMapper.deleteAddressZipCode : AddressZipCode delete */
+			DELETE 
+			FROM exps_master.dbo.TB_SMS_EPOST_ADDR_DELIVERY 
+			WHERE ZIPCODE = #{ZIPCODE}
+			AND SIDO = #{SIDO}
+			AND SIGUNGU = #{SIGUNGU}
+			AND EUPMYEON = #{EUPMYEON}
+			AND ROAD = #{ROAD}
+			AND UNDER_YN = #{UNDER_YN}
+			AND BUILDING_MAIN_NO = #{BUILDING_MAIN_NO}
+			AND BUILDING_SUB_NO = #{BUILDING_SUB_NO}
+			AND BUILDING_NAME = #{BUILDING_NAME}
+			AND COURT_DONG = #{COURT_DONG}
+			AND LI = #{LI}
+			AND STROKE_DONG = #{STROKE_DONG}
+			AND MOUNT_YN = #{MOUNT_YN}
+			AND ADDR_MAIN_NO = #{ADDR_MAIN_NO}
+			AND ADDR_SUB_NO = #{ADDR_SUB_NO}
+			AND CENTRAL_STATION_NO = #{CENTRAL_STATION_NO}
+			AND CENTRAL_STATION = #{CENTRAL_STATION}
+			AND DELIVERY_NO = #{DELIVERY_NO}
+			AND DELIVERY = #{DELIVERY}
+			AND DELIVERY_TEAM_NO = #{DELIVERY_TEAM_NO}
+			AND DELIVERY_PEOPLE_NO = #{DELIVERY_PEOPLE_NO}
+			AND GUBUN = #{GUBUN};
+	</delete>
+	
+	
+	<select id="selectAddressZipCodeModifyDate" resultType="String">
+		/* expressSystem_sql.selectModifyDate */
+		SELECT MAX(CONVERT(CHAR(10), UPDATE_DATE_TIME, 23)) AS ModifyDate FROM exps_master.dbo.TB_SMS_EPOST_ADDR_DELIVERY  WITH(NOLOCK) 
+	</select>
+	
+	<select id="selectBackupOrderList" parameterType="searchOrderList" resultType="String">
+		/* SystemMngMapper.selectBackupOrderList */
+		SELECT od.OD_JOB_NO
+		FROM TB_ECM_OD od
+	 	INNER JOIN TB_ECM_OD_ADDITIONAL ad
+	 		ON ad.OD_JOB_NO = od.OD_JOB_NO
+		WHERE od.ENT_CODE = #{srchEntCode}
+		<if test="srchSolution != null and srchSolution != ''">
+		AND od.SOLUTION = #{srchSolution}
+		</if>
+		<if test="srchBlTypeMh != null and srchBlTypeMh != ''">
+		AND od.BL_TYPE_MH = #{srchBlTypeMh}
+		</if>
+		AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+		AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+		AND ad.LAST_POD_STATUS = 'ECM420'
+	</select>
+	
+	<select id="insertBackupDB" parameterType="HashMap">
+		/* SystemMngMapper.insertBackupDB */
+		INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_BACK
+		SELECT *
+		  FROM TB_ECM_OD
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_ABNORMAL_BACK
+		SELECT *
+		  FROM TB_ECM_OD_ABNORMAL
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_ADDITIONAL_BACK
+		SELECT *
+		  FROM TB_ECM_OD_ADDITIONAL
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_CONTAINER_BACK
+		SELECT *
+		  FROM TB_ECM_OD_CONTAINER
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_COST_BACK
+		SELECT *
+		  FROM TB_ECM_OD_COST
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_DELIVERY_INFO_BACK
+		SELECT *
+		  FROM TB_ECM_OD_DELIVERY_INFO
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_ITEM_BACK
+		SELECT *
+		  FROM TB_ECM_OD_ITEM
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_LICENSE_BACK
+		SELECT *
+		  FROM TB_ECM_OD_LICENSE
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_MULTI_BACK
+		SELECT *
+		  FROM TB_ECM_OD_MULTI
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_PO_INFO_BACK
+		SELECT *
+		  FROM TB_ECM_OD_PO_INFO
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_SELECTION_BACK
+		SELECT *
+		  FROM TB_ECM_OD_SELECTION
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_SELECTION_ITEM_BACK
+		SELECT *
+		  FROM TB_ECM_OD_SELECTION_ITEM
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_SELECTION_ITEM_HBL_BACK
+		SELECT *
+		  FROM TB_ECM_OD_SELECTION_ITEM_HBL
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		 INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_OD_SPECIAL_ITEM_BACK
+		SELECT *
+		  FROM TB_ECM_OD_SPECIAL_ITEM
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_POD_BACK
+		SELECT *
+		  FROM TB_ECM_POD
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_POD_01_BACK
+		SELECT *
+		  FROM TB_ECM_POD_01
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_POD_02_BACK
+		SELECT *
+		  FROM TB_ECM_POD_02
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_POD_03_BACK
+		SELECT *
+		  FROM TB_ECM_POD_03
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		INSERT 
+		  INTO ${db_name}_BACK.DBO.TB_ECM_POD_04_BACK
+		SELECT *
+		  FROM TB_ECM_POD_04
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+	</select>
+	
+	<delete id="deleteOrigDB" parameterType="HashMap">
+		/* SystemMngMapper.deleteOrigDB */
+	
+		DELETE
+		  FROM TB_ECM_OD
+		 WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		DELETE
+		 FROM TB_ECM_OD_ABNORMAL
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		
+		DELETE
+		 FROM TB_ECM_OD_ADDITIONAL
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		
+		DELETE
+		 FROM TB_ECM_OD_CONTAINER
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		
+		DELETE
+		 FROM TB_ECM_OD_COST
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		
+		DELETE
+		 FROM TB_ECM_OD_DELIVERY_INFO
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		
+		DELETE
+		 FROM TB_ECM_OD_ITEM
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		 
+		DELETE
+		 FROM TB_ECM_OD_LICENSE
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		
+	 	DELETE
+		 FROM TB_ECM_OD_MULTI
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+	
+		DELETE
+		 FROM TB_ECM_OD_PO_INFO
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		
+		DELETE
+		 FROM TB_ECM_OD_SELECTION
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+	
+		DELETE
+		 FROM TB_ECM_OD_SELECTION_ITEM
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+	
+		DELETE
+		 FROM TB_ECM_OD_SELECTION_ITEM_HBL
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		
+		DELETE
+		 FROM TB_ECM_OD_SPECIAL_ITEM
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		
+		DELETE
+		 FROM TB_ECM_POD
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		DELETE
+		 FROM TB_ECM_POD_01
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		DELETE
+		 FROM TB_ECM_POD_02
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		DELETE
+		 FROM TB_ECM_POD_03
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		DELETE
+		 FROM TB_ECM_POD_04
+		WHERE OD_JOB_NO IN  (<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		
+	</delete>
+	
+	<insert id="insertDeliveryInterfaceVe" parameterType="deliveryInterface">
+		/* SystemMngMapper.insertDeliveryInterfaceVe : DeliveryInterface Insert */
+		INSERT INTO TB_SMS_DELIVERY_COMP_INFO(
+				   ENT_CODE
+				 , KOREX_METHOD
+				 , BOUND
+				 , CUSTOMER_CODE
+				 , LOGISTICS_CODE
+				 , TRACKING_KOREX_YN
+				 , KOREX_ID
+				 , KOREX_CUST_ID
+				 , SENDER_TELNO1
+				 , SENDER_TELNO2
+				 , SENDER_TELNO3
+				 , SENDER_ZIPCODE
+				 , SENDER_ADDR
+				 , SENDER_ADDR_DTL
+				 , SENDER_INFO_USEYN
+				 , TRACKING_EMS_YN
+				 , EMS_ID
+				 , TRACKING_EPOST_YN
+				 , EPOST_AUTH_KEY
+				 , EPOST_OFFICE_SER
+				 , EPOST_APPR_NO
+				 , EPOST_SECURITY_KEY
+				 , EPOST_CUST_NO
+				 , TRACKING_COPAS_YN
+				 , TRACKING_SMART_YN
+				 , FTP_TYPE
+				 , FTP_IP
+				 , FTP_PORT
+				 , FTP_ID
+				 , FTP_PW
+				 , FTP_PASSIVEMODE
+				 , FTP_SENDER_DIR
+				 , FTP_RECEIVER_DIR
+				 , TRACKING_LOGEN_YN
+				 , LOGEN_ID
+				 , LOGEN_PW
+				 , LOGEN_FREIGHT
+				 , LOGEN_PRICE
+				 , TRACKING_CHUNIL_YN
+				 , TRACKING_HANJIN_YN
+				 , HANJIN_CUS_NUM
+				 , HANJIN_ZIPCODE
+				 , HANJIN_ADDR1
+				 , HANJIN_ADDR2
+				 , HANJIN_NAME
+				 , HANJIN_TEL
+				 , HANJIN_MOBILE
+				 , HANJIN_CLIENT_ID
+				 , HANJIN_API_CODE
+				 , USE_YN
+				 , REG_ID
+				 , REG_DATE
+				 , EPOST_DELIV_AREA_KEY
+				 , TRACKING_LOTTE_YN
+				 , LOTTE_AUTH_KEY
+				 , LOTTE_CUST_ID
+				 , LOTTE_ZIPCODE
+				 , LOTTE_ADDR
+				 , LOTTE_BOX_TYPE
+				 , LOTTE_MOBILE
+				 , LOTTE_NAME
+				 , LOTTE_TEL
+				 , TRACKING_KD_YN
+				 , KD_AUTH_KEY
+				 , KD_CUST_SEND_NO
+				 , KD_ZIPCODE
+				 , KD_TEL1
+				 , KD_TEL2
+				 , KD_NAME
+				 , KD_ADDR1
+				 , KD_ADDR2
+		)VALUES(
+				 #{entCode}
+			   , #{korexMethod}
+			   , #{bound}
+			   , #{customerCode}
+			   , #{logisticsCode}
+			   , #{trackingKorexYn}
+			   , #{korexId}
+			   , #{korexCustId}
+			   , #{senderTelNo1}
+			   , #{senderTelNo2}
+			   , #{senderTelNo3}
+			   , #{senderZipcode}
+			   , #{senderAddr}
+			   , #{senderAddrDtl}
+			   , #{senderInfoUseYn}
+			   , #{trackingEmsYn}
+			   , #{emsId}
+			   , #{trackingEpostYn}
+			   , #{epostAuthKey}
+			   , #{epostOfficeSer}
+			   , #{epostApprNo}
+			   , #{epostSecurityKey}
+			   , #{epostCustNo}
+			   , #{trackingCopasYn}
+			   , #{trackingSmartYn}
+			   , #{ftpType}
+			   , #{ftpIp}
+			   , #{ftpPort}
+			   , #{ftpId}
+			   , #{ftpPw}
+			   , #{ftpPassivemode}
+			   , #{ftpSenderDir}
+			   , #{ftpReceiverDir}
+			   , #{trackingLogenYn}
+			   , #{logenId}
+			   , #{logenPw}
+			   , #{logenFreight}
+			   , #{logenPrice}
+			   , #{trackingChunilYn}
+			   , #{trackingHanjinYn}
+			   , #{hanjinCusNum}
+			   , #{hanjinZipcode}
+			   , #{hanjinAddr1}
+			   , #{hanjinAddr2}
+			   , #{hanjinName}
+			   , #{hanjinTel}
+			   , #{hanjinMobile}
+			   , #{hanjinClientId}
+			   , #{hanjinApiCode}
+			   , #{useYn}
+			   , #{regId}
+			   , DATEADD(HOUR, ${gmtTime}, GETDATE())
+			   , #{epostDelivAreaKey}
+			   , #{trackingLotteYn}
+			   , #{lotteAuthKey}
+			   , #{lotteCustId}
+			   , #{lotteZipcode}
+			   , #{lotteAddr}
+			   , #{lotteBoxType}
+			   , #{lotteMobile}
+			   , #{lotteName}
+			   , #{lotteTel}
+			   , #{trackingKdYn}
+			   , #{kdAuthKey}
+			   , #{kdCustSendNo}
+			   , #{kdZipcode}
+			   , #{kdTel1}
+			   , #{kdTel2}
+			   , #{kdName}
+			   , #{kdAddr1}
+			   , #{kdAddr2}
+			   )
+	</insert>
+
+	<select id="selectDeliveryInterfaceApi" parameterType="searchDeliveryInterface" resultType="HashMap">
+		/* SystemMngMapper.selectDeliveryInterfaceApi : 배송사 Interface 조회(Entry) - API */
+		SELECT
+		DELIVERY_CODE
+		, RECV_API_URL
+		, RECV_API_CODE
+		, RECV_API_ID
+		, RECV_API_PW
+		, ADDR_API_URL
+		, ADDR_API_ID
+		, ADDR_API_PW
+		<if test= "profileName != null and profileName != ''">
+		<if test='profileName == "hubn1" or profileName == "bms11"'>
+		, TRACKING_API_URL
+		, TRACKING_API_ID
+		, TRACKING_API_PW
+		, TOKEN_API_URL
+		, TOKEN_API_ID
+		, TOKEN_API_PW
+		, ETC1_API_URL
+		, ETC1_API_ID
+		, ETC1_API_PW
+		</if>
+		</if>
+		FROM TB_SMS_DELIVERY_API_INFO
+		WHERE ENT_CODE = #{srchEntCode}
+		<if test="srchDeliveryCode != null and srchDeliveryCode != ''">
+			AND DELIVERY_CODE = #{srchDeliveryCode}
+		</if>
+	</select>
+
+
+	<update id="updateDeliveryInterfaceVe" parameterType="interfaceKey">
+		/* SystemMngMapper.updateDeliveryInterfaceVe : DeliveryInterface Update */
+		UPDATE TB_SMS_DELIVERY_COMP_INFO SET
+		ENT_CODE = #{entCode}
+		, BOUND = #{bound}
+		, KOREX_METHOD = #{korexMethod}
+		, CUSTOMER_CODE = #{customerCode}
+		, LOGISTICS_CODE = #{logisticsCode}
+		, TRACKING_KOREX_YN = #{trackingKorexYn}
+		, KOREX_ID = #{korexId}
+		, KOREX_CUST_ID = #{korexCustId}
+		, SENDER_TELNO1 = #{senderTelNo1}
+		, SENDER_TELNO2 = #{senderTelNo2}
+		, SENDER_TELNO3 = #{senderTelNo3}
+		, SENDER_ZIPCODE = #{senderZipcode}
+		, SENDER_ADDR = #{senderAddr}
+		, SENDER_ADDR_DTL = #{senderAddrDtl}
+		, SENDER_INFO_USEYN = #{senderInfoUseYn}
+		, TRACKING_EMS_YN = #{trackingEmsYn}
+		, EMS_ID = #{emsId}
+		, TRACKING_EPOST_YN = #{trackingEpostYn}
+		, EPOST_AUTH_KEY = #{epostAuthKey}
+		, EPOST_OFFICE_SER = #{epostOfficeSer}
+		, EPOST_APPR_NO = #{epostApprNo}
+		, EPOST_SECURITY_KEY = #{epostSecurityKey}
+		, EPOST_CUST_NO = #{epostCustNo}
+		, TRACKING_COPAS_YN = #{trackingCopasYn}
+		, TRACKING_SMART_YN = #{trackingSmartYn}
+		, TRACKING_HANJIN_YN = #{trackingHanjinYn}
+		, HANJIN_CUS_NUM = #{hanjinCusNum}
+		, HANJIN_ZIPCODE = #{hanjinZipcode}
+		, HANJIN_ADDR1 = #{hanjinAddr1}
+		, HANJIN_ADDR2 = #{hanjinAddr2}
+		, HANJIN_NAME = #{hanjinName}
+		, HANJIN_TEL = #{hanjinTel}
+		, HANJIN_MOBILE = #{hanjinMobile}
+		, HANJIN_CLIENT_ID = #{hanjinClientId}
+		, HANJIN_API_CODE = #{hanjinApiCode}
+		, FTP_TYPE = #{ftpType}
+		, FTP_IP = #{ftpIp}
+		, FTP_PORT = #{ftpPort}
+		, FTP_ID = #{ftpId}
+		, FTP_PW = #{ftpPw}
+		, FTP_PASSIVEMODE = #{ftpPassivemode}
+		, FTP_SENDER_DIR = #{ftpSenderDir}
+		, FTP_RECEIVER_DIR = #{ftpReceiverDir}
+		, TRACKING_LOGEN_YN = #{trackingLogenYn}
+		, LOGEN_ID = #{logenId}
+		, LOGEN_PW = #{logenPw}
+		, LOGEN_FREIGHT = #{logenFreight}
+		, LOGEN_PRICE = #{logenPrice}
+		, TRACKING_CHUNIL_YN = #{trackingChunilYn}
+		, USE_YN = #{useYn}
+		, UPD_ID = #{updId}
+		, UPD_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+		, EPOST_DELIV_AREA_KEY = #{epostDelivAreaKey}
+		, TRACKING_LOTTE_YN = #{trackingLotteYn}
+		, LOTTE_AUTH_KEY = #{lotteAuthKey}
+		, LOTTE_CUST_ID = #{lotteCustId}
+		, LOTTE_ZIPCODE = #{lotteZipcode}
+		, LOTTE_ADDR = #{lotteAddr}
+		, LOTTE_BOX_TYPE = #{lotteBoxType}
+		, LOTTE_MOBILE = #{lotteMobile}
+		, LOTTE_NAME = #{lotteName}
+		, LOTTE_TEL = #{lotteTel}
+		, TRACKING_KD_YN = #{trackingKdYn}
+		, KD_AUTH_KEY = #{kdAuthKey}
+		, KD_CUST_SEND_NO = #{kdCustSendNo}
+		, KD_ZIPCODE = #{kdZipcode}
+		, KD_TEL1 = #{kdTel1}
+		, KD_TEL2 = #{kdTel2}
+		, KD_NAME = #{kdName}
+		, KD_ADDR1 = #{kdAddr1}
+		, KD_ADDR2 = #{kdAddr2}
+		WHERE ENT_CODE = #{entCode}
+		AND CUSTOMER_CODE = #{customerCode}
+		AND BOUND = #{bound}
+		AND LOGISTICS_CODE = #{logisticsCode}
+
+
+		DELETE FROM TB_SMS_DELIVERY_API_INFO
+		WHERE ENT_CODE = #{entCode};
+		<if test='gridData != null and gridData.size > 0'>
+			INSERT INTO TB_SMS_DELIVERY_API_INFO(
+			ENT_CODE
+			, DELIVERY_CODE
+			, RECV_API_URL
+			, RECV_API_CODE
+			, RECV_API_ID
+			, RECV_API_PW
+			, ADDR_API_URL
+			, ADDR_API_ID
+			, ADDR_API_PW
+			<if test= "profileName != null and profileName != ''">
+				<if test='profileName == "hubn1" or profileName == "bms11"'>
+					, TRACKING_API_URL
+					, TRACKING_API_ID
+					, TRACKING_API_PW
+					, TOKEN_API_URL
+					, TOKEN_API_ID
+					, TOKEN_API_PW
+					, ETC1_API_URL
+					, ETC1_API_ID
+					, ETC1_API_PW
+				</if>
+			</if>
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME
+			)VALUES
+			<foreach collection="gridData" item="item" separator=",">
+				(
+				#{entCode}
+				, #{item.DELIVERY_CODE}
+				, #{item.RECV_API_URL}
+				, #{item.RECV_API_CODE}
+				, #{item.RECV_API_ID}
+				, #{item.RECV_API_PW}
+				, #{item.ADDR_API_URL}
+				, #{item.ADDR_API_ID}
+				, #{item.ADDR_API_PW}
+				<if test= "profileName != null and profileName != ''">
+					<if test='profileName == "hubn1" or profileName == "bms11"'>
+						, #{item.TRACKING_API_URL}
+						, #{item.TRACKING_API_ID}
+						, #{item.TRACKING_API_PW}
+						, #{item.TOKEN_API_URL}
+						, #{item.TOKEN_API_ID}
+						, #{item.TOKEN_API_PW}
+						, #{item.ETC1_API_URL}
+						, #{item.ETC1_API_ID}
+						, #{item.ETC1_API_PW}
+					</if>
+				</if>
+				, #{regId}
+				, GETDATE()
+				, #{updId}
+				, GETDATE()
+				)
+			</foreach>
+			;
+		</if>
+	</update>
+
+
+	<select id="selectDeliveryInterfaceVe" parameterType="searchDeliveryInterface" resultType="deliveryinterface">
+		/* SystemMngMapper.selectDeliveryInterfaceVe : 배송사 Interface 조회(Entry) */
+		SELECT
+		info.ENT_CODE
+		, info.CUSTOMER_CODE
+		, info.BOUND
+		, CASE info.BOUND WHEN 'AI' THEN '항공수입' WHEN 'AO' THEN '항공수출' WHEN 'OI' THEN '해상수입' WHEN 'OO' THEN '해상수출' END AS BOUNDENG
+		, info.LOGISTICS_CODE
+		<!-- , CASE info.LOGISTICS_CODE WHEN 'ICN' THEN '인천' WHEN 'PTK' THEN '평택' WHEN 'PUS' THEN '부산' WHEN 'KUV' THEN '군산' END AS LOGISTICS_NAME -->
+		, CASE WHEN info.LOGISTICS_CODE IN ('ICN','KRINC') THEN '인천'
+		WHEN info.LOGISTICS_CODE = 'KRPTK' THEN '평택'
+		WHEN info.LOGISTICS_CODE = 'KRPUS' THEN '부산'
+		WHEN info.LOGISTICS_CODE = 'KRKUV' THEN '군산' END AS LOGISTICS_NAME
+		, info.TRACKING_KOREX_YN
+		, info.KOREX_ID
+		, info.KOREX_CUST_ID
+		, info.SENDER_TELNO1
+		, info.SENDER_TELNO2
+		, info.SENDER_TELNO3
+		, info.SENDER_ZIPCODE
+		, info.SENDER_ADDR
+		, info.SENDER_ADDR_DTL
+		, info.SENDER_INFO_USEYN
+		, info.TRACKING_EMS_YN
+		, info.EMS_ID
+		, info.TRACKING_EPOST_YN
+		, info.EPOST_AUTH_KEY
+		, info.EPOST_OFFICE_SER
+		, info.EPOST_APPR_NO
+		, info.EPOST_SECURITY_KEY
+		, info.EPOST_CUST_NO
+		, info.TRACKING_COPAS_YN
+		, info.TRACKING_SMART_YN
+		, info.FTP_PASSIVEMODE
+		, info.FTP_TYPE
+		, info.FTP_IP
+		, info.FTP_PORT
+		, info.FTP_ID
+		, info.FTP_PW
+		, info.FTP_SENDER_DIR
+		, info.FTP_RECEIVER_DIR
+		, info.TRACKING_LOGEN_YN
+		, info.LOGEN_FREIGHT
+		, info.LOGEN_PRICE
+		, info.LOGEN_ID
+		, info.LOGEN_PW
+		, info.TRACKING_CHUNIL_YN
+		, info.TRACKING_HANJIN_YN
+		, info.HANJIN_CUS_NUM
+		, info.HANJIN_ZIPCODE
+		, info.HANJIN_ADDR1
+		, info.HANJIN_ADDR2
+		, info.HANJIN_NAME
+		, info.HANJIN_TEL
+		, info.HANJIN_MOBILE
+		, info.HANJIN_CLIENT_ID
+		, info.HANJIN_API_CODE
+		, info.USE_YN
+		, info.REG_ID
+		, info.REG_DATE
+		, info.UPD_ID
+		, info.UPD_DATE
+		, info.EPOST_DELIV_AREA_KEY
+		,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = info.ENT_CODE AND USER_ID = info.REG_ID) AS REGISTER_USER_NAME
+		,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = info.ENT_CODE AND USER_ID = info.UPD_ID) AS UPDATE_USER_NAME
+		, info.TRACKING_LOTTE_YN
+		, info.LOTTE_AUTH_KEY
+		, info.LOTTE_CUST_ID
+		, info.LOTTE_ZIPCODE
+		, info.LOTTE_ADDR
+		, info.LOTTE_BOX_TYPE
+		, info.LOTTE_MOBILE
+		, info.LOTTE_NAME
+		, info.LOTTE_TEL
+		, info.KOREX_METHOD
+		, info.TRACKING_KD_YN
+		, info.KD_AUTH_KEY
+		, info.KD_CUST_SEND_NO
+		, info.KD_ZIPCODE
+		, info.KD_TEL1
+		, info.KD_TEL2
+		, info.KD_NAME
+		, info.KD_ADDR1
+		, info.KD_ADDR2
+		FROM TB_SMS_DELIVERY_COMP_INFO  info
+		WHERE info.ENT_CODE = #{srchEntCode} AND info.BOUND = #{srchBound}
+		AND info.CUSTOMER_CODE = #{srchCustomerCode} AND info.LOGISTICS_CODE = #{srchLogisticsCode}
+	</select>
+
+	<!-- ================= 그리드 환경설정(그룹별) ================= -->
+
+	<!-- 그리드 환경설정 리스트 조회 (그룹별) -->
+	<select id="selectGridConfigList" parameterType="HashMap" resultType="HashMap">
+		/* SystemMngMapper.selectGridConfigList : 그리드 환경설정(그룹별) 리스트 조회 */
+		SELECT
+			ENT_CODE
+			 ,USER_ID
+			 ,GRID_ID
+			 ,GROUP_CODE
+			 ,COL_NAME
+			 ,VIEW_YN
+			 ,DISPLAY_INDEX
+			 ,LOCK_YN
+			 ,ISNULL(COL_WIDTH,'100px') AS COL_WIDTH
+		FROM TB_SMS_GRID_CONFIGURATION
+		WHERE ENT_CODE   = #{entCode}
+		  AND   USER_ID    = #{userId}
+		  AND   GRID_ID    = #{gridId}
+		  AND   GROUP_CODE = #{groupCode}
+		ORDER BY DISPLAY_INDEX
+	</select>
+
+	<!-- 그리드 환경설정 그룹 목록 조회 -->
+	<select id="selectGridConfigGroupList" parameterType="HashMap" resultType="HashMap">
+		/* SystemMngMapper.selectGridConfigGroupList : 그리드 그룹 목록 조회 */
+		/* SystemMngMapper.selectGridConfigGroupList : 그리드 그룹 목록 조회 (최근순) */
+		SELECT GROUP_CODE
+		FROM TB_SMS_GRID_CONFIGURATION
+		WHERE ENT_CODE = #{entCode}
+		  AND   USER_ID  = #{userId}
+		  AND   GRID_ID  = #{gridId}
+		  AND   GROUP_CODE IS NOT NULL
+		  AND   GROUP_CODE <![CDATA[<>]]> ''
+		GROUP BY GROUP_CODE
+		ORDER BY MAX(REGISTER_DATE_TIME) DESC
+	</select>
+
+	<!-- 그리드 환경설정 삭제 (그룹별) -->
+	<delete id="deleteGridConfig" parameterType="HashMap">
+		/* SystemMngMapper.deleteGridConfig : 그리드 환경설정(그룹별) 삭제 */
+		DELETE FROM TB_SMS_GRID_CONFIGURATION
+		WHERE ENT_CODE   = #{ENT_CODE}
+		  AND   USER_ID    = #{USER_ID}
+		  AND   GRID_ID    = #{GRID_ID}
+		  AND   GROUP_CODE = #{GROUP_CODE}
+	</delete>
+
+	<!-- 그리드 환경설정 저장 (그룹별, 벌크 insert) -->
+	<insert id="insertGridConfig" parameterType="java.util.List">
+		/* SystemMngMapper.insertGridConfig : 그리드 환경설정(그룹별) 저장 */
+		INSERT INTO TB_SMS_GRID_CONFIGURATION(
+		ENT_CODE
+		,USER_ID
+		,GRID_ID
+		,GROUP_CODE
+		,COL_NAME
+		,VIEW_YN
+		,LOCK_YN
+		,DISPLAY_INDEX
+		,COL_WIDTH
+		,REGISTER_USER_ID
+		,REGISTER_DATE_TIME
+		,UPDATE_USER_ID
+		,UPDATE_DATE_TIME
+		)
+		<foreach collection="list" item="item" separator="UNION ALL">
+			SELECT
+			#{item.ENT_CODE}
+			,#{item.USER_ID}
+			,#{item.GRID_ID}
+			,#{item.GROUP_CODE}
+			,#{item.COL_NAME}
+			,#{item.VIEW_YN}
+			,#{item.LOCK_YN}
+			,#{item.DISPLAY_INDEX}
+			,ISNULL(#{item.COL_WIDTH},'100px')
+			,#{item.USER_ID}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{item.gmtTime} AS int), GETDATE()), 20)
+			,#{item.USER_ID}
+			,CONVERT(VARCHAR,DATEADD(hh, cast(#{item.gmtTime} AS int), GETDATE()), 20)
+		</foreach>
+	</insert>
+</mapper>

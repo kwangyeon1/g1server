@@ -1,0 +1,111 @@
+plugins {
+	id 'org.springframework.boot' version '2.5.1'
+	id 'java'
+	id 'war'
+}
+
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+
+group = 'org.yht.exps'
+version = '1.0.0-SNAPSHOT'
+sourceCompatibility = '11'
+
+repositories {
+	mavenCentral()
+	maven { url "https://code.lds.org/nexus/content/groups/main-repo"}
+}
+
+configurations {
+	developmentOnly
+	runtimeClasspath {
+		extendsFrom developmentOnly
+	}
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-aop'
+	implementation 'org.springframework.boot:spring-boot-starter-data-rest'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+	implementation 'org.springframework.boot:spring-boot-starter-json'
+	
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
+		
+	implementation 'org.apache.commons:commons-lang3:3.12.0'
+	implementation 'org.apache.commons:commons-text:1.10.0'
+	implementation 'commons-codec:commons-codec:1.15'
+	implementation 'commons-io:commons-io:2.10.0'
+	implementation 'org.jdom:jdom2:2.0.6'
+	
+	/* ms azure */
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	
+	/* elasticseach */
+	implementation 'org.elasticsearch:elasticsearch:7.14.0'
+	implementation 'org.elasticsearch.client:elasticsearch-rest-client:7.14.0'
+	implementation 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.14.0'
+	
+	/* sftp */
+	implementation 'com.jcraft:jsch:0.1.55'
+	
+	implementation 'commons-net:commons-net:3.4'
+	
+	/* excel */
+	implementation 'org.apache.poi:poi:4.1.2'
+	implementation 'org.apache.poi:poi-examples:4.1.2'
+	implementation 'org.apache.poi:poi-ooxml:4.1.2'
+	implementation 'org.apache.poi:poi-ooxml-schemas:4.1.2'
+	implementation 'org.apache.poi:poi-excelant:4.1.2'
+	implementation 'org.apache.poi:poi-scratchpad:4.1.2'
+	
+	implementation 'io.springfox:springfox-swagger2:2.10.5'
+	implementation 'io.springfox:springfox-swagger-ui:2.10.5'
+	implementation 'io.springfox:springfox-core:2.10.5'
+	implementation 'io.springfox:springfox-data-rest:2.10.5'
+	
+	implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:2.2.0'
+	implementation 'mysql:mysql-connector-java:8.0.25'
+	implementation 'com.microsoft.sqlserver:mssql-jdbc'
+	implementation 'com.oracle.ojdbc:ojdbc10:19.3.0.0'
+	implementation 'com.oracle.ojdbc:orai18n:19.3.0.0'
+	implementation 'net.sf.json-lib:json-lib:2.4:jdk15'
+	
+	
+	implementation 'io.jsonwebtoken:jjwt:0.9.1'
+	implementation 'javax.xml.bind:jaxb-api:2.3.1'
+	implementation 'org.glassfish.jaxb:jaxb-runtime'
+	
+	implementation 'com.google.guava:guava:30.1-jre'
+	implementation 'com.google.code.gson:gson:2.8.7'
+	implementation 'org.bouncycastle:bcprov-jdk18on:1.77'
+		
+	/* Log4jdbc */
+	implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
+	
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation("org.junit.vintage:junit-vintage-engine") {
+    	exclude group: "org.hamcrest", module: "hamcrest-core"
+	}
+	
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	implementation 'org.json:json:20200518'
+
+	/* json-simple */
+//	implementation 'com.googlecode.json-simple:json-simple:1.1.1'
+	implementation("com.networknt:json-schema-validator:1.0.76")
+	/* ubi */
+	implementation fileTree(dir: 'libs', includes: ['UbiServer.jar'])
+	
+	/* jsoup*/
+	implementation 'org.jsoup:jsoup:1.15.4'
+}

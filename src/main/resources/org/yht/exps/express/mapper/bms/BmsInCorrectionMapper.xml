@@ -1,0 +1,763 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsInCorrectionMapper">
+
+    <sql id="searchCustomerCondi">
+        <if test="srchCustomerType != null and srchCustomerType != ''">
+            <choose>
+                <when test="srchCustomerCode != null and srchCustomerCode != ''">
+                    AND CUSTOMER_CODE = #{srchCustomerCode}
+                </when>
+                <otherwise>
+                    <if test="srchCustomerName != null and srchCustomerName != ''">
+                        AND CUSTOMER_NAME LIKE CONCAT('%', #{srchCustomerName}, '%')
+                    </if>
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="srchShipperCode != null and srchShipperCode != ''">
+                    AND SHIPPER_CODE = #{srchShipperCode}
+                </when>
+                <otherwise>
+                    <if test="srchShipperName != null and srchShipperName != ''">
+                        AND SHIPPER_NAME LIKE CONCAT('%', #{srchShipperName}, '%')
+                    </if>
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="srchConsigneeCode != null and srchConsigneeCode != ''">
+                    AND CONSIGNEE_CODE = #{srchConsigneeCode}
+                </when>
+                <otherwise>
+                    <if test="srchConsigneeName != null and srchConsigneeName != ''">
+                        AND CONSIGNEE_NAME LIKE CONCAT('%', #{srchConsigneeName}, '%')
+                    </if>
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="srchNotifyCode != null and srchNotifyCode != ''">
+                    AND NOTIFY_CODE = #{srchNotifyCode}
+                </when>
+                <otherwise>
+                    <if test="srchNotifyName != null and srchNotifyName != ''">
+                        AND NOTIFY_NAME LIKE CONCAT('%', #{srchNotifyName}, '%')
+                    </if>
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="srchDeliveryCode != null and srchDeliveryCode != ''">
+                    AND DELIVERY_CODE = #{srchDeliveryCode}
+                </when>
+                <otherwise>
+                    <if test="srchDeliveryName != null and srchDeliveryName != ''">
+                        AND DELIVERY_NAME LIKE CONCAT('%', #{srchDeliveryName}, '%')
+                    </if>
+                </otherwise>
+            </choose>
+            <choose>
+                <when test="srchFwdCode != null and srchFwdCode != ''">
+                    AND FWD_CODE = #{srchFwdCode}
+                </when>
+                <otherwise>
+                    <if test="srchFwdName != null and srchFwdName != ''">
+                        AND FWD_NAME LIKE CONCAT('%', #{srchFwdName}, '%')
+                    </if>
+                </otherwise>
+            </choose>
+            <if test="srchLocationPlace != null and srchLocationPlace != ''">
+                AND LOCATION_PLACE LIKE CONCAT('%', #{srchLocationPlace}, '%')
+            </if>
+            <if test="srchRemarks1 != null and srchRemarks1 != ''">
+                AND REMARKS_1 LIKE CONCAT('%', #{srchRemarks1}, '%')
+            </if>
+            <if test="srchRemarks2 != null and srchRemarks2 != ''">
+                AND REMARKS_2 LIKE CONCAT('%', #{srchRemarks2}, '%')
+            </if>
+            <if test="srchRemarks3 != null and srchRemarks3 != ''">
+                AND REMARKS_3 LIKE CONCAT('%', #{srchRemarks3}, '%')
+            </if>
+            <if test="srchCommodityItemLoc != null and srchCommodityItemLoc != ''">
+                AND COMMODITY_ITEM_LOC LIKE CONCAT('%', #{srchCommodityItemLoc}, '%')
+            </if>
+        </if>
+    </sql>
+
+    <select id="selectCarryInChangeList" parameterType="searchInCorrection" resultType="carryInChange" fetchSize="1000">
+        /* selectCarryInChangeList : 반입정정 리스트 조회*/
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop"/>
+        SELECT AA.*
+            , COUNT(*) OVER() AS TOTAL_CNT
+        FROM (
+            SELECT
+            A.CHANGE_NO,
+            A.LAST_POD_STATUS,
+            A.CHANGE_CLASS,
+            A.CHANGE_CODE,
+            A.INOUT_CLASS,
+            A.INOUT_NO,
+            A.CUSTOMS_REPORT_NO,
+            A.LAST_POD_DATE,
+            A.LAST_POD_RAQ_DATE,
+            A.CHANGE_DATE,
+            A.CHANGE_COUNT,
+            A.CHANGE_EMPLOYEE_NAME,
+            A.CHANGE_REASON,
+            A.CARGO_REFERENCE_NO,
+            A.CARGO_REFERENCE_NO_DISP,
+            A.REGISTER_USER_ID,
+            A.REGISTER_USER_NAME,
+            A.REGISTER_DATE_TIME,
+            A.UPDATE_USER_ID,
+            A.UPDATE_USER_NAME,
+            A.UPDATE_DATE_TIME,
+            A.CHANGE_BEFORE,
+            A.CHANGE_AFTER,
+            A.BL_NO,
+            A.MBL_NO,
+            A.OD_JOB_NO,
+            A.FILE_SHARE
+            FROM (
+                SELECT
+                A.CHANGE_NO
+                <choose>
+                    <when test='srchMode == "excel"'>
+                        , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                        AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = A.LAST_POD_STATUS) AS LAST_POD_STATUS
+                        , CASE
+                        WHEN A.CHANGE_CLASS = '01'  THEN '01.항목정정'
+                        WHEN A.CHANGE_CLASS = '03'  THEN '03.내역삭제'
+                        END AS CHANGE_CLASS
+                        , CASE
+                        WHEN B.CHANGE_CODE = 'A'  THEN 'A.반입일자'
+                        WHEN B.CHANGE_CODE = 'B'  THEN 'B.반입시간'
+                        WHEN B.CHANGE_CODE = 'C'  THEN 'C.HS코드'
+                        WHEN B.CHANGE_CODE = 'D'  THEN 'D.반입구분'
+                        WHEN B.CHANGE_CODE = 'E'  THEN 'E.반입근거번호'
+                        WHEN B.CHANGE_CODE = 'F'  THEN 'F.포장단위'
+                        WHEN B.CHANGE_CODE = 'G'  THEN 'G.반입수량'
+                        WHEN B.CHANGE_CODE = 'H'  THEN 'H.반입중량'
+                        WHEN B.CHANGE_CODE = 'I'  THEN 'I.분할구분'
+                        WHEN B.CHANGE_CODE = 'J'  THEN 'J.분할차수'
+                        WHEN B.CHANGE_CODE = 'K'  THEN 'K.사고구분'
+                        WHEN B.CHANGE_CODE = 'L'  THEN 'L.사고수량'
+                        WHEN B.CHANGE_CODE = 'M'  THEN 'M.사고중량'
+                        END AS CHANGE_CODE
+                    </when>
+                    <otherwise>
+                        , A.LAST_POD_STATUS
+                        , A.CHANGE_CLASS
+                        , B.CHANGE_CODE
+                    </otherwise>
+                </choose>
+                , A.INOUT_CLASS
+                , A.INOUT_NO
+                , A.CUSTOMS_REPORT_NO
+                , A.LAST_POD_DATE
+                , A.LAST_POD_RAQ_DATE
+                , A.CHANGE_DATE
+                , A.CHANGE_COUNT
+                , A.CHANGE_EMPLOYEE_NAME
+                , A.CHANGE_REASON
+                , A.CARGO_REFERENCE_NO
+                , CASE
+                WHEN LEN(A.CARGO_REFERENCE_NO) > 15 THEN (
+                SUBSTRING(A.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 12, 4) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 16, 4)
+                )
+                ELSE SUBSTRING(A.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 12, 4)
+                END AS CARGO_REFERENCE_NO_DISP
+                , A.REGISTER_USER_ID
+                , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+                , A.REGISTER_DATE_TIME
+                , A.UPDATE_USER_ID
+                , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+                , A.UPDATE_DATE_TIME
+                , B.CHANGE_BEFORE
+                , B.CHANGE_AFTER
+                , C.BL_NO
+                , C.MBL_NO
+                , C.OD_JOB_NO
+                , CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE FUNC_JOB_NO = C.OD_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+                , ROW_NUMBER() OVER (PARTITION BY A.CHANGE_NO ORDER BY A.CHANGE_NO DESC) AS RN
+                FROM TB_BMS_CHANGE A
+                LEFT JOIN TB_BMS_CHANGE_ITEMS B
+                ON A.CHANGE_NO = B.CHANGE_NO
+                LEFT JOIN TB_BMS_IN C WITH (NOLOCK)
+                ON A.INOUT_NO = C.IN_NO AND A.CUSTOMS_REPORT_NO = C.CUSTOMS_REPORT_NO
+                WHERE 1 = 1
+                <if test='srchMode == "notSearch"'>
+                AND 1 = 0
+                </if>
+                AND A.INOUT_CLASS = '5LC'
+                <if test='srchDateGbn != "noDateChk"'>
+                    <choose>
+                        <when test='srchDateType == "dateTime"'>
+                            AND A.${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+                            AND A.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate},${srchDateFormat}))
+                        </when>
+                        <otherwise>
+                            AND A.${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+                            AND A.${srchDateGbn} <![CDATA[<=]]> CONVERT(CHAR(10), #{srchEndDate},${srchDateFormat})
+                        </otherwise>
+                    </choose>
+                </if>
+                <if test="srchNo != null and srchNo != ''">
+                    <choose>
+                        <when test='srchInEntry == "Y"'>
+                            <if test='srchNoType == "BL_NO"'>
+                                AND C.BL_NO = #{srchNo}
+                            </if>
+                            <if test='srchNoType != "BL_NO"'>
+                                AND A.${srchNoType} = #{srchNo}
+                            </if>
+                        </when>
+                        <otherwise>
+	                        <choose>
+								<when test='searchType == "multi"'>
+								<if test='srchNoType == "BL_NO"'>
+									AND C.BL_NO IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+	                            </if>
+	                            <if test='srchNoType != "BL_NO"'>
+									AND A.${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+	                            </if>
+								</when>
+								<otherwise>
+								<if test='srchNoType == "BL_NO"'>
+	                                <!-- AND C.BL_NO LIKE CONCAT('%', #{srchNo}, '%') -->
+									AND C.BL_NO = #{srchNo}
+								</if>
+								<if test='srchNoType != "BL_NO"'>
+	                                <!-- AND A.${srchNoType} LIKE CONCAT('%', #{srchNo}, '%') -->
+									AND A.${srchNoType} = #{srchNo}
+								</if>
+								</otherwise>
+							</choose>
+                        </otherwise>
+                    </choose>
+                </if>
+                <if test="srchLastPodStatus != null and srchLastPodStatus != ''">
+                    AND A.LAST_POD_STATUS = #{srchLastPodStatus}
+                </if>
+                <include refid="org.yht.exps.express.mapper.bms.BmsInCorrectionMapper.searchCustomerCondi"/>
+        ) A
+        WHERE
+        A.RN = 1
+        ) AA
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom"/>
+    </select>
+
+    <select id="selectCarryInChangeDetail" parameterType="searchInCorrection" resultType="CarryInChange">
+        /* selectCarryInChangeDetail :  반입정정 상세 한건 조회 */
+        SELECT
+               A.CHANGE_NO
+             , A.INOUT_CLASS
+             , A.INOUT_NO
+             , A.CUSTOMS_REPORT_NO
+             , CONVERT(CHAR(19), A.LAST_POD_DATE , 20) AS LAST_POD_DATE
+             , A.LAST_POD_STATUS
+             , CONVERT(CHAR(19), A.LAST_POD_RAQ_DATE , 20) AS LAST_POD_RAQ_DATE
+             , A.CHANGE_DATE
+             , A.CHANGE_COUNT
+             , A.CHANGE_CLASS
+             , A.CHANGE_EMPLOYEE_NAME
+             , A.CHANGE_REASON
+             , A.CARGO_REFERENCE_NO
+             , A.REGISTER_USER_ID
+             , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+             , A.REGISTER_DATE_TIME
+             , A.UPDATE_USER_ID
+             , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+             , A.UPDATE_DATE_TIME
+             , C.BL_NO
+             , C.MBL_NO
+             , C.OD_JOB_NO
+        FROM TB_BMS_CHANGE A
+                 LEFT JOIN TB_BMS_IN C WITH (NOLOCK)
+                           ON A.INOUT_NO = C.IN_NO AND A.CUSTOMS_REPORT_NO = C.CUSTOMS_REPORT_NO
+        WHERE 1 = 1
+          AND A.INOUT_CLASS = '5LC'
+          <choose>
+              <when test="changeNo != null and changeNo != ''" >
+                  AND A.CHANGE_NO = #{changeNo}
+              </when>
+              <otherwise>
+                  AND A.CHANGE_NO = (SELECT MAX(CHANGE_NO) FROM TB_BMS_CHANGE WHERE INOUT_NO = #{inNo} AND CUSTOMS_REPORT_NO = #{customsReportNo})
+              </otherwise>
+          </choose>
+    </select>
+
+    <select id="selectCarryInList" parameterType="searchInCorrection" resultType="carryIn" fetchSize="1000">
+        /* bmsInbm.selectCarryInList  : 반입리스트 조회 */
+        <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+        SELECT AA.*
+            , COUNT(*) OVER() AS TOTAL_CNT
+            , SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+            , SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+        FROM (
+            SELECT
+                  A.IN_NO
+                , IIF(A.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+                , IIF(A.CD_TYPE = 'N', 1, 0) AS GENERAL_CNT
+                , A.CUSTOMS_REPORT_NO
+                , A.LAST_POD_DATE
+        <choose>
+            <when test='srchMode == "excel"'>
+                , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = A.LAST_POD_STATUS) AS LAST_POD_STATUS
+                , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = A.LAST_POD_5TL_STATUS) AS LAST_POD_5TL_STATUS
+                , A.IN_CLASS + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'CARRYIN_TYPE'  AND CODE = A.IN_CLASS) AS IN_CLASS
+                , A.CD_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'CD_TYPE'  AND CODE = A.CD_TYPE) AS CD_TYPE
+                , A.CD_USE_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'USE_GUBN' AND CODE = A.CD_USE_TYPE ) AS CD_USE_TYPE
+                , A.ECM_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'CCL_ECOMMERCE_TYPE' AND CODE = A.ECM_TYPE) AS ECM_TYPE
+                , A.IMPORT_EXPORT_CLASS + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'BOUND_TYPE_UNION' AND CODE = A.IMPORT_EXPORT_CLASS) AS IMPORT_EXPORT_CLASS
+                , A.SE_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = A.SE_INSPECTION_CODE) AS SE_INSPECTION_CODE
+                , A.INSPECTION_TYPE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = A.INSPECTION_TYPE) AS INSPECTION_TYPE
+                , A.INSPECTION_TYPE_A + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = A.INSPECTION_TYPE_A) AS INSPECTION_TYPE_A
+                , A.INSPECTION_TYPE_B + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'INSPECTION_TYPE' AND CODE = A.INSPECTION_TYPE_B) AS INSPECTION_TYPE_B
+                , A.XRAY_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = A.XRAY_INSPECTION_CODE) AS XRAY_INSPECTION_CODE
+                , A.XRAY_CHECK + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'XRAY_INSPECTION_TYPE' AND CODE = A.XRAY_CHECK) AS XRAY_CHECK
+                , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'XRAY_LINE_NO' AND CODE = A.XRAY_LINE_NO) AS XRAY_LINE_NO
+                , A.PALN5EM_INSPECTION_CODE + '.' + (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+                AND GROUP_CODE = 'SE_INSPECTION_CODE' AND CODE = A.PALN5EM_INSPECTION_CODE) AS PALN5EM_INSPECTION_CODE
+            </when>
+            <otherwise>
+                , A.LAST_POD_STATUS
+                , A.LAST_POD_5TL_STATUS
+                , A.IN_CLASS
+                , A.CD_TYPE
+                , A.CD_USE_TYPE
+                , A.ECM_TYPE
+                , A.IMPORT_EXPORT_CLASS
+                , A.SE_INSPECTION_CODE
+                , A.INSPECTION_TYPE
+                , A.INSPECTION_TYPE_A
+                , A.INSPECTION_TYPE_B
+                , A.XRAY_INSPECTION_CODE
+                , A.XRAY_CHECK
+                , A.XRAY_LINE_NO
+                , A.PALN5EM_INSPECTION_CODE
+            </otherwise>
+        </choose>
+                , A.LAST_POD_RAQ_DATE
+                , A.LAST_POD_R48_DATE
+                , A.IN_APPROVAL_NO
+                , A.TRANS_PERIOD_DATE
+                , A.OD_JOB_NO
+                , A.IN_PLAN_NO
+                , A.CARGO_REFERENCE_NO
+                , CASE
+                    WHEN LEN(A.CARGO_REFERENCE_NO) > 15 THEN (
+                    SUBSTRING(A.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 12, 4) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 16, 4)
+                    )
+                    ELSE SUBSTRING(A.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 12, 4)
+                  END AS CARGO_REFERENCE_NO_DISP
+                , A.BL_NO
+                , A.MBL_NO
+                , A.CUSTOMS_CODE
+                , A.CUSTOMS_DPT_CODE
+                , A.INSPECT_YN
+                , A.NOTICE_INSPECT_YN
+                , A.LOCATION_PLACE
+                , A.VESSEL_FLIGHT
+                , A.VOYAGE
+                , A.AR_DATE
+                , A.AR_TIME
+                , A.COMMODITY_ITEM_LOC
+                , A.SHIPPER_CODE
+                , A.SHIPPER_NAME
+                , A.SHIPPER_ADDRESS_1
+                , A.SHIPPER_ADDRESS_2
+                , A.CONSIGNEE_CODE
+                , A.CONSIGNEE_NAME
+                , A.CONSIGNEE_ADDRESS_1
+                , A.CONSIGNEE_ADDRESS_2
+                , dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+                , dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_TEL, 1) AS CONSIGNEE_TEL
+                , A.NOTIFY_CODE
+                , A.NOTIFY_NAME
+                , A.NOTIFY_ADDRESS_1
+                , A.NOTIFY_ADDRESS_2
+                , dbo.Cryptography(A.OD_JOB_NO, A.NOTIFY_TEL, 1) AS NOTIFY_TEL
+                , A.DELIVERY_CODE
+                , A.DELIVERY_NAME
+                , A.SPECIAL_CODE_1
+                , A.SPECIAL_CODE_2
+                , A.SPECIAL_CODE_3
+                , A.CARRIER_CODE
+                , A.CNTR_NO
+                , A.ORIG_COUNTRY
+                , A.SIMPLE_AUTH_NAME
+                , A.BIG_SIZE_YN
+                , A.AMOUNT_USD
+                , A.XRAY_SCAN_CT
+                , A.XRAY_IMAGE_CT
+                , A.CARRYIN_DATE
+                , A.CARRYIN_TIME
+                , A.OUT_NOTICE_DATE
+                , A.PERIOD_OVER_DATE
+                , A.CUSTOMER_CODE
+                , A.CUSTOMER_NAME
+                , A.FWD_CODE
+                , A.FWD_NAME
+                , A.PKG_TYPE
+                , A.EX_CT
+                , A.EX_WT
+                , A.EX_CBM
+                , A.CT
+                , A.WT
+                , A.CBM
+                , A.ACCIDENT_CLASS
+                , A.ACCIDENT_CT
+                , A.ACCIDENT_WT
+                , A.ACCIDENT_CBM
+                , A.STOCK_CT
+                , A.STOCK_WT
+                , A.STOCK_CBM
+                , A.CARRYOUT_DATE
+                , A.CARRYOUT_TIME
+                , A.REMARKS_1
+                , A.REMARKS_2
+                , A.REMARKS_3
+                , A.REFERENCE_NO
+                , A.MGN_ISSUE_YN
+                , A.REGISTER_USER_ID
+                , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+                , A.REGISTER_DATE_TIME
+                , A.UPDATE_USER_ID
+                , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+                , A.UPDATE_DATE_TIME
+                , A.ASSIGN_YN
+                , A.CRIME_SELECTION_YN
+                , 'CARRY_IN' AS CARRY_IN_STATE 		-- 반입인지 반인예정인지 구분
+                , oh.HOLD_YN				  	 --홀드여부
+                , oh.HOLD_CODE                   --홀드코드
+                , oh.HOLD_REASON                 --홀드사유
+                , oh.HOLD_RELEASE_YN             --홀드처리여부
+                , oh.HOLD_RELEASE_ATTN           --홀드처리담당자
+                , oh.HOLD_RELEASE_DATE           --홀드처리일자
+                , CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE FUNC_JOB_NO = A.OD_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE --파일전송
+                FROM TB_BMS_IN A WITH (NOLOCK)
+                LEFT JOIN (SELECT
+                '' AS HOLD_YN
+                ,   MAX(OD_JOB_NO) AS OD_JOB_NO
+                ,   MAX(HOLD_CODE) AS HOLD_CODE
+                ,   MAX(HOLD_REASON) AS HOLD_REASON
+                ,	MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+                ,	MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+                ,	MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+                FROM TB_ECM_OD_HOLD
+                GROUP BY OD_JOB_NO ) oh
+                ON oh.OD_JOB_NO = A.OD_JOB_NO
+                WHERE 1 = 1
+                <if test='srchMode == "notSearch"'>
+                AND 1 = 0
+                </if>
+                AND A.LAST_POD_STATUS = 'BMS04'
+            <if test='srchDateGbn != "noDateChk"'>
+                <choose>
+                    <when test='srchDateType == "dateTime"'>
+                        AND A.${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+                        AND A.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate},${srchDateFormat}))
+                    </when>
+                    <otherwise>
+                        AND A.${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+                        AND A.${srchDateGbn} <![CDATA[<=]]> CONVERT(CHAR(10), #{srchEndDate},${srchDateFormat})
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="srchNo != null and srchNo != ''">
+                <choose>
+                    <when test='srchInEntry == "Y"'>
+                        AND A.${srchNoType} = #{srchNo}
+                    </when>
+                    <otherwise>
+                        <!-- AND A.${srchNoType} LIKE CONCAT('%', #{srchNo}, '%') -->
+	                    <choose>
+							<when test='searchType == "multi"'>
+							AND A.${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+							</when>
+							<otherwise>
+							AND A.${srchNoType} = #{srchNo}
+							</otherwise>
+						</choose>
+                    </otherwise>
+                </choose>
+            </if>
+            <!--<if test="srchLastPodStatus != null and srchLastPodStatus != ''">
+                AND A.LAST_POD_STATUS = #{srchLastPodStatus}
+            </if>-->
+        <include refid="org.yht.exps.express.mapper.bms.BmsInCorrectionMapper.searchCustomerCondi"/>
+        ) AA
+            <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+    </select>
+
+    <select id="selectCarryInDetail" parameterType="searchInCorrection" resultType="carryIn" fetchSize="1000">
+        SELECT
+          bi.IN_NO
+        , bi.CUSTOMS_REPORT_NO
+        , CONVERT(CHAR(19), bi.LAST_POD_DATE , 20) AS LAST_POD_DATE
+        , bi.LAST_POD_STATUS
+        , bi.LAST_POD_5TL_STATUS
+        , CONVERT(CHAR(19), bi.LAST_POD_RAQ_DATE , 20) AS LAST_POD_RAQ_DATE
+        , bi.LAST_POD_R48_DATE
+        , bi.IN_CLASS
+        , bi.IN_APPROVAL_NO
+        , bi.TRANS_PERIOD_DATE
+        , bi.OD_JOB_NO
+        , bi.IN_PLAN_NO
+        , bi.CARGO_REFERENCE_NO
+        , bi.BL_NO
+        , bi.MBL_NO
+        , bi.CUSTOMS_CODE
+        , bi.CUSTOMS_DPT_CODE
+        , bi.INSPECT_YN
+        , bi.NOTICE_INSPECT_YN
+        , bi.LOCATION_PLACE
+        , bi.IMPORT_EXPORT_CLASS
+        , bi.VESSEL_FLIGHT
+        , bi.VOYAGE
+        , bi.AR_DATE
+        , bi.AR_TIME
+        , bi.COMMODITY_ITEM_LOC
+        , bi.SHIPPER_CODE
+        , bi.SHIPPER_NAME
+        , bi.SHIPPER_ADDRESS_1
+        , bi.SHIPPER_ADDRESS_2
+        , bi.CONSIGNEE_CODE
+        , bi.CONSIGNEE_NAME
+        , bi.CONSIGNEE_ADDRESS_1
+        , bi.CONSIGNEE_ADDRESS_2
+        , dbo.Cryptography(bi.OD_JOB_NO, bi.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+        , dbo.Cryptography(bi.OD_JOB_NO, bi.CONSIGNEE_TEL, 1) AS CONSIGNEE_TEL
+        , bi.NOTIFY_CODE
+        , bi.NOTIFY_NAME
+        , bi.NOTIFY_ADDRESS_1
+        , bi.NOTIFY_ADDRESS_2
+        , dbo.Cryptography(bi.OD_JOB_NO, bi.NOTIFY_TEL, 1) AS NOTIFY_TEL
+        , bi.SPECIAL_CODE_1
+        , bi.SPECIAL_CODE_2
+        , bi.SPECIAL_CODE_3
+        , bi.CARRIER_CODE
+        , bi.CNTR_NO
+        , bi.ORIG_COUNTRY
+        , bi.SE_INSPECTION_CODE
+        , bi.SIMPLE_AUTH_NAME
+        , bi.INSPECTION_TYPE
+        , bi.INSPECTION_TYPE_A
+        , bi.INSPECTION_TYPE_B
+        , bi.XRAY_INSPECTION_CODE
+        , bi.XRAY_LINE_NO
+        , bi.XRAY_CHECK
+        , bi.PALN5EM_INSPECTION_CODE
+        , bi.CD_TYPE
+        , bi.ECM_TYPE
+        , bi.CD_USE_TYPE
+        , bi.BIG_SIZE_YN
+        , bi.AMOUNT_USD
+        , bi.XRAY_SCAN_CT
+        , bi.XRAY_IMAGE_CT
+        , bi.CARRYIN_DATE
+        , bi.CARRYIN_TIME
+        , bi.OUT_NOTICE_DATE
+        , bi.PERIOD_OVER_DATE
+        , bi.CUSTOMER_CODE
+        , bi.CUSTOMER_NAME
+        , bi.FWD_CODE
+        , bi.FWD_NAME
+        , bi.PKG_TYPE
+        , bi.EX_CT
+        , bi.EX_WT
+        , bi.EX_CBM
+        , bi.CT
+        , bi.WT
+        , bi.CBM
+        , bi.ACCIDENT_CLASS
+        , bi.ACCIDENT_CT
+        , bi.ACCIDENT_WT
+        , bi.ACCIDENT_CBM
+        , bi.STOCK_CT
+        , bi.STOCK_WT
+        , bi.STOCK_CBM
+        , bi.CARRYOUT_DATE
+        , bi.CARRYOUT_TIME
+        , bi.REMARKS_1 AS 'REMARKS1'
+        , bi.REMARKS_2 AS 'REMARKS2'
+        , bi.REMARKS_3 AS 'REMARKS3'
+        , bi.REFERENCE_NO
+        , bi.MGN_ISSUE_YN
+        , bi.REGISTER_USER_ID
+        , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = bi.REGISTER_USER_ID) AS REGISTER_USER_NAME
+        , bi.REGISTER_DATE_TIME
+        , bi.UPDATE_USER_ID
+        , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = bi.UPDATE_USER_ID) AS UPDATE_USER_NAME
+        , bi.UPDATE_DATE_TIME
+        , bi.ASSIGN_YN
+        , bi.CRIME_SELECTION_YN
+        , oh.HOLD_YN				  	 --홀드여부
+        , oh.HOLD_CODE                   --홀드코드
+        , oh.HOLD_REASON                 --홀드사유
+        , oh.HOLD_RELEASE_YN             --홀드처리여부
+        , oh.HOLD_RELEASE_ATTN           --홀드처리담당자
+        , oh.HOLD_RELEASE_DATE           --홀드처리일자
+        FROM TB_BMS_IN bi WITH (NOLOCK)
+        LEFT JOIN (SELECT
+        '' AS HOLD_YN
+        ,   MAX(OD_JOB_NO) AS OD_JOB_NO
+        ,   MAX(HOLD_CODE) AS HOLD_CODE
+        ,   MAX(HOLD_REASON) AS HOLD_REASON
+        ,	MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+        ,	MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+        ,	MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+        FROM TB_ECM_OD_HOLD
+        GROUP BY OD_JOB_NO ) oh
+        ON oh.OD_JOB_NO = bi.OD_JOB_NO
+        WHERE 1 = 1
+        <if test="inPlanNo !=null and inPlanNo != ''">
+            AND bi.IN_PlAN_NO = #{inPlanNo}
+        </if>
+        <if test="inNo != null and inNo != ''">
+            AND bi.IN_NO = #{inNo}
+        </if>
+    </select>
+
+    <select id="selectChangeItemListByChangeNo" parameterType="searchInCorrection" resultType="changeItem" fetchSize="1000">
+        SELECT
+              CHANGE_NO
+             ,SEQ_NO
+             ,CHANGE_CODE
+             ,CHANGE_BEFORE
+             ,CHANGE_AFTER
+        FROM  TB_BMS_CHANGE_ITEMS
+        WHERE CHANGE_NO = #{changeNo}
+    </select>
+
+    <insert id="insertCarryInChange" parameterType="carryInChange" useGeneratedKeys="true" keyProperty="changeNo">
+        /* bmsInCorrection.insertCarryInChange  : 반입정정 입력 */
+        INSERT INTO TB_BMS_CHANGE(
+              INOUT_CLASS
+            , INOUT_NO
+            , CUSTOMS_REPORT_NO
+            , LAST_POD_DATE
+            , LAST_POD_STATUS
+            , LAST_POD_RAQ_DATE
+            , CHANGE_DATE
+            , CHANGE_COUNT
+            , CHANGE_CLASS
+            , CHANGE_EMPLOYEE_NAME
+            , CHANGE_REASON
+            , CARGO_REFERENCE_NO
+            , REGISTER_USER_ID
+            , REGISTER_DATE_TIME
+            , UPDATE_USER_ID
+            , UPDATE_DATE_TIME)
+        VALUES (
+              #{inoutClass}
+            , #{inoutNo}
+            , #{customsReportNo}
+            , ''
+            , 'BMS01'
+            , ''
+            , #{changeDate}
+            , #{changeCount}
+            , #{changeClass}
+            , #{changeEmployeeName}
+            , #{changeReason}
+            , #{cargoReferenceNo}
+            , #{registerUserId}
+            , GETDATE()
+            , #{updateUserId}
+            , GETDATE()
+            )
+    </insert>
+
+    <update id="updateCarryInChange" parameterType="carryInChange">
+        /* bmsInCorrection.updateCarryInChange  : 반입정정 업데이트 */
+        UPDATE TB_BMS_CHANGE
+            SET
+            CHANGE_DATE             = #{changeDate}
+          , CHANGE_COUNT            = #{changeCount}
+          , CHANGE_CLASS            = #{changeClass}
+          , CHANGE_EMPLOYEE_NAME    = #{changeEmployeeName}
+          , CHANGE_REASON           = #{changeReason}
+          , UPDATE_USER_ID          = #{updateUserId}
+          , UPDATE_DATE_TIME        = GETDATE()
+        <if test='lastPodStatus == "BMS02" or lastPodStatus == "BMS05" '>
+          , LAST_POD_STATUS = 'BMS01'
+          , LAST_POD_DATE = ''
+          , LAST_POD_RAQ_DATE = ''
+        </if>
+        WHERE  CHANGE_NO = #{changeNo}
+    </update>
+
+    <insert id="insertChangeItem" parameterType="changeItem">
+        /* bmsInCorrection.insertChangeItem  : 변경항목 입력 */
+        INSERT INTO TB_BMS_CHANGE_ITEMS(
+              CHANGE_NO
+            , SEQ_NO
+            , CHANGE_CODE
+            , CHANGE_BEFORE
+            , CHANGE_AFTER)
+        VALUES(
+              #{changeNo}
+            , ISNULL((SELECT (MAX(SEQ_NO) +1) FROM TB_BMS_CHANGE_ITEMS WHERE CHANGE_NO = #{changeNo}),1)
+            , #{changeCode}
+            , #{changeBefore}
+            , #{changeAfter}
+              )
+    </insert>
+
+    <delete id="deleteChangeItem" parameterType="changeItem">
+        DELETE FROM TB_BMS_CHANGE_ITEMS WHERE CHANGE_NO = #{changeNo}
+    </delete>
+
+    <select id="selectChangeNo" parameterType="carryInChange" resultType="Integer">
+        SELECT
+            CHANGE_NO
+        FROM TB_BMS_CHANGE
+        WHERE 1 = 1
+              AND INOUT_NO = #{inoutNo}
+              AND CUSTOMS_REPORT_NO = #{customsReportNo}
+    </select>
+
+    <!--반입정정 데이터 삭제 1개-->
+    <delete id="deleteCarryInChange" parameterType="CarryInChange">
+        DELETE FROM TB_BMS_CHANGE WHERE CHANGE_NO = #{changeNo}
+    </delete>
+
+    <!--반입정정항목 데이터 삭제 1개-->
+    <delete id="deleteCarryInChangeItem" parameterType="ChangeItem">
+        DELETE FROM TB_BMS_CHANGE_ITEMS WHERE CHANGE_NO = #{changeNo}
+    </delete>
+
+    <!-- 오류통보, 거부통보, 보류통보, 기각통보인 경우 클릭시 -->
+    <select id="selectNotificationMsg" parameterType="String" resultType="String">
+        <if test='lastPodStatus == "BMS05"'>
+            SELECT ERROR_DESC
+            FROM GT_XML_GOVCBRR20
+            WHERE DECLARATION_NO = #{customsReportNo}
+            AND CHANGE_SEQ_NO = #{changeCount}
+        </if>
+        <if test='lastPodStatus == "BMS07" or lastPodStatus == "BMS08" or lastPodStatus == "BMS09"'>
+            SELECT REJECT_REASON
+            FROM GT_XML_GOVCBRRD9
+            WHERE DECLARATION_NO = #{customsReportNo}
+            AND CHANGE_SEQ_NO = #{changeCount}
+        </if>
+    </select>
+</mapper>
+

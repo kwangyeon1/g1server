@@ -1,0 +1,1764 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.HouseOrderMapper">
+
+	<select id="selectHouseOrderChk" parameterType="HashMap" resultType="HashMap">
+		/* HouseOrderMapper.selectHouseOrderChk : 전자상거래 하우스오더 저장체크 */
+			SELECT
+				 A.*
+				<if test='checkInvoiceCnt == "Y"'>
+				,(SELECT COUNT(*) FROM TB_COM_OD_CHG_INVOICE WHERE OD_JOB_NO = A.OD_JOB_NO AND INVOICE_JOB_NO IS NOT NULL) AS INVOICE_CNT
+				</if>
+				<if test="obDate != null and obDate != ''">
+				,CONVERT(DATE, #{obDate},  ${dateFormat}) AS INPUT_OB_DATE
+				</if>
+				<if test="arDate != null and arDate != ''">
+				,CONVERT(DATE, #{arDate},  ${dateFormat}) AS INPUT_AR_DATE
+				</if>
+				<if test='selectObl == "Y"'>
+				,obl.DEST_CODE
+				</if>
+			FROM(
+				SELECT
+					 MAX(ecmOd.HBL_NO) AS HBL_NO
+					,MAX(ecmOd.OD_JOB_NO) AS OD_JOB_NO
+					,MAX(ecmOd.FINISH_YN) AS FINISH_YN
+					,MAX(ecmOd.CUST_CODE_LV1) AS CUST_CODE_LV1
+					,MAX(CASE ecmOd.BL_TYPE_MH WHEN 'M' THEN ecmOd.ORIG_CODE END) AS ORIG_CODE
+					,MAX(ecmOd.OB_DATE) AS OB_DATE
+					,MAX(ecmOd.AR_DATE) AS AR_DATE
+					,MAX(CASE WHEN ISNULL(ad.SIMPLE_EDI_STATUS, '') NOT IN ('', 'ERROR') THEN 'Y' END) AS SEND_YN
+					,COUNT(CASE ecmOd.BL_TYPE_MH WHEN 'H' THEN 1 END) AS HOUSE_CNT
+				FROM TB_ECM_OD ecmOd
+					 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+					 			ON ad.OD_JOB_NO = ecmOd.OD_JOB_NO
+				WHERE ecmOd.OD_JOB_NO = #{odJobNo}
+			) A
+				 <if test='selectObl == "Y"'>
+				 INNER JOIN TB_COM_OD cod
+				 			ON cod.OD_JOB_NO = A.OD_JOB_NO
+				 INNER JOIN TB_COM_OBL obl
+				 			ON obl.OBL_JOB_NO = cod.OBL_JOB_NO
+				 </if>
+	</select>
+
+	<select id="selectHouseOrderChkEms" parameterType="HashMap" resultType="HashMap">
+		/* HouseOrderMapper.selectHouseOrderChkEms : Ems전자상거래 하우스오더 저장체크 */
+		SELECT
+			MAX(cod.HBL_NO) AS HBL_NO
+			,MAX(cod.OD_JOB_NO) AS OD_JOB_NO
+			,MAX(cod.FINISH_YN) AS FINISH_YN
+			,MAX(CASE obl.BL_TYPE_MH WHEN 'M' THEN obl.ORIG_CODE END) AS ORIG_CODE
+			,MAX(obl.OB_DATE) AS OB_DATE
+			,MAX(obl.AR_DATE) AS AR_DATE
+			,COUNT(CASE obl.BL_TYPE_MH WHEN 'H' THEN 1 END) AS HOUSE_CNT
+			,MAX(obl.DEST_CODE) AS DEST_CODE
+			<if test='checkInvoiceCnt == "Y"'>
+				,(SELECT COUNT(*) FROM TB_COM_OD_CHG_INVOICE WHERE OD_JOB_NO = A.OD_JOB_NO AND INVOICE_JOB_NO IS NOT NULL) AS INVOICE_CNT
+			</if>
+			<if test="obDate != null and obDate != ''">
+				,CONVERT(DATE, #{obDate},  ${dateFormat}) AS INPUT_OB_DATE
+			</if>
+			<if test="arDate != null and arDate != ''">
+				,CONVERT(DATE, #{arDate},  ${dateFormat}) AS INPUT_AR_DATE
+			</if>
+		FROM TB_COM_OD cod
+		INNER JOIN TB_COM_OBL obl
+		ON obl.OBL_JOB_NO = cod.OBL_JOB_NO
+		WHERE cod.OD_JOB_NO = #{odJobNo}
+	</select>
+	
+	<select id="selectHouseOrderList" parameterType="HashMap" resultType="order">
+		/* HouseOrderMapper.selectHouseOrderList : 전자상거래 하우스오더리스트 조회 */
+			SELECT
+				 OD_JOB_NO
+				,CURRENCY_CODE
+				,AMOUNT_CUR
+			FROM TB_ECM_OD
+			WHERE OD_JOB_NO = #{odJobNo}
+			AND BL_TYPE_MH = 'H'
+	</select>
+	
+	<select id="selectDeleteHouseList" parameterType="HashMap" resultType="orderDelete">
+		/* HouseOrderMapper.selectDeleteHouseList : 전자상거래 하우스오더리스트 조회 */
+			SELECT
+				 OD_JOB_NO
+				,HBL_NO
+			FROM TB_ECM_OD
+			WHERE OD_JOB_NO = #{odJobNo}
+			AND BL_TYPE_MH = 'H'
+	</select>
+	
+	<update id="updateHouseOrderBatch" parameterType="order">
+		/* HouseOrderMapper.updateHouseOrderBatch : 전자상거래 마스터오더 저장 후 하우스오더 업데이트 */
+			UPDATE TB_ECM_OD SET
+				   MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  <if test='lineCode != "noUpdate"'>
+				  ,LINE_CODE = #{lineCode}
+				  ,LINE_NAME = #{lineName}
+				  </if>
+				  <if test='bound == "SEA"'>
+				  ,VOYAGE = #{vesselVoyage}
+				  </if>
+				  ,VESSEL_FLIGHT = #{vesselFlight}
+				  ,OB_DATE = #{obDate}
+				  ,DEST_CODE = #{destCode}
+				  ,DEST_NAME = #{destName}
+				  ,AR_DATE = #{arDate}
+				  ,DEST_COUNTRY = #{destCountry}
+				  ,CONSIGNEE_COUNTRY_CODE = #{consigneeCountryCode}
+				  <if test="currencyCode != null">
+				  ,AMOUNT_LOC = #{amountLoc}
+				  ,AMOUNT_USD = #{amountUsd}
+				  ,EXCHANGE_RATE = #{exchangeRate}
+				  </if>
+				  <if test='boundType == "IMP"'>
+				  ,ORIG_CODE = #{origCode}
+				  ,ORIG_NAME = #{origName}
+				  ,ORIG_COUNTRY = #{origCountry}
+				  ,SHIPPER_COUNTRY_CODE = #{shipperCountryCode}
+				  </if>
+				  <if test='bound == "AIR" and boundType == "EXP"'>
+				  	<if test='shipperFax != "noUpdate"'>
+				  	,SHIPPER_FAX = #{shipperFax}
+				  	,CONSIGNEE_FAX = #{consigneeFax}
+				  	</if>
+				  </if>
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE OD_JOB_NO = #{odJobNo};
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+			WHERE OD_JOB_NO = #{odJobNo};
+	</update>
+	
+	<select id="selectHouseOrder" parameterType="searchHouseOrder" resultType="houseOrder">
+		/* HouseOrderMapper.selectHouseOrder : 전자상거래 하우스오더조회 */
+			SELECT
+				 od.OD_JOB_NO
+				,od.BOUND
+				,od.BOUND_TYPE
+				,od.BOOKING_DATE
+				,od.BOOKING_NO
+				,od.REMARKS
+				,obl.OBL_JOB_NO
+				,obl.BL_TYPE_SC
+				,obl.MBL_NO
+				,obl.HBL_NO
+				,obl.SR_NO
+				,obl.CARGO_BL_NO
+				,obl.SHIPPER_CODE
+				,obl.SHIPPER_NAME
+				,obl.SHIPPER_TEL
+				,obl.SHIPPER_ZIPCODE
+				,obl.SHIPPER_COUNTRY_CODE
+				,obl.SHIPPER_STATE_CODE
+				,obl.SHIPPER_PLACE
+				,obl.SHIPPER_STREET
+				,obl.SHIPPER_ATTN
+				,obl.SHIPPER_FAX
+				,obl.CONSIGNEE_CODE
+				,obl.CONSIGNEE_NAME
+				,obl.CONSIGNEE_TEL
+				,obl.CONSIGNEE_ZIPCODE
+				,obl.CONSIGNEE_COUNTRY_CODE
+				,obl.CONSIGNEE_STATE_CODE
+				,obl.CONSIGNEE_PLACE
+				,obl.CONSIGNEE_STREET
+				,obl.CONSIGNEE_ATTN
+				,obl.CONSIGNEE_FAX
+				,obl.NOTIFY_CODE
+				,obl.NOTIFY_NAME
+				,obl.NOTIFY_TEL
+				,obl.NOTIFY_ZIPCODE
+				,obl.NOTIFY_COUNTRY_CODE
+				,obl.NOTIFY_STATE_CODE
+				,obl.NOTIFY_PLACE
+				,obl.NOTIFY_STREET
+				,obl.NOTIFY_ATTN
+				,obl.NOTIFY_FAX
+				,obl.LINE_CODE
+				,obl.LINE_NAME
+				,obl.ISSUING_CARRIERS
+				,obl.IATA_CODE
+				,obl.ORIG_CODE
+				,obl.ORIG_NAME
+				,obl.VIA_TO_A
+				,obl.VIA_BY_A
+				,obl.VIA_TO_B
+				,obl.VIA_BY_B
+				,obl.VIA_TO_C
+				,obl.VIA_BY_C
+				,obl.DEST_CODE
+				,obl.DEST_NAME
+				,obl.OB_DATE
+				,obl.OB_TIME
+				,obl.AR_DATE
+				,obl.AR_TIME
+				,obl.HANDLING_INFO
+				,obl.HANDLING_SPECIAL
+				,obl.ACCOUNT_INFO
+				,obl.INCOTERMS
+				,obl.CURRENCY_CODE
+				,obl.DV_CARRIAGE
+				,obl.DV_CUSTOMS
+				,obl.DV_INSURANCE
+				,obl.EDI_COMMODITY_ITEM
+				,obl.PIECES
+				,obl.GWT
+				,obl.RATE_CLASS
+				,obl.RATE_ITEM
+				,obl.RATE
+				,obl.FREIGHT_CHARGE
+				,obl.WEIGHT_CHG_PP
+				,obl.WEIGHT_CHG_CC
+				,obl.VALUATION_CHG_PP
+				,obl.VALUATION_CHG_CC
+				,obl.TAX_CHG_PP
+				,obl.TAX_CHG_CC
+				,obl.DUE_AGENT_PP
+				,obl.DUE_AGENT_CC
+				,obl.DUE_CARRIER_PP
+				,obl.DUE_CARRIER_CC
+				,obl.PREPAID_CHG_TOTAL
+				,obl.COLLECT_CHG_TOTAL
+				,obl.CWT_CBM
+				,CASE WHEN od.BOUND = 'SEA' THEN obl.VESSEL_FLIGHT ELSE ecmOd.LINE_CODE END AS VESSEL_FLIGHT
+				,obl.VESSEL_VOYAGE
+				,obl.RECEIPT_CODE
+				,obl.RECEIPT_NAME
+				,obl.DISC_CODE
+				,obl.DISC_NAME
+				,obl.DELI_CODE
+				,obl.DELI_NAME
+				,obl.UNIT_PIECES
+				,obl.BL_TYPE_LFB
+				,obl.ORIGINAL_BL_YN
+				,obl.NO_OF_ORIGINAL
+				,obl.BL_CARGO_CY_CFS
+				,obl.BL_SAY
+				,obl.BL_PAYABLE_AT
+				,obl.FREIGHT_TERM
+				,obl.OTHER_TERM
+				,obl.REGISTER_USER_ID
+				,obl.REGISTER_DATE_TIME
+				,obl.UPDATE_USER_ID
+				,obl.UPDATE_DATE_TIME
+				,obl.FWRD_CODE
+				,obl.FWRD_NAME
+				,CONCAT(ISNULL(obl.FWRD_ADDRESS, ''), ISNULL(obl.FWRD_ADDRESS_A, ''), ISNULL(obl.FWRD_ADDRESS_B, ''), ISNULL(obl.FWRD_ADDRESS_C, ''), ISNULL(obl.FWRD_ADDRESS_D, '')) AS FWRD_ADDRESS
+				,obl.SIGN_HIS_AGENT
+				,obl.SIGN_ACTING_AS
+				,obl.ISSUE_DATE
+				,obl.ISSUE_PLACE_CODE
+				,obl.SIGN_ATTN
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = od.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = od.UPDATE_USER_ID) AS UPDATE_USER_NAME
+				,(SELECT HANDLING_SPECIAL_NAME FROM TB_COM_OBL_REAL_DELIVERER WHERE OBL_JOB_NO = obl.OBL_JOB_NO) AS HANDLING_SPECIAL_NAME
+				,CONCAT(ISNULL(obl.SHIPPER_ADDRESS, ''), ISNULL(obl.SHIPPER_ADDRESS_A, ''), ISNULL(obl.SHIPPER_ADDRESS_B, ''), ISNULL(obl.SHIPPER_ADDRESS_C, ''), ISNULL(obl.SHIPPER_ADDRESS_D, '')) AS SHIPPER_ADDRESS
+				,CONCAT(ISNULL(obl.CONSIGNEE_ADDRESS, ''), ISNULL(obl.CONSIGNEE_ADDRESS_A, ''), ISNULL(obl.CONSIGNEE_ADDRESS_B, ''), ISNULL(obl.CONSIGNEE_ADDRESS_C, ''), ISNULL(obl.CONSIGNEE_ADDRESS_D, '')) AS CONSIGNEE_ADDRESS
+				,CONCAT(ISNULL(obl.NOTIFY_ADDRESS, ''), ISNULL(obl.NOTIFY_ADDRESS_A, ''), ISNULL(obl.NOTIFY_ADDRESS_B, ''), ISNULL(obl.NOTIFY_ADDRESS_C, ''), ISNULL(obl.NOTIFY_ADDRESS_D, '')) AS NOTIFY_ADDRESS
+				,dbo.Cryptography(obl.OBL_JOB_NO, obl.SHIPPER_BUSINESS_ID, 1) AS SHIPPER_BUSINESS_ID
+				,dbo.Cryptography(obl.OBL_JOB_NO, obl.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+				,dbo.Cryptography(obl.OBL_JOB_NO, obl.NOTIFY_BUSINESS_ID, 1) AS NOTIFY_BUSINESS_ID
+				,ecmOd.VENDER_ID_1
+				,ecmOd.CUST_CODE_LV1
+				,ecmOd.ORIG_COUNTRY
+				,ecmOd.DEST_COUNTRY
+				,ecmOd.CUSTOMS_CODE
+				,ecmOd.CUSTOMS_DPT_CODE
+				,ecmOd.DEST_PORT
+				,ecmOd.MRN
+				,ecmOd.MSN
+				,(SELECT COUNT(*) FROM TB_COM_OBL WHERE MBL_JOB_NO = obl.OBL_JOB_NO AND obl.BL_TYPE_MH = 'H') AS HOUSE_CNT
+				,STUFF((SELECT '|' + MARKS_GOODS FROM TB_COM_OBL_MARK WHERE OBL_JOB_NO = obl.OBL_JOB_NO AND MARK_TYPE_LR = 'L' FOR XML PATH('')), 1, 1, '') AS MARKS_GOODS_LEFT
+				,STUFF((SELECT '|' + MARKS_GOODS FROM TB_COM_OBL_MARK WHERE OBL_JOB_NO = obl.OBL_JOB_NO AND MARK_TYPE_LR = 'R' FOR XML PATH('')), 1, 1, '') AS MARKS_GOODS_RIGHT
+				,(
+					SELECT CASE WHEN ISNULL(usr.CUSTOMER_CODE, '') = '' THEN '0' ELSE cus.CUSTOMER_LEVEL END
+					FROM TB_SMS_USER usr
+						 LEFT JOIN TB_SMS_CUSTOMER cus
+						 		   ON cus.ENT_CODE = usr.ENT_CODE
+						 		   AND cus.CUSTOMER_CODE = usr.CUSTOMER_CODE
+					WHERE usr.ENT_CODE = od.ENT_CODE
+					AND usr.USER_ID = od.REGISTER_USER_ID
+				 ) AS REGISTER_USER_LEVEL
+			FROM TB_COM_OBL obl
+				 INNER JOIN TB_COM_OD od
+				 			ON od.OBL_JOB_NO = obl.OBL_JOB_NO
+				 LEFT JOIN TB_ECM_OD ecmOd
+				 			ON ecmOd.OD_JOB_NO = od.OD_JOB_NO
+			WHERE obl.OBL_JOB_NO = #{srchOblJobNo}
+	</select>
+	
+	<select id="selectOtherCharge" parameterType="searchHouseOrder" resultType="houseOrderOtherCharge">
+		/* HouseOrderMapper.selectOtherCharge : 전자상거래 하우스오더 TB_COM_OBL_CHG_OTHER 조회 */
+			SELECT
+				 SEQ_NO
+				,CHARGE_CODE
+				,CHARGE_NAME
+				,FREIGHT_TERM
+				,CURRENCY_CODE
+				,RATE_MULTIPLY
+				,RATE
+				,AMOUNT
+				,CHARGE_TYPE_AC
+				,CHG_CODE_IATA
+			FROM TB_COM_OBL_CHG_OTHER
+			WHERE OBL_JOB_NO = #{srchOblJobNo}
+	</select>
+	
+	<select id="selectDimension" parameterType="searchHouseOrder" resultType="houseOrderDimension">
+		/* HouseOrderMapper.selectDimension : 전자상거래 하우스오더 TB_COM_OBL_DIMENSION 조회 */
+			SELECT
+				 SEQ_NO
+				,DIM_WIDTH
+				,DIM_LENGTH
+				,DIM_HEIGHT
+				,DIM_PIECES
+				,DIM_VOLUMN
+			FROM TB_COM_OBL_DIMENSION
+			WHERE OBL_JOB_NO = #{srchOblJobNo}
+	</select>
+	
+	<select id="selectLicense" parameterType="searchHouseOrder" resultType="houseOrderLicense">
+		/* HouseOrderMapper.selectLicense : 전자상거래 하우스오더 TB_COM_OBL_CUSTOMS_LICENSE 조회 */
+			SELECT
+				 LICENSE_NO
+				,PIECES
+				,GWT
+				,COMBINE_TYPE_A_Z
+				,COMBINE_PIECES
+				,PARTIAL_YN
+				,PARTIAL_SEQ
+			FROM TB_COM_OBL_CUSTOMS_LICENSE
+			WHERE OBL_JOB_NO = #{srchOblJobNo}
+	</select>
+	
+	<select id="selectHts" parameterType="searchHouseOrder" resultType="houseOrderHts">
+		/* HouseOrderMapper.selectHts : 전자상거래 하우스오더 TB_EDI_MF_HTS 조회 */
+			SELECT HTS_CODE
+			FROM TB_EDI_MF_HTS
+			WHERE MF_JOB_NO = #{srchOblJobNo}
+	</select>
+	
+	<select id="selectContainer" parameterType="searchHouseOrder" resultType="houseOrderContainer">
+		/* HouseOrderMapper.selectContainer : 전자상거래 하우스오더 TB_COM_OBL_CONTAINER 조회 */
+			SELECT
+				 CNTR_NO
+				,CNTR_SEAL_NO_1
+				,CNTR_SEAL_NO_2
+				,CNTR_SEAL_NO_3
+				,CNTR_CODE
+				,CNTR_EDI_CODE
+				,CNTR_SUB_CODE
+				,CNTR_LOAD_TYPE_EL
+				,PIECES
+				,UNIT_PIECES
+				,GWT
+				,UNIT_WEIGHT
+				,CBM
+				,CNTR_OWN_TYPE
+				,CNTR_PRINT_INFO
+			FROM TB_COM_OBL_CONTAINER
+			WHERE OBL_JOB_NO = #{srchOblJobNo}
+	</select>
+	
+	<select id="selectCntrType" parameterType="searchHouseOrder" resultType="houseOrderContainer">
+		/* HouseOrderMapper.selectCntrType : 전자상거래 하우스오더 TB_COM_OBL_CNTR_TYPE 조회 */
+			SELECT 
+				 CNTR_CODE
+				,PIECES
+			FROM TB_COM_OBL_CNTR_TYPE
+			WHERE OBL_JOB_NO = #{srchOblJobNo}
+	</select>
+	
+	<insert id="insertHouseObl" parameterType="houseOrder">
+		/* HouseOrderMapper.insertHouseObl : 전자상거래 마스터오더 TB_COM_OBL 저장 */
+			INSERT INTO TB_COM_OBL(
+				   OBL_JOB_NO
+				  ,ENT_CODE
+				  ,SOLUTION
+				  ,BOUND
+				  ,BL_TYPE_MH
+				  ,BL_TYPE_SC
+				  ,SENDER_BUS_CODE
+				  ,MBL_JOB_NO
+				  ,SR_NO
+				  ,MBL_NO
+				  ,HBL_NO
+				  ,CARGO_BL_NO
+				  ,SHIPPER_CODE
+				  ,SHIPPER_NAME
+				  ,SHIPPER_ADDRESS
+				  ,SHIPPER_ADDRESS_A
+				  ,SHIPPER_ADDRESS_B
+				  ,SHIPPER_ADDRESS_C
+				  ,SHIPPER_ADDRESS_D
+				  ,SHIPPER_TEL
+				  ,SHIPPER_ZIPCODE
+				  ,SHIPPER_COUNTRY_CODE
+				  ,SHIPPER_STATE_CODE
+				  ,SHIPPER_PLACE
+				  ,SHIPPER_STREET
+				  ,SHIPPER_BUSINESS_ID
+				  ,SHIPPER_ATTN
+				  ,SHIPPER_FAX
+				  ,CONSIGNEE_CODE
+				  ,CONSIGNEE_NAME
+				  ,CONSIGNEE_ADDRESS
+				  ,CONSIGNEE_ADDRESS_A
+				  ,CONSIGNEE_ADDRESS_B
+				  ,CONSIGNEE_ADDRESS_C
+				  ,CONSIGNEE_ADDRESS_D
+				  ,CONSIGNEE_TEL
+				  ,CONSIGNEE_ZIPCODE
+				  ,CONSIGNEE_COUNTRY_CODE
+				  ,CONSIGNEE_STATE_CODE
+				  ,CONSIGNEE_PLACE
+				  ,CONSIGNEE_STREET
+				  ,CONSIGNEE_BUSINESS_ID
+				  ,CONSIGNEE_ATTN
+				  ,CONSIGNEE_FAX
+				  ,NOTIFY_CODE
+				  ,NOTIFY_NAME
+				  ,NOTIFY_ADDRESS
+				  ,NOTIFY_ADDRESS_A
+				  ,NOTIFY_ADDRESS_B
+				  ,NOTIFY_ADDRESS_C
+				  ,NOTIFY_ADDRESS_D
+				  ,NOTIFY_TEL
+				  ,NOTIFY_ZIPCODE
+				  ,NOTIFY_COUNTRY_CODE
+				  ,NOTIFY_STATE_CODE
+				  ,NOTIFY_PLACE
+				  ,NOTIFY_STREET
+				  ,NOTIFY_BUSINESS_ID
+				  ,NOTIFY_ATTN
+				  ,NOTIFY_FAX
+				  ,LINE_CODE
+				  ,LINE_NAME
+				  ,ISSUING_CARRIERS
+				  ,IATA_CODE
+				  ,ORIG_CODE
+				  ,ORIG_NAME
+				  ,VIA_TO_A
+				  ,VIA_BY_A
+				  ,VIA_TO_B
+				  ,VIA_BY_B
+				  ,VIA_TO_C
+				  ,VIA_BY_C
+				  ,DEST_CODE
+				  ,DEST_NAME
+				  ,OB_DATE
+				  ,OB_TIME
+				  ,AR_DATE
+				  ,AR_TIME
+				  ,HANDLING_INFO
+				  ,HANDLING_SPECIAL
+				  ,ACCOUNT_INFO
+				  ,INCOTERMS
+				  ,CURRENCY_CODE
+				  ,DV_CARRIAGE
+				  ,DV_CUSTOMS
+				  ,DV_INSURANCE
+				  ,EDI_COMMODITY_ITEM
+				  ,PIECES
+				  ,GWT
+				  ,RATE_CLASS
+				  ,RATE_ITEM
+				  ,RATE
+				  ,FREIGHT_CHARGE
+				  ,WEIGHT_CHG_PP
+				  ,WEIGHT_CHG_CC
+				  ,VALUATION_CHG_PP
+				  ,VALUATION_CHG_CC
+				  ,TAX_CHG_PP
+				  ,TAX_CHG_CC
+				  ,DUE_AGENT_PP
+				  ,DUE_AGENT_CC
+				  ,DUE_CARRIER_PP
+				  ,DUE_CARRIER_CC
+				  ,PREPAID_CHG_TOTAL
+				  ,COLLECT_CHG_TOTAL
+				  ,CWT_CBM
+				  ,VESSEL_FLIGHT
+				  ,VESSEL_VOYAGE
+				  ,RECEIPT_CODE
+				  ,RECEIPT_NAME
+				  ,DISC_CODE
+				  ,DISC_NAME
+				  ,DELI_CODE
+				  ,DELI_NAME
+				  ,UNIT_PIECES
+				  ,BL_TYPE_LFB
+				  ,ORIGINAL_BL_YN
+				  ,NO_OF_ORIGINAL
+				  ,BL_CARGO_CY_CFS
+				  ,BL_SAY
+				  ,BL_PAYABLE_AT
+				  ,FREIGHT_TERM
+				  ,OTHER_TERM
+				  ,FWRD_CODE
+				  ,FWRD_NAME
+				  ,FWRD_ADDRESS
+				  ,FWRD_ADDRESS_A
+				  ,FWRD_ADDRESS_B
+				  ,FWRD_ADDRESS_C
+				  ,FWRD_ADDRESS_D
+				  ,SIGN_HIS_AGENT
+				  ,SIGN_ACTING_AS
+				  ,ISSUE_DATE
+				  ,ISSUE_PLACE_CODE
+				  ,SIGN_ATTN
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{oblJobNo}
+				  ,#{entCode}
+				  ,#{solution}
+				  ,#{bound}
+				  ,#{blTypeMh}
+				  ,#{blTypeSc}
+				  ,#{entBusinessCode}
+				  ,#{mblJobNo}
+				  ,#{srNo}
+				  ,LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				   ,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+				  ,#{cargoBlNo}
+				  ,#{shipperCode}
+				  ,#{shipperName}
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 1, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 61, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 121, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 181, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 241, 60)
+				  ,#{shipperTel}
+				  ,#{shipperZipcode}
+				  ,#{shipperCountryCode}
+				  ,#{shipperStateCode}
+				  ,#{shipperPlace}
+				  ,#{shipperStreet}
+				  ,dbo.Cryptography(#{oblJobNo}, #{shipperBusinessId}, 0)
+				  ,#{shipperAttn}
+				  ,#{shipperFax}
+				  ,#{consigneeCode}
+				  ,#{consigneeName}
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 1, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 61, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 121, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 181, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 241, 60)
+				  ,#{consigneeTel}
+				  ,#{consigneeZipcode}
+				  ,#{consigneeCountryCode}
+				  ,#{consigneeStateCode}
+				  ,#{consigneePlace}
+				  ,#{consigneeStreet}
+				  ,dbo.Cryptography(#{oblJobNo}, #{consigneeBusinessId}, 0)
+				  ,#{consigneeAttn}
+				  ,#{consigneeFax}
+				  ,#{notifyCode}
+				  ,#{notifyName}
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{notifyAddress}) AS NVARCHAR(300)), ''), 1, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{notifyAddress}) AS NVARCHAR(300)), ''), 61, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{notifyAddress}) AS NVARCHAR(300)), ''), 121, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{notifyAddress}) AS NVARCHAR(300)), ''), 181, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{notifyAddress}) AS NVARCHAR(300)), ''), 241, 60)
+				  ,#{notifyTel}
+				  ,#{notifyZipcode}
+				  ,#{notifyCountryCode}
+				  ,#{notifyStateCode}
+				  ,#{notifyPlace}
+				  ,#{notifyStreet}
+				  ,dbo.Cryptography(#{oblJobNo}, #{notifyBusinessId}, 0)
+				  ,#{notifyAttn}
+				  ,#{notifyFax}
+				  ,#{lineCode}
+				  ,#{lineName}
+				  ,#{issuingCarriers}
+				  ,#{iataCode}
+				  ,#{origCode}
+				  ,#{origName}
+				  ,#{viaToA}
+				  ,#{viaByA}
+				  ,#{viaToB}
+				  ,#{viaByB}
+				  ,#{viaToC}
+				  ,#{viaByC}
+				  ,#{destCode}
+				  ,#{destName}
+				  ,CONVERT(DATE, #{obDate},  ${dateFormat})
+				  ,#{obTime}
+				  ,CONVERT(DATE, #{arDate},  ${dateFormat})
+				  ,#{arTime}
+				  ,#{handlingInfo}
+				  ,#{handlingSpecial}
+				  ,#{accountInfo}
+				  ,#{incoterms}
+				  ,#{currencyCode}
+				  ,#{dvCarriage}
+				  ,#{dvCustoms}
+				  ,#{dvInsurance}
+				  ,#{ediCommodityItem}
+				  ,#{pieces}
+				  ,#{gwt}
+				  ,#{rateClass}
+				  ,#{rateItem}
+				  ,#{rate}
+				  ,#{freightCharge}
+				  ,#{weightChgPp}
+				  ,#{weightChgCc}
+				  ,#{valuationChgPp}
+				  ,#{valuationChgCc}
+				  ,#{taxChgPp}
+				  ,#{taxChgCc}
+				  ,#{dueAgentPp}
+				  ,#{dueAgentCc}
+				  ,#{dueCarrierPp}
+				  ,#{dueCarrierCc}
+				  ,#{prepaidChgTotal}
+				  ,#{collectChgTotal}
+				  ,#{cwtCbm}
+				  <choose>
+				  <when test='bound == "SEA"'>
+				  ,#{vesselFlight}
+				  </when>
+				  <otherwise>
+				  ,#{viaByA}
+				  </otherwise>
+				  </choose>
+				  ,#{vesselVoyage}
+				  ,#{receiptCode}
+				  ,#{receiptName}
+				  ,#{discCode}
+				  ,#{discName}
+				  ,#{deliCode}
+				  ,#{deliName}
+				  ,#{unitPieces}
+				  ,#{blTypeLfb}
+				  ,#{originalBlYn}
+				  ,#{noOfOriginal}
+				  ,#{blCargoCyCfs}
+				  ,#{blSay}
+				  ,#{blPayableAt}
+				  ,#{freightTerm}
+				  ,#{otherTerm}
+				  ,#{fwrdCode}
+				  ,#{fwrdName}
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 1, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 61, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 121, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 181, 60)
+				  ,SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 241, 60)
+				  ,#{signHisAgent}
+				  ,#{signActingAs}
+				  ,CONVERT(DATE, #{issueDate},  ${dateFormat})
+				  ,#{issuePlaceCode}
+				  ,#{signAttn}
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+	
+	<insert id="insertHouseOblRealDeliverer" parameterType="houseOrder">
+		/* HouseOrderMapper.insertHouseOblRealDeliverer : 전자상거래 하우스오더 TB_COM_OBL_REAL_DELIVERER 저장 */
+			INSERT INTO TB_COM_OBL_REAL_DELIVERER(
+				   OBL_JOB_NO
+				  ,ENT_CODE
+				  ,ENT_BUSINESS_CODE
+				  ,HANDLING_SPECIAL_NAME
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{oblJobNo}
+				  ,#{entCode}
+				  ,#{entBusinessCode}
+				  ,#{handlingSpecialName}
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+	
+	<insert id="insertHouseOrder" parameterType="houseOrder">
+		/* HouseOrderMapper.insertHouseOrder : 전자상거래 하우스오더 TB_COM_OD 저장 */
+			INSERT INTO TB_COM_OD(
+				   OD_JOB_NO
+				  ,OBL_JOB_NO
+				  ,SR_NO
+				  ,ENT_CODE
+				  ,ENT_BUSINESS_CODE
+				  ,SOLUTION
+				  ,BOUND
+				  ,BOUND_TYPE
+				  ,BL_TYPE_MH
+				  ,MBL_NO
+				  ,HBL_NO
+				  ,ORIG_DEST_CODE
+				  ,OBAR_DATE
+				  ,BOOKING_DATE
+				  ,BOOKING_NO
+				  ,REMARKS
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{odJobNo}
+				  ,#{oblJobNo}
+				  ,#{srNo}
+				  ,#{entCode}
+				  ,#{entBusinessCode}
+				  ,#{solution}
+				  ,#{bound}
+				  ,#{boundType}
+				  ,#{blTypeMh}
+				  ,LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  ,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+				  <choose>
+				  <when test='boundType == "EXP"'>
+				  ,#{destCode}
+				  ,CONVERT(DATE, #{obDate},  ${dateFormat})
+				  </when>
+				  <otherwise>
+				  ,#{origCode}
+				  ,CONVERT(DATE, #{arDate},  ${dateFormat})
+				  </otherwise>
+				  </choose>
+				  <choose>
+				  <when test="bookingDate != null and bookingDate != ''">
+				  ,CONVERT(DATE, #{bookingDate}, ${dateFormat})
+				  </when>
+				  <otherwise>
+				  ,NULL
+				  </otherwise>
+				  </choose>
+				  ,#{bookingNo}
+				  ,#{remarks}
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+	
+	<insert id="insertHouseOrderBus" parameterType="houseOrder">
+		/* HouseOrderMapper.insertHouseOrderBus : 전자상거래 하우스오더 TB_COM_OD_BUS 저장 */
+			INSERT INTO TB_COM_OD_BUS(
+				   OD_JOB_NO
+				  ,ENT_CODE
+				  ,ENT_BUSINESS_CODE
+				  ,OBL_JOB_NO
+				  ,SR_NO
+				  ,MBL_NO
+				  ,HBL_NO
+				  ,PORT_CODE
+				  ,SAS_YN
+			)VALUES(
+				   #{odJobNo}
+				  ,#{entCode}
+				  ,#{entBusinessCode}
+				  ,#{oblJobNo}
+				  ,#{srNo}
+				  ,LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  ,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+				  <choose>
+				  <when test='boundType == "EXP"'>
+				  ,#{destCode}
+				  </when>
+				  <otherwise>
+				  ,#{origCode}
+				  </otherwise>
+				  </choose>
+				  ,'Y'
+			)
+	</insert>
+	
+	<insert id="insertHouseOrderEcm" parameterType="houseOrder">
+		/* HouseOrderMapper.insertHouseOrderEcm : 전자상거래 하우스오더 TB_ECM_OD 저장 */
+			INSERT INTO TB_ECM_OD(
+				   OD_JOB_NO
+				  ,ENT_CODE
+				  ,ENT_BUSINESS_CODE
+				  ,SOLUTION
+				  ,BOUND
+				  ,BOUND_TYPE
+				  ,PO_DATE
+				  ,VENDER_ID_1
+				  ,CUST_CODE_LV1
+				  ,BL_TYPE_MH
+				  ,MBL_NO
+				  ,HBL_NO
+				  ,MASTER_OD_JOB_NO
+				  ,LINE_CODE
+				  ,LINE_NAME
+				  ,ORIG_CODE
+				  ,ORIG_NAME
+				  ,DEST_CODE
+				  ,DEST_NAME
+				  ,DEST_PORT
+				  ,ORIG_COUNTRY
+				  ,DEST_COUNTRY
+				  ,OB_DATE
+				  ,OB_TIME
+				  ,AR_DATE
+				  ,AR_TIME
+				  ,CUSTOMS_CODE
+				  ,CUSTOMS_DPT_CODE
+				  ,ASSIGNMENT_WH_CODE
+				  ,DISC_WH_CODE
+				  ,MRN
+				  ,MSN
+				  ,VOYAGE
+				  ,VESSEL_FLIGHT
+				  ,GWT
+				  ,PIECES
+				  ,INPUT_METHOD
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{odJobNo}
+				  ,#{entCode}
+				  ,#{entBusinessCode}
+				  ,#{solution}
+				  ,#{bound}
+				  ,#{boundType}
+				  ,CONVERT(DATE, #{arDate},  ${dateFormat})
+				  ,#{venderId1}
+				  ,#{custCodeLv1}
+				  ,#{blTypeMh}
+				  ,LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  ,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+				  ,#{masterOdJobNo}
+				  ,#{lineCode}
+				  ,#{lineName}
+				  ,#{origCode}
+				  ,#{origName}
+				  ,#{destCode}
+				  ,#{destName}
+				  ,#{destPort}
+				  ,#{origCountry}
+				  ,#{destCountry}
+				  ,CONVERT(DATE, #{obDate},  ${dateFormat})
+				  ,#{obTime}
+				  ,CONVERT(DATE, #{arDate},  ${dateFormat})
+				  ,#{arTime}
+				  ,#{customsCode}
+				  ,#{customsDptCode}
+				  ,#{assignmentWhCode}
+				  ,#{discWhCode}
+				  ,#{mrn}
+				  ,#{msn}
+				  ,#{vesselVoyage}
+				  ,#{vesselFlight}
+				  ,#{gwt}
+				  ,#{pieces}
+				  ,'WEB'
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{registerUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			)
+	</insert>
+	
+	<insert id="insertHouseOrderAdditional" parameterType="houseOrder">
+		/* HouseOrderMapper.insertHouseOrderAdditional : 전자상거래 하우스오더 TB_ECM_OD_ADDITIONAL 저장 */
+			INSERT INTO TB_ECM_OD_ADDITIONAL(
+				   OD_JOB_NO
+				  ,MASTER_OD_JOB_NO
+				  ,MBL_NO
+				  ,HBL_NO
+				  ,BL_TYPE_MH
+				  ,EDI_MAILBOX_SEQ_NO
+			)VALUES(
+				   #{odJobNo}
+				  ,#{masterOdJobNo}
+				  ,LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+				  ,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+				  ,#{blTypeMh}
+				  ,#{ediMailboxSeqNo}
+			)
+	</insert>
+
+	<update id="updateHouseObl" parameterType="houseOrder">
+		/* HouseOrderMapper.updateHouseObl : 전자상거래 하우스오더 TB_COM_OBL 저장 */
+			UPDATE TB_COM_OBL SET
+				   BL_TYPE_SC = #{blTypeSc}
+				  ,HBL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+				  ,CARGO_BL_NO = #{cargoBlNo}
+				  ,SHIPPER_CODE = #{shipperCode}
+				  ,SHIPPER_NAME = #{shipperName}
+				  ,SHIPPER_ADDRESS = SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 1, 60)
+				  ,SHIPPER_ADDRESS_A = SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 61, 60)
+				  ,SHIPPER_ADDRESS_B = SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 121, 60)
+				  ,SHIPPER_ADDRESS_C = SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 181, 60)
+				  ,SHIPPER_ADDRESS_D = SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 241, 60)
+				  ,SHIPPER_TEL = #{shipperTel}
+				  ,SHIPPER_ZIPCODE = #{shipperZipcode}
+				  ,SHIPPER_COUNTRY_CODE = #{shipperCountryCode}
+				  ,SHIPPER_STATE_CODE = #{shipperStateCode}
+				  ,SHIPPER_PLACE = #{shipperPlace}
+				  ,SHIPPER_STREET = #{shipperStreet}
+				  ,SHIPPER_BUSINESS_ID = dbo.Cryptography(#{oblJobNo}, #{shipperBusinessId}, 0)
+				  ,SHIPPER_ATTN = #{shipperAttn}
+				  ,SHIPPER_FAX = #{shipperFax}
+				  ,CONSIGNEE_CODE = #{consigneeCode}
+				  ,CONSIGNEE_NAME = #{consigneeName}
+				  ,CONSIGNEE_ADDRESS = SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 1, 60)
+				  ,CONSIGNEE_ADDRESS_A = SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 61, 60)
+				  ,CONSIGNEE_ADDRESS_B = SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 121, 60)
+				  ,CONSIGNEE_ADDRESS_C = SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 181, 60)
+				  ,CONSIGNEE_ADDRESS_D = SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 241, 60)
+				  ,CONSIGNEE_TEL = #{consigneeTel}
+				  ,CONSIGNEE_ZIPCODE = #{consigneeZipcode}
+				  ,CONSIGNEE_COUNTRY_CODE = #{consigneeCountryCode}
+				  ,CONSIGNEE_STATE_CODE = #{consigneeStateCode}
+				  ,CONSIGNEE_PLACE = #{consigneePlace}
+				  ,CONSIGNEE_STREET = #{consigneeStreet}
+				  ,CONSIGNEE_BUSINESS_ID = dbo.Cryptography(#{oblJobNo}, #{consigneeBusinessId}, 0)
+				  ,CONSIGNEE_ATTN = #{consigneeAttn}
+				  ,CONSIGNEE_FAX = #{consigneeFax}
+				  ,NOTIFY_CODE = #{notifyCode}
+				  ,NOTIFY_NAME = #{notifyName}
+				  ,NOTIFY_ADDRESS = SUBSTRING(ISNULL(CAST(UPPER(#{notifyAddress}) AS NVARCHAR(300)), ''), 1, 60)
+				  ,NOTIFY_ADDRESS_A = SUBSTRING(ISNULL(CAST(UPPER(#{notifyAddress}) AS NVARCHAR(300)), ''), 61, 60)
+				  ,NOTIFY_ADDRESS_B = SUBSTRING(ISNULL(CAST(UPPER(#{notifyAddress}) AS NVARCHAR(300)), ''), 121, 60)
+				  ,NOTIFY_ADDRESS_C = SUBSTRING(ISNULL(CAST(UPPER(#{notifyAddress}) AS NVARCHAR(300)), ''), 181, 60)
+				  ,NOTIFY_ADDRESS_D = SUBSTRING(ISNULL(CAST(UPPER(#{notifyAddress}) AS NVARCHAR(300)), ''), 241, 60)
+				  ,NOTIFY_TEL = #{notifyTel}
+				  ,NOTIFY_ZIPCODE = #{notifyZipcode}
+				  ,NOTIFY_COUNTRY_CODE = #{notifyCountryCode}
+				  ,NOTIFY_STATE_CODE = #{notifyStateCode}
+				  ,NOTIFY_PLACE = #{notifyPlace}
+				  ,NOTIFY_STREET = #{notifyStreet}
+				  ,NOTIFY_BUSINESS_ID = dbo.Cryptography(#{oblJobNo}, #{notifyBusinessId}, 0)
+				  ,NOTIFY_ATTN = #{notifyAttn}
+				  ,NOTIFY_FAX = #{notifyFax}
+				  ,LINE_CODE = #{lineCode}
+				  ,LINE_NAME = #{lineName}
+				  ,ISSUING_CARRIERS = #{issuingCarriers}
+				  ,IATA_CODE = #{iataCode}
+				  ,ORIG_CODE = #{origCode}
+				  ,ORIG_NAME = #{origName}
+				  ,VIA_TO_A = #{viaToA}
+				  ,VIA_BY_A = #{viaByA}
+				  ,VIA_TO_B = #{viaToB}
+				  ,VIA_BY_B = #{viaByB}
+				  ,VIA_TO_C = #{viaToC}
+				  ,VIA_BY_C = #{viaByC}
+				  ,DEST_CODE = #{destCode}
+				  ,DEST_NAME = #{destName}
+				  ,OB_DATE = CONVERT(DATE, #{obDate},  ${dateFormat})
+				  ,OB_TIME = #{obTime}
+				  ,AR_DATE = CONVERT(DATE, #{arDate},  ${dateFormat})
+				  ,AR_TIME = #{arTime}
+				  ,HANDLING_INFO = #{handlingInfo}
+				  ,HANDLING_SPECIAL = #{handlingSpecial}
+				  ,ACCOUNT_INFO = #{accountInfo}
+				  ,INCOTERMS = #{incoterms}
+				  ,CURRENCY_CODE = #{currencyCode}
+				  ,DV_CARRIAGE = #{dvCarriage}
+				  ,DV_CUSTOMS = #{dvCustoms}
+				  ,DV_INSURANCE = #{dvInsurance}
+				  ,EDI_COMMODITY_ITEM = #{ediCommodityItem}
+				  ,PIECES = #{pieces}
+				  ,GWT = #{gwt}
+				  ,RATE_CLASS = #{rateClass}
+				  ,RATE_ITEM = #{rateItem}
+				  ,RATE = #{rate}
+				  ,FREIGHT_CHARGE = #{freightCharge}
+				  ,WEIGHT_CHG_PP = #{weightChgPp}
+				  ,WEIGHT_CHG_CC = #{weightChgCc}
+				  ,VALUATION_CHG_PP = #{valuationChgPp}
+				  ,VALUATION_CHG_CC = #{valuationChgCc}
+				  ,TAX_CHG_PP = #{taxChgPp}
+				  ,TAX_CHG_CC = #{taxChgCc}
+				  ,DUE_AGENT_PP = #{dueAgentPp}
+				  ,DUE_AGENT_CC = #{dueAgentCc}
+				  ,DUE_CARRIER_PP = #{dueCarrierPp}
+				  ,DUE_CARRIER_CC = #{dueCarrierCc}
+				  ,PREPAID_CHG_TOTAL = #{prepaidChgTotal}
+				  ,COLLECT_CHG_TOTAL = #{collectChgTotal}
+				  ,CWT_CBM = #{cwtCbm}
+				  <choose>
+				  <when test='bound == "SEA"'>
+				  ,VESSEL_FLIGHT = #{vesselFlight}
+				  ,VESSEL_VOYAGE = #{vesselVoyage}
+				  </when>
+				  <otherwise>
+				  ,VESSEL_FLIGHT = #{viaByA}
+				  </otherwise>
+				  </choose>
+				  ,RECEIPT_CODE = #{receiptCode}
+				  ,RECEIPT_NAME = #{receiptName}
+				  ,DISC_CODE = #{discCode}
+				  ,DISC_NAME = #{discName}
+				  ,DELI_CODE = #{deliCode}
+				  ,DELI_NAME = #{deliName}
+				  ,UNIT_PIECES = #{unitPieces}
+				  ,BL_TYPE_LFB = #{blTypeLfb}
+				  ,ORIGINAL_BL_YN = #{originalBlYn}
+				  ,NO_OF_ORIGINAL = #{noOfOriginal}
+				  ,BL_CARGO_CY_CFS = #{blCargoCyCfs}
+				  ,BL_SAY = #{blSay}
+				  ,BL_PAYABLE_AT = #{blPayableAt}
+				  ,FREIGHT_TERM = #{freightTerm}
+				  ,OTHER_TERM = #{otherTerm}
+				  ,FWRD_CODE = #{fwrdCode}
+				  ,FWRD_NAME = #{fwrdName}
+				  ,FWRD_ADDRESS = SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 1, 60)
+				  ,FWRD_ADDRESS_A = SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 61, 60)
+				  ,FWRD_ADDRESS_B = SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 121, 60)
+				  ,FWRD_ADDRESS_C = SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 181, 60)
+				  ,FWRD_ADDRESS_D = SUBSTRING(ISNULL(CAST(UPPER(#{fwrdAddress}) AS NVARCHAR(300)), ''), 241, 60)
+				  ,SIGN_HIS_AGENT = #{signHisAgent}
+				  ,SIGN_ACTING_AS = #{signActingAs}
+				  ,ISSUE_DATE = CONVERT(DATE, #{issueDate},  ${dateFormat})
+				  ,ISSUE_PLACE_CODE = #{issuePlaceCode}
+				  ,SIGN_ATTN = #{signAttn}
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  <choose>
+				  	<when test='emsBl != null and emsBl =="Y"'>
+					WHERE OBL_JOB_NO = #{origOblJobNo}
+				  	</when>
+				  	<otherwise>
+					WHERE OBL_JOB_NO = #{oblJobNo}
+				  	</otherwise>
+				  </choose>
+	</update>
+	
+	<update id="updateHouseOblRealDeliverer" parameterType="houseOrder">
+		/* HouseOrderMapper.updateHouseOblRealDeliverer : 전자상거래 하우스오더 TB_COM_OBL_REAL_DELIVERER 저장      예전데이터는 TB_COM_OBL_REAL_DELIVERER가 없어서 MERGE사용 */
+			MERGE TB_COM_OBL_REAL_DELIVERER AS A 
+			USING (SELECT #{oblJobNo} AS OBL_JOB_NO) AS B 
+			ON (A.OBL_JOB_NO = B.OBL_JOB_NO)  
+			WHEN MATCHED THEN
+			UPDATE SET
+				   HANDLING_SPECIAL_NAME = #{handlingSpecialName}
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHEN NOT MATCHED BY TARGET THEN
+			INSERT(
+				   OBL_JOB_NO
+				  ,ENT_CODE
+				  ,ENT_BUSINESS_CODE
+				  ,HANDLING_SPECIAL_NAME
+				  ,REGISTER_USER_ID
+				  ,REGISTER_DATE_TIME
+				  ,UPDATE_USER_ID
+				  ,UPDATE_DATE_TIME
+			)VALUES(
+				   #{oblJobNo}
+				  ,#{entCode}
+				  ,#{entBusinessCode}
+				  ,#{handlingSpecialName}
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,#{updateUserId}
+				  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			);
+	</update>
+	
+	<update id="updateHouseOrder" parameterType="houseOrder">
+		/* HouseOrderMapper.updateHouseOrder : 전자상거래 하우스오더 TB_COM_OD 저장 */
+			UPDATE TB_COM_OD SET
+				   HBL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+				  <choose>
+				  <when test='boundType == "EXP"'>
+				  ,ORIG_DEST_CODE = #{destCode}
+				  ,OBAR_DATE = CONVERT(DATE, #{obDate},  ${dateFormat})
+				  </when>
+				  <otherwise>
+				  ,ORIG_DEST_CODE = #{origCode}
+				  ,OBAR_DATE = CONVERT(DATE, #{arDate},  ${dateFormat})
+				  </otherwise>
+				  </choose>
+				  <choose>
+				  <when test="bookingDate != null and bookingDate != ''">
+				  ,BOOKING_DATE = CONVERT(DATE, #{bookingDate}, ${dateFormat})
+				  </when>
+				  <otherwise>
+				  ,BOOKING_DATE = NULL
+				  </otherwise>
+				  </choose>
+				  ,BOOKING_NO = #{bookingNo}
+				  ,REMARKS = #{remarks}
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  <choose>
+				  	<when test='emsBl != null and emsBl =="Y"'>
+					WHERE OD_JOB_NO = #{origOdJobNo}
+				  	</when>
+				  	<otherwise>
+					WHERE OD_JOB_NO = #{odJobNo}
+				  	</otherwise>
+				  </choose>
+	</update>
+	
+	<update id="updateHouseOrderBus" parameterType="houseOrder">
+		/* HouseOrderMapper.updateHouseOrderBus : 전자상거래 하우스오더 TB_COM_OD_BUS 저장 */
+			UPDATE TB_COM_OD_BUS SET
+				   HBL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+				  <choose>
+				  <when test='boundType == "EXP"'>
+				  ,PORT_CODE = #{destCode}
+				  </when>
+				  <otherwise>
+				  ,PORT_CODE = #{origCode}
+				  </otherwise>
+				  </choose>
+			<choose>
+				  	<when test='emsBl != null and emsBl =="Y"'>
+					WHERE OD_JOB_NO = #{origOdJobNo}
+				  	</when>
+				  	<otherwise>
+					WHERE OD_JOB_NO = #{odJobNo}
+				  	</otherwise>
+				  </choose>
+	</update>
+	
+	<update id="updateHouseOrderEcm" parameterType="houseOrder">
+		/* HouseOrderMapper.updateHouseOrderEcm : 전자상거래 하우스오더 TB_ECM_OD 저장 */
+			UPDATE TB_ECM_OD SET 
+				   CUST_CODE_LV1 = #{custCodeLv1}
+<!-- 				  ,VENDER_ID_1 = #{venderId1} -->
+				  ,HBL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+				  <if test='lineCode != "noUpdate"'>
+				  ,LINE_CODE = #{lineCode}
+				  ,LINE_NAME = #{lineName}
+				  </if>
+				  ,ORIG_CODE = #{origCode}
+				  ,ORIG_NAME = #{origName}
+				  ,DEST_CODE = #{destCode}
+				  ,DEST_NAME = #{destName}
+				  ,ORIG_COUNTRY = #{origCountry}
+				  ,DEST_COUNTRY = #{destCountry}
+				  ,OB_DATE = CONVERT(DATE, #{obDate},  ${dateFormat})
+				  ,OB_TIME = #{obTime}
+				  ,AR_DATE = CONVERT(DATE, #{arDate},  ${dateFormat})
+				  ,AR_TIME = #{arTime}
+				  <choose>
+				  <when test='bound == "SEA"'>
+				  ,VESSEL_FLIGHT = #{vesselFlight}
+				  ,VOYAGE = #{vesselVoyage}
+				  </when>
+				  <otherwise>
+				  ,VESSEL_FLIGHT = #{viaByA}
+				  </otherwise>
+				  </choose>
+				  ,PIECES = #{pieces}
+				  ,GWT = #{gwt}
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  <if test='boundType == "EXP"'>
+				  ,CUSTOMS_CODE = #{customsCode}
+				  ,CUSTOMS_DPT_CODE = #{customsDptCode}
+				  </if>
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updateHouseOrderAdditional" parameterType="houseOrder">
+		/* HouseOrderMapper.updateHouseOrderAdditional : 전자상거래 하우스오더 TB_ECM_OD_ADDITIONAL 저장 */
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   HBL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+				  <if test="ediMailboxSeqNo != null and ediMailboxSeqNo != ''">
+				  <choose>
+				  <when test='ediMailboxSeqNo == "null"'>
+				  ,EDI_MAILBOX_SEQ_NO = NULL
+				  </when>
+				  <otherwise>
+				  ,EDI_MAILBOX_SEQ_NO = #{ediMailboxSeqNo}
+				  </otherwise>
+				  </choose>
+				  </if>
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updatePodBlNo" parameterType="HashMap">
+		/* HouseOrderMapper.updatePodBlNo : 오더의 비엘번호 변경시 POD의 비엘번호 업데이트 */
+			UPDATE TB_ECM_POD SET BL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),''))) WHERE OD_JOB_NO = #{odJobNo};
+			UPDATE TB_ECM_POD_01 SET BL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),''))) WHERE OD_JOB_NO = #{odJobNo};
+			UPDATE TB_ECM_POD_02 SET BL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),''))) WHERE OD_JOB_NO = #{odJobNo};
+			UPDATE TB_ECM_POD_03 SET BL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),''))) WHERE OD_JOB_NO = #{odJobNo};
+			UPDATE TB_ECM_POD_04 SET BL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),''))) WHERE OD_JOB_NO = #{odJobNo};
+	</update>
+	
+	<delete id="deleteHouseObl" parameterType="HashMap">
+		/* HouseOrderMapper.deleteMasterObl : 전자상거래 하우스오더 TB_COM_OBL 삭제 */
+			DELETE FROM TB_COM_OBL WHERE OBL_JOB_NO = #{oblJobNo}
+	</delete>
+	<delete id="deleteHouseOblRealDeliverer" parameterType="HashMap">
+		/* HouseOrderMapper.deleteMasterOblRealDeliverer : 전자상거래 하우스오더 TB_COM_OBL_REAL_DELIVERER 삭제 */
+			DELETE FROM TB_COM_OBL_REAL_DELIVERER WHERE OBL_JOB_NO = #{oblJobNo}
+	</delete>
+	<delete id="deleteHouseOrder" parameterType="HashMap">
+		/* HouseOrderMapper.deleteMasterOrder : 전자상거래 하우스오더 TB_COM_OD 삭제 */
+			DELETE FROM TB_COM_OD WHERE OBL_JOB_NO = #{oblJobNo}
+	</delete>
+	<delete id="deleteHouseOrderBus" parameterType="HashMap">
+		/* HouseOrderMapper.deleteMasterOrderBus : 전자상거래 하우스오더 TB_COM_OBL_CHG_OTHER 삭제 */
+			DELETE FROM TB_COM_OD_BUS WHERE OBL_JOB_NO = #{oblJobNo}
+	</delete>
+	<delete id="deleteHouseOrderEcm" parameterType="HashMap">
+		/* HouseOrderMapper.deleteMasterOrderEcm : 전자상거래 하우스오더 TB_COM_OBL_CHG_OTHER 삭제 */
+			DELETE FROM TB_ECM_OD WHERE OD_JOB_NO = #{odJobNo}
+	</delete>
+	<delete id="deleteHouseOrderAdditional" parameterType="HashMap">
+		/* HouseOrderMapper.deleteMasterOrderAdditional : 전자상거래 하우스오더 TB_COM_OBL_CHG_OTHER 삭제 */
+			DELETE FROM TB_ECM_OD_ADDITIONAL WHERE OD_JOB_NO = #{odJobNo}
+	</delete>
+	<delete id="deleteOtherCharge" parameterType="HashMap">
+		/* HouseOrderMapper.deleteOtherCharge : 전자상거래 하우스오더 TB_COM_OBL_CHG_OTHER 삭제 */
+			DELETE FROM TB_COM_OBL_CHG_OTHER WHERE OBL_JOB_NO = #{oblJobNo}
+	</delete>
+	<delete id="deleteDimension" parameterType="HashMap">
+		/* HouseOrderMapper.deleteDimension : 전자상거래 하우스오더 TB_COM_OBL_DIMENSION 삭제 */
+			DELETE FROM TB_COM_OBL_DIMENSION WHERE OBL_JOB_NO = #{oblJobNo}
+	</delete>
+	<delete id="deleteLicense" parameterType="HashMap">
+		/* HouseOrderMapper.deleteLicense : 전자상거래 하우스오더 TB_COM_OBL_CUSTOMS_LICENSE 삭제 */
+			DELETE FROM TB_COM_OBL_CUSTOMS_LICENSE WHERE OBL_JOB_NO = #{oblJobNo}
+	</delete>
+	<delete id="deleteSblLicense" parameterType="HashMap">
+		/* HouseOrderMapper.deleteSblLicense : 전자상거래 하우스오더 TB_COM_SBL_CUSTOMS_LICENSE 삭제 */
+			DELETE FROM TB_COM_SBL_CUSTOMS_LICENSE WHERE SBL_JOB_NO = #{origOblJobNo}
+	</delete>
+	<delete id="deleteHts" parameterType="HashMap">
+		/* HouseOrderMapper.deleteHts : 전자상거래 마스터오더 TB_EDI_MF_HTS 삭제 */
+			DELETE FROM TB_EDI_MF_HTS WHERE MF_JOB_NO = #{oblJobNo}
+	</delete>
+	<delete id="deleteContainer" parameterType="HashMap">
+		/* HouseOrderMapper.deleteContainer : 전자상거래 마스터오더 TB_COM_OBL_CONTAINER 삭제 */
+			DELETE FROM TB_COM_OBL_CONTAINER WHERE OBL_JOB_NO = #{oblJobNo}
+	</delete>
+	<delete id="deleteCntrType" parameterType="HashMap">
+		/* HouseOrderMapper.deleteCntrType : 전자상거래 마스터오더 TB_COM_OBL_CNTR_TYPE 삭제 */
+			DELETE FROM TB_COM_OBL_CNTR_TYPE WHERE OBL_JOB_NO = #{oblJobNo}
+	</delete>
+	<delete id="deleteMark" parameterType="HashMap">
+		/* HouseOrderMapper.deleteMark : 전자상거래 마스터오더 TB_COM_OBL_MARK 삭제 */
+			DELETE FROM TB_COM_OBL_MARK WHERE OBL_JOB_NO = #{oblJobNo}
+	</delete>
+	
+	<insert id="insertOtherCharge" parameterType="HashMap">
+		/* HouseOrderMapper.insertOtherCharge : 전자상거래 하우스오더 TB_COM_OBL_CHG_OTHER 저장 */
+			INSERT INTO TB_COM_OBL_CHG_OTHER(
+				   OBL_JOB_NO
+				  ,SEQ_NO
+				  ,CHARGE_CODE
+				  ,CHARGE_NAME
+				  ,FREIGHT_TERM
+				  ,CURRENCY_CODE
+				  ,RATE_MULTIPLY
+				  ,RATE
+				  ,AMOUNT
+				  ,CHARGE_TYPE_AC
+				  ,CHG_CODE_IATA
+			)VALUES
+			<foreach collection="otherChargeList" item="item" index="index" separator=",">
+			(
+				   #{oblJobNo}
+				  ,#{index} + 1
+				  ,#{item.chargeCode}
+				  ,#{item.chargeName}
+				  ,#{item.freightTerm}
+				  ,#{item.currencyCode}
+				  ,#{item.rateMultiply}
+				  ,#{item.rate}
+				  ,#{item.amount}
+				  ,#{item.chargeTypeAc}
+				  ,#{item.chgCodeIata}
+			)
+			</foreach>
+	</insert>
+	
+	<insert id="insertDimension" parameterType="HashMap">
+		/* HouseOrderMapper.insertDimension : 전자상거래 하우스오더 TB_COM_OBL_DIMENSION 저장 */
+			INSERT INTO TB_COM_OBL_DIMENSION(
+				   OBL_JOB_NO
+				  ,SEQ_NO
+				  ,DIM_WIDTH
+				  ,DIM_LENGTH
+				  ,DIM_HEIGHT
+				  ,DIM_PIECES
+				  ,DIM_VOLUMN
+			)VALUES
+			<foreach collection="dimensionList" item="item" index="index" separator=",">
+			(
+				   #{oblJobNo}
+				  ,#{index} + 1
+				  ,#{item.dimWidth}
+				  ,#{item.dimLength}
+				  ,#{item.dimHeight}
+				  ,#{item.dimPieces}
+				  ,#{item.dimVolumn}
+			)
+			</foreach>
+	</insert>
+	
+	<insert id="insertLicense" parameterType="HashMap">
+		/* HouseOrderMapper.insertLicense : 전자상거래 하우스오더 TB_COM_OBL_CUSTOMS_LICENSE 저장 */
+			INSERT INTO TB_COM_OBL_CUSTOMS_LICENSE(
+				   OBL_JOB_NO
+				  ,LICENSE_NO
+				  ,PIECES
+				  ,GWT
+				  ,COMBINE_TYPE_A_Z
+				  ,COMBINE_PIECES
+				  ,PARTIAL_YN
+				  ,PARTIAL_SEQ
+			)VALUES
+			<foreach collection="licenseList" item="item" separator=",">
+			(
+				   #{oblJobNo}
+				  ,#{item.licenseNo}
+				  ,#{item.pieces}
+				  ,#{item.gwt}
+				  ,#{item.combineTypeAZ}
+				  ,#{item.combinePieces}
+				  ,#{item.partialYn}
+				  ,#{item.partialSeq}
+			)
+			</foreach>
+	</insert>
+	<insert id="insertSblLicense" parameterType="HashMap">
+		/* HouseOrderMapper.insertSblLicense : 전자상거래 하우스오더 TB_COM_SBL_CUSTOMS_LICENSE 저장 */
+			INSERT INTO TB_COM_SBL_CUSTOMS_LICENSE(
+				   SBL_JOB_NO
+				  ,LICENSE_NO
+				  ,PIECES
+				  ,GWT
+				  ,COMBINE_TYPE_A_Z
+				  ,COMBINE_PIECES
+				  ,PARTIAL_YN
+				  ,PARTIAL_SEQ
+			)VALUES
+			<foreach collection="licenseList" item="item" separator=",">
+			(
+				   #{origOblJobNo}
+				  ,#{item.licenseNo}
+				  ,#{item.pieces}
+				  ,#{item.gwt}
+				  ,#{item.combineTypeAZ}
+				  ,#{item.combinePieces}
+				  ,#{item.partialYn}
+				  ,#{item.partialSeq}
+			)
+			</foreach>
+	</insert>
+	
+	<insert id="insertHts" parameterType="HashMap">
+		/* HouseOrderMapper.insertHts : 전자상거래 하우스오더 TB_EDI_MF_HTS 저장 */
+			INSERT INTO TB_EDI_MF_HTS(
+				   MF_JOB_NO
+				  ,HTS_CODE
+			)VALUES
+			<foreach collection="htsList" item="item" separator=",">
+			(
+				   #{oblJobNo}
+				  ,#{item.htsCode}
+			)
+			</foreach>
+	</insert>
+	
+	<insert id="insertContainer" parameterType="HashMap">
+		/* HouseOrderMapper.insertContainer : 전자상거래 하우스오더 TB_COM_OBL_CONTAINER 저장 */
+			INSERT INTO TB_COM_OBL_CONTAINER(
+				   OBL_JOB_NO
+				  ,CNTR_NO
+				  ,CNTR_SEAL_NO_1
+				  ,CNTR_SEAL_NO_2
+				  ,CNTR_SEAL_NO_3
+				  ,CNTR_CODE
+				  ,CNTR_EDI_CODE
+				  ,CNTR_SUB_CODE
+				  ,CNTR_LOAD_TYPE_EL
+				  ,PIECES
+				  ,UNIT_PIECES
+				  ,GWT
+				  ,UNIT_WEIGHT
+				  ,CBM
+				  ,CNTR_OWN_TYPE
+				  ,CNTR_PRINT_INFO
+			)VALUES
+			<foreach collection="containerList" item="item" separator=",">
+			(
+				   #{oblJobNo}
+				  ,#{item.cntrNo}
+				  ,#{item.cntrSealNo1}
+				  ,#{item.cntrSealNo2}
+				  ,#{item.cntrSealNo3}
+				  ,#{item.cntrCode}
+				  ,#{item.cntrEdiCode}
+				  ,#{item.cntrSubCode}
+				  ,#{item.cntrLoadTypeEl}
+				  ,#{item.pieces}
+				  ,#{item.unitPieces}
+				  ,#{item.gwt}
+				  ,#{item.unitWeight}
+				  ,#{item.cbm}
+				  ,#{item.cntrOwnType}
+				  ,#{item.cntrPrintInfo}
+			)
+			</foreach>
+	</insert>
+	
+	<insert id="insertCntrType" parameterType="HashMap">
+		/* HouseOrderMapper.insertCntrType : 전자상거래 하우스오더 TB_COM_OBL_CNTR_TYPE 저장 */
+			INSERT INTO TB_COM_OBL_CNTR_TYPE(
+				   OBL_JOB_NO
+				  ,SEQ_NO
+				  ,CNTR_CODE
+				  ,PIECES
+			)VALUES
+			<foreach collection="cntrTypeList" item="item" separator="," index="index">
+			(
+				   #{oblJobNo}
+				  ,#{index} + 1
+				  ,#{item.cntrCode}
+				  ,#{item.pieces}
+			)
+			</foreach>
+	</insert>
+	
+	<insert id="insertMark" parameterType="HashMap">
+		/* HouseOrderMapper.insertMark : 전자상거래 하우스오더 TB_COM_OBL_MARK 저장 */
+			INSERT INTO TB_COM_OBL_MARK(
+				   OBL_JOB_NO
+				  ,SEQ_NO
+				  ,MARK_TYPE_LR
+				  ,MARKS_GOODS
+			)VALUES
+			<foreach item="item" index="index" collection="markList" separator="," >
+			(
+				   #{oblJobNo}
+				  ,#{item.seqNo}
+				  ,#{item.markTypeLr}
+				  ,#{item.marksGoods}
+			)
+			</foreach>
+	</insert>
+	
+	<select id="selectUserInfo" parameterType="houseOrder" resultType="HashMap">
+		/* HouseOrderMapper.selectUserInfo : 거래처정보조회 */
+			SELECT
+				 cus.CUSTOMER_CODE
+				,cus.CUSTOMER_NAME_ENG
+				,cus.ADDRESS_ENG
+				,cus.ADDRESS_A_ENG
+				,cus.ADDRESS_B_ENG
+				,cus.ATTN_ENG
+				,cus.TEL_ENG
+				,cus.FAX_ENG
+				,cus.AMS_STREET
+				,cus.AMS_ZIPCODE
+				,cus.AMS_STATE_CODE
+				,cus.AMS_COUNTRY_CODE
+				,cus.AMS_PLACE
+				<if test='bound == "AIR"'>
+				,(SELECT BUSINESS_ID FROM VTB_SMS_BUSINESS_REG_INFO WHERE ENT_CODE = cus.ENT_CODE AND REGISTRATION_CODE = cus.REGISTRATION_CODE) AS BUSINESS_ID
+				,(SELECT IATA_CODE FROM TB_SMS_CUSTOMER_FMS WHERE ENT_CODE = cus.ENT_CODE AND CUSTOMER_CODE = cus.CUSTOMER_CODE) AS IATA_CODE
+				</if>
+			<choose>
+			<when test='action == "selectCustLv1"'>
+			FROM TB_ECM_OD od
+				 LEFT JOIN TB_SMS_CUSTOMER cus
+				 		   ON cus.ENT_CODE = od.ENT_CODE
+				 		   AND cus.CUSTOMER_CODE = od.CUST_CODE_LV1
+			WHERE od.OD_JOB_NO = #{odJobNo}
+			</when>
+			<otherwise>
+				,bus.CURRENCY_CODE
+				<if test='bound == "AIR"'>
+				,(SELECT USER_NAME_ENG FROM TB_SMS_USER WHERE ENT_CODE = bus.ENT_CODE AND USER_ID = #{registerUserId}) AS USER_NAME_ENG
+				,(
+					SELECT CASE WHEN ISNULL(opt.SET_VALUE, '') = '' THEN optMaster.DEFAULT_VALUE ELSE opt.SET_VALUE END
+					FROM exps_master.dbo.TB_SMS_ENT_BUS_OPTION optMaster
+						 LEFT JOIN TB_SMS_ENT_BUS_OPTION opt
+						 		   ON opt.SOLUTION = optMaster.SOLUTION
+						 		   AND opt.OPTION_CODE = optMaster.OPTION_CODE
+						 		   AND opt.ENT_CODE = bus.ENT_CODE
+						 		   AND opt.ENT_BUSINESS_CODE = bus.ENT_BUSINESS_CODE
+					WHERE optMaster.SOLUTION = 'FMS'
+					AND optMaster.OPTION_CODE = 'A34'
+				 ) AS SIGN_HIS_AGENT_TYPE
+				</if>
+			FROM TB_SMS_ENT_BUSINESS bus
+				 LEFT JOIN TB_SMS_CUSTOMER cus
+				 		   ON cus.ENT_CODE = bus.ENT_CODE
+				 		   AND cus.CUSTOMER_CODE = bus.CUSTOMER_CODE
+			WHERE bus.ENT_CODE = #{entCode}
+			AND bus.ENT_BUSINESS_CODE = #{entBusinessCode}
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectEcmOrderList" parameterType="houseOrder" resultType="houseOrder">
+		/* HouseOrderMapper.selectEcmOrderList : 전자상거래오더 리스트 */
+			SELECT
+				 od.OD_JOB_NO
+				,od.MASTER_OD_JOB_NO
+				,od.ENT_CODE
+				,od.ENT_BUSINESS_CODE
+				,od.SOLUTION
+				,od.BOUND
+				,od.BOUND_TYPE
+				,od.VENDER_ID_1
+				,od.CUST_CODE_LV1
+				,od.BL_TYPE_MH
+				,od.MBL_NO
+				,od.HBL_NO
+				,od.LINE_CODE
+				,od.LINE_NAME
+				,od.ORIG_CODE
+				,od.ORIG_NAME
+				,od.DEST_CODE
+				,od.DEST_NAME
+				,od.OB_DATE
+				,od.OB_TIME
+				,od.AR_DATE
+				,od.AR_TIME
+				,od.VESSEL_SIGN
+				,od.VOYAGE AS VESSEL_VOYAGE
+				,od.VESSEL_FLIGHT
+				,od.SHIPPER_NAME
+				,dbo.Cryptography(od.OD_JOB_NO, od.SHIPPER_BUSINESS_ID, 1) AS SHIPPER_BUSINESS_ID
+				,od.SHIPPER_ADDRESS
+				,od.SHIPPER_TEL
+				,od.SHIPPER_HP
+				,od.SHIPPER_ZIPCODE
+				,od.SHIPPER_STATE_CODE
+				,od.SHIPPER_COUNTRY_CODE
+				,od.SHIPPER_STREET
+				,od.SHIPPER_PLACE
+				,od.CONSIGNEE_NAME
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+				,od.CONSIGNEE_ADDRESS
+				,od.CONSIGNEE_TEL
+				,od.CONSIGNEE_HP
+				,od.CONSIGNEE_ZIPCODE
+				,od.CONSIGNEE_STATE_CODE
+				,od.CONSIGNEE_COUNTRY_CODE
+				,od.CONSIGNEE_STREET
+				,od.CONSIGNEE_PLACE
+				,(SELECT ETC2 FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CITY_PORT' AND CODE = od.ORIG_CODE) AS ORIG_COUNTRY
+				,(SELECT ETC2 FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CITY_PORT' AND CODE = od.DEST_CODE) AS DEST_COUNTRY
+				<!-- ,(SELECT OBL_JOB_NO FROM TB_COM_OD WHERE OD_JOB_NO = od.OD_JOB_NO) AS OBL_JOB_NO -->
+				,(SELECT COUNT(OD_JOB_NO) FROM TB_ECM_OD WHERE MASTER_OD_JOB_NO = od.OD_JOB_NO AND BL_TYPE_MH = 'H') AS HOUSE_CNT
+				,com.OBL_JOB_NO
+				,com.OD_JOB_NO AS ORIG_OD_JOB_NO
+			FROM TB_ECM_OD od
+			INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				ON ad.OD_JOB_NO = od.OD_JOB_NO
+			LEFT JOIN TB_COM_OD com
+				ON com.HBL_NO = od.HBL_NO
+				AND com.SOLUTION = 'ECM'
+				AND com.BL_TYPE_MH = 'H'
+			WHERE od.OD_JOB_NO IN(<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+	</select>
+	
+	<select id="selectHouseDetail" parameterType="houseOrder" resultType="HashMap">
+		/* HouseOrderMapper.selectHouseDetail : 전자상거래오더 하우스합계 */
+			SELECT
+				 PIECES AS PIECES
+				,GWT AS GWT
+				,CBM AS CBM
+			FROM TB_ECM_OD
+			WHERE OD_JOB_NO = #{odJobNo}
+			AND BL_TYPE_MH = 'H'
+	</select>
+	
+	<select id="selectHouseContainerList" parameterType="houseOrder" resultType="HashMap">
+		/* HouseOrderMapper.selectHouseContainerList : 전자상거래오더 하우스 컨테이너 리스트 */
+			SELECT
+				 cntr.CNTR_NO
+				,MAX(cntr.CNTR_CODE) AS CNTR_CODE
+				,MAX(cntr.CNTR_EDI_CODE) AS CNTR_EDI_CODE
+				,MAX(cntr.CNTR_SEAL_NO_1) AS CNTR_SEAL_NO_1
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_CONTAINER cntr
+				 			ON cntr.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+			AND od.BL_TYPE_MH = 'H'
+			GROUP BY cntr.CNTR_NO
+	</select>
+	
+	<select id="selectHouseOrderListCommon" parameterType="searchHouseOrderList" resultType="houseOrderCommon">
+		/* HouseOrderMapper.selectHouseOrderListCommon : 하우스오더조회팝업 리스트 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 cod.OD_JOB_NO
+				,obl.OBL_JOB_NO
+				,obl.MBL_NO
+				,obl.HBL_NO
+				,obl.OB_DATE
+				,obl.AR_DATE
+				,obl.AR_DATE AS PO_DATE
+				,obl.VESSEL_FLIGHT 
+				,obl.ORIG_NAME
+				,obl.DEST_NAME
+				,obl.SHIPPER_NAME 
+				,obl.CONSIGNEE_NAME 
+				,od.CONSIGNEE_NAME_LOC 
+			FROM TB_COM_OBL obl
+				 INNER JOIN TB_COM_OD cod
+				 			ON cod.OBL_JOB_NO = obl.OBL_JOB_NO
+				 LEFT JOIN TB_ECM_OD od
+				 			ON od.OD_JOB_NO = cod.OD_JOB_NO
+				 
+			WHERE cod.ENT_CODE = #{srchEntCode}
+			<if test="srchSolution != null and srchSolution != ''">
+			AND cod.SOLUTION = #{srchSolution}
+			</if>
+			<if test="srchBlTypeMh != null and srchBlTypeMh != ''">
+			AND cod.BL_TYPE_MH = #{srchBlTypeMh}
+			</if>
+			<if test='srchDateGbn != "noDateChk"'>
+				<choose>
+				<when test='srchDateType == "dateTime"'>
+				AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+				AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+				</when>
+				<otherwise>
+				AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+				AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+				</otherwise>
+				</choose>
+			</if>
+			<choose>
+				<when test='srchBoundType == "AO" and (srchRvsBoundType == null or srchRvsBoundType == "") '>AND cod.BOUND = 'AIR' AND cod.BOUND_TYPE = 'EXP'</when>
+				<when test='srchBoundType == "AI" and (srchRvsBoundType == null or srchRvsBoundType == "") '>AND cod.BOUND = 'AIR' AND cod.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "SO" and (srchRvsBoundType == null or srchRvsBoundType == "") '>AND cod.BOUND = 'SEA' AND cod.BOUND_TYPE = 'EXP'</when>
+				<when test='srchBoundType == "SI" and (srchRvsBoundType == null or srchRvsBoundType == "") '>AND cod.BOUND = 'SEA' AND cod.BOUND_TYPE = 'IMP'</when>
+			</choose>
+			<choose>
+				<when test='srchBoundType == "AO" and srchRvsBoundType == "Y" '>AND cod.BOUND = 'AIR' AND cod.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "AI" and srchRvsBoundType == "Y" '>AND cod.BOUND = 'AIR' AND cod.BOUND_TYPE = 'EXP'</when>
+				<when test='srchBoundType == "SO" and srchRvsBoundType == "Y" '>AND cod.BOUND = 'SEA' AND cod.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "SI" and srchRvsBoundType == "Y" '>AND cod.BOUND = 'SEA' AND cod.BOUND_TYPE = 'EXP'</when>
+			</choose>
+			<if test="srchNo != null and srchNo != ''">
+				<choose>
+				<when test='srchNoLikeYn == "Y"'>
+				AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+				</when>
+				<otherwise>
+					<choose>
+						<when test='searchType == "multi"'>
+						AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND ${srchNoType} = #{srchNo}
+						</otherwise>
+					</choose>
+				</otherwise>
+				</choose>
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	
+	<select id="selectSrNo" parameterType="houseOrder" resultType="houseOrder">
+		/* HouseOrderMapper.selectSrNo : 마스터조회 리스트 */
+			SELECT
+				obl.OBL_JOB_NO
+				, obl.MBL_NO 
+				, obl.HBL_NO 
+				, obl.MBL_JOB_NO
+				, obl.SR_NO
+			FROM TB_COM_OBL obl
+				 INNER JOIN TB_COM_OD od
+				 			ON od.OBL_JOB_NO = obl.OBL_JOB_NO
+				 INNER JOIN TB_ECM_OD ecmOd
+				 			ON ecmOd.OD_JOB_NO = od.OD_JOB_NO
+			WHERE 
+			1=1
+			AND obl.MBL_NO = #{mblNo}
+			AND obl.SOLUTION = #{solution}
+			AND od.BOUND = #{bound}
+			AND od.BOUND_TYPE = #{boundType}
+			AND obl.BL_TYPE_MH = 'M'
+	</select>
+	
+	<update id="updateSbl" parameterType="houseOrder">
+		/* HouseOrderMapper.updateSbl : 전자상거래 하우스오더 TB_COM_SBL 저장 */
+			UPDATE TB_COM_SBL SET
+				  SBL_NO = LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+				  ,SHIPPER_NAME = #{shipperName}
+				  ,SHIPPER_ADDRESS = SUBSTRING(ISNULL(CAST(UPPER(#{shipperAddress}) AS NVARCHAR(300)), ''), 1, 60)
+				  ,SHIPPER_TEL = #{shipperTel}
+				  ,SHIPPER_ZIPCODE = #{shipperZipcode}
+				  ,SHIPPER_COUNTRY_CODE = #{shipperCountryCode}
+				  ,SHIPPER_STATE_CODE = #{shipperStateCode}
+				  ,SHIPPER_PLACE = #{shipperPlace}
+				  ,SHIPPER_STREET = #{shipperStreet}
+				  ,SHIPPER_FAX = #{shipperFax}
+				  ,CONSIGNEE_NAME = #{consigneeName}
+				  ,CONSIGNEE_ADDRESS = SUBSTRING(ISNULL(CAST(UPPER(#{consigneeAddress}) AS NVARCHAR(300)), ''), 1, 60)
+				  ,CONSIGNEE_TEL = #{consigneeTel}
+				  ,CONSIGNEE_ZIPCODE = #{consigneeZipcode}
+				  ,CONSIGNEE_COUNTRY_CODE = #{consigneeCountryCode}
+				  ,CONSIGNEE_STATE_CODE = #{consigneeStateCode}
+				  ,CONSIGNEE_PLACE = #{consigneePlace}
+				  ,CONSIGNEE_STREET = #{consigneeStreet}
+				  ,CONSIGNEE_FAX = #{consigneeFax}
+				  ,PIECES = #{pieces}
+				  ,GWT = #{gwt}
+				  ,UPDATE_USER_ID = #{updateUserId}
+				  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				WHERE SBL_JOB_NO = #{origOblJobNo}
+	</update>
+	
+	<select id="selectChkDupBlNo" parameterType="HashMap" resultType="int">
+		/* HouseOrderMapper.selectChkDupBlNo : 비엘번호 중복체크 */
+			<choose>
+			<when test='tableType == "OBL"'>
+			SELECT COUNT(OBL_JOB_NO) AS CNT
+			FROM TB_COM_OBL
+			WHERE ENT_CODE = #{entCode}
+			AND BL_TYPE_MH = #{blTypeMh}
+				<choose>
+				<when test='blTypeMh == "M"'>
+				AND MBL_NO = LTRIM(RTRIM(REPLACE(#{blNo},char(9),'')))
+				</when>
+				<otherwise>
+				AND HBL_NO = LTRIM(RTRIM(REPLACE(#{blNo},char(9),'')))
+				</otherwise>
+				</choose>
+				AND OBL_JOB_NO != #{oblJobNo}
+				AND OBL_JOB_NO != #{origOblJobNo}
+			</when>
+			<otherwise>
+			SELECT COUNT(SBL_JOB_NO) AS CNT
+			FROM TB_COM_SBL
+			WHERE 1=1
+			AND SBL_NO = LTRIM(RTRIM(REPLACE(#{blNo},char(9),'')))
+			AND SBL_JOB_NO != #{oblJobNo}
+			AND SBL_JOB_NO != #{origOblJobNo}
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectMasterInfo" parameterType="houseOrder" resultType="HashMap">
+		/* HouseOrderMapper.selectMasterInfo : 전자상거래오더 마스터정보 */
+			SELECT
+				 LINE_CODE
+				,VESSEL_FLIGHT
+			FROM TB_ECM_OD
+			WHERE MASTER_OD_JOB_NO = #{masterOdJobNo}
+			AND BL_TYPE_MH = 'M'
+	</select>
+</mapper>

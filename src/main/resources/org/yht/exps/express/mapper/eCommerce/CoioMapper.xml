@@ -1,0 +1,606 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.CoioMapper">
+
+	<select id="selectCoioDetailList" parameterType="searchCoioList" resultType="coioDet">
+		/* CoioMapper.selectCoioDetailList : 반입/반출(detail) 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT 
+				<choose>
+				<when test='srchMode == "listCount"'>
+				COUNT(*) AS TOTAL
+				</when>
+				<otherwise>
+				   od.HBL_NO
+				 , od.AR_DATE
+				 , od.HSN
+				 , od.PIECES
+				 , od.PIECES_REAL 
+				 , od.GWT
+				 , od.CONSIGNEE_NAME_LOC
+				 , od.CONSIGNEE_ADDRESS_LOC
+				 , od.INSPECTION_YN
+				 , od.CD_TYPE
+				 , od.MRN
+				 , (SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND CODE = od.CD_TYPE AND GROUP_CODE = 'CD_TYPE') AS CD_TYPE_NAME
+				 , ad.SE_INSPECTION_YN
+				 , ad.XRAY_YN
+				 , ad.DROP_YN
+				 , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'DROP_CODE' AND CODE = ad.DROP_CODE) AS DROP_REASON
+				 , (SELECT TOP 1 MIN(HOLD_RELEASE_YN) OVER(PARTITION BY OD_JOB_NO) FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO) AS HOLD_RELEASE_YN
+				 , CASE WHEN ISNULL((SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N'), '') IN ('', '4')
+					    THEN (SELECT TOP 1 HOLD_REASON FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N')
+					    ELSE (SELECT NAME_${userLanguage}
+					  		  FROM TB_SMS_CODE_DETAIL
+					  		  WHERE ENT_CODE = od.ENT_CODE
+					  		  AND GROUP_CODE = 'HOLD_CODE'
+					  		  AND CODE = (SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N'))
+					    END AS HOLD_REASON
+				 , CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' THEN 'Y' ELSE 'N' END mfn <!-- 무적 -->
+				 , ad.CARRYIN_DATE
+				 , ad.CLEARANCE_RECEIPT_DATE
+				 , ad.CLEARANCE_DATE AS CLEARANCE_FINISH_DATE 
+				 , od.CLEARANCE_VIOLATION_CODE
+				 , od.CLEARANCE_VIOLATION_REASON
+				 ,(
+					SELECT TOP 1 CONCAT(ISNULL(pod.POD_DATE, '1900-01-01'), ' ', ISNULL(pod.POD_TIME, '00:00')) AS POD_DATE_TIME 
+					FROM TB_ECM_POD_03 pod 
+					WHERE OD_JOB_NO = od.OD_JOB_NO 
+					AND POD_STATUS = 'ECM251'
+				  ) AS CLEARANCE_VIOLATION_DATE
+				 , ad.CARRYOUT_DATE
+<!-- 				 , (SELECT POD_DATE FROM TB_ECM_POD WHERE POD_STATUS  = 'ECM290' AND OD_JOB_NO = od.OD_JOB_NO) AS RELEASE_DATE				  -->
+				 , ad.WH_CARRYOUT_DATE AS RELEASE_DATE
+				 , (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = ad.CARRYOUT_USER_ID) AS CARRYOUT_USER_ID
+				 , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'WH_LOCATION' AND CODE = ad.WH_LOCATION) AS WH_LOCATION
+ 				 , CONVERT(CHAR(16), ad.STOCK_DATE_TIME, 20) AS STOCK_DATE_TIME
+				 , (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = ad.STOCK_USER_ID) AS STOCK_USER_ID 
+				 , CONVERT(CHAR(16), ad.DELIVERY_RECV_DATE, 20) as DELIVERY_RECV_DATE
+				 ,(
+					SELECT TOP 1 CONCAT(ISNULL(pod.POD_DATE, '1900-01-01'), ' ', ISNULL(pod.POD_TIME, '00:00')) AS POD_DATE_TIME 
+					FROM TB_ECM_POD_04 pod 
+					WHERE OD_JOB_NO = od.OD_JOB_NO 
+					AND POD_STATUS = 'ECM361'
+				  ) AS PICKUP_DATE
+				 , CONVERT(CHAR(16), ad.DELIVERY_DATE, 20) as DELIVERY_DATE
+				 ,(
+					SELECT TOP 1 REMARKS
+					FROM TB_ECM_POD_04 pod 
+					WHERE OD_JOB_NO = od.OD_JOB_NO 
+					AND POD_STATUS = 'ECM400'
+				  ) AS UNDELIVERY_REASON
+				 ,(
+					SELECT TOP 1 CONCAT(ISNULL(pod.POD_DATE, '1900-01-01'), ' ', ISNULL(pod.POD_TIME, '00:00')) AS POD_DATE_TIME 
+					FROM TB_ECM_POD_04 pod 
+					WHERE OD_JOB_NO = od.OD_JOB_NO 
+					AND POD_STATUS = 'ECM400'
+				  ) AS UNDELIVERY_DATE
+				 , od.MBL_NO
+				 , od.VESSEL_FLIGHT
+				 , od.ORIG_CODE
+				 , od.DEST_CODE
+				 , od.CUST_CODE_LV1 AS AGENT_CODE
+				 , od.CUST_CODE_LV2
+				 , od.SHIPPER_NAME
+                 , od.DELIVERY_NOTE AS DELIVERY_REMARKS
+				 , od.OD_JOB_NO
+				 , od.ENT_CODE
+				 , od.ENT_BUSINESS_CODE
+				 , od.SOLUTION
+				 , od.BOUND
+				 , od.BOUND_TYPE
+				 , od.PO_NO
+				 , od.PO_DATE
+				 ,CASE 
+					WHEN ad.DROP_YN = 'Y' OR ad.ABNORMAL_DATE IS NOT NULL THEN 'Y'
+					ELSE 'N'
+					END AS UNUSUAL
+				 , od.REGISTER_USER_ID
+				 , od.REGISTER_DATE_TIME
+				 , od.UPDATE_USER_ID
+				 , od.UPDATE_DATE_TIME
+	 			 ,CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE ENT_CODE = od.ENT_CODE AND FUNC_JOB_NO = od.OD_JOB_NO ) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+				 ,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CB_CODE) AS CB_NAME
+				 ,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = od.DELIVERY_CODE) AS DELIVERY_NAME
+				 <choose>
+				 <when test='srchMode == "excel" or srchMode == "selectCodeName"'>
+				 ,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = ad.LAST_POD_STATUS) AS LAST_POD_STATUS
+				 </when>
+				 <otherwise>
+				 ,ad.LAST_POD_STATUS
+				 </otherwise>
+				 </choose>
+				 
+				 , od.BL_TYPE_MH
+				 , CASE WHEN (SELECT COUNT(*) FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N') > 0 THEN 'Y' ELSE 'N' END AS HOLD_YN
+				
+				 <choose>
+				 <when test='cryptographyYn == "Y"'>
+				 ,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS CONSIGNEE_HP
+				 ,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+				 </when>
+				 <otherwise>
+				 ,od.CONSIGNEE_HP
+				 ,od.CONSIGNEE_TEL
+				 </otherwise>
+				 </choose>
+				 </otherwise>
+				 </choose>
+			FROM TB_ECM_OD od
+			<if test="srchEntCode == 'TYGCK' and srchDateGbn == 'od.AR_DATE' and searchType != 'multi' and (srchNo == null or srchNo == '')">
+			WITH (INDEX(TB_ECM_OD_X02))
+			</if>
+			LEFT JOIN TB_ECM_OD_ADDITIONAL ad ON od.OD_JOB_NO = ad.OD_JOB_NO
+			LEFT JOIN TB_ECM_OD_ABNORMAL odAdnor ON od.OD_JOB_NO = odAdnor.OD_JOB_NO
+			<if test='srchHoldCode != null and srchHoldCode != ""'>
+			LEFT JOIN TB_ECM_OD_HOLD hld ON hld.OD_JOB_NO = od.OD_JOB_NO
+			</if>
+			<!-- parameter 추가시 SearchCoioList/SearchOrderList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.CoioMapper.selectCoioDetailListWhere"/>
+		
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<!-- parameter 추가시 SearchCoioList/SearchOrderList에 추가 -->
+	<sql id="selectCoioDetailListWhere">
+		WHERE od.ENT_CODE = #{srchEntCode}
+		<choose>
+			<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+			<when test='srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+			<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+			<when test='srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+		</choose>
+		<if test="srchDateGbn != null and srchDateGbn != ''">
+			AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat})
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+		<choose>
+		<when test='dynamicCryptographyYn == "Y"'>
+			<choose>
+			<when test='srchNoLikeYn == "Y"'>
+			AND dbo.Cryptography(od.OD_JOB_NO, od.${srchNoType}_ENC, 1) LIKE CONCAT('%',#{srchNo},'%')
+			</when>
+			<otherwise>
+			<choose>
+				<when test='searchType == "multi"'>
+				AND dbo.Cryptography(od.OD_JOB_NO, od.${srchNoType}_ENC, 1) IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<otherwise>
+				AND dbo.Cryptography(od.OD_JOB_NO, od.${srchNoType}_ENC, 1) = #{srchNo}
+				</otherwise>
+			</choose>
+			</otherwise>
+			</choose>
+		</when>
+		<otherwise>
+			<choose>
+			<when test='srchNoLikeYn == "Y"'>
+			AND od.${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+			</when>
+			<otherwise>
+			<choose>
+				<when test='searchType == "multi"'>
+				AND od.${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<otherwise>
+				AND od.${srchNoType} = #{srchNo}
+				</otherwise>
+			</choose>
+			</otherwise>
+			</choose>
+		</otherwise>
+		</choose>
+		</if>
+		<if test="srchCus != null and srchCus != ''">
+			<choose>
+			<when test='srchCusLikeYn == "Y"'>
+			AND od.${srchCusType} LIKE CONCAT('%',#{srchCus},'%')
+			</when>
+			<otherwise>
+			AND od.${srchCusType} = #{srchCus} 
+			</otherwise>
+			</choose> 
+		</if>
+		<if test="srchDeliveryCode != null and srchDeliveryCode != ''">
+			AND od.${srchCusType} = #{srchDeliveryCode} 
+		</if>
+		<if test="srchCbCode != null and srchCbCode != ''">
+			AND od.${srchCusType} = #{srchCbCode} 
+		</if>
+		<if test="srchOrigDest != null and srchOrigDest != ''">
+				<choose>
+			<when test='srchOrigDestLikeYn == "Y"'>
+			AND od.${srchOrigDestType} LIKE CONCAT('%',#{srchOrigDest},'%')
+			</when>
+			<otherwise>
+			AND od.${srchOrigDestType} = #{srchOrigDest} 
+			</otherwise>
+			</choose>
+		</if>									
+		<if test="srchVesselFlight != null and srchVesselFlight != ''">
+			AND od.VESSEL_FLIGHT = #{srchVesselFlight}
+		</if>	
+		<if test="srchCdTypeList != null and srchCdTypeList.size > 0">
+			AND (1 = 0
+			<foreach collection="srchCdTypeList" item="item">
+				<choose>
+				<when test='item == "Y" or item == "B" or item == "N"'>
+				OR od.CD_TYPE = #{item}
+				</when>
+				<otherwise>
+				OR od.CD_TYPE IN ('N', 'B') OR ad.DROP_YN = 'Y'
+				</otherwise>
+				</choose>
+			</foreach>
+			)
+		</if>		
+		<if test="srchClearanceYn != null and srchClearanceYn != ''">
+			<choose>
+				<when test='srchClearanceYn == "Y"'>
+				 AND ad.CLEARANCE_YN = 'Y'
+				</when>
+				<when test='srchClearanceYn == "V"'>
+				 AND ISNULL(od.CLEARANCE_VIOLATION_CODE, '') != '' 
+				</when>
+				<otherwise>
+				 AND ISNULL(ad.CLEARANCE_YN, '') IN('', 'N')
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchHoldCode != null and srchHoldCode != ''">
+		AND hld.HOLD_CODE = #{srchHoldCode}
+		</if>
+
+		<choose>
+		<when test='srchMultiStatusYn == "Y"'>
+			AND(1 = 0
+			<if test="srchInspectionYn != null and srchInspectionYn != ''">
+			OR od.INSPECTION_YN = #{srchInspectionYn}
+			</if>
+			<if test="srchSeInspectionYn != null and srchSeInspectionYn != ''">
+			OR ad.SE_INSPECTION_YN = #{srchSeInspectionYn}
+			</if>
+			<if test="srchXrayYn != null and srchXrayYn != ''">
+			OR ad.XRAY_YN = #{srchXrayYn}
+			</if>
+			<if test="srchDropYn != null and srchDropYn != ''">
+			OR ad.DROP_YN = #{srchDropYn}
+			</if>
+			)
+		</when>
+		<otherwise>
+			<if test="srchInspectionYn != null and srchInspectionYn != ''">
+				AND od.INSPECTION_YN = #{srchInspectionYn}
+			</if>
+			<if test="srchSeInspectionYn != null and srchSeInspectionYn != ''">
+				AND ad.SE_INSPECTION_YN = #{srchSeInspectionYn}
+			</if>
+			<if test="srchXrayYn != null and srchXrayYn != ''">
+				AND ad.XRAY_YN = #{srchXrayYn}
+			</if>
+			<if test="srchDropYn != null and srchDropYn != ''">
+				AND ad.DROP_YN = #{srchDropYn}
+			</if>
+		</otherwise>
+		</choose>
+		
+		
+		<if test="srchWhLocation != null and srchWhLocation != ''">
+		<choose>
+		<when test='srchWhLocation == "YES"'>
+			AND ISNULL(ad.WH_LOCATION, '') != ''
+		</when>
+		<otherwise>
+			AND ad.WH_LOCATION = #{srchWhLocation}
+		</otherwise>
+		</choose>
+		</if>	
+		<if test="srchCarryList != null and srchCarryList.size > 0">
+			AND(
+				<foreach collection="srchCarryList" item="item" separator=" OR ">
+					<choose>
+					<when test='item == "CARRYIN"'>ad.CARRYIN_DATE IS NOT NULL</when>
+					<when test='item == "NOTCARRYIN"'>ad.CARRYIN_DATE IS NULL</when>
+					<when test='item == "CARRYOUT"'>ad.CARRYOUT_DATE IS NOT NULL</when>
+					<when test='item == "NOTCARRYOUT"'>ad.CARRYOUT_DATE IS NULL</when>
+					<when test='item == "CARRYIN_NOTCARRYOUT"'>(ad.CARRYIN_DATE IS NOT NULL AND ad.CARRYOUT_DATE IS NULL)</when>
+					<when test='item == "WHCARRYOUT"'>ad.WH_CARRYOUT_DATE IS NOT NULL</when>
+					<when test='item == "NOTWHCARRYOUT"'>ad.WH_CARRYOUT_DATE IS NULL</when>
+					<when test='item == "STOCK"'>ad.STOCK_DATE_TIME IS NOT NULL</when>
+					</choose>
+				</foreach>
+			)
+		</if>
+		<if test="srchDeliveryStatus != null and srchDeliveryStatus != ''">
+		AND ad.DELIVERY_STATUS = #{srchDeliveryStatus}
+		</if>
+		
+		AND od.BL_TYPE_MH = 'H'
+	</sql>
+	
+	<select id="selectCoioSummaryList" parameterType="searchCoioList" resultType="coioSum">
+		/* CoioMapper.selectCoioSummaryList : 반입/반출(summury) 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT MAX(odAdd.CARRYIN_DATE) AS CARRYIN_DATE
+				 , MAX(od.MBL_NO) AS MBL_NO
+				 , MAX(od.ORIG_CODE) AS ORIG_CODE
+				 , MAX(od.DEST_CODE) AS DEST_CODE
+				 , MAX(od.CUST_CODE_LV1) AS AGENT_CODE
+				 , MAX(od.SHIPPER_NAME) AS SHIPPER_NAME
+				 , MAX(od.AR_DATE) AS AR_DATE
+				 , COUNT(od.HBL_NO) AS HBL_CNT
+				 , COUNT(CASE WHEN ISNULL(od.CD_TYPE, '') = 'Y' THEN 1 END) AS CD_TYPE_YY_CNT
+				 , COUNT(CASE WHEN ISNULL(od.CD_TYPE, '') = 'N' THEN 1 END) AS CD_TYPE_NN_CNT
+				 , COUNT(CASE WHEN ISNULL(od.CD_TYPE, '') = 'B' THEN 1 END) AS CD_TYPE_BB_CNT
+				 , COUNT(CASE ISNULL(od.INSPECTION_YN, '') WHEN 'Y' THEN 1 END) AS INSPECTION_CNT
+				 , COUNT(CASE ISNULL(odAdd.SE_INSPECTION_YN, '') WHEN 'Y' THEN 1 END) AS SE_INSPECTION_CNT
+				 , COUNT(CASE ISNULL(odAdd.XRAY_YN, '') WHEN 'Y' THEN 1 END) AS XRAY_CNT
+				 , COUNT(CASE ISNULL(odAdd.DROP_YN, '') WHEN 'Y' THEN 1 END) AS DROP_CNT
+				 <!-- , COUNT(CASE WHEN ISNULL(od.HOLD_CODE, '') != '' THEN 1 END) AS HOLD_CNT -->
+				 , (SELECT COUNT(*) 
+				    FROM (
+					 	SELECT hod.OD_JOB_NO 
+					 	FROM TB_ECM_OD hod 
+					 	LEFT JOIN TB_ECM_OD_HOLD hld 
+					 		ON hod.OD_JOB_NO = hld.OD_JOB_NO
+					 	WHERE hod.MASTER_OD_JOB_NO = od.MASTER_OD_JOB_NO 
+					 	AND hod.BL_TYPE_MH = MIN(od.BL_TYPE_MH) 
+					 	AND hld.HOLD_RELEASE_YN = 'N' 
+					 	GROUP BY hod.OD_JOB_NO 
+				 	) A ) AS HOLD_CNT
+				 , COUNT(CASE WHEN ISNULL(odAdnor.ABNORMAL_CODE, '') != '' THEN 1 END) AS MFN_CNT <!-- 무적 -->
+				 , COUNT(CASE WHEN ISNULL(odAdd.CARRYIN_DATE, '') != '' THEN 1 END) AS CARRYIN_CNT
+				 , COUNT(CASE WHEN ISNULL(odAdd.CARRYOUT_DATE, '') != '' THEN 1 END) AS CARRYOUT_CNT
+				 , COUNT(CASE ISNULL(odAdd.CLEARANCE_YN, '') WHEN 'Y' THEN 1 END) AS CLEARANCE_CNT
+<!-- 				 , COUNT(CASE WHEN ISNULL(od.CLEARANCE_VIOLATION_CODE, '') != '' THEN 1 END) AS CLEARANCE_VIOLATION_CNT -->
+				 , COUNT(CASE WHEN ISNULL(odAdd.CLEARANCE_YN, '') != 'Y' THEN 1 END) AS BEFORE_CLEARANCE_CNT
+				 , COUNT(CASE WHEN ISNULL(odAdd.DELIVERY_RECV_DATE, '') != '' THEN 1 END) AS DELIVERY_RECV_CNT
+				 , COUNT(CASE WHEN ISNULL(odAdd.DELIVERY_YN, '') = 'Y' THEN 1 END) AS DELIVERY_CNT
+				 , COUNT(CASE WHEN ISNULL(odAdd.STOCK_YN, '') = 'Y' THEN 1 END) AS STOCK_CNT
+				 , COUNT(CASE WHEN odAdd.DROP_YN = 'Y' OR odAdd.ABNORMAL_DATE IS NOT NULL THEN 1 END) AS UNUSUAL_CNT
+				 , COUNT(CASE WHEN ISNULL(odAdd.WH_CARRYOUT_DATE,'') = '' THEN 1 END) AS NO_RELEASE_CNT
+				 , COUNT(od.HBL_NO) - COUNT(CASE WHEN ISNULL(odAdd.CARRYIN_DATE, '') != '' THEN 1 END) AS NO_CARRYIN_CNT
+			FROM TB_ECM_OD od	
+			LEFT JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+			LEFT JOIN TB_ECM_OD_ABNORMAL odAdnor ON od.OD_JOB_NO = odAdnor.OD_JOB_NO AND odAdnor.ABNORMAL_CODE = 'MFN'
+			WHERE od.ENT_CODE = #{srchEntCode}
+			AND od.BL_TYPE_MH = 'H'
+			<choose>
+				<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+				<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+			</choose>
+			<if test="srchDateGbn != null and srchDateGbn != ''">
+				AND od.${srchDateGbn} >= CONVERT(DATETIME, #{srchStartDate} + ' 00:00:00')
+				AND od.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}))
+			</if>
+			<if test="srchNo != null and srchNo != ''">
+				<choose>
+				<when test='srchNoLikeYn == "Y"'>
+				AND od.${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+				</when>
+				<otherwise>
+				<choose>
+					<when test='searchType == "multi"'>
+					AND od.${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<otherwise>
+					AND od.${srchNoType} = #{srchNo}
+					</otherwise>
+				</choose>
+				</otherwise>
+				</choose>
+			</if>		
+			<if test="srchCus != null and srchCus != ''">
+ 				<choose>
+				<when test='srchCusLikeYn == "Y"'>
+				AND od.${srchCusType} LIKE CONCAT('%',#{srchCus},'%')
+				</when>
+				<otherwise>
+					AND od.${srchCusType} = #{srchCus} 
+				</otherwise>
+				</choose> 
+			</if>	
+			<if test="srchConsigneeName != null and srchConsigneeName != '' and srchCusType != 'CUST_CODE_LV1'">
+ 				<choose>
+				<when test='dynamicCryptographyYn == "Y"'>
+				AND dbo.Cryptography(od.OD_JOB_NO, od.${srchCusType}_ENC, 1) = #{srchConsigneeName} 
+				</when>
+				<otherwise>
+				AND od.${srchCusType} = #{srchConsigneeName} 
+				</otherwise>
+				</choose>
+			</if>		
+			<if test="srchOrigDest != null and srchOrigDest != ''">
+ 				<choose>
+				<when test='srchOrigDestLikeYn == "Y"'>
+				AND od.${srchOrigDestType} LIKE CONCAT('%',#{srchOrigDest},'%')
+				</when>
+				<otherwise>
+				AND od.${srchOrigDestType} = #{srchOrigDest} 
+				</otherwise>
+				</choose> 
+			</if>			
+		
+			GROUP BY od.MASTER_OD_JOB_NO	
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>	
+
+	<select id="selectCoioLocationList" parameterType="searchCoioList" resultType="coioLoc">
+		/* CoioMapper.selectCoioLocationList : 반입/반출(location) 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT MAX(ISNULL(odAdd.WH_LOCATION,'')) AS WH_LOCATION
+				 , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = MAX(od.ENT_CODE) AND GROUP_CODE = 'WH_LOCATION' AND CODE = MAX(ISNULL(odAdd.WH_LOCATION,''))) AS WH_LOCATION_NAME
+				 , MAX(ISNULL(od.CUST_CODE_LV1, '')) AS AGENT_CODE
+				 , COUNT(ISNULL(od.HBL_NO, 0)) AS HBL_CNT
+				 , SUM(od.PIECES) AS PIECES
+				 , SUM(od.GWT) AS GWT
+				 , MAX(ISNULL(od.AR_DATE, '')) AS AR_DATE
+
+			FROM TB_ECM_OD od	
+				 INNER JOIN TB_ECM_OD_ADDITIONAL odAdd
+				 			ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+			WHERE od.ENT_CODE = #{srchEntCode}
+			AND od.BL_TYPE_MH = 'H'
+			AND ISNULL(odAdd.WH_LOCATION, '') != ''
+			<choose>
+				<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+				<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+			</choose>
+			<if test="srchDateGbn != null and srchDateGbn != ''">
+				AND od.${srchDateGbn} >= CONVERT(DATETIME, #{srchStartDate} + ' 00:00:00')
+				AND od.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}))
+			</if>
+			
+			<if test="srchNo != null and srchNo != ''">
+				<choose>
+					<when test='searchType == "multi"'>
+					AND od.${srchType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<otherwise>
+					AND od.${srchType} = #{srchNo}
+					</otherwise>
+				</choose>
+			</if>		
+			<if test="srchCustCodeLv1 != null and srchCustCodeLv1 != '' and srchType == 'CUST_CODE_LV1'">
+ 				AND od.${srchType} = #{srchCustCodeLv1}
+			</if>				
+			<if test="srchConsigneeName != null and srchConsigneeName != '' and (srchType == 'CONSIGNEE_NAME_LOC' or srchType == 'CONSIGNEE_NAME')">
+ 				AND od.${srchType} = #{srchConsigneeName}
+			</if>		
+			<if test="srchWhLocation != null and srchWhLocation != ''">
+				AND odAdd.WH_LOCATION = #{srchWhLocation}
+			</if>						
+			<!-- AND odAdd.CARRYOUT_STATUS != 'F' -->
+			GROUP BY odAdd.WH_LOCATION, od.CUST_CODE_LV1		
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	
+	<select id="selectCoioLocationSubList" parameterType="searchCoioList" resultType="coiolocSub">
+		/* CoioMapper.selectCoioLocationSubList : 반입/반출(location) sub 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT od.HBL_NO
+				 , od.AR_DATE
+				 , odAdd.CARRYIN_DATE 
+				 , odAdd.CARRYOUT_DATE 
+				 , (
+				 	SELECT TOP 1 A.POD_DATE FROM(
+					 	SELECT POD_DATE FROM TB_ECM_POD WHERE POD_STATUS  = 'ECM240' AND OD_JOB_NO = od.OD_JOB_NO
+					 	UNION ALL
+					 	SELECT POD_DATE FROM TB_ECM_POD_03 WHERE POD_STATUS  = 'ECM240' AND OD_JOB_NO = od.OD_JOB_NO
+				 	) A
+				   ) AS CLEARANCE_FINISH_DATE			 
+				 , od.CONSIGNEE_NAME_LOC
+				 , od.MRN
+				 , ISNULL(od.PIECES, 0) AS PIECES
+				 , ISNULL(od.GWT, 0) AS GWT
+				 , ISNULL(od.CD_TYPE, '') AS CD_TYPE
+				 , CONVERT(CHAR(19),odAdd.STOCK_DATE_TIME,20) as STOCK_DATE_TIME
+				 , (SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = od.ENT_CODE AND USER_ID = odAdd.STOCK_USER_ID) AS STOCK_USER_ID
+				 , (SELECT TOP 1 MIN(HOLD_RELEASE_YN) OVER(PARTITION BY OD_JOB_NO) FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO) AS HOLD_RELEASE_YN
+				 , CASE WHEN ISNULL((SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N'), '') IN ('', '4') 
+				 	  THEN (SELECT TOP 1 HOLD_REASON FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N')
+				 	  ELSE (SELECT NAME_${userLanguage} 
+							FROM TB_SMS_CODE_DETAIL 
+							WHERE ENT_CODE = od.ENT_CODE 
+							AND GROUP_CODE = 'HOLD_CODE' 
+							AND CODE = (SELECT TOP 1 HOLD_CODE FROM TB_ECM_OD_HOLD WHERE OD_JOB_NO = od.OD_JOB_NO AND HOLD_RELEASE_YN = 'N'))
+					  END AS HOLD_REASON
+				 , ISNULL(od.COMMODITY_ITEM, '') AS COMMODITY_ITEM
+				 , od.ORIG_CODE
+				 , ISNULL(od.CUST_CODE_LV1, '') AS AGENT_CODE
+				 , od.CUST_CODE_LV2
+				 , od.SHIPPER_NAME		
+				 , od.REGISTER_USER_ID
+				 , od.REGISTER_DATE_TIME
+				 , od.UPDATE_USER_ID
+				 , od.UPDATE_DATE_TIME
+	 			 , ISNULL(odAdd.WH_LOCATION,'') AS WH_LOCATION
+	 			 , (SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'WH_LOCATION' AND CODE = odAdd.WH_LOCATION) AS WH_LOCATION_NAME
+				 
+				 , odAdd.LAST_POD_STATUS
+				 ,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = od.DELIVERY_CODE) AS DELIVERY_NAME
+				 ,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = od.ENT_CODE AND CUSTOMER_CODE = od.CB_CODE) AS CB_NAME
+				
+				 , od.MBL_NO
+				 , od.PO_DATE
+				 
+				 , od.OD_JOB_NO
+				<choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS CONSIGNEE_HP
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+				</when>
+				<otherwise>
+				,od.CONSIGNEE_HP
+				,od.CONSIGNEE_TEL
+				</otherwise>
+				</choose>
+			FROM TB_ECM_OD od
+			LEFT JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+			WHERE od.ENT_CODE = #{srchEntCode}
+			AND odAdd.WH_CARRYOUT_DATE IS NULL
+			AND odAdd.CARRYOUT_USER_ID IS NULL
+			<choose>
+				<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "AO"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'EXP'</when>
+				<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "SO"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'EXP'</when>
+			</choose>
+			<if test="srchDateGbn != null and srchDateGbn != ''">
+				AND od.${srchDateGbn} >= CONVERT(DATETIME, #{srchStartDate} + ' 00:00:00')
+				AND od.${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}))
+			</if>
+			<choose>
+			<when test="srchCus != null and srchCus != ''">
+ 				<choose>
+				<when test='srchCusLikeYn == "Y"'>
+				AND od.${srchCusType} LIKE CONCAT('%',#{srchCus},'%')
+				</when>
+				<otherwise>
+				AND od.${srchCusType} = #{srchCus} 
+				</otherwise>
+				</choose>
+			</when>
+			<otherwise>
+				AND od.${srchCusType} IS NULL
+			</otherwise>	
+			</choose>	
+			<if test="srchWhLocation != null and srchWhLocation != ''">
+				AND odAdd.WH_LOCATION = #{srchWhLocation}
+			</if>			
+			<if test="srchNo != null and srchNo != ''">
+				<choose>
+					<when test='searchType == "multi"'>
+					AND od.${srchType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<otherwise>
+					AND od.${srchType} = #{srchNo}
+					</otherwise>
+				</choose>
+			</if>		
+			<if test="srchCustCodeLv1 != null and srchCustCodeLv1 != '' and srchType == 'CUST_CODE_LV1'">
+ 				AND od.${srchType} = #{srchCustCodeLv1}
+			</if>				
+			<if test="srchConsigneeName != null and srchConsigneeName != '' and (srchType == 'CONSIGNEE_NAME_LOC' or srchType == 'CONSIGNEE_NAME')">
+ 				AND od.${srchType} = #{srchConsigneeName}
+			</if>							
+			<!-- AND odAdd.CARRYOUT_STATUS != 'F'			 -->							
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+		
+	</select>	
+
+
+</mapper>

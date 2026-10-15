@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        
+<mapper namespace="org.yht.exps.express.mapper.pda.BmsMobPasmMapper">
+
+	<select id="selectTakeOutSample" parameterType="HashMap" resultType="java.util.HashMap">
+		/* BmsMobPasmMapper.selectTakeOutSample : 견품반출 - 박스 번호 조회 */
+		SELECT
+			'WORK' AS DATA ,
+			P.PACKING_NO,
+			P.SAMPLE_OUT_CT,
+			I.BL_NO,
+			S.CARGO_REFERENCE_NO,
+			S.PERMISSION_NO,
+			S.SAMPLE_EMPLOYEE_NAME,
+			S.COMMODITY_ITEM_LOC,
+			S.SAMPLE_PIECES,
+			S.OD_JOB_NO,
+			S.RETURN_DATE,
+			S.CARRYOUT_TIME
+		FROM
+			TB_BMS_SAMPLE S
+			INNER JOIN TB_BMS_IN I WITH (NOLOCK) ON S.IN_NO = I.IN_NO AND I.IN_PLAN_NO > 0
+			INNER JOIN TB_BMS_IN_PLAN_PKG P WITH (NOLOCK) ON I.IN_PLAN_NO = P.IN_PLAN_NO
+		WHERE
+			P.PACKING_NO = #{srchNo}
+	</select>
+
+	<update id="updateSampleInOutCt" parameterType="HashMap">
+		/* BmsMobPasmMapper.updateSampleInOutCt : 견품반출 저장 - TB_BMS_IN_PLAN_PKG Update */
+		UPDATE 
+			TB_BMS_IN_PLAN_PKG 
+		SET
+			<choose>
+				<when test="isInCtMode != null and isInCtMode != ''">
+					SAMPLE_IN_CT = 1
+				</when>
+				<otherwise>
+					SAMPLE_OUT_CT = 1
+				</otherwise>
+			</choose>
+		WHERE 
+			PACKING_NO = #{srchNo}
+	</update>
+
+	<update id="updateSampleData" parameterType="HashMap">
+		/* BmsMobPasmMapper.updateSampleData : 견품반출 저장 - TB_BMS_SAMPLE Update */
+		UPDATE 
+			TB_BMS_SAMPLE 
+		SET
+			<choose>
+				<when test="isInCtMode != null and isInCtMode != ''">
+					RETURN_DATE = CONVERT(CHAR(10), GETDATE(), 23),
+					RETURN_TIME = CONVERT(CHAR(8), GETDATE(), 8),
+					SEND_IF_YN = 'N',
+				</when>
+				<otherwise>
+					CARRYOUT_DATE = CONVERT(CHAR(10), GETDATE(), 23),
+					CARRYOUT_TIME = CONVERT(CHAR(8), GETDATE(), 8),
+				</otherwise>
+			</choose>
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = GETDATE()
+			<if test="isInCtMode != null and isInCtMode != ''">
+				, RETURN_REMARKS = #{returnRemarks}
+			</if>
+		WHERE 
+			BL_NO = #{blNo}
+	</update>
+
+	<select id="selectSampleTakingOutList" parameterType="HashMap" resultType="java.util.HashMap">
+		/* BmsMobPasmMapper.selectSampleTakingOutList : 견품반출 후 입고 박스 번호 조회 */
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+		SELECT
+			P.PACKING_NO,
+			P.SAMPLE_IN_CT,
+			I.BL_NO,
+			S.SAMPLE_NO,
+			S.CARGO_REFERENCE_NO,
+			S.PERMISSION_NO,
+			S.SAMPLE_EMPLOYEE_NAME,
+			S.COMMODITY_ITEM_LOC,
+			S.OD_JOB_NO,
+			ISNULL(tscd.CODE, '') AS RETURN_REMARKS
+		FROM
+			TB_BMS_SAMPLE S
+		INNER JOIN TB_BMS_IN I WITH (NOLOCK) ON S.IN_NO = I.IN_NO
+		INNER JOIN TB_BMS_IN_PLAN_PKG P WITH (NOLOCK) ON I.IN_PLAN_NO = P.IN_PLAN_NO AND I.IN_PLAN_NO > 0
+		LEFT JOIN TB_SMS_CODE_DETAIL tscd ON tscd.ENT_CODE = #{entCode} AND tscd.GROUP_CODE = 'SAMPLE_RESULT' AND tscd.NAME_${userLanguage} = S.RETURN_REMARKS
+		WHERE
+			P.SAMPLE_OUT_CT = 1
+			AND P.SAMPLE_IN_CT != 1
+			<if test="srchNo != null and srchNo != ''">
+				AND PACKING_NO = #{srchNo}
+			</if>
+		ORDER BY S.SAMPLE_NO
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+
+	<select id="selectScanLogInfo" parameterType="HashMap" resultType="HashMap">
+		/* BmsMobPasmMapper.selectScanLogInfo : 견품반출 스캔 로그 조회 */
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+			SELECT 
+				SCAN_NO
+				, BL_NO
+				, SCAN_DATE
+				, SCAN_RESULT
+				, INOUT_STATUS
+				, REGISTER_USER_ID
+				, ISNULL((SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = tbss.REGISTER_USER_ID),'') AS REGISTER_USER_NAME
+				, REGISTER_DATE_TIME
+			FROM 
+				TB_BMS_SAMPLE_SCAN tbss
+			WHERE 
+				SCAN_DATE BETWEEN CONVERT(VARCHAR(10), ISNULL(#{srchScanDate},''), 120) AND CONVERT(VARCHAR(10), GETDATE(), 120)
+				<if test="inOutStatus != null and inOutStatus != ''">
+					AND INOUT_STATUS = #{inOutStatus}
+				</if>
+			ORDER BY REGISTER_DATE_TIME DESC
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+
+	<insert id="insertSampleScanLog" parameterType="bmsBigSizeScan">
+		/* BmsMobPasmMapper."insertSampleScanLog" : 견품반출 스캔 로그 저장 */
+		INSERT INTO TB_BMS_SAMPLE_SCAN (
+			  INOUT_STATUS
+			, SCAN_NO
+			, BL_NO
+			, SCAN_DATE
+			, SCAN_RESULT
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+		)
+		VALUES(
+			  #{inOutStatus}
+			, #{packingNo}
+			, #{blNo}
+			, CONVERT(VARCHAR(10),GETDATE(),120)
+			, #{scanResult}
+			, #{registerUserId}
+			, GETDATE()
+		)
+	</insert>
+</mapper>

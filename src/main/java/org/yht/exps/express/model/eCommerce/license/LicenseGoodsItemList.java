@@ -1,0 +1,24 @@
+package org.yht.exps.express.model.eCommerce.license;
+
+import java.util.List;
+
+import org.apache.ibatis.type.Alias;
+import org.yht.util.CustomErrorType;
+
+import io.swagger.annotations.ApiModel;
+import io.swagger.annotations.ApiModelProperty;
+import lombok.Data;
+
+@Data
+@ApiModel(value = "LicenseGoodsItemList", description = "전자상거래 면장 란 리스트")
+@Alias("licenseGoodsItemList")
+public class LicenseGoodsItemList {
+	@ApiModelProperty(value="리스트 개수")
+	private long total;
+	@ApiModelProperty(value="리스트")
+	private List<LicenseGoodsItem> licenseGoodsItemList;
+	@ApiModelProperty(value="에러 타입")
+	private CustomErrorType errorType;
+	@ApiModelProperty(value="스크롤 ID, 페이징 기능 사용 안할 시 필요함")
+	private String scrollId;
+}

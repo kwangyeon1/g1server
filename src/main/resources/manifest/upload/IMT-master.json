@@ -1,0 +1,38 @@
+[
+	{
+		"size": 11,
+		"func": "setMrn"
+	},
+	{
+		"size": 7,
+		"func": "setFlightNo"
+	},
+	{
+		"size": 8,
+		"func": "setDateArrive"
+	},
+	{
+		"size": 10,
+		"func": "setMarksRegist"
+	},
+	{
+		"size": 25,
+		"func": "setOwnerOperator"
+	},
+	{
+		"size": 4,
+		"func": "setMawbNo"
+	},
+	{
+		"size": 4,
+		"func": "setMawbCnslNo"
+	},
+	{
+		"size": 17,
+		"func": "setGrossWeight"
+	},
+	{
+		"size": 10,
+		"func": "setGrossPieces"
+	}
+]

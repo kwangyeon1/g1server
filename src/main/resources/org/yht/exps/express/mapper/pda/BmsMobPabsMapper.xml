@@ -1,0 +1,444 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        
+<mapper namespace="org.yht.exps.express.mapper.pda.BmsMobPabsMapper">
+
+	<select id="selectPkgNoInfo" parameterType="SearchBmsPkgNoList" resultType="inPlanPkg">
+		/* BmsMobPabsMapper.selectPkgNoInfo : 거대화물지정취소 - 박스번호조회 */
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+		SELECT TOP 1 
+			   P.BL_NO
+			 , P.CARGO_REFERENCE_NO
+			 , PP.PACKING_NO
+			 , P.EX_CT
+			 , P.EX_WT
+			 , P.IN_YN
+			 , P.BIG_SIZE_YN
+			 , PP.IN_CT
+			 , P.IN_PLAN_NO
+			 , P.OD_JOB_NO
+			 , ISNULL((SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = P.INSPECTION_TYPE AND ENT_CODE = #{srchEntCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y' AND ETC1='Y'), '') AS INSPECTION_TYPE
+		FROM TB_BMS_IN_PLAN_PKG PP WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		WHERE PP.PACKING_NO = #{srchNo}
+		<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+		AND P.BL_NO = #{srchBlNo}
+		</if>
+		AND PP.DELETE_YN = 'N'
+		
+		ORDER BY  PP.IN_PLAN_NO
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+	
+	<select id="selectOneInPlanPkg" parameterType="HashMap" resultType="inPlanPkg">
+		/* BmsMobPabsMapper.selectOneInPlanPkg : 박스번호조회 */
+		SELECT TOP 1
+			   _inPlan.BL_NO
+			 , _inPlan.CARGO_REFERENCE_NO
+			 , _pkg.PACKING_NO
+			 , _inPlan.EX_CT
+			 , _inPlan.EX_WT
+			 , _inPlan.IN_YN
+			 , _inPlan.BIG_SIZE_YN
+			 , _pkg.IN_CT
+			 , _inPlan.IN_PLAN_NO
+			 , _inPlan.OD_JOB_NO
+			 , (SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE CODE = _inPlan.INSPECTION_TYPE AND ENT_CODE = #{entCode} AND GROUP_CODE='INSPECTION_TYPE' AND USE_YN='Y' AND ETC1='Y') AS INSPECTION_TYPE
+			 , (SELECT SUM(IN_CT) FROM TB_BMS_IN_PLAN_PKG WITH (NOLOCK) WHERE IN_PLAN_NO = _pkg.IN_PLAN_NO GROUP BY IN_PLAN_NO) AS IN_CT_SUM
+			 , _in.LAST_POD_STATUS
+			 , _in.IN_NO
+		FROM TB_BMS_IN_PLAN_PKG _pkg WITH (NOLOCK)
+		INNER JOIN TB_BMS_IN_PLAN _inPlan WITH (NOLOCK)
+			ON _pkg.IN_PLAN_NO = _inPlan.IN_PLAN_NO
+		LEFT JOIN TB_BMS_IN _in WITH (NOLOCK)
+			ON _in.IN_PLAN_NO = _inPlan.IN_PLAN_NO
+		WHERE _pkg.DELETE_YN = 'N'
+			AND _pkg.PACKING_NO = #{srchNo}
+			<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+			AND _pkg.IN_PLAN_NO = #{srchInPlanNo}
+			</if>
+			<if test="srchBlNo != null and srchBlNo != ''">
+			AND _inPlan.BL_NO = #{srchBlNo}
+			</if>
+	</select>
+	
+	<select id="selectCountBigSizeYnFromScanLog" parameterType="HashMap" resultType="Integer">
+		/* BmsMobPabsMapper.selectScanLogInfo : 스캔로그를 근거로 이미 거대지정/지정취소 여부 체크 */
+		SELECT COUNT(*) FROM TB_BMS_BIG_SIZE_SCAN
+		 WHERE BIG_SIZE_YN_INPUT = #{srchBigSizeYnInput}
+		   AND SCAN_RESULT = #{srchScanResult}
+		   AND SCAN_NO = #{srchNo}
+		   AND BL_NO = #{srchBlNo}
+		   AND BL_NO = (SELECT BL_NO FROM TB_BMS_IN_PLAN IP WITH (NOLOCK) WHERE IP.BIG_SIZE_YN = 'N' AND IP.IN_PLAN_NO = #{srchInPlanNo})
+	</select>
+	
+	<select id="selectScanLogInfo" parameterType="SearchMobBigSizeScan" resultType="bmsBigSizeScan">
+		/* BmsMobPabsMapper.selectScanLogInfo : 거대화물스캔로그 조회 */
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+			SELECT SCAN_NO
+				 , BL_NO
+				 , SCAN_DATE
+				 , SCAN_RESULT
+				 , BIG_SIZE_YN_INPUT
+				 , REGISTER_USER_ID
+				 , ISNULL((SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = tbbss.REGISTER_USER_ID),'') AS REGISTER_USER_NAME
+				 , REGISTER_DATE_TIME
+			FROM TB_BMS_BIG_SIZE_SCAN tbbss
+			WHERE BIG_SIZE_YN_INPUT = #{srchBigSizeYnInput}
+			AND SCAN_DATE = #{srchScanDate}
+			ORDER BY REGISTER_DATE_TIME DESC
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+	
+	<select id="selectCountBmsInByInPlan" parameterType="HashMap" resultType="Integer">
+		/* BmsMobPabsMapper.selectCountBmsInByInPlan : 반입예정번호로 반입있는지 체크 */
+		SELECT count(*) FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE IN_PLAN_NO = #{inPlanNo}
+	</select>
+	
+	<insert id="insertBigSizeScanLog" parameterType="bmsBigSizeScan">
+		/* BmsMobPabsMapper.insertBigSizeScanLog : 거대화물스캔로그 저장 */
+		INSERT INTO TB_BMS_BIG_SIZE_SCAN (
+			  SCAN_NO
+			, BL_NO
+			, SCAN_DATE
+			, SCAN_RESULT
+			, BIG_SIZE_YN_INPUT
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+		)
+		VALUES(
+			  #{packingNo}
+			, #{blNo}
+			, CONVERT(VARCHAR(10),GETDATE(),120)
+			, #{scanResult}
+			, #{bigSizeYnInput}
+			, #{registerUserId}
+			, GETDATE()
+		)
+	</insert>
+	
+	<insert id="batchInsertBmsInFromInPlan" parameterType="HashMap" useGeneratedKeys="true" keyProperty="inNo">
+ 		/* BmsMobPabsMapper.batchInsertBmsInFromInPlan : 반입생성 (반입 데이터 등록) */
+ 		INSERT INTO TB_BMS_IN (
+			   CUSTOMS_REPORT_NO
+			 , LAST_POD_DATE
+			 , LAST_POD_STATUS
+			 , LAST_POD_5TL_STATUS
+			 , LAST_POD_RAQ_DATE
+			 , LAST_POD_R48_DATE
+			 , IN_CLASS
+			 , IN_APPROVAL_NO
+			 , TRANS_PERIOD_DATE
+			 , OD_JOB_NO
+			 , IN_PLAN_NO
+			 , CARGO_REFERENCE_NO
+			 , BL_NO
+			 , MBL_NO
+			 , CUSTOMS_CODE
+			 , CUSTOMS_DPT_CODE
+			 , INSPECT_YN
+			 , NOTICE_INSPECT_YN
+			 , LOCATION_PLACE
+			 , IMPORT_EXPORT_CLASS
+			 , VESSEL_FLIGHT
+			 , VOYAGE
+			 , AR_DATE
+			 , AR_TIME
+			 , COMMODITY_ITEM_LOC
+			 , SHIPPER_CODE
+			 , SHIPPER_NAME
+			 , SHIPPER_ADDRESS_1
+			 , SHIPPER_ADDRESS_2
+			 , CONSIGNEE_CODE
+			 , CONSIGNEE_NAME
+			 , CONSIGNEE_ADDRESS_1
+			 , CONSIGNEE_ADDRESS_2
+			 , CONSIGNEE_BUSINESS_ID
+			 , CONSIGNEE_TEL
+			 , NOTIFY_CODE
+			 , NOTIFY_NAME
+			 , NOTIFY_ADDRESS_1
+			 , NOTIFY_ADDRESS_2
+			 , NOTIFY_TEL
+			 , SPECIAL_CODE_1
+			 , SPECIAL_CODE_2
+			 , SPECIAL_CODE_3
+			 , CARRIER_CODE
+			 , CNTR_NO
+			 , ORIG_COUNTRY
+			 , SE_INSPECTION_CODE
+			 , SIMPLE_AUTH_NAME
+			 , INSPECTION_TYPE
+			 , INSPECTION_TYPE_A
+			 , INSPECTION_TYPE_B
+			 , XRAY_INSPECTION_CODE
+			 , XRAY_LINE_NO
+			 , XRAY_CHECK
+			 , PALN5EM_INSPECTION_CODE
+			 , CD_TYPE
+			 , ECM_TYPE
+			 , CD_USE_TYPE
+			 , BIG_SIZE_YN
+			 , AMOUNT_USD
+			 , XRAY_SCAN_CT
+			 , XRAY_IMAGE_CT
+			 , CARRYIN_DATE
+			 , CARRYIN_TIME
+			 , OUT_NOTICE_DATE
+			 , PERIOD_OVER_DATE
+			 , CUSTOMER_CODE
+			 , CUSTOMER_NAME
+			 , FWD_CODE
+			 , FWD_NAME
+			 , PKG_TYPE
+			 , EX_CT
+			 , EX_WT
+			 , EX_CBM
+			 , CT
+			 , WT
+			 , CBM
+			 , ACCIDENT_CLASS
+			 , ACCIDENT_CT
+			 , ACCIDENT_WT
+			 , ACCIDENT_CBM
+			 , STOCK_CT
+			 , STOCK_WT
+			 , STOCK_CBM
+			 , CARRYOUT_DATE
+			 , CARRYOUT_TIME
+			 , REMARKS_1
+			 , REMARKS_2
+			 , REMARKS_3
+			 , REFERENCE_NO
+			 , MGN_ISSUE_YN
+			 , REGISTER_USER_ID
+			 , REGISTER_DATE_TIME
+			 , UPDATE_USER_ID
+			 , UPDATE_DATE_TIME
+			 , DELIVERY_CODE
+			 , DELIVERY_NAME
+			 , DISPOSAL_YN
+			 , SHIPPER_TEL
+			 , CRIME_SELECTION_YN
+			 , INTELLECTUAL_PROP_YN
+			 , INSPECTION_CUSTOMS_YN
+		) SELECT
+			   #{customsReportNo} AS CUSTOMS_REPORT_NO										/* 반입신고번호 */
+			 , '' AS LAST_POD_DATE															/* 신고일자 */
+			 , 'BMS01' AS LAST_POD_STATUS													/* 신고상태 */
+			 , '' AS LAST_POD_5TL_STATUS													/* 속성신고상태 */
+			 , '' AS LAST_POD_RAQ_DATE										 				/* 접수일시 */
+			 , '' AS LAST_POD_R48_DATE														/* 5TL접수일시 */
+			 , CASE WHEN LEN(IN_APPROVAL_NO) <![CDATA[>=]]> 20 THEN '20' ELSE '10' END AS IN_CLASS /* 반입구분*/
+			 , B.IN_APPROVAL_NO																/* 반입근거번호 */
+			 , B.TRANS_PERIOD_DATE															/* 운송기한 */
+			 , B.OD_JOB_NO																	/* 오더관리번호 */
+			 , B.IN_PLAN_NO																	/* 반입예정번호 */
+			 , B.CARGO_REFERENCE_NO															/* 화물관리번호 */
+			 , B.BL_NO																		/* BL번호 */
+			 , B.MBL_NO 																	/* MBL번호 */
+			 , B.CUSTOMS_CODE 																/* 세관코드 */
+			 , B.CUSTOMS_DPT_CODE 															/* 세관과 */
+			 , B.INSPECT_YN 																/* 검사대상여부 */
+			 , B.NOTICE_INSPECT_YN 															/* 반입후검사사전통보대상여부 */
+			 , (SELECT ISNULL(SET_VALUE, DEFAULT_VALUE) FROM TB_SMS_ENT_BUS_OPTION WHERE ENT_CODE = #{entCode} AND ENT_BUSINESS_CODE = #{entBusinessCode} AND SOLUTION = #{solution} AND OPTION_CODE = #{optionCodeForLocation}) AS LOCATION_PLACE /* 장치위치 */
+			 , CASE WHEN ISNUMERIC(SUBSTRING(VESSEL_FLIGHT, 3, 1)) = 1 THEN '3' ELSE '1' END AS IMPORT_EXPORT_CLASS /* 수출입구분AIRSEA구분 */
+			 , B.VESSEL_FLIGHT																/* 선기명 */
+			 , B.VOYAGE																		/* 항차 */
+			 , B.AR_DATE																	/* 입항일자 */
+			 , B.AR_TIME																	/* 입항시간 */
+			 , B.COMMODITY_ITEM_LOC															/* 영문품명 */
+			 , B.SHIPPER_CODE																/* 송하인코드 */
+			 , B.SHIPPER_NAME																/* 송하인상호 */
+			 , B.SHIPPER_ADDRESS_1															/* 송하인기본주소 */
+			 , B.SHIPPER_ADDRESS_2															/* 송하인상세주소 */
+			 , B.CONSIGNEE_CODE																/* 수하인코드 */
+			 , B.CONSIGNEE_NAME																/* 수하인상호 */
+			 , B.CONSIGNEE_ADDRESS_1														/* 수하인기본주소 */
+			 , B.CONSIGNEE_ADDRESS_2														/* 수하인상세주소 */
+			 , B.CONSIGNEE_BUSINESS_ID														/* 수하인사업자 */
+			 , B.CONSIGNEE_TEL																/* 수하인전화번호 */
+			 , B.NOTIFY_CODE																/* 통지처코드 */
+			 , B.NOTIFY_NAME																/* 통지처상호 */
+			 , B.NOTIFY_ADDRESS_1															/* 통지처기본주소 */
+			 , B.NOTIFY_ADDRESS_2															/* 통지처상세주소 */
+			 , B.NOTIFY_TEL																	/* 통지처전화번호 */
+			 , B.SPECIAL_CODE_1																/* 특수화물코드1 */
+			 , B.SPECIAL_CODE_2																/* 특수화물코드2 */
+			 , B.SPECIAL_CODE_3																/* 특수화물코드3 */
+			 , B.CARRIER_CODE																/* 선사코드 */
+			 , B.CNTR_NO  																	/* 컨테이너번호 */
+			 , B.ORIG_COUNTRY																/* 발송국가 */
+			 , B.SE_INSPECTION_CODE															/* 선별결과코드 */
+			 , B.SIMPLE_AUTH_NAME															/* 목록신고_결과통보_세관담당자명 */
+			 , B.INSPECTION_TYPE  															/* 검역구분코드 */
+			 , B.INSPECTION_TYPE_A  														/* 검역구분코드2 */
+			 , B.INSPECTION_TYPE_B  														/* 검역구분코드3 */
+			 , A.XRAY_INSPECTION_CODE 														/* XRAY검사 */
+			 , A.XRAY_LINE_NO																/* XRAY투입호기 */
+			 , '01' AS XRAY_CHECK															/* XRAY검사여부 */
+			 , PALN5EM_INSPECTION_CODE														/* 통관검사계획코드 */
+			 , B.CD_TYPE																	/* 통관구분 */
+			 , B.ECM_TYPE																	/* 거래구분 */
+			 , B.CD_USE_TYPE																/* 용도구분 */
+			 , B.BIG_SIZE_YN																/* 거대화물여부 */
+			 , B.AMOUNT_USD																	/* 물품가격 */
+			 , A.XRAY_SCAN_CT																/* XRAY판독수량 */
+			 , A.XRAY_IMAGE_CT																/* XRAY이미지수량 */
+			 , CONVERT(CHAR(10), GETDATE(), 23)												/* 반입일자 */
+			 , CONVERT(CHAR(10), GETDATE(), 108)											/* 반입시간 */
+			 , (SELECT dbo.GET_OVER_DATE_END(CONVERT(VARCHAR(10),GETDATE(),120), CAST( ISNULL(eb01.SET_VALUE,3) AS INT ),'NOTI')
+				FROM TB_SMS_ENT_BUS_OPTION eb01
+					WHERE eb01.ENT_CODE = #{entCode} AND eb01.ENT_BUSINESS_CODE =  #{entBusinessCode}
+					 AND  eb01.OPTION_CODE = #{optionCodeForDate}) AS OUT_NOTICE_DATE					/* 반출통고일자 */
+			 , (SELECT dbo.GET_OVER_DATE_END(CONVERT(VARCHAR(10),GETDATE(),120), CAST( ISNULL(eb01.SET_VALUE,3) AS INT ),'OVER')
+				FROM TB_SMS_ENT_BUS_OPTION eb01
+					WHERE eb01.ENT_CODE = #{entCode} AND eb01.ENT_BUSINESS_CODE =  #{entBusinessCode}
+					 AND  eb01.OPTION_CODE = #{optionCodeForDate}) AS PERIOD_OVER_DATE					/* 반출통고일자 */
+			 , #{customerCode}	AS CUSTOMER_CODE											/* 화주코드 */
+			 , #{customerName}	AS CUSTOMER_NAME											/* 화주명 */
+			 , #{fwdCode} AS FWD_CODE														/* 포더코드 */
+			 , #{fwdName} AS FWD_NAME														/* 포더명 */
+			 , B.PKG_TYPE																	/* 포장종류 */
+			 , B.EX_CT																		/* 예정수량 */
+			 , B.EX_WT																		/* 예정중량 */
+			 , B.EX_CBM																		/* 예정용적 */
+			 , B.EX_CT AS CT																/* 반입수량 */
+			 , B.EX_WT AS WT																/* 반입중량 */
+			 , B.EX_CBM AS CBM																/* 반입용적 */
+			 , 'OKY' AS ACCIDENT_CLASS														/* 사고구분 */
+			 , 0 AS ACCIDENT_CT																/* 사고수량 */
+			 , 0 AS ACCIDENT_WT																/* 사고중량 */
+			 , 0 AS ACCIDENT_CBM															/* 사고용적 */
+			 , B.EX_CT AS STOCK_CT															/* 재고수량 */
+			 , B.EX_WT AS STOCK_WT															/* 재고중량 */
+			 , B.EX_CBM AS STOCK_CBM														/* 재고용적 */
+			 , '' AS CARRYOUT_DATE												/* 반출일자 */
+			 , '' AS CARRYOUT_TIME												/* 반출시간 */
+			 , '' AS REMARKS_1														/* 비고1 */
+			 , '' AS REMARKS_2														/* 비고2 */
+			 , '' AS REMARKS_3														/* 비고3 */
+			 , B.REFERENCE_NO																/* 참조번호 */
+			 , 'N' AS MGN_ISSUE_YN												/* MGN대상여부 */
+			 , #{updateUserId} AS REGISTER_USER_ID													/* 입력자 ID */
+			 , GETDATE() AS REGISTER_DATE_TIME												/* 입력일시 */
+			 , #{updateUserId} AS UPDATE_USER_ID													/* 수정자 ID */
+			 , GETDATE() AS UPDATE_DATE_TIME												/* 수정일시 */
+			 , B.DELIVERY_CODE																/* 배송사코드 */
+			 , B.DELIVERY_NAME																/* 배송사명 */
+			 , 'N' AS DISPOSAL_YN													/* 폐기여부(최초N, 폐기 처리후 Y) */
+			 , B.SHIPPER_TEL
+			 , B.CRIME_SELECTION_YN
+			 , B.INTELLECTUAL_PROP_YN
+			 , B.INSPECTION_CUSTOMS_YN
+		  FROM TB_BMS_XRAY_RESULT A
+	INNER JOIN TB_BMS_IN_PLAN B WITH (NOLOCK) ON A.IN_PLAN_NO = B.IN_PLAN_NO
+		 WHERE B.IN_PLAN_NO = #{inPlanNo}
+	</insert>
+	
+	<update id="updateBmsInPlanInYn" parameterType="HashMap">
+		/* BmsMobPabsMapper.updateBmsInPlanInYn */
+		update TB_BMS_IN_PLAN SET
+			IN_YN       	  = #{inYn},
+			UPDATE_USER_ID    = #{updateUserId},
+			UPDATE_DATE_TIME  = GETDATE()
+		where IN_PLAN_NO = #{inPlanNo}
+	</update>
+	
+	<update id="updateInPlanPkg" parameterType="HashMap">
+		/* BmsMobPabsMapper.updateInPlanPkg : 박스 업데이트 */
+		UPDATE PP SET 
+			PP.IN_CT = #{inCt}
+			<if test='bcrTimeUpdateYn != null and bcrTimeUpdateYn != "" and bcrTimeUpdateYn == "Y"'>
+				, BCR_TIME = CASE WHEN BCR_TIME IS NULL THEN GETDATE() ELSE BCR_TIME END
+				, BCR_TIME_REIN = CASE WHEN BCR_TIME IS NOT NULL THEN GETDATE() ELSE NULL END 
+			</if>
+		FROM TB_BMS_IN_PLAN_PKG PP
+		JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+		ON PP.IN_PLAN_NO = P.IN_PLAN_NO
+		WHERE PACKING_NO = #{packingNo}
+		<if test="srchInPlanNo != null and srchInPlanNo != '' and srchInPlanNo != '0' and srchInPlanNo != 0">
+		AND PP.IN_PLAN_NO = #{srchInPlanNo}
+		</if>
+		<if test="srchBlNo != null and srchBlNo != ''">
+		AND P.BL_NO = #{srchBlNo}
+		</if>
+	</update>
+	
+	<update id="updateBigSizeYnFromBmsInAndInPlan" parameterType="HashMap">
+		/* BmsMobPabsMapper.updateBigSizeYnFromBmsInAndInPlan : 빅사이즈업데이트 */
+		UPDATE TB_BMS_IN_PLAN SET
+			BIG_SIZE_YN = #{bigSizeYn}
+			, UPDATE_USER_ID     = #{updateUserId}
+			, UPDATE_DATE_TIME   = GETDATE()
+		WHERE IN_PLAN_NO = #{inPlanNo};
+		
+		UPDATE TB_BMS_IN SET
+			BIG_SIZE_YN = #{bigSizeYn}
+			, UPDATE_USER_ID     = #{updateUserId}
+			, UPDATE_DATE_TIME   = GETDATE()
+		WHERE IN_PLAN_NO = #{inPlanNo};
+	</update>
+	
+	<select id="selectInspectResultByTypeIsBigSize" parameterType="Integer" resultType="bmsInspectResult">
+		/* BmsMobPabsMapper.selectInspectResultByTypeIsBigSize : 반입번호로 거대 검사결과 조회 */
+		SELECT 
+			* 
+		FROM TB_BMS_INSPECT_RESULT 
+		WHERE IN_NO = #{inNo}
+			AND INSPECTION_TYPE = 'B'
+	</select>
+	
+	<insert id="insertInspectResult" parameterType="HashMap">
+   		/* BmsMobPabsMapper.insertInspectResult : 거대 검사결과 추가 */
+		INSERT INTO TB_BMS_INSPECT_RESULT (
+			  IN_NO
+			, INSPECTION_TYPE
+			, HSN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+		) VALUES (
+			#{inNo}
+			, 'B'
+			, CASE WHEN #{cargoReferenceNo} IS NULL THEN '' ELSE SUBSTRING(#{cargoReferenceNo}, 16, 4) END
+			, #{updateUserId}
+			, GETDATE()
+		)
+	</insert>
+	
+	<select id="selectBmsInByInPlanNo" parameterType="HashMap" resultType="HashMap">
+		/* BmsMobPabsMapper.selectBmsInByInPlanNo : 반입예정번호로 반입 조회 */
+		SELECT
+			*
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE 
+			IN_PLAN_NO IN (<foreach collection="inPlanList" item="item" separator=",">#{item}</foreach>)
+	</select>
+	
+	<update id="updateInspectResultByTypeIsBigSize" parameterType="HashMap">
+		/* BmsMobPabsMapper.updateInspectResultByTypeIsBigSize : 거대 검사결과 업데이트 */
+   		UPDATE TB_BMS_INSPECT_RESULT
+   		SET
+   			INSPECTION_FINISH_YN = #{inspectionFinishYn}
+   			, INSPECTION_FINISH_REMARKS = #{inspectionFinishRemarks}
+   			, INSPECTION_FINISH_USER_ID = #{inspectionFinishUserId}
+   			<choose>
+   				<when test="inspectionFinishDateTime != null and inspectionFinishDateTime == ''">
+   				, INSPECTION_FINISH_DATE_TIME = ''
+   				</when>
+   				<otherwise>
+   				, INSPECTION_FINISH_DATE_TIME = GETDATE()
+   				</otherwise>
+   			</choose>
+	    WHERE IN_NO = #{inNo}
+	    	AND INSPECTION_TYPE = 'B'
+   	</update>
+	
+</mapper>

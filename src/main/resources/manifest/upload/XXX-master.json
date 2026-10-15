@@ -1,0 +1,46 @@
+[
+	{
+		"size": 3,
+		"func": "setTypeA1"
+	},
+	{
+		"size": 11,
+		"func": "setMrn"
+	},
+	{
+		"size": 3,
+		"func": "setCustomsCode"
+	},
+	{
+		"size": 2,
+		"func": "setCustomsDptCode"
+	},
+	{
+		"size": 35,
+		"func": "setVesselCode"
+	},
+	{
+		"size": 7,
+		"func": "setVoyage"
+	},
+	{
+		"size": 9,
+		"func": "setCallsign"
+	},
+	{
+		"size": 2,
+		"func": "setVesselNation"
+	},
+	{
+		"size": 5,
+		"func": "setUnloadingPort"
+	},
+	{
+		"size": 8,
+		"func": "setArDate"
+	},
+	{
+		"size": 4,
+		"func": "setBlCnt"
+	}
+]

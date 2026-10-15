@@ -1,0 +1,859 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.eCommerce.BrokerMapper">
+
+	<select id="selectBrokerMasterList" parameterType="searchOrderList" resultType="brokerMaster">
+		/* BrokerMapper.selectBrokerMasterList : broker-M 조회  */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			A.*
+			, COUNT(A.MBL_NO) OVER() AS SUM_COUNT
+			, SUM(A.HBL_CNT) OVER() AS SUM_HBLNO
+			, SUM(A.HBL_PIECES) OVER() AS SUM_PIECES
+			, SUM(A.HBL_GWT) OVER() AS SUM_GWT
+		FROM
+		(		
+			SELECT
+				 MAX(od.OB_DATE) AS OB_DATE
+				,MAX(od.AR_DATE) AS AR_DATE
+				,MAX(od.ORIG_CODE) AS ORIG_CODE
+				,MAX(od.DEST_CODE) AS DEST_CODE
+				,MAX(od.VESSEL_FLIGHT) AS VESSEL_FLIGHT
+				,MAX(od.MBL_NO) AS MBL_NO
+				,COUNT(od.OD_JOB_NO) AS HBL_CNT
+				,COUNT(CASE WHEN ISNULL(ad.CLEARANCE_STATUS, '') = 'CLS010' THEN 1 END) CLEARANCE_VIOLATION_CNT1
+				,COUNT(CASE WHEN ISNULL(ad.CLEARANCE_STATUS, '') = 'CLS030' THEN 1 END) CLEARANCE_VIOLATION_CNT2
+				<!-- ,COUNT(CASE WHEN ISNULL(ad.CLEARANCE_STATUS, '') = 'CLS040' THEN 1 END) CLEARANCE_VIOLATION_CNT3 -->
+				,COUNT(CASE WHEN ISNULL(od.CLEARANCE_VIOLATION_REASON, '') != '' THEN 1 END) CLEARANCE_VIOLATION_CNT3	<!-- 미통관사유 유무로 카운트 -->
+				,COUNT(CASE WHEN ISNULL(ad.CLEARANCE_STATUS, '') = 'CLS050' THEN 1 END) CLEARANCE_VIOLATION_CNT4
+				,COUNT(CASE od.CD_TYPE WHEN 'Y' THEN 1 END) AS CD_TYPE_YCNT
+				,COUNT(CASE od.CD_TYPE WHEN 'N' THEN 1 END) AS CD_TYPE_NCNT
+				,COUNT(CASE od.CD_TYPE WHEN 'B' THEN 1 END) AS CD_TYPE_BCNT
+				,COUNT(CASE ad.DROP_YN WHEN 'Y' THEN 1 END) AS DROP_CNT
+				,COUNT(CASE od.INSPECTION_YN WHEN 'Y' THEN 1 END) AS INSPECTION_CNT
+				,COUNT(CASE ad.SE_INSPECTION_YN WHEN 'Y' THEN 1 END) AS SE_INSPECTION_CNT
+				,COUNT(CASE ad.XRAY_YN WHEN 'Y' THEN 1 END) AS XRAY_CNT
+				,COUNT(CASE od.GE_INSPECTION_YN WHEN 'Y' THEN 1 END) AS GE_INSPECTION_CNT
+				,MAX(od.INSPECTION_TYPE) AS INSPECTION_TYPE
+				<!-- ,COUNT(CASE ad.SMS_INFORM_YN WHEN 'Y' THEN 1 END) AS SMS_INFORM_CNT -->
+				,COUNT(CASE od.CLEARANCE_NOTICE_YN WHEN 'Y' THEN 1 END) AS CLEARANCE_NOTICE_CNT
+				,od.MASTER_OD_JOB_NO
+				,(SELECT LAST_POD_STATUS FROM TB_ECM_OD_ADDITIONAL WHERE OD_JOB_NO = od.MASTER_OD_JOB_NO) AS LAST_POD_STATUS
+				,MAX(od.BOUND) AS BOUND
+				,MAX(od.BOUND_TYPE) AS BOUND_TYPE
+		 	    ,SUM(od.PIECES) AS HBL_PIECES
+			    ,SUM(od.GWT) AS HBL_GWT
+    			,COUNT(CASE WHEN ISNULL(od.ECM_YN,'') = 'Y' THEN 1 END) AS ECM_Y_CNT
+				,COUNT(CASE WHEN ISNULL(od.ECM_YN,'') = '' OR od.ECM_YN = 'N' THEN 1 END) AS ECM_N_CNT
+			    <if test="srchEntCode == 'HUBNK' or srchEntCode == 'YHTXX'">
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = MAX(od.ENT_CODE) AND GROUP_CODE = 'CB_IF_STATUS' AND CODE = MAX(ad.CB_IF_STATUS)) AS CB_IF_STATUS
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = MAX(od.ENT_CODE) AND GROUP_CODE = 'CCL_TYPE' AND CODE = MAX(ad.CCL_TYPE)) AS CCL_TYPE
+				</if>
+			FROM TB_ECM_OD od
+			INNER JOIN TB_ECM_OD_ADDITIONAL ad ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.OrderMapper.searchOrderList"/>
+			
+			<!-- 관세사ID로 로그인 시 일반, 배제, 취하 데이터만 조회되도록 추가 -->
+			<if test="srchCbCode != null and srchCbCode != ''">
+			AND (od.CD_TYPE IN ('N','B') OR ad.DROP_YN = 'Y')
+			</if>
+			<if test='srchNoRecords == "Y"'>
+			AND 1 = 0
+			</if>
+			
+			<if test='srchMultiStatusYn == "Y"'>
+				AND(1 = 0
+				<if test="srchInspectionYn != null and srchInspectionYn != ''">
+				OR od.INSPECTION_YN = #{srchInspectionYn}
+				</if>
+				<if test="srchSeInspectionYn != null and srchSeInspectionYn != ''">
+				OR ad.SE_INSPECTION_YN = #{srchSeInspectionYn}
+				</if>
+				<if test="srchXrayYn != null and srchXrayYn != ''">
+				OR ad.XRAY_YN = #{srchXrayYn}
+				</if>
+				<if test="srchDropYn != null and srchDropYn != ''">
+				OR ad.DROP_YN = #{srchDropYn}
+				</if>
+				<if test="srchSimpleEdiStatus != null and srchSimpleEdiStatus != ''">
+				OR ad.SIMPLE_EDI_STATUS = #{srchSimpleEdiStatus}
+				</if>
+				<if test="srchSimpleStatementYn != null and srchSimpleStatementYn != ''">
+				OR ad.SIMPLE_STATEMENT_YN = #{srchSimpleStatementYn}
+				</if>
+				<if test="srchAbnormalYn != null and srchAbnormalYn != ''">
+				AND ISNULL((SELECT TOP 1 ABNORMAL_CODE FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = od.OD_JOB_NO),'') != ''
+				</if> 
+				)
+			</if>
+			
+			<if test='srchCbIfStatus != null and srchCbIfStatus != ""'>
+			AND ad.CB_IF_STATUS = #{srchCbIfStatus}
+			</if>
+			
+			GROUP BY od.MASTER_OD_JOB_NO
+		)A			
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectBrokerMasterSubList" parameterType="searchOrderList" resultType="brokerMasterSub">
+		/* BrokerMapper.selectBrokerMasterSubList : broker-M House 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			A.*
+			, COUNT(A.HBL_NO) OVER() AS SUM_COUNT
+			, SUM(A.HBL_PIECES) OVER() AS SUM_PIECES
+			, SUM(A.HBL_GWT) OVER() AS SUM_GWT
+		FROM
+		(
+			SELECT
+				 od.OD_JOB_NO
+				,od.CB_CODE
+				,od.MRN
+				,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{srchEntCode} AND CUSTOMER_CODE = od.CB_CODE AND CUSTOMER_TYPE ='BR') AS CB_NAME
+				,od.CUST_CODE_LV1 AS AGENT_CODE
+				,od.SHIPPER_CODE
+				,od.INSPECTION_YN
+				,ad.SE_INSPECTION_YN
+				,ad.DROP_CODE
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'DROP_CODE' AND CODE = ad.DROP_CODE) AS DROP_REASON
+				,ad.XRAY_YN
+				<choose>
+				<when test='srchMode == "excel"'>
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = ad.LAST_POD_STATUS) AS LAST_POD_STATUS
+				</when>
+				<otherwise>
+				,ad.LAST_POD_STATUS
+				</otherwise>
+				</choose>
+				,od.GE_INSPECTION_YN
+				,od.INSPECTION_TYPE
+				,ad.FOOD_YN
+				,ad.SPLIT_WAIST_YN
+				,od.PO_DATE
+				,od.PO_NO
+				,od.HBL_NO
+				,od.MBL_NO
+				,od.CONSIGNEE_NAME
+				,od.PIECES
+				,od.GWT
+				,od.AMOUNT_LOC
+				,od.AMOUNT_CUR
+				,od.COMMODITY_ITEM				
+				,ad.CLEARANCE_STATUS
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CLEARANCE_STATUS' AND CODE = ad.CLEARANCE_STATUS) AS CLEARANCE_STATUS_NAME
+				,od.CLEARANCE_VIOLATION_CODE
+				,od.CLEARANCE_VIOLATION_REASON
+				,od.ORIG_CODE
+				,od.DEST_CODE
+				,od.AR_DATE
+				,CASE WHEN ISNULL(ad.CARRYIN_DATE, '') = '' THEN 'N' ELSE 'Y' END AS CARRYIN_YN
+				,od.FTA_YN
+				<!-- ,ad.SMS_INFORM_YN -->
+				,od.CLEARANCE_NOTICE_YN
+				,od.CLEARANCE_NOTICE_DATE
+				
+				<!-- ,ad.TARIFF
+				,ad.SURTAX
+				,ad.CLEARANCE_FEE
+				,ad.QURANTINE_FEE -->
+				,ISNULL(ad.INVOICE_YN, 'N') AS INVOICE_YN
+				<!-- ,ISNULL(SPECIAL_CONSUMTION_TAX,0) + ISNULL(LIQUOR_TAX,0) + ISNULL(EDUCATION_TAX,0) + ISNULL(RURAL_SPECIAL_TAX,0) AS ETC_FEE -->
+				
+				,(SELECT SUM(AR_AMOUNT) FROM TB_ECM_OD_COST WHERE OD_JOB_NO = od.OD_JOB_NO AND CHARGE_CODE = 'DTY') AS TARIFF
+				,(SELECT SUM(AR_AMOUNT) FROM TB_ECM_OD_COST WHERE OD_JOB_NO = od.OD_JOB_NO AND CHARGE_CODE = 'TAX') AS SURTAX
+				,(SELECT SUM(AR_AMOUNT) FROM TB_ECM_OD_COST WHERE OD_JOB_NO = od.OD_JOB_NO AND CHARGE_CODE = 'CFC') AS CLEARANCE_FEE
+				,(SELECT SUM(AR_AMOUNT) FROM TB_ECM_OD_COST WHERE OD_JOB_NO = od.OD_JOB_NO AND CHARGE_CODE = 'QUA') AS QURANTINE_FEE
+				,((SELECT ISNULL(SUM(AR_AMOUNT),0) FROM TB_ECM_OD_COST WHERE OD_JOB_NO = od.OD_JOB_NO AND CHARGE_CODE = 'SPTAX') 
+					+(SELECT ISNULL(SUM(AR_AMOUNT),0) FROM TB_ECM_OD_COST WHERE OD_JOB_NO = od.OD_JOB_NO AND CHARGE_CODE = 'OHTAX') 
+					+(SELECT ISNULL(SUM(AR_AMOUNT),0) FROM TB_ECM_OD_COST WHERE OD_JOB_NO = od.OD_JOB_NO AND CHARGE_CODE = 'EDTAX') 
+					)AS ETC_FEE
+				
+				,ad.TAX_PAY_FOR_YN
+				,ad.PRINT_YN				
+				<!-- ,od.DELIVERY_PAYMENT_TYPE -->
+				,od.CLEARANCE_PAYMENT_TYPE
+				,(SELECT CUSTOMER_NAME_ENG FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{srchEntCode} AND CUSTOMER_CODE = od.CUST_CODE_LV1 AND CUSTOMER_TYPE ='HC') AS CUST_NAME_LV1
+				,(SELECT CUSTOMER_NAME_ENG FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{srchEntCode} AND CUSTOMER_CODE = od.CUST_CODE_LV2) AS CUST_NAME_LV2
+				,CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE ENT_CODE = od.ENT_CODE AND FUNC_JOB_NO = od.OD_JOB_NO ) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+				,od.ENT_BUSINESS_CODE
+			 	,od.PIECES_REAL AS HBL_PIECES
+				,od.GWT AS HBL_GWT	
+				,od.CBM
+				,COUNT(CASE ad.CLEARANCE_STATUS WHEN 'CLS010' THEN 1 END) OVER() AS CLS010_CNT
+				,COUNT(CASE ad.CLEARANCE_STATUS WHEN 'CLS030' THEN 1 END) OVER() AS CLS030_CNT
+				<!-- ,COUNT(CASE ad.CLEARANCE_STATUS WHEN 'CLS040' THEN 1 END) OVER() AS CLS040_CNT -->
+				,COUNT(CASE WHEN ISNULL(od.CLEARANCE_VIOLATION_REASON,'') != '' THEN 1 END) OVER() AS CLS040_CNT <!-- 미통관사유 유무로 카운트 -->
+				,COUNT(CASE ad.CLEARANCE_STATUS WHEN 'CLS050' THEN 1 END) OVER() AS CLS050_CNT	
+				
+				,od.BOUND
+				,od.BOUND_TYPE
+				
+				,od.CONSIGNEE_NAME_LOC
+				,od.CONSIGNEE_ADDRESS_LOC
+				<choose>
+				<when test="documentCode != null and documentCode != ''">
+				,(SELECT CONCAT(od.CD_TYPE, '(', NAME_${userLanguage}, ')') FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CD_TYPE' AND CODE = od.CD_TYPE) AS CD_TYPE
+				,(SELECT CONCAT(od.CD_USE_TYPE, '(', NAME_${userLanguage}, ')') FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'USE_GUBN' AND CODE = od.CD_USE_TYPE) AS CD_USE_TYPE
+				,(SELECT CONCAT(od.ECM_TYPE, '(', NAME_${userLanguage}, ')') FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CCL_ECOMMERCE_TYPE' AND CODE = od.ECM_TYPE) AS ECM_TYPE
+				</when>
+				<otherwise>
+				,od.CD_TYPE
+				,od.CD_USE_TYPE
+				,od.ECM_TYPE
+				</otherwise>
+				</choose>
+				,(SELECT CONCAT(CODE, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND CODE = od.CD_USE_TYPE AND GROUP_CODE = 'USE_GUBN') AS CD_USE_TYPE_NAME
+				,(SELECT CONCAT(CODE, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND CODE = od.ECM_TYPE AND GROUP_CODE = 'CCL_ECOMMERCE_TYPE') AS ECM_TYPE_NAME
+				,od.ECM_BUY_TYPE
+				,od.AGENT_REG_NO
+				,od.AGENT_NAME
+				,od.SELLER_REG_NO
+				,od.SELLER_NAME
+				,od.SALES_BROKER_REG_NO
+				,od.SALES_BROKER_NAME
+				,STUFF((SELECT ',' + PO_NO FROM TB_ECM_OD_PO_INFO WHERE OD_JOB_NO = od.OD_JOB_NO FOR XML PATH('')) ,1 ,1, '') AS PO_NO_LIST
+				<choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS CONSIGNEE_HP
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+				</when>
+				<otherwise>
+				,od.CONSIGNEE_HP
+				,od.CONSIGNEE_TEL
+				</otherwise>
+				</choose>
+				<if test="srchEntCode == 'HUBNK' or srchEntCode == 'YHTXX'">
+			    ,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CB_IF_STATUS' AND CODE = ad.CB_IF_STATUS) AS CB_IF_STATUS
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CCL_TYPE' AND CODE = ad.CCL_TYPE) AS CCL_TYPE
+				</if>
+				,od.ECM_YN
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			
+			<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerMasterSubListWhere"/>
+		)A	
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+	<sql id="selectBrokerMasterSubListWhere">
+		<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+		<include refid="org.yht.exps.express.mapper.eCommerce.OrderMapper.searchOrderList"/>
+		<!-- 관세사ID로 로그인 시 일반, 배제, 취하 데이터만 조회되도록 추가 -->
+		<if test="srchCbCode != null and srchCbCode != ''">
+		AND (od.CD_TYPE IN ('N','B') OR ad.DROP_YN = 'Y')
+		</if>
+
+		<if test='blTypeMh == "M"'>
+		 AND od.MASTER_OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		<if test='blTypeMh == "H"'>
+		 AND od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		</if>		
+		<if test='srchMultiStatusYn == "Y"'>
+			AND(1 = 0
+			<if test="srchInspectionYn != null and srchInspectionYn != ''">
+			OR od.INSPECTION_YN = #{srchInspectionYn}
+			</if>
+			<if test="srchSeInspectionYn != null and srchSeInspectionYn != ''">
+			OR ad.SE_INSPECTION_YN = #{srchSeInspectionYn}
+			</if>
+			<if test="srchXrayYn != null and srchXrayYn != ''">
+			OR ad.XRAY_YN = #{srchXrayYn}
+			</if>
+			<if test="srchDropYn != null and srchDropYn != ''">
+			OR ad.DROP_YN = #{srchDropYn}
+			</if>
+			<if test="srchSimpleEdiStatus != null and srchSimpleEdiStatus != ''">
+			OR ad.SIMPLE_EDI_STATUS = #{srchSimpleEdiStatus}
+			</if>
+			<if test="srchSimpleStatementYn != null and srchSimpleStatementYn != ''">
+			OR ad.SIMPLE_STATEMENT_YN = #{srchSimpleStatementYn}
+			</if>
+			<if test="srchAbnormalYn != null and srchAbnormalYn != ''">
+			AND ISNULL((SELECT TOP 1 ABNORMAL_CODE FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = od.OD_JOB_NO),'') != ''
+			</if> 
+			)
+		</if>
+		
+		<if test='srchCbIfStatus != null and srchCbIfStatus != ""'>
+		AND ad.CB_IF_STATUS = #{srchCbIfStatus}
+		</if>
+	</sql>
+	
+	<select id="selectCustomsOfficerList" parameterType="searchOrderList" resultType="brokerMaster">
+		/* BrokerMapper.selectCustomsOfficerList : 관세사지정 리스트 조회 */
+		SELECT
+			ROW_NUMBER() OVER(ORDER BY  MAX(od.OB_DATE)  DESC, od.CUST_CODE_LV1) AS NUM
+			,MAX(od.OB_DATE) AS OB_DATE
+			,MAX(od.AR_DATE) AS AR_DATE
+			,MAX(od.ORIG_CODE) AS ORIG_CODE
+			,MAX(od.DEST_CODE) AS DEST_CODE
+			,MAX(od.VESSEL_FLIGHT) AS VESSEL_FLIGHT
+			,MAX(od.MBL_NO) AS MBL_NO
+			,MAX(od.CB_CODE) AS CB_CODE
+			,COUNT(od.OD_JOB_NO) AS HBL_CNT
+			,COUNT(CASE od.CD_TYPE WHEN 'Y' THEN 1 END) AS CD_TYPE_Y_CNT
+			,COUNT(CASE od.CD_TYPE WHEN 'N' THEN 1 END) AS CD_TYPE_N_CNT
+			,COUNT(CASE od.CD_TYPE WHEN 'B' THEN 1 END) AS CD_TYPE_B_CNT
+			,COUNT(CASE ad.DROP_YN WHEN 'Y' THEN 1 END) AS DROP_CNT
+			,COUNT(CASE od.INSPECTION_YN WHEN 'Y' THEN 1 END) AS INSPECTION_CNT
+			,COUNT(CASE ad.SE_INSPECTION_YN WHEN 'Y' THEN 1 END) AS SE_INSPECTION_CNT
+			,COUNT(CASE ad.XRAY_YN WHEN 'Y' THEN 1 END) AS XRAY_CNT
+			,COUNT(CASE od.GE_INSPECTION_YN WHEN 'Y' THEN 1 END) AS GE_INSPECTION_CNT
+			,MAX(od.INSPECTION_TYPE) AS INSPECTION_TYPE
+			,COUNT(CASE ad.SMS_INFORM_YN WHEN 'Y' THEN 1 END) AS SMS_INFORM_CNT
+			,od.CUST_CODE_LV1
+			,(SELECT CUSTOMER_NAME_ENG FROM TB_SMS_CUSTOMER WHERE ENT_CODE = MAX(od.ENT_CODE) AND CUSTOMER_CODE = od.CUST_CODE_LV1) AS CUST_NAME_LV1
+			,od.CUST_CODE_LV2
+			,(SELECT CUSTOMER_NAME_ENG FROM TB_SMS_CUSTOMER WHERE ENT_CODE = MAX(od.ENT_CODE) AND CUSTOMER_CODE = od.CUST_CODE_LV2) AS CUST_NAME_LV2
+			
+		FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+			 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+		<choose>
+		<when test='srchBlTypeMh == "M"'>
+		WHERE od.MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+		</when>
+		<otherwise>
+		WHERE od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		</otherwise>
+		</choose>
+		AND od.BL_TYPE_MH = 'H'
+		GROUP BY od.CUST_CODE_LV1,od.CUST_CODE_LV2
+	</select>
+	
+	<select id="selectBrokerHouseList" parameterType="searchOrderList" resultType="brokerHouse">
+		/* BrokerMapper.selectBrokerHouseList : broker-H 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			A.*
+			, COUNT(A.HBL_NO) OVER() AS SUM_COUNT
+			, SUM(A.HBL_PIECES) OVER() AS SUM_PIECES
+			, SUM(A.HBL_GWT) OVER() AS SUM_GWT
+		FROM
+		(
+			SELECT
+				 od.OD_JOB_NO
+				,od.CB_CODE
+				,od.MRN
+				,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{srchEntCode} AND CUSTOMER_CODE = od.CB_CODE AND CUSTOMER_TYPE ='BR') AS CB_NAME
+				,od.CUST_CODE_LV1 AS AGENT_CODE
+				,od.SHIPPER_CODE
+				,od.INSPECTION_YN
+				,ad.SE_INSPECTION_YN
+				,ad.DROP_YN
+				,ad.DROP_CODE
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'DROP_CODE' AND CODE = ad.DROP_CODE) AS DROP_REASON
+				,ad.XRAY_YN
+				<choose>
+				<when test='srchMode == "excel"'>
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'STATUS_ORDER_CARGO' AND CODE = ad.LAST_POD_STATUS) AS LAST_POD_STATUS
+				</when>
+				<otherwise>
+				,ad.LAST_POD_STATUS
+				</otherwise>
+				</choose>
+				,od.GE_INSPECTION_YN
+				,od.INSPECTION_TYPE
+				,od.PO_NO
+				,od.PO_DATE
+				,od.OB_DATE
+				,od.AR_DATE
+				,od.MBL_NO
+				,od.HBL_NO
+				,od.CONSIGNEE_NAME
+				,od.PIECES
+				,od.GWT
+				,od.CBM
+				,od.AMOUNT_CUR
+				,od.AMOUNT_LOC
+				,od.COMMODITY_ITEM
+				,od.CLEARANCE_VIOLATION_CODE
+				,od.CLEARANCE_VIOLATION_REASON			
+				,od.ORIG_CODE
+				,od.DEST_CODE
+				,od.VESSEL_FLIGHT
+				,od.FTA_YN
+				<!-- ,ad.SMS_INFORM_YN -->
+				,od.CLEARANCE_NOTICE_YN
+				,od.CLEARANCE_NOTICE_DATE
+				
+				,ad.FOOD_YN
+				,ad.SPLIT_WAIST_YN
+				,ad.TAX_PAY_FOR_YN
+				,ad.PRINT_YN
+				<!-- ,od.DELIVERY_PAYMENT_TYPE -->
+				,od.CLEARANCE_PAYMENT_TYPE
+				,(SELECT CUSTOMER_NAME_ENG FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{srchEntCode} AND CUSTOMER_CODE = od.CUST_CODE_LV1) AS CUST_NAME_LV1
+				,(SELECT CUSTOMER_NAME_ENG FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{srchEntCode} AND CUSTOMER_CODE = od.CUST_CODE_LV2) AS CUST_NAME_LV2
+				,ad.INVOICE_YN
+				,ad.CLEARANCE_STATUS
+				,CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE ENT_CODE = od.ENT_CODE AND FUNC_JOB_NO = od.OD_JOB_NO ) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+			 	,od.PIECES_REAL AS HBL_PIECES
+				,od.GWT AS HBL_GWT	
+				,COUNT(CASE ad.CLEARANCE_STATUS WHEN 'CLS010' THEN 1 END) OVER() AS CLS010_CNT
+				,COUNT(CASE ad.CLEARANCE_STATUS WHEN 'CLS030' THEN 1 END) OVER() AS CLS030_CNT
+				<!-- ,COUNT(CASE ad.CLEARANCE_STATUS WHEN 'CLS040' THEN 1 END) OVER() AS CLS040_CNT -->
+				,COUNT(CASE WHEN ISNULL(od.CLEARANCE_VIOLATION_REASON, '') != '' THEN 1 END) OVER() AS CLS040_CNT <!-- 미통관사유 유무로 카운트 -->
+				,COUNT(CASE ad.CLEARANCE_STATUS WHEN 'CLS050' THEN 1 END) OVER() AS CLS050_CNT		
+				
+				,od.BOUND
+				,od.BOUND_TYPE
+				
+				,od.CONSIGNEE_NAME_LOC
+				,od.CONSIGNEE_ADDRESS_LOC
+				
+				<choose>
+				<when test="documentCode != null and documentCode != ''">
+				,(SELECT CONCAT(od.CD_TYPE, '(', NAME_${userLanguage}, ')') FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CD_TYPE' AND CODE = od.CD_TYPE) AS CD_TYPE
+				,(SELECT CONCAT(od.CD_USE_TYPE, '(', NAME_${userLanguage}, ')') FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'USE_GUBN' AND CODE = od.CD_USE_TYPE) AS CD_USE_TYPE
+				,(SELECT CONCAT(od.ECM_TYPE, '(', NAME_${userLanguage}, ')') FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CCL_ECOMMERCE_TYPE' AND CODE = od.ECM_TYPE) AS ECM_TYPE
+				</when>
+				<otherwise>
+				,od.CD_TYPE
+				,od.CD_USE_TYPE
+				,od.ECM_TYPE
+				</otherwise>
+				</choose>
+				,(SELECT CONCAT(CODE, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND CODE = od.CD_USE_TYPE AND GROUP_CODE = 'USE_GUBN') AS CD_USE_TYPE_NAME
+				,(SELECT CONCAT(CODE, '.', NAME_${userLanguage}) FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND CODE = od.ECM_TYPE AND GROUP_CODE = 'CCL_ECOMMERCE_TYPE') AS ECM_TYPE_NAME
+				,od.ECM_BUY_TYPE
+				,od.AGENT_REG_NO
+				,od.AGENT_NAME
+				,od.SELLER_REG_NO
+				,od.SELLER_NAME
+				,od.SALES_BROKER_REG_NO
+				,od.SALES_BROKER_NAME
+				,STUFF((SELECT ',' + PO_NO FROM TB_ECM_OD_PO_INFO WHERE OD_JOB_NO = od.OD_JOB_NO FOR XML PATH('')) ,1 ,1, '') AS PO_NO_LIST
+				<choose>
+				<when test='cryptographyYn == "Y"'>
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_HP_ENC, 1) AS CONSIGNEE_HP
+				,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+				</when>
+				<otherwise>
+				,od.CONSIGNEE_HP
+				,od.CONSIGNEE_TEL
+				</otherwise>
+				</choose>
+				<if test="srchEntCode == 'HUBNK' or srchEntCode == 'YHTXX'">
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CB_IF_STATUS' AND CODE = ad.CB_IF_STATUS) AS CB_IF_STATUS
+				,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'CCL_TYPE' AND CODE = ad.CCL_TYPE) AS CCL_TYPE
+				</if>
+				,od.ECM_YN
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+				 			
+			<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerHouseListWhere"/>
+		)A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+	<sql id="selectBrokerHouseListWhere">
+		<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+		<include refid="org.yht.exps.express.mapper.eCommerce.OrderMapper.searchOrderList"/>
+		<!-- 관세사ID로 로그인 시 일반, 배제, 취하 데이터만 조회되도록 추가 -->
+		<if test="srchCbCode != null and srchCbCode != ''">
+		AND (od.CD_TYPE IN ('N','B') OR ad.DROP_YN = 'Y')
+		</if>
+		<if test='srchNoRecords == "Y"'>
+		AND 1 = 0
+		</if>
+
+		<if test='blTypeMh == "M"'>
+		 AND od.MASTER_OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		<if test='blTypeMh == "H"'>
+		 AND od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		<if test='srchMultiStatusYn == "Y"'>
+			AND(1 = 0
+			<if test="srchInspectionYn != null and srchInspectionYn != ''">
+			OR od.INSPECTION_YN = #{srchInspectionYn}
+			</if>
+			<if test="srchSeInspectionYn != null and srchSeInspectionYn != ''">
+			OR ad.SE_INSPECTION_YN = #{srchSeInspectionYn}
+			</if>
+			<if test="srchXrayYn != null and srchXrayYn != ''">
+			OR ad.XRAY_YN = #{srchXrayYn}
+			</if>
+			<if test="srchDropYn != null and srchDropYn != ''">
+			OR ad.DROP_YN = #{srchDropYn}
+			</if>
+			<if test="srchSimpleEdiStatus != null and srchSimpleEdiStatus != ''">
+			OR ad.SIMPLE_EDI_STATUS = #{srchSimpleEdiStatus}
+			</if>
+			<if test="srchSimpleStatementYn != null and srchSimpleStatementYn != ''">
+			OR ad.SIMPLE_STATEMENT_YN = #{srchSimpleStatementYn}
+			</if>
+			<if test="srchAbnormalYn != null and srchAbnormalYn != ''">
+			AND ISNULL((SELECT TOP 1 ABNORMAL_CODE FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = od.OD_JOB_NO),'') != ''
+			</if> 
+			)
+		</if>
+	</sql>
+	
+	<select id="selectBrokerHouseSubList" parameterType="searchOrderList" resultType="BrokerHouseSub">
+		/* BrokerMapper.selectBrokerHouseSubList : broker-H 금액 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+			SELECT
+				 A.*
+				,ISNULL(TARIFF,0)+ISNULL(SURTAX,0)+ISNULL(SPECIAL_CONSUMTION_TAX,0)+ISNULL(LIQUOR_TAX,0)+ISNULL(EDUCATION_TAX,0)+ISNULL(RURAL_SPECIAL_TAX,0) AS TOT_FEE
+				,ISNULL(TARIFF,0)+ISNULL(SURTAX,0)+ISNULL(SPECIAL_CONSUMTION_TAX,0)+ISNULL(LIQUOR_TAX,0)+ISNULL(EDUCATION_TAX,0)+ISNULL(RURAL_SPECIAL_TAX,0)
+				 + ISNULL(CLEARANCE_FEE,0)+ISNULL(QURANTINE_FEE,0)+ISNULL(WAREHOUSE_FEE,0) AS TOT_AMT
+			FROM (
+				SELECT
+					 od.OD_JOB_NO
+					,MAX(ad.TAX_EXCHANGE_RATE) AS TAX_EXCHANGE_RATE
+					,MAX(ad.TAX_FREIGHT) AS TAX_FREIGHT
+					,MAX(ad.CIF_LOCAL) AS CIF_LOCAL
+					,SUM(CASE WHEN cost.CHARGE_CODE = 'DTY' THEN cost.AP_AMOUNT END) AS TARIFF
+					,SUM(CASE WHEN cost.CHARGE_CODE = 'TAX' THEN cost.AP_AMOUNT END) AS SURTAX
+					,SUM(CASE WHEN cost.CHARGE_CODE = 'SPTAX' THEN cost.AP_AMOUNT END) AS SPECIAL_CONSUMTION_TAX
+					,SUM(CASE WHEN cost.CHARGE_CODE = 'OHTAX' THEN cost.AP_AMOUNT END) AS LIQUOR_TAX
+					,SUM(CASE WHEN cost.CHARGE_CODE = 'EDTAX' THEN cost.AP_AMOUNT END) AS EDUCATION_TAX
+					,SUM(CASE WHEN cost.CHARGE_CODE = 'AGRTX' THEN cost.AP_AMOUNT END) AS RURAL_SPECIAL_TAX
+					,SUM(CASE WHEN cost.CHARGE_CODE = 'CFC' THEN cost.AP_AMOUNT END) AS CLEARANCE_FEE
+					,SUM(CASE WHEN cost.CHARGE_CODE = 'QUA' THEN cost.AP_AMOUNT END) AS QURANTINE_FEE
+					,SUM(CASE WHEN cost.CHARGE_CODE = 'WHC' THEN cost.AP_AMOUNT END) AS WAREHOUSE_FEE
+					<if test="srchEntCode == 'HUBNK' or srchEntCode == 'YHTXX'">
+					,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = MAX(od.ENT_CODE) AND GROUP_CODE = 'CB_IF_STATUS' AND CODE = MAX(ad.CB_IF_STATUS)) AS CB_IF_STATUS
+					,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = MAX(od.ENT_CODE) AND GROUP_CODE = 'CCL_TYPE' AND CODE = MAX(ad.CCL_TYPE)) AS CCL_TYPE
+					</if>
+				FROM TB_ECM_OD od
+					 LEFT JOIN TB_ECM_OD_ADDITIONAL ad
+					 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+					 LEFT JOIN TB_ECM_OD_COST cost
+					 		   ON cost.OD_JOB_NO = od.OD_JOB_NO
+				<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+				<include refid="org.yht.exps.express.mapper.eCommerce.OrderMapper.searchOrderList"/>
+				GROUP BY od.OD_JOB_NO
+			) A
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<update id="updateBrokerBatchBySrchData" parameterType="searchOrderList">
+		/* BrokerMapper.updateBrokerBatchBySrchData : Broker - 일괄변경 */
+		<choose>
+		<when test='updateField == "CUSTOMS_OFFICER"'>
+			UPDATE TB_ECM_OD SET
+				   CB_CODE = #{cbCode},
+				   CB_NAME = (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{srchEntCode} AND CUSTOMER_CODE = #{cbCode} AND CUSTOMER_TYPE ='BR')
+			FROM TB_ECM_OD od
+			<choose>
+			<when test='srchBlTypeMh == "M"'>
+			WHERE od.MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+			</when>
+			<otherwise>
+			WHERE od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+			</otherwise>
+			</choose>
+			AND od.BL_TYPE_MH = 'H'
+			<!-- 상위업체 없는 경우 관세사 저장 x -->
+			<choose>
+			<when test="custCodeLv1 != null and custCodeLv1 != ''">
+			AND od.CUST_CODE_LV1 = #{custCodeLv1}
+			AND ISNULL(od.CUST_CODE_LV2,'') = #{custCodeLv2}
+			</when>
+			<otherwise>
+			AND 1 = 0
+			</otherwise>
+			</choose>
+			
+		</when>
+		<when test='updateField == "CLEARANCE_YN"'>
+			UPDATE ad SET
+				   CLEARANCE_STATUS = 'CLS050'
+				   ,CLEARANCE_YN = 'Y'
+			FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+			 			ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerHouseListWhere"/>
+		</when>
+		<when test='updateField == "DELAY"'>
+			UPDATE od SET
+				   CLEARANCE_VIOLATION_CODE = #{clearanceViolationCode}
+				   ,CLEARANCE_VIOLATION_REASON = #{clearanceViolationReason}
+			FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+			 			ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerHouseListWhere"/>
+		</when>
+		</choose>
+		
+		SELECT @@ROWCOUNT AS COUNT
+	</update>
+	
+	
+	<update id="updateBrokerBatchBySrchData2" parameterType="searchOrderList">
+		/* BrokerMapper.updateBrokerBatchBySrchData2 : Broker - 통관상태 일괄변경 */
+		<choose>
+		<when test='updateField == "CUSTOMS_OFFICER"'>
+			UPDATE ad SET
+				   <!-- 관세사에 값이 있다면 신고의뢰(CLS030), 값이 없다면 신고전(CLS010) -->
+				  CLEARANCE_STATUS = CASE WHEN ISNULL(od.CB_CODE, '') != '' THEN 'CLS030' ELSE 'CLS010' END
+			FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+			 			ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			<choose>
+			<when test='srchBlTypeMh == "M"'>
+			WHERE od.MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+			</when>
+			<otherwise>
+			WHERE od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+			</otherwise>
+			</choose>
+			AND od.BL_TYPE_MH = 'H'
+			AND od.CUST_CODE_LV1 = #{custCodeLv1}
+			AND ISNULL(od.CUST_CODE_LV2,'') = #{custCodeLv2}
+			<!-- 관세사 지정 시 일반,배제인 것만 신고상태값 신고의뢰 처리 -->
+			AND od.CD_TYPE IN ('N','B')
+		</when>
+		<when test='updateField == "DELAY"'>
+			UPDATE ad SET
+				   CLEARANCE_STATUS = 'CLS040'
+			FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+			 			ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerHouseListWhere"/>
+		</when>
+		</choose>
+		
+		SELECT @@ROWCOUNT AS COUNT
+	</update>
+	
+	<update id="updateBrokerBatch" parameterType="searchBrokerBatchUpdate" >
+		/* BrokerMapper.updateBrokerBatch : Broker - 일괄변경 */
+		<choose>
+		<when test='updateField == "CUSTOMS_OFFICER"'>
+			UPDATE TB_ECM_OD SET
+				   CB_CODE = #{CbCode}
+			WHERE OD_JOB_NO IN(<foreach collection="customsOfficerList" item="item" separator=",">#{item.odJobNo}</foreach>)
+		</when>
+		<when test='updateField == "CLEARANCE_YN"'>
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				CLEARANCE_STATUS = 'CLS050'
+			WHERE  
+			<!-- M 선택한 경우 조회조건 같이 비교해야 하므로 updateBrokerBatchBySrchData 쿼리에서 조회 -->
+			<!-- <if test='blTypeMh == "M"'>
+			 od.MASTER_OD_JOB_NO IN(<foreach collection="checkDataList" item="item" separator=",">#{item}</foreach>) 
+			</if> -->
+			OD_JOB_NO IN(<foreach collection="checkDataList" item="item" separator=",">#{item}</foreach>)
+		</when>
+		<when test='updateField == "DELAY"'>
+		UPDATE TB_ECM_OD SET
+				   CLEARANCE_VIOLATION_CODE = #{clearanceViolationCode}
+				   ,CLEARANCE_VIOLATION_REASON = #{clearanceViolationReason}
+			WHERE 
+			<!-- M 선택한 경우 조회조건 같이 비교해야 하므로 updateBrokerBatchBySrchData 쿼리에서 조회 -->
+			<!-- <if test='blTypeMh == "M"'>
+			 MASTER_OD_JOB_NO IN(<foreach collection="checkDataList" item="item" separator=",">#{item}</foreach>)
+			</if> -->
+			<if test='blTypeMh == "H"'>
+			 OD_JOB_NO IN(<foreach collection="checkDataList" item="item" separator=",">#{item}</foreach>)
+			</if>
+		</when>
+		</choose>
+		
+		SELECT @@ROWCOUNT AS COUNT
+	</update>
+	
+	<update id="updateBrokerBatch2" parameterType="searchBrokerBatchUpdate">
+		/* BrokerMapper.updateBrokerBatch2 : Broker - 통관상태 일괄변경 */
+		<choose>
+		<when test='updateField == "CUSTOMS_OFFICER"'>
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   CLEARANCE_STATUS = 'CLS030'
+			WHERE OD_JOB_NO IN(<foreach collection="customsOfficerList" item="item" separator=",">#{item.odJobNo}</foreach>)
+		</when>
+		<when test='updateField == "DELAY"'>
+			UPDATE ad SET
+				CLEARANCE_STATUS = 'CLS040'
+			FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+			 			ON ad.OD_JOB_NO = od.OD_JOB_NO 
+			WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="checkDataList" item="item" separator=",">#{item}</foreach>)
+		</when>
+		</choose>
+			
+		SELECT @@ROWCOUNT AS COUNT
+	</update>
+	
+	<select id="selectBrokerBatchBySrchData"  parameterType="searchBrokerBatchUpdate" resultType ="order">
+		/* BrokerMapper.selectBrokerBatchBySrchData : Broker - 통관상태 일괄변경 */
+		<choose>
+		<when test='updateField == "CUSTOMS_OFFICER"'>
+			SELECT OD_JOB_NO, od.MBL_NO, od.HBL_NO, BOUND , BOUND_TYPE
+			FROM TB_ECM_OD od
+			<choose>
+			<when test='srchBlTypeMh == "M"'>
+			WHERE od.MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+			</when>
+			<otherwise>
+			WHERE od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+			</otherwise>
+			</choose>
+			AND od.BL_TYPE_MH = 'H'
+			<!-- 상위업체 없는 경우 관세사 저장 x -->
+			<choose>
+			<when test="custCodeLv1 != null and custCodeLv1 != ''">
+			AND od.CUST_CODE_LV1 = #{custCodeLv1}
+			AND ISNULL(od.CUST_CODE_LV2,'') = #{custCodeLv2}
+			</when>
+			<otherwise>
+			AND 1 = 0
+			</otherwise>
+			</choose>
+		</when>
+		<when test='updateField == "CLEARANCE_YN"'>
+			SELECT od.OD_JOB_NO, od.MBL_NO, od.HBL_NO, od.BOUND , od.BOUND_TYPE
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			<choose>
+			<when test='blTypeMh == "H" and dataList != null'>
+				WHERE od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			<otherwise>
+			<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerHouseListWhere"/>
+			</otherwise>
+			</choose>
+		</when>
+		<when test='updateField == "DELAY"'>
+			SELECT
+				 od.OD_JOB_NO
+				,od.MBL_NO
+				,od.HBL_NO
+				,od.BOUND
+				,od.BOUND_TYPE
+				,od.CLEARANCE_VIOLATION_REASON
+				,ad.LAST_POD_STATUS
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			<choose>
+			<when test='blTypeMh == "H" and dataList != null'>
+				WHERE od.OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			<otherwise>
+			<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerHouseListWhere"/>
+			</otherwise>
+			</choose>
+		</when>
+		</choose>
+	</select>
+	
+	<select id="selectCustomsShipmentRequestList" parameterType="searchOrderList" resultType="brokerHouse">
+		/* BrokerMapper.selectCustomsShipmentRequestList : 로그인네트웍 LCSV2 API - 수입 신고 요청 정보 전송 대상건 조회 */
+			SELECT
+				<!-- Order -->
+				   od.HBL_NO 
+				 , od.CB_CODE
+				 ,(SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = #{srchEntCode} AND CUSTOMER_CODE = od.CB_CODE AND CUSTOMER_TYPE ='BR') AS CB_NAME
+				 , od.CUST_CODE_LV1 AS AGENT_CODE
+				 , od.PO_NO
+				 , od.URL
+				 , od.CD_TYPE
+				 , od.INCOTERMS
+				 , od.CLEARANCE_PAYMENT_TYPE
+				 , od.CD_USE_TYPE
+				 , od.INSPECTION_TYPE
+				 , ad.DROP_CODE
+				 , od.FTA_YN
+				 , ROUND(od.GWT, 2) AS GWT
+				 , od.PIECES
+				 , od.MBL_NO
+				 , CONVERT(CHAR(8), od.AR_DATE, 112) AS AR_DATE
+				 , od.ORIG_COUNTRY
+				 , od.OD_JOB_NO
+				<!-- Sender -->
+				 , od.SHIPPER_NAME 
+				 , CONCAT(ISNULL(od.SHIPPER_ADDRESS, ''), ISNULL(od.SHIPPER_ADDRESS_A, ''), ISNULL(od.SHIPPER_ADDRESS_B, ''), ISNULL(od.SHIPPER_ADDRESS_C, ''), ISNULL(od.SHIPPER_ADDRESS_D, '')) AS SHIPPER_ADDRESS
+				 , CASE WHEN ISNULL(od.SHIPPER_HP, '') = '' THEN od.SHIPPER_TEL ELSE od.SHIPPER_HP END AS SHIPPER_TEL
+				 , od.ECM_BUY_TYPE
+				 , od.SELLER_REG_NO
+				 , od.AGENT_NAME
+				 , od.AGENT_REG_NO
+				 , od.SALES_BROKER_NAME
+				 , od.SALES_BROKER_REG_NO
+				<!-- Receiver -->
+				 , od.CONSIGNEE_NAME_LOC 
+				 , od.CUSTOMS_ID
+				 , od.CONSIGNEE_ZIPCODE
+				 , od.CONSIGNEE_ADDRESS_LOC
+				 , od.CONSIGNEE_HP
+				 , od.CONSIGNEE_TEL
+				<!-- items -->
+				 ,'[' + STUFF((
+						SELECT
+							',{DETAIL_ITEM_NAME:"' + ISNULL(REPLACE(DETAIL_ITEM_NAME, '"',''), '')
+							+ '",BRAND:"' + ISNULL(BRAND, '')
+							+ '",UNIT_PRICE:"' + CAST(CONVERT(DECIMAL(11,2), UNIT_PRICE) AS VARCHAR)
+							+ '",PIECES:"' + CAST(CAST(ISNULL(PIECES,1) AS INT) AS VARCHAR) 												 
+							+ '",AMOUNT:"' + CAST(CONVERT(DECIMAL(11,2), AMOUNT) AS VARCHAR)	
+							+ '",GWT:"' + CAST(CONVERT(DECIMAL(11,3), GWT) AS VARCHAR)
+							+ '",CURRENCY_CODE:"' + ISNULL(CURRENCY_CODE, '')
+							+ '",HS_CODE:"' + ISNULL(HS_CODE, '')
+							+ '",ORIGIN_COUNTRY:"' + ISNULL(ORIGIN_COUNTRY, '')
+							+ '"}'																	
+						FROM TB_ECM_OD_ITEM items   
+						WHERE od.OD_JOB_NO = items.OD_JOB_NO
+						ORDER BY items.SEQ_NO_ID
+						FOR XML PATH ('')
+					 ) + ']', 1, 1, '') AS ITEMS_INFO
+			FROM TB_ECM_OD od 
+			LEFT JOIN TB_ECM_OD_ADDITIONAL ad
+				ON od.OD_JOB_NO = ad.OD_JOB_NO
+			<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerHouseListWhere"/>
+	</select>
+	
+	<select id="selectCustomsOfficerList2" parameterType="SearchOrderList" resultType="BrokerMaster">
+		/* BrokerMapper.selectCustomsOfficerList2 : 관세사 리스트 조회 2 */
+			SELECT
+				   MAX(od.CB_CODE) AS CB_CODE
+				 , COUNT(od.OD_JOB_NO) AS HBL_CNT
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			<!-- parameter 추가시 SearchOrderList/SearchExcelList에 추가 -->
+			<include refid="org.yht.exps.express.mapper.eCommerce.BrokerMapper.selectBrokerHouseListWhere"/>
+			GROUP BY od.CB_CODE
+			ORDER BY od.CB_CODE
+	</select>
+	
+	<update id="updateTariffRemarks" parameterType="HashMap">
+		/* BrokerMapper.updateTariffRemarks : 통관결과값 관세사 비고에 업데이트 */
+			UPDATE TB_ECM_OD
+			SET TARIFF_REMARKS = #{tariffRemarks}
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updateBrokerClearanceStatus" parameterType="java.util.List">
+		UPDATE ad SET
+			  CLEARANCE_STATUS = 'CLS030'
+			  , CB_SEND_DATE_TIME = DATEADD(HOUR, 0, GETDATE())
+		FROM TB_ECM_OD od
+		INNER JOIN TB_ECM_OD_ADDITIONAL ad
+ 			ON ad.OD_JOB_NO = od.OD_JOB_NO 
+		WHERE od.OD_JOB_NO IN(<foreach collection="list" item="item" separator=",">#{item.odJobNo}</foreach>)
+	</update>
+</mapper>

@@ -1,0 +1,1578 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsDisposalMapper">
+	<!-- 공통 검색조건 (TB_BMS_IN) -->
+	<sql id="searchCommonCondi">
+		<if test='srchDateGbn != "noDateChk"'>
+			 AND (1=1)
+		</if>
+
+	</sql>
+	<sql id="searchInventoryListCondi">
+		<if test="cdType != null and cdType != ''">
+			AND CD_TYPE = #{cdType}
+		</if> 
+		<if test="dropYN != null and dropYN != ''">
+			AND DROP_YN = #{dropYN}
+		</if> 
+		<if test="inspectionYN != null and inspectionYN != ''">
+			AND INSPECTION_YN =  #{inspectionYN}
+		</if>
+		<if test='srchDateGbn != "noDateChk"'>
+			<choose>
+			<when test='srchDateType == "dateTime"'>
+			AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+			</when>
+			<otherwise>
+			AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat}) 
+			AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat})
+			</otherwise>
+			</choose>
+		</if>
+		<if test="srchCdUseType != null and srchCdUseType != ''">
+			AND CD_USE_TYPE = #{srchCdUseType} --용도구분
+		</if>
+		<if test="srchCdType != null and srchCdType != ''">
+		AND CD_TYPE = #{srchCdType}
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<when test='srchNoLikeYn == "N"'>
+					AND ${srchNoType} = #{srchNo}
+				</when>
+				<otherwise>
+					<!-- AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%') -->
+					<choose>
+						<when test='searchType == "multi"'>
+						AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND ${srchNoType} = #{srchNo}
+						</otherwise>
+					</choose>
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchCarryInType != null and srchCarryInType != ''">
+			AND A.IN_CLASS = #{srchCarryInType}
+		</if>
+		<if test="srchCustomerType != null and srchCustomerType != ''">
+			<if test="srchCustomerCode != null and srchCustomerCode != ''">
+				AND A.CUSTOMER_CODE = #{srchCustomerCode}
+			</if>
+			<if test="srchCustomerName != null and srchCustomerName != ''">
+				AND A.CUSTOMER_NAME LIKE CONCAT('%', #{srchCustomerName}, '%')
+			</if>
+			<if test="srchShipperCode != null and srchShipperCode != ''">
+				AND A.SHIPPER_CODE = #{srchShipperCode}
+			</if>
+			<if test="srchShipperName != null and srchShipperName != ''">
+				AND A.SHIPPER_NAME LIKE CONCAT('%', #{srchShipperName}, '%')
+			</if>
+			<if test="srchConsigneeCode != null and srchConsigneeCode != ''">
+				AND A.CONSIGNEE_CODE = #{srchConsigneeCode}
+			</if>
+			<if test="srchConsigneeName != null and srchConsigneeName != ''">
+				AND A.CONSIGNEE_NAME LIKE CONCAT('%', #{srchConsigneeName}, '%')
+			</if>
+			<if test="srchNotifyCode != null and srchNotifyCode != ''">
+				AND A.NOTIFY_CODE = #{srchNotifyCode}
+			</if>
+			<if test="srchNotifyName != null and srchNotifyName != ''">
+				AND A.NOTIFY_NAME LIKE CONCAT('%', #{srchNotifyName}, '%')
+			</if>
+			<if test="srchFwdCode != null and srchFwdCode != ''">
+				AND A.FWD_CODE = #{srchFwdCode}
+			</if>
+			<if test="srchFwdName != null and srchFwdName != ''">
+				AND A.FWD_NAME LIKE CONCAT('%', #{srchFwdName}, '%')
+			</if>
+			<if test="srchDeliveryCode != null and srchDeliveryCode != ''">
+				AND A.DELIVERY_CODE = #{srchDeliveryCode}
+			</if>
+			<if test="srchDeliveryName != null and srchDeliveryName != ''">
+				AND A.DELIVERY_NAME LIKE CONCAT('%', #{srchDeliveryName}, '%')
+			</if>
+			<if test="srchLocationPlaceName != null and srchLocationPlaceName != ''">
+				AND A.LOCATION_PLACE LIKE CONCAT('%', #{srchLocationPlaceName}, '%')
+			</if>
+			<if test="srchRemarks1Name != null and srchRemarks1Name != ''">
+				AND A.REMARKS_1 LIKE CONCAT('%', #{srchRemarks1Name}, '%')
+			</if>
+			<if test="srchRemarks2Name != null and srchRemarks2Name != ''">
+				AND A.REMARKS_2 LIKE CONCAT('%', #{srchRemarks2Name}, '%')
+			</if>
+			<if test="srchRemarks3Name != null and srchRemarks3Name != ''">
+				AND A.REMARKS_3 LIKE CONCAT('%', #{srchRemarks3Name}, '%')
+			</if>
+			<if test="srchCommodityItemLoc != null and srchCommodityItemLoc != ''">
+				AND A.COMMODITY_ITEM_LOC LIKE CONCAT('%', #{srchCommodityItemLoc}, '%')
+			</if>
+		</if>
+	</sql>
+
+	<sql id="searchDisposalListCondi">
+		<if test='srchDateGbn != "noDateChk"'>
+			<choose>
+				<when test='srchDateType == "dateTime"'>
+					AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+					AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+				</when>
+				<otherwise>
+					AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+					AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat})
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchCdUseType != null and srchCdUseType != ''">
+			AND CD_USE_TYPE = #{srchCdUseType} --용도구분
+		</if>
+		<if test="srchImportExportClass != null and srchImportExportClass != ''">
+			AND IMPORT_EXPORT_CLASS = #{srchImportExportClass} --엑셀 조회시 1.항공, 3.해상 구분값
+		</if>
+		<if test="srchCdType != null and srchCdType != ''">
+			AND CD_TYPE = #{srchCdType}
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<when test='srchNoLikeYn == "N"'>
+					AND ${srchNoType} = #{srchNo}
+				</when>
+				<otherwise>
+					<!-- AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%') -->
+					<choose>
+						<when test='searchType == "multi"'>
+						AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND ${srchNoType} = #{srchNo}
+						</otherwise>
+					</choose>
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchCarryInType != null and srchCarryInType != ''">
+			AND B.IN_CLASS = #{srchCarryInType}
+		</if>
+		<if test="srchCustomerType != null and srchCustomerType != ''">
+			<if test="srchCustomerCode != null and srchCustomerCode != ''">
+				AND B.CUSTOMER_CODE = #{srchCustomerCode}
+			</if>
+			<if test="srchCustomerName != null and srchCustomerName != ''">
+				AND B.CUSTOMER_NAME LIKE CONCAT('%', #{srchCustomerName}, '%')
+			</if>
+			<if test="srchShipperCode != null and srchShipperCode != ''">
+				AND B.SHIPPER_CODE = #{srchShipperCode}
+			</if>
+			<if test="srchShipperName != null and srchShipperName != ''">
+				AND B.SHIPPER_NAME LIKE CONCAT('%', #{srchShipperName}, '%')
+			</if>
+			<if test="srchConsigneeCode != null and srchConsigneeCode != ''">
+				AND B.CONSIGNEE_CODE = #{srchConsigneeCode}
+			</if>
+			<if test="srchConsigneeName != null and srchConsigneeName != ''">
+				AND B.CONSIGNEE_NAME LIKE CONCAT('%', #{srchConsigneeName}, '%')
+			</if>
+			<if test="srchNotifyCode != null and srchNotifyCode != ''">
+				AND B.NOTIFY_CODE = #{srchNotifyCode}
+			</if>
+			<if test="srchNotifyName != null and srchNotifyName != ''">
+				AND B.NOTIFY_NAME LIKE CONCAT('%', #{srchNotifyName}, '%')
+			</if>
+			<if test="srchFwdCode != null and srchFwdCode != ''">
+				AND B.FWD_CODE = #{srchFwdCode}
+			</if>
+			<if test="srchFwdName != null and srchFwdName != ''">
+				AND B.FWD_NAME LIKE CONCAT('%', #{srchFwdName}, '%')
+			</if>
+			<if test="srchDeliveryCode != null and srchDeliveryCode != ''">
+				AND B.DELIVERY_CODE = #{srchDeliveryCode}
+			</if>
+			<if test="srchDeliveryName != null and srchDeliveryName != ''">
+				AND B.DELIVERY_NAME LIKE CONCAT('%', #{srchDeliveryName}, '%')
+			</if>
+			<if test="srchLocationPlaceName != null and srchLocationPlaceName != ''">
+				AND B.LOCATION_PLACE LIKE CONCAT('%', #{srchLocationPlaceName}, '%')
+			</if>
+			<if test="srchRemarks1Name != null and srchRemarks1Name != ''">
+				AND B.REMARKS_1 LIKE CONCAT('%', #{srchRemarks1Name}, '%')
+			</if>
+			<if test="srchRemarks2Name != null and srchRemarks2Name != ''">
+				AND B.REMARKS_2 LIKE CONCAT('%', #{srchRemarks2Name}, '%')
+			</if>
+			<if test="srchRemarks3Name != null and srchRemarks3Name != ''">
+				AND B.REMARKS_3 LIKE CONCAT('%', #{srchRemarks3Name}, '%')
+			</if>
+			<if test="srchCommodityItemLoc != null and srchCommodityItemLoc != ''">
+				AND B.COMMODITY_ITEM_LOC LIKE CONCAT('%', #{srchCommodityItemLoc}, '%')
+			</if>
+		</if>
+	</sql>
+	<sql id="selectDisposalList_sql" >
+			SELECT
+				A.DISPOSAL_NO
+				,  A.DISPOSAL_ISSUE_DATE
+				,  A.IN_NO
+				,  A.CARGO_REFERENCE_NO
+				,  A.BL_NO
+				,  A.MBL_NO
+				,  A.DISPOSAL_REASON
+				,  A.DISPOSAL_CODE
+				,  A.DISPOSAL_NAME
+				,  A.CUSTOMER_CODE
+				,  A.CUSTOMER_NAME
+				,  dbo.Cryptography(A.CARGO_REFERENCE_NO, A.CUSTOMER_TEL, 1) AS CUSTOMER_TEL
+				,  A.CUSTOMER_ADDRESS_1
+				,  A.CUSTOMER_ADDRESS_2
+				,  A.AMOUNT_USD
+				,  A.DISPOSAL_LOC
+				,  A.DISPOSAL_EXP_DATE
+				,  A.DISPOSAL_METHOD
+				,  A.DISPOSAL_FINISH_DATE
+				,  A.PKG_TYPE
+				,  A.DISPOSAL_CT
+				,  A.DISPOSAL_WT
+				,  A.OUT_YN
+				,  A.REGISTER_USER_ID
+				,  A.REGISTER_DATE_TIME
+				,  A.UPDATE_USER_ID
+				,  A.UPDATE_DATE_TIME
+				, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+				,  'DISPOSAL' AS SD_TYPE <!-- STOCK, DISPOSAL 유형-->
+				, B.CARRYIN_DATE, B.CARRYIN_TIME
+				, B.CD_TYPE
+				, IIF(B.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+				, IIF(ISNULL(B.CD_TYPE, '') != 'Y', 1, 0) AS GENERAL_CNT
+				, B.ECM_TYPE, B.CD_USE_TYPE
+				, B.IMPORT_EXPORT_CLASS, B.VESSEL_FLIGHT, B.VOYAGE, B.AR_DATE, B.AR_TIME, B.COMMODITY_ITEM_LOC
+				, B.LOCATION_PLACE,B.REMARKS_1, B.REMARKS_2, B.REMARKS_3, B.REFERENCE_NO
+				, B.OD_JOB_NO
+				, ISNULL(D.HOLD_YN,'N') AS HOLD_YN
+				, D.HOLD_CODE
+			    , D.HOLD_REASON
+				, D.HOLD_RELEASE_YN
+				, D.HOLD_RELEASE_ATTN
+				, D.HOLD_RELEASE_DATE
+				, CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE FUNC_JOB_NO = B.OD_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+				FROM
+				TB_BMS_DISPOSAL A
+				LEFT JOIN TB_BMS_IN B WITH (NOLOCK)
+					ON A.IN_NO = B.IN_NO
+				LEFT JOIN (SELECT 'Y' AS HOLD_YN
+					, MAX(OD_JOB_NO) AS OD_JOB_NO
+					, MAX(HOLD_CODE) AS HOLD_CODE
+					, MAX(HOLD_REASON) AS HOLD_REASON
+					, MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+					, MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+					, MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+					FROM TB_ECM_OD_HOLD
+					GROUP BY OD_JOB_NO) D ON B.OD_JOB_NO = D.OD_JOB_NO
+				WHERE 1 = 1
+				<if test='srchMode == "notSearch"'>
+				AND 1 = 0
+				</if>
+			<include refid="org.yht.exps.express.mapper.bms.BmsDisposalMapper.searchCommonCondi"/>
+			<include refid="org.yht.exps.express.mapper.bms.BmsDisposalMapper.searchDisposalListCondi"/>
+	</sql>
+	<select id="selectDisposalList" parameterType="searchDisposal" resultType="Disposal" fetchSize="1000">
+		/* bmsDisposal.selectDisposalList  : 폐기 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+		, COUNT(*) OVER() AS TOTAL_CNT
+		, SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+		, SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+		FROM (
+				<include refid="org.yht.exps.express.mapper.bms.BmsDisposalMapper.selectDisposalList_sql" />
+		) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	<select id="selectDisposalListExcel" parameterType="searchDisposal" resultType="Disposal" fetchSize="1000">
+		/* bmsDisposal.selectDisposalListExcel  : 폐기 리스트 엑셀 조회 */
+		SELECT
+		ROW_NUMBER() OVER(<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+		<if test="defaultSort2 != null and defaultSort2 != ''">
+			, ${defaultSort2}
+		</if>
+		) AS NUM
+		, DISPOSAL_NO
+		, DISPOSAL_ISSUE_DATE
+		, IN_NO
+		, CARGO_REFERENCE_NO
+		, BL_NO
+		, MBL_NO
+		, DISPOSAL_REASON
+		, DISPOSAL_CODE
+		, DISPOSAL_NAME
+		, CUSTOMER_CODE
+		, CUSTOMER_NAME
+		, CUSTOMER_TEL
+		, CUSTOMER_ADDRESS_1
+		, CUSTOMER_ADDRESS_2
+		, AMOUNT_USD
+		, DISPOSAL_LOC
+		, DISPOSAL_EXP_DATE
+		, DISPOSAL_METHOD
+		, DISPOSAL_FINISH_DATE
+		, (SELECT CODE  FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='UNIT_PIECES'
+								AND CODE =  PKG_TYPE) AS PKG_TYPE
+
+		, DISPOSAL_CT
+		, DISPOSAL_WT
+		, OUT_YN
+		, REGISTER_USER_ID
+		, REGISTER_DATE_TIME
+		, UPDATE_USER_ID
+		, UPDATE_DATE_TIME
+		, REGISTER_USER_NAME
+		, UPDATE_USER_NAME
+		, SD_TYPE
+		, CARRYIN_DATE
+		, CARRYIN_TIME
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='CD_TYPE'
+								AND CODE =  CD_TYPE) AS CD_TYPE
+		, SIMPLE_CNT
+		, GENERAL_CNT
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='CCL_ECOMMERCE_TYPE'
+																AND CODE =  ECM_TYPE) AS ECM_TYPE
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='USE_GUBN'
+																AND CODE =  CD_USE_TYPE) AS CD_USE_TYPE
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='BOUND_TYPE_UNION'
+																AND CODE =  IMPORT_EXPORT_CLASS ) AS IMPORT_EXPORT_CLASS
+		, VESSEL_FLIGHT
+		, VOYAGE
+		, AR_DATE
+		, AR_TIME
+		, COMMODITY_ITEM_LOC
+		, LOCATION_PLACE
+		, REMARKS_1
+		, REMARKS_2
+		, REMARKS_3
+		, REFERENCE_NO
+		, OD_JOB_NO
+		, FILE_SHARE
+		, HOLD_YN
+		, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+			AND GROUP_CODE ='HOLD_CODE'
+			AND CODE =  HOLD_CODE ) AS HOLD_CODE
+		, HOLD_REASON
+		, HOLD_RELEASE_YN
+		, HOLD_RELEASE_ATTN
+		, HOLD_RELEASE_DATE
+		FROM (
+			<include refid="org.yht.exps.express.mapper.bms.BmsDisposalMapper.selectDisposalList_sql" />
+		) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+		<if test="defaultSort2 != null and defaultSort2 != ''">
+			, ${defaultSort2}
+		</if>
+	</select>
+	<sql id="selectInventoryInList_sql" >
+		SELECT
+			A.IN_NO
+			, A.CUSTOMS_REPORT_NO
+			, A.LAST_POD_DATE
+			, A.LAST_POD_STATUS
+			, A.LAST_POD_5TL_STATUS
+			, A.LAST_POD_RAQ_DATE
+			, A.LAST_POD_R48_DATE
+			, A.IN_CLASS
+			, A.IN_APPROVAL_NO
+			, A.TRANS_PERIOD_DATE
+			, A.OD_JOB_NO
+			, A.IN_PLAN_NO
+			, A.CARGO_REFERENCE_NO
+			, A.BL_NO
+			, A.MBL_NO
+			, A.CUSTOMS_CODE
+			, A.CUSTOMS_DPT_CODE
+			, A.INSPECT_YN
+			, A.NOTICE_INSPECT_YN
+			, A.LOCATION_PLACE
+			, A.IMPORT_EXPORT_CLASS
+			, A.VESSEL_FLIGHT
+			, A.VOYAGE
+			, A.AR_DATE
+			, A.AR_TIME
+			, A.COMMODITY_ITEM_LOC
+			, A.SHIPPER_CODE
+			, A.SHIPPER_NAME
+			, A.SHIPPER_ADDRESS_1
+			, A.SHIPPER_ADDRESS_2
+			, A.CONSIGNEE_CODE
+			, A.CONSIGNEE_NAME
+			, A.CONSIGNEE_ADDRESS_1
+			, A.CONSIGNEE_ADDRESS_2
+			, dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+			, dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_TEL, 1) AS CONSIGNEE_TEL
+			, A.NOTIFY_CODE
+			, A.NOTIFY_NAME
+			, A.NOTIFY_ADDRESS_1
+			, A.NOTIFY_ADDRESS_2
+			, dbo.Cryptography(A.OD_JOB_NO, A.NOTIFY_TEL, 1) AS NOTIFY_TEL
+			, A.SPECIAL_CODE_1
+			, A.SPECIAL_CODE_2
+			, A.SPECIAL_CODE_3
+			, A.CARRIER_CODE
+			, A.CNTR_NO
+			, A.ORIG_COUNTRY
+			, A.SE_INSPECTION_CODE
+			, A.SIMPLE_AUTH_NAME
+			, A.INSPECTION_TYPE
+			, A.INSPECTION_TYPE_A
+			, A.INSPECTION_TYPE_B
+			, A.XRAY_INSPECTION_CODE
+			, A.XRAY_LINE_NO
+			, A.XRAY_CHECK
+			, A.PALN5EM_INSPECTION_CODE
+			, A.CD_TYPE
+			, IIF(A.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+			, IIF(ISNULL(A.CD_TYPE, '') != 'Y', 1, 0) AS GENERAL_CNT
+			, A.ECM_TYPE
+			, A.CD_USE_TYPE
+			, A.BIG_SIZE_YN
+			, A.AMOUNT_USD
+			, A.XRAY_SCAN_CT
+			, A.XRAY_IMAGE_CT
+			, A.CARRYIN_DATE
+			, A.CARRYIN_TIME
+			, A.OUT_NOTICE_DATE
+			, A.PERIOD_OVER_DATE
+			, A.CUSTOMER_CODE
+			, A.CUSTOMER_NAME
+			, A.FWD_CODE
+			, A.FWD_NAME
+			, A.PKG_TYPE
+			, A.EX_CT
+			, A.EX_WT
+			, A.EX_CBM
+			, A.CT
+			, A.WT
+			, A.CBM
+			, A.ACCIDENT_CLASS
+			, A.ACCIDENT_CT
+			, A.ACCIDENT_WT
+			, A.ACCIDENT_CBM
+			, A.STOCK_CT
+			, A.STOCK_WT
+			, A.STOCK_CBM
+			, A.CARRYOUT_DATE
+			, A.CARRYOUT_TIME
+			, A.REMARKS_1
+			, A.REMARKS_2
+			, A.REMARKS_3
+			, A.REFERENCE_NO
+			, A.MGN_ISSUE_YN
+			, A.REGISTER_USER_ID
+			, A.REGISTER_DATE_TIME
+			, A.UPDATE_USER_ID
+			, A.UPDATE_DATE_TIME
+			, A.CRIME_SELECTION_YN
+			, A.ASSIGN_YN
+			, ISNULL(D.HOLD_YN,'N') AS HOLD_YN
+			, D.HOLD_CODE
+			, D.HOLD_REASON
+			, D.HOLD_RELEASE_YN
+			, D.HOLD_RELEASE_ATTN
+			, D.HOLD_RELEASE_DATE
+			, CASE WHEN (SELECT TOP 1 REFERENCE_NO_ID FROM TB_COM_FILE_SHARE WHERE FUNC_JOB_NO = A.OD_JOB_NO) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+			, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			, (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			,  'STOCK' AS SD_TYPE <!-- STOCK, DISPOSAL 유형-->
+		FROM TB_BMS_IN A WITH (NOLOCK)
+		LEFT JOIN (SELECT 'Y' AS HOLD_YN
+				, MAX(OD_JOB_NO) AS OD_JOB_NO
+				, MAX(HOLD_CODE) AS HOLD_CODE
+				, MAX(HOLD_REASON) AS HOLD_REASON
+				, MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+				, MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+				, MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+				FROM TB_ECM_OD_HOLD
+				GROUP BY OD_JOB_NO) D ON A.OD_JOB_NO = D.OD_JOB_NO
+		WHERE 1 = 1
+		<if test='srchMode == "notSearch"'>
+		AND 1 = 0
+		</if>
+		AND A.DISPOSAL_YN ='N'
+		AND A.STOCK_WT > 0
+		<include refid="org.yht.exps.express.mapper.bms.BmsDisposalMapper.searchCommonCondi"/>
+		<include refid="org.yht.exps.express.mapper.bms.BmsDisposalMapper.searchInventoryListCondi"/>
+	</sql>
+	<select id="selectInventoryInList" parameterType="searchDisposal" resultType="InventoryIn" fetchSize="1000">
+		/* bmsDisposal.selectInventoryInList  : 재고 리스트 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+		, COUNT(*) OVER() AS TOTAL_CNT
+		, SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+		, SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+		FROM (
+			<include refid="org.yht.exps.express.mapper.bms.BmsDisposalMapper.selectInventoryInList_sql" />
+		) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	<select id="selectInventoryInListExcel" parameterType="searchDisposal" resultType="InventoryIn" fetchSize="1000">
+		/* bmsDisposal.selectInventoryInListExcel  : 재고 리스트 엑셀다운 조회 */
+		SELECT
+			ROW_NUMBER() OVER(<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+			<if test="defaultSort2 != null and defaultSort2 != ''">
+				, ${defaultSort2}
+			</if>
+			) AS NUM
+			, IN_NO
+			, CUSTOMS_REPORT_NO
+			, LAST_POD_DATE
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+		                                                        AND GROUP_CODE ='STATUS_ORDER_CARGO'
+		                                                        AND CODE =  LAST_POD_STATUS) AS LAST_POD_STATUS
+			, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='STATUS_ORDER_CARGO'
+																AND CODE =  LAST_POD_5TL_STATUS) AS LAST_POD_5TL_STATUS
+			, LAST_POD_RAQ_DATE
+			, LAST_POD_R48_DATE
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='CARRYIN_TYPE'
+																AND CODE =  IN_CLASS) AS IN_CLASS
+			, IN_APPROVAL_NO
+			, TRANS_PERIOD_DATE
+			, OD_JOB_NO
+			, IN_PLAN_NO
+			, CARGO_REFERENCE_NO
+			, BL_NO
+			, MBL_NO
+			, CUSTOMS_CODE
+			, CUSTOMS_DPT_CODE
+			, INSPECT_YN
+			, NOTICE_INSPECT_YN
+			, LOCATION_PLACE
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='BOUND_TYPE_UNION'
+								AND CODE =  IMPORT_EXPORT_CLASS ) AS IMPORT_EXPORT_CLASS
+			, VESSEL_FLIGHT
+			, VOYAGE
+			, AR_DATE
+			, AR_TIME
+			, COMMODITY_ITEM_LOC
+			, SHIPPER_CODE
+			, SHIPPER_NAME
+			, SHIPPER_ADDRESS_1
+			, SHIPPER_ADDRESS_2
+			, CONSIGNEE_CODE
+			, CONSIGNEE_NAME
+			, CONSIGNEE_ADDRESS_1
+			, CONSIGNEE_ADDRESS_2
+			, CONSIGNEE_BUSINESS_ID
+			, CONSIGNEE_TEL
+			, NOTIFY_CODE
+			, NOTIFY_NAME
+			, NOTIFY_ADDRESS_1
+			, NOTIFY_ADDRESS_2
+			, NOTIFY_TEL
+			, SPECIAL_CODE_1
+			, SPECIAL_CODE_2
+			, SPECIAL_CODE_3
+			, CARRIER_CODE
+			, CNTR_NO
+			, ORIG_COUNTRY
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='SE_INSPECTION_CODE'
+								AND CODE =  SE_INSPECTION_CODE ) AS SE_INSPECTION_CODE
+			, SIMPLE_AUTH_NAME
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='INSPECTION_TYPE'
+								AND CODE =  INSPECTION_TYPE ) AS INSPECTION_TYPE
+		     , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='INSPECTION_TYPE'
+								AND CODE =  INSPECTION_TYPE_A ) AS INSPECTION_TYPE_A
+		     , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='INSPECTION_TYPE'
+								AND CODE =  INSPECTION_TYPE_B ) AS INSPECTION_TYPE_B
+			 , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='SE_INSPECTION_CODE'
+								AND CODE =  XRAY_INSPECTION_CODE ) AS XRAY_INSPECTION_CODE
+		     , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='XRAY_LINE_NO'
+								AND CODE =  XRAY_LINE_NO ) AS XRAY_LINE_NO
+		     , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='XRAY_INSPECTION_TYPE'
+								AND CODE =  XRAY_CHECK ) AS XRAY_CHECK
+		     , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='SE_INSPECTION_CODE'
+								AND CODE =  PALN5EM_INSPECTION_CODE ) AS PALN5EM_INSPECTION_CODE
+			, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='CD_TYPE'
+								AND CODE =  CD_TYPE) AS CD_TYPE
+			, SIMPLE_CNT
+			, GENERAL_CNT
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='CCL_ECOMMERCE_TYPE'
+																AND CODE =  ECM_TYPE) AS ECM_TYPE
+		    , (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='USE_GUBN'
+																AND CODE =  CD_USE_TYPE) AS CD_USE_TYPE
+			, BIG_SIZE_YN
+			, AMOUNT_USD
+			, XRAY_SCAN_CT
+			, XRAY_IMAGE_CT
+			, CARRYIN_DATE
+			, CARRYIN_TIME
+			, OUT_NOTICE_DATE
+			, PERIOD_OVER_DATE
+			, CUSTOMER_CODE
+			, CUSTOMER_NAME
+			, FWD_CODE
+			, FWD_NAME
+		     , (SELECT CODE  FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+								AND GROUP_CODE ='UNIT_PIECES'
+								AND CODE =  PKG_TYPE) AS PKG_TYPE
+			, EX_CT
+			, EX_WT
+			, EX_CBM
+			, CT
+			, WT
+			, CBM
+		    , (SELECT CODE FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+																AND GROUP_CODE ='ABNORMALITY_CODE'
+																AND CODE =  ACCIDENT_CLASS) AS ACCIDENT_CLASS
+			, ACCIDENT_CT
+			, ACCIDENT_WT
+			, ACCIDENT_CBM
+			, STOCK_CT
+			, STOCK_WT
+			, STOCK_CBM
+			, CARRYOUT_DATE
+			, CARRYOUT_TIME
+			, REMARKS_1
+			, REMARKS_2
+			, REMARKS_3
+			, REFERENCE_NO
+			, MGN_ISSUE_YN
+			, CRIME_SELECTION_YN
+			, ASSIGN_YN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME
+			, FILE_SHARE
+			, REGISTER_USER_NAME
+			, UPDATE_USER_NAME
+			, HOLD_YN
+			, (SELECT CODE +'.'+ NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode}
+			AND GROUP_CODE ='HOLD_CODE'
+			AND CODE =  HOLD_CODE ) AS HOLD_CODE
+			, HOLD_REASON
+			, HOLD_RELEASE_YN
+			, HOLD_RELEASE_ATTN
+			, HOLD_RELEASE_DATE
+		FROM (
+			<include refid="org.yht.exps.express.mapper.bms.BmsDisposalMapper.selectInventoryInList_sql" />
+		) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+		<if test="defaultSort2 != null and defaultSort2 != ''">
+			, ${defaultSort2}
+		</if>
+	</select>
+	<!--폐기신청 입력-->
+	<insert id="insertDisposal" parameterType="Disposal">
+<!-- BmsDisposalMapper.insertDisposal -->
+		insert into TB_BMS_DISPOSAL
+				(
+				    DISPOSAL_ISSUE_DATE
+				,  IN_NO
+				,  CARGO_REFERENCE_NO
+				,  BL_NO
+				,  MBL_NO
+				,  DISPOSAL_REASON
+				,  DISPOSAL_CODE
+				,  DISPOSAL_NAME
+				,  CUSTOMER_CODE
+				,  CUSTOMER_NAME
+				,  CUSTOMER_TEL
+				,  CUSTOMER_ADDRESS_1
+				,  CUSTOMER_ADDRESS_2
+				,  AMOUNT_USD
+				,  DISPOSAL_LOC
+				,  DISPOSAL_EXP_DATE
+				,  DISPOSAL_METHOD
+				,  DISPOSAL_FINISH_DATE
+				,  PKG_TYPE
+				,  DISPOSAL_CT
+				,  DISPOSAL_WT
+				,  OUT_YN
+				,  REGISTER_USER_ID
+				,  REGISTER_DATE_TIME
+				,  UPDATE_USER_ID
+				,  UPDATE_DATE_TIME
+				)
+		values (
+		         CONVERT(DATE,  #{disposalIssueDate}, ${dateFormat})
+			   , #{inNo}
+			   , #{cargoReferenceNo}
+			   , #{blNo}
+			   , #{mblNo}
+			   , #{disposalReason}
+			   , #{disposalCode}
+			   , #{disposalName}
+			   , #{customerCode}
+			   , #{customerName}
+			   , dbo.Cryptography(#{cargoReferenceNo}, #{customerTel}, 0)
+			   , #{customerAddress1}
+			   , #{customerAddress2}
+			   , #{amountUsd}
+			   , #{disposalLoc}
+				<choose>
+					<when test='disposalExpDate != null and disposalExpDate != ""'>
+						, CONVERT(DATE,  #{disposalExpDate}, ${dateFormat})
+					</when>
+					<otherwise>
+						,#{disposalExpDate}
+					</otherwise>
+				</choose>
+			   , #{disposalMethod}
+			<choose>
+				<when test='disposalFinishDate != null and disposalFinishDate != ""'>
+				 , CONVERT(DATE,  #{disposalFinishDate}, ${dateFormat})
+				</when>
+				<otherwise>
+				 ,#{disposalFinishDate}
+				</otherwise>
+			</choose>
+			   , #{pkgType}
+			   , #{disposalCt}
+			   , #{disposalWt}
+			   , 'N' -- 화면에서 입력시에는 N
+			   , #{registerUserId}
+			   ,  GETDATE()
+			   , #{updateUserId}
+			   , GETDATE()
+			   )
+	</insert>
+	<!-- 폐기신청 배치 처리 foreach를 이용한 다건의 데이터 Insert -->
+	<insert id="insertDisposalBatch" keyProperty="disposalNo" useGeneratedKeys="true">
+		insert into TB_BMS_DISPOSAL(  DISPOSAL_ISSUE_DATE , IN_NO , CARGO_REFERENCE_NO , BL_NO , MBL_NO , DISPOSAL_REASON , DISPOSAL_CODE , DISPOSAL_NAME , CUSTOMER_CODE , CUSTOMER_NAME , CUSTOMER_TEL , CUSTOMER_ADDRESS_1 , CUSTOMER_ADDRESS_2 , AMOUNT_USD , DISPOSAL_LOC , DISPOSAL_EXP_DATE , DISPOSAL_METHOD , DISPOSAL_FINISH_DATE ,  PKG_TYPE , DISPOSAL_CT , DISPOSAL_WT , OUT_YN , REGISTER_USER_ID , REGISTER_DATE_TIME , UPDATE_USER_ID , UPDATE_DATE_TIME)
+		values
+		<foreach collection="entities" item="entity" separator=",">
+			( #{entity.disposalIssueDate}, #{entity.inNo}, #{entity.cargoReferenceNo}, #{entity.blNo}, #{entity.mblNo}, #{entity.disposalReason}, #{entity.disposalCode}, #{entity.disposalName}, #{entity.customerCode}, #{entity.customerName}, #{entity.customerTel}, #{entity.customerAddress1}, #{entity.customerAddress2}, #{entity.amountUsd}, #{entity.disposalLoc}, #{entity.disposalExpDate}, #{entity.disposalMethod}, #{entity.disposalFinishDate},
+			 #{entity.pkgType}, #{entity.disposalCt}, #{entity.disposalWt}, #{entity.outYn}, #{entity.registerUserId}, #{entity.registerDateTime}, #{entity.updateUserId}, #{entity.updateDateTime})
+		</foreach>
+	</insert>
+	<!-- foreach를 이용한 다건의 데이터 Insert -->
+	<!--<insert id="insertItemList" parameterType="com.example.batchjob.dto.ItemDto">
+		INSERT INTO item_list
+		VALUES
+		<foreach collection="list" item="item" open="(" close=")" separator="), (">
+			#{item.itemCode}, #{item.name}, #{item.kindCode}, #{item.price}
+		</foreach>
+	</insert>-->
+	<!--폐기신청 수정-->
+	<update id="updateDisposal"  parameterType="Disposal">
+		update TB_BMS_DISPOSAL
+		<set>
+				DISPOSAL_ISSUE_DATE = #{disposalIssueDate},
+				IN_NO = #{inNo},
+				CARGO_REFERENCE_NO = #{cargoReferenceNo},
+				BL_NO = #{blNo},
+				MBL_NO = #{mblNo},
+				DISPOSAL_REASON = #{disposalReason},
+				DISPOSAL_CODE = #{disposalCode},
+				DISPOSAL_NAME = #{disposalName},
+				CUSTOMER_CODE = #{customerCode},
+				CUSTOMER_NAME = #{customerName},
+				CUSTOMER_TEL = dbo.Cryptography(#{cargoReferenceNo}, #{customerTel}, 0),
+				CUSTOMER_ADDRESS_1 = #{customerAddress1},
+				CUSTOMER_ADDRESS_2 = #{customerAddress2},
+				AMOUNT_USD = #{amountUsd},
+				DISPOSAL_LOC = #{disposalLoc},
+			    DISPOSAL_EXP_DATE = #{disposalExpDate},
+				DISPOSAL_METHOD = #{disposalMethod},
+				DISPOSAL_FINISH_DATE = #{disposalFinishDate},
+				PKG_TYPE = #{pkgType},
+				DISPOSAL_CT = #{disposalCt},
+				DISPOSAL_WT = #{disposalWt},
+				UPDATE_DATE_TIME = GETDATE()
+		</set>
+		where DISPOSAL_NO = #{disposalNo}
+	</update>
+
+	<!--폐기신청 삭제 1개-->
+	<delete id="deleteDisposal" parameterType="Disposal">
+		delete from TB_BMS_DISPOSAL where DISPOSAL_NO = #{disposalNo}
+	</delete>
+	
+	<select id="getAlreadyOutFromDisposal" resultType="Disposal">
+		/* BmsDisposalMapper.getAlreadyOutFromDisposal : 반출 리스트 조회 */
+		SELECT DISPOSAL_NO
+		FROM TB_BMS_DISPOSAL
+		WHERE DISPOSAL_NO IN (<foreach collection="map" item="item" separator=",">#{item.disposalNo}</foreach>)
+			AND OUT_YN = 'Y'
+	</select>
+	<select id="selectDisposalDetail"  parameterType="searchDisposal" resultType="Disposal" >
+			select TOP 1
+			        DISPOSAL_NO
+			     ,  DISPOSAL_ISSUE_DATE
+				 ,  IN_NO
+				 ,  CARGO_REFERENCE_NO
+				 ,  BL_NO
+				 ,  MBL_NO
+				 ,  DISPOSAL_REASON
+				 ,  DISPOSAL_CODE
+				 ,  DISPOSAL_NAME
+				 ,  CUSTOMER_CODE
+				 ,  CUSTOMER_NAME
+				 ,  dbo.Cryptography(CARGO_REFERENCE_NO, CUSTOMER_TEL, 1) AS CUSTOMER_TEL
+				 ,  CUSTOMER_ADDRESS_1
+				 ,  CUSTOMER_ADDRESS_2
+				 ,  AMOUNT_USD
+				 ,  DISPOSAL_LOC
+				 ,  DISPOSAL_EXP_DATE
+				 ,  DISPOSAL_METHOD
+				 ,  DISPOSAL_FINISH_DATE
+				 ,  PKG_TYPE
+				 ,  DISPOSAL_CT
+				 ,  DISPOSAL_WT
+				 ,  OUT_YN
+				 ,  REGISTER_USER_ID
+				 ,  REGISTER_DATE_TIME
+				 ,  UPDATE_USER_ID
+				 ,  UPDATE_DATE_TIME
+				 , (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.REGISTER_USER_ID) AS REGISTER_USER_NAME
+				 , (SELECT USER_NAME FROM TB_SMS_USER  WHERE USER_ID = A.UPDATE_USER_ID) AS UPDATE_USER_NAME
+			    FROM
+				TB_BMS_DISPOSAL A
+			where (1=1)
+		<choose>
+		<when test="srchDisposalNo != null and srchDisposalNo != ''">
+			AND DISPOSAL_NO = #{srchDisposalNo}
+		</when>
+		<otherwise>
+			AND IN_NO = #{srchInNo}
+			<if test="cargoReferenceNo != null and cargoReferenceNo != ''">
+				AND CARGO_REFERENCE_NO = #{cargoReferenceNo}
+			</if>
+		</otherwise>
+		</choose>
+			ORDER BY DISPOSAL_NO DESC
+   </select>
+	<select id="selectInventoryDetail"  parameterType="searchDisposal" resultType="InventoryIn" >
+   SELECT
+					  A.IN_NO   , A.CUSTOMS_REPORT_NO   , A.LAST_POD_DATE   , A.LAST_POD_STATUS   , A.LAST_POD_5TL_STATUS   , A.LAST_POD_RAQ_DATE   , A.LAST_POD_R48_DATE
+					  , A.IN_CLASS   , A.IN_APPROVAL_NO   , A.TRANS_PERIOD_DATE   , A.OD_JOB_NO   , A.IN_PLAN_NO   , A.CARGO_REFERENCE_NO   , A.BL_NO   , A.MBL_NO
+					  , A.CUSTOMS_CODE   , A.CUSTOMS_DPT_CODE   , A.INSPECT_YN   , A.NOTICE_INSPECT_YN   , A.LOCATION_PLACE   , A.IMPORT_EXPORT_CLASS
+					  , A.VESSEL_FLIGHT   , A.VOYAGE   , A.AR_DATE   , A.AR_TIME   , A.COMMODITY_ITEM_LOC   , A.SHIPPER_CODE   , A.SHIPPER_NAME   , A.SHIPPER_ADDRESS_1
+					  , A.SHIPPER_ADDRESS_2   , A.CONSIGNEE_CODE   , A.CONSIGNEE_NAME   , A.CONSIGNEE_ADDRESS_1   , A.CONSIGNEE_ADDRESS_2   
+					  , dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+					  , dbo.Cryptography(A.OD_JOB_NO, A.CONSIGNEE_TEL, 1) AS CONSIGNEE_TEL  
+					  , A.NOTIFY_CODE   , A.NOTIFY_NAME   , A.NOTIFY_ADDRESS_1   , A.NOTIFY_ADDRESS_2   
+					  , dbo.Cryptography(A.OD_JOB_NO, A.NOTIFY_TEL, 1) AS NOTIFY_TEL  
+					  , A.SPECIAL_CODE_1, A.SPECIAL_CODE_2   , A.SPECIAL_CODE_3   , A.CARRIER_CODE   , A.CNTR_NO   , A.ORIG_COUNTRY   , A.SE_INSPECTION_CODE   , A.SIMPLE_AUTH_NAME
+					  , A.INSPECTION_TYPE   , A.INSPECTION_TYPE_A   , A.INSPECTION_TYPE_B   , A.XRAY_INSPECTION_CODE   , A.XRAY_LINE_NO   , A.XRAY_CHECK
+					  , A.PALN5EM_INSPECTION_CODE   , A.CD_TYPE   , A.ECM_TYPE   , A.CD_USE_TYPE   , A.BIG_SIZE_YN   , A.AMOUNT_USD   , A.XRAY_SCAN_CT
+					  , A.XRAY_IMAGE_CT   , A.CARRYIN_DATE   , A.CARRYIN_TIME   , A.OUT_NOTICE_DATE   , A.PERIOD_OVER_DATE   , A.CUSTOMER_CODE
+					  , A.CUSTOMER_NAME   , A.FWD_CODE   , A.FWD_NAME   , A.PKG_TYPE   , A.EX_CT   , A.EX_WT   , A.EX_CBM   , A.CT   , A.WT   , A.CBM   , A.ACCIDENT_CLASS
+					  , A.ACCIDENT_CT   , A.ACCIDENT_WT   , A.ACCIDENT_CBM   , A.STOCK_CT   , A.STOCK_WT   , A.STOCK_CBM   , A.CARRYOUT_DATE   , A.CARRYOUT_TIME
+					  , A.REMARKS_1   , A.REMARKS_2   , A.REMARKS_3   , A.REFERENCE_NO   , A.MGN_ISSUE_YN  , A.REGISTER_USER_ID
+					  , A.REGISTER_DATE_TIME   , A.UPDATE_USER_ID   , A.UPDATE_DATE_TIME
+					  , A.DELIVERY_CODE , A.DELIVERY_NAME ,A.DISPOSAL_YN
+					  , A.ASSIGN_YN
+					  , A.CRIME_SELECTION_YN
+						, ISNULL(oh.HOLD_YN,'N') AS HOLD_YN--홀드여부
+						, oh.HOLD_CODE                   --홀드코드
+						, oh.HOLD_REASON                 --홀드사유
+						, oh.HOLD_RELEASE_YN             --홀드처리여부
+						, oh.HOLD_RELEASE_ATTN           --홀드처리담당자
+						, oh.HOLD_RELEASE_DATE           --홀드처리일자
+		FROM
+		TB_BMS_IN A WITH (NOLOCK)
+			LEFT JOIN (SELECT
+						   'Y' AS HOLD_YN
+							,   MAX(OD_JOB_NO) AS OD_JOB_NO
+							,   MAX(HOLD_CODE) AS HOLD_CODE
+							,   MAX(HOLD_REASON) AS HOLD_REASON
+							,	MAX(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN
+							,	MAX(HOLD_RELEASE_ATTN) AS HOLD_RELEASE_ATTN
+							,	MAX(HOLD_RELEASE_DATE) AS HOLD_RELEASE_DATE
+					   FROM TB_ECM_OD_HOLD
+					   GROUP BY OD_JOB_NO ) oh
+					  ON oh.OD_JOB_NO = A.OD_JOB_NO
+		WHERE A.IN_NO = #{srchInNo}
+	</select>
+
+	<update id="updateBmsInDisposalYn" parameterType="InventoryIn">
+		update TB_BMS_IN
+		<set>
+			DISPOSAL_YN       = #{disposalYn},
+			UPDATE_USER_ID    = #{updateUserId},
+			UPDATE_DATE_TIME  =  GETDATE()
+		</set>
+		where IN_NO = #{inNo}
+	</update>
+	<!-- 폐기화물 일괄 생성시 가장 최근 사용된 폐기 자료 조회-->
+	<select id="selectDisposalBatchCheckCount"   parameterType="InventoryIn" resultType="Integer">
+      SELECT count(*) FROM TB_BMS_DISPOSAL
+      WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+	</select>
+	<select id="selectDisposalExcelUploadCheckCount" parameterType="String" resultType="Integer">
+		SELECT COUNT(*)
+		FROM TB_BMS_DISPOSAL
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+	</select>
+	<select id="selectInventoryForDisposalExcelUpload" parameterType="String" resultType="InventoryIn">
+		SELECT TOP 1
+			  IN_NO
+			, OD_JOB_NO
+			, CARGO_REFERENCE_NO
+			, BL_NO
+			, DISPOSAL_YN
+			, STOCK_CT
+			, STOCK_WT
+			, STOCK_CBM
+		FROM TB_BMS_IN WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+		ORDER BY IN_NO DESC
+	</select>
+	<select id="selectRecentDisposalData"  parameterType="String" resultType="Disposal" >
+		SELECT ISNULL( (
+		SELECT TOP 1    DISPOSAL_REASON
+		FROM TB_BMS_DISPOSAL tbd
+		WHERE DISPOSAL_REASON <![CDATA[ <> ]]> ''
+		ORDER BY  REGISTER_DATE_TIME DESC
+		),'')  AS DISPOSAL_REASON
+        ,
+		 ISNULL((
+			SELECT TOP 1 SET_VALUE FROM TB_SMS_ENT_BUS_OPTION
+				WHERE ENT_CODE =#{entCode} AND SOLUTION='BMS' AND OPTION_CODE ='A09'
+		 ),'')  AS DISPOSAL_CODE
+		,
+		 ISNULL((
+				   SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE CUSTOMER_CODE = (
+					   SELECT TOP 1 SET_VALUE FROM TB_SMS_ENT_BUS_OPTION
+					   WHERE ENT_CODE =#{entCode} AND SOLUTION='BMS' AND OPTION_CODE ='A09'
+				   )
+				   ),'')  AS DISPOSAL_NAME
+		,
+		ISNULL((
+		SELECT top 1   DISPOSAL_LOC
+		FROM TB_BMS_DISPOSAL
+		WHERE DISPOSAL_LOC <![CDATA[ <> ]]> ''
+		ORDER BY  REGISTER_DATE_TIME DESC
+		),'')  AS DISPOSAL_LOC
+		,
+		ISNULL((
+		SELECT top 1   DISPOSAL_METHOD
+		FROM TB_BMS_DISPOSAL
+		WHERE DISPOSAL_METHOD <![CDATA[ <> ]]> ''
+		ORDER BY  REGISTER_DATE_TIME DESC
+		),'')  AS DISPOSAL_METHOD
+	</select>
+	<insert id="insertDisposalBatchGen" parameterType="Disposal">
+       /* BmsDisposalMapper.insertDisposalBatchGen */
+		INSERT INTO
+		  TB_BMS_DISPOSAL
+		(
+			  DISPOSAL_ISSUE_DATE
+			, IN_NO
+			, CARGO_REFERENCE_NO
+			, BL_NO
+			, MBL_NO
+			, DISPOSAL_REASON
+			, DISPOSAL_CODE
+			, DISPOSAL_NAME
+			, CUSTOMER_CODE
+			, CUSTOMER_NAME
+			, CUSTOMER_TEL
+			, CUSTOMER_ADDRESS_1
+			, CUSTOMER_ADDRESS_2
+			, AMOUNT_USD
+			, DISPOSAL_LOC
+			, DISPOSAL_EXP_DATE
+			, DISPOSAL_METHOD
+			, DISPOSAL_FINISH_DATE
+			, PKG_TYPE
+			, DISPOSAL_CT
+			, DISPOSAL_WT
+			, OUT_YN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME
+		)
+		SELECT
+			CONVERT(VARCHAR(10),GETDATE(),${dateFormat})  AS DISPOSAL_ISSUE_DATE
+			 , IN_NO
+			 , CARGO_REFERENCE_NO
+			 , BL_NO
+			 , MBL_NO
+			 ,  #{disposalReason} AS DISPOSAL_REASON
+			 ,  #{disposalCode} AS DISPOSAL_CODE
+			 ,  #{disposalName} AS DISPOSAL_NAME
+			 , tbi.CUSTOMER_CODE
+			 , tbi.CUSTOMER_NAME
+			 , dbo.Cryptography(CARGO_REFERENCE_NO, ISNULL(tsc.TEL,''), 0) AS CUSTOMER_TEL
+			 , ISNULL(tsc.ADDRESS,'')  AS CUSTOMER_ADDRESS_1
+			 , ISNULL(tsc.ADDRESS_A,'') AS CUSTOMER_ADDRESS_2
+			 , AMOUNT_USD
+			 , #{disposalLoc}  AS DISPOSAL_LOC
+			 , #{disposalExpDate}  AS DISPOSAL_EXP_DATE
+			 , #{disposalMethod}  AS DISPOSAL_METHOD
+			 , ''    AS DISPOSAL_FINISH_DATE
+			 , PKG_TYPE
+			 , CT AS DISPOSAL_CT
+			 , WT AS DISPOSAL_WT
+			 , 'N' OUT_YN
+			 ,  #{registerUserId} REGISTER_USER_ID
+			 ,   GETDATE() REGISTER_DATE_TIME
+			 , #{updateUserId} UPDATE_USER_ID
+			 ,   GETDATE()  UPDATE_DATE_TIME
+		FROM TB_BMS_IN tbi WITH (NOLOCK)
+				 LEFT JOIN TB_SMS_CUSTOMER tsc
+						ON tbi.CUSTOMER_CODE = tsc.CUSTOMER_CODE
+		where tbi.IN_NO = #{inNo}
+	</insert>
+	
+	<insert id="insertDisposalBatchGenWithExcelData" parameterType="Disposal">
+       /* BmsDisposalMapper.insertDisposalBatchGenWithExcelData */
+		INSERT INTO
+		  TB_BMS_DISPOSAL
+		(
+			  DISPOSAL_ISSUE_DATE
+			, IN_NO
+			, CARGO_REFERENCE_NO
+			, BL_NO
+			, MBL_NO
+			, DISPOSAL_REASON
+			, DISPOSAL_CODE
+			, DISPOSAL_NAME
+			, CUSTOMER_CODE
+			, CUSTOMER_NAME
+			, CUSTOMER_TEL
+			, CUSTOMER_ADDRESS_1
+			, CUSTOMER_ADDRESS_2
+			, AMOUNT_USD
+			, DISPOSAL_LOC
+			, DISPOSAL_EXP_DATE
+			, DISPOSAL_METHOD
+			, DISPOSAL_FINISH_DATE
+			, PKG_TYPE
+			, DISPOSAL_CT
+			, DISPOSAL_WT
+			, OUT_YN
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME
+		)
+		SELECT
+			CONVERT(VARCHAR(10),GETDATE(),${dateFormat})  AS DISPOSAL_ISSUE_DATE
+			 , IN_NO
+			 , ISNULL(NULLIF(#{cargoReferenceNo}, ''), CARGO_REFERENCE_NO)
+			 , ISNULL(NULLIF(#{blNo}, ''), BL_NO)
+			 , MBL_NO
+			 ,  #{disposalReason} AS DISPOSAL_REASON
+			 ,  #{disposalCode} AS DISPOSAL_CODE
+			 ,  #{disposalName} AS DISPOSAL_NAME
+			 , tbi.CUSTOMER_CODE
+			 , ISNULL(NULLIF(tbi.CUSTOMER_NAME, ''), #{customerName})
+			 , dbo.Cryptography(CARGO_REFERENCE_NO, ISNULL(tsc.TEL,''), 0) AS CUSTOMER_TEL
+			 , ISNULL(tsc.ADDRESS,'')  AS CUSTOMER_ADDRESS_1
+			 , ISNULL(tsc.ADDRESS_A,'') AS CUSTOMER_ADDRESS_2
+			 , AMOUNT_USD
+			 , #{disposalLoc}  AS DISPOSAL_LOC
+			 , #{disposalExpDate}  AS DISPOSAL_EXP_DATE
+			 , #{disposalMethod}  AS DISPOSAL_METHOD
+			 , ''    AS DISPOSAL_FINISH_DATE
+			 , ISNULL(NULLIF(#{pkgType}, ''), PKG_TYPE)
+			 , CASE WHEN ISNULL(#{disposalCt}, 0) = 0 THEN CT ELSE #{disposalCt} END AS DISPOSAL_CT
+			 , CASE WHEN ISNULL(#{disposalWt}, 0) = 0 THEN WT ELSE #{disposalWt} END AS DISPOSAL_WT
+			 , 'N' OUT_YN
+			 ,  #{registerUserId} REGISTER_USER_ID
+			 ,   GETDATE() REGISTER_DATE_TIME
+			 , #{updateUserId} UPDATE_USER_ID
+			 ,   GETDATE()  UPDATE_DATE_TIME
+		FROM TB_BMS_IN tbi WITH (NOLOCK)
+				 LEFT JOIN TB_SMS_CUSTOMER tsc
+						ON tbi.CUSTOMER_CODE = tsc.CUSTOMER_CODE
+		where tbi.IN_NO = #{inNo};
+		
+		INSERT INTO TB_ECM_POD_05 (
+                ENT_CODE
+                , OD_JOB_NO
+                , POD_STATUS
+                , POD_NAME
+                , POD_DATE
+                , POD_TIME
+                , REMARKS
+                , REGISTER_USER_ID
+                , REGISTER_DATE_TIME
+                , UPDATE_USER_ID
+                , UPDATE_DATE_TIME
+        ) VALUES (
+               #{entCode}
+               , #{odJobNo}
+               , 'ECM288'
+               , #{podName}
+               , GETDATE()
+               , SUBSTRING(CONVERT(VARCHAR(10), GETDATE(), 108), 1, 8)
+               , #{podRemarks}
+               , #{registerUserId}
+               , GETDATE()
+               , #{registerUserId}
+               , GETDATE()
+               );
+	</insert>
+
+	<select id="selectOutBatchCheckCount"   parameterType="Disposal" resultType="Integer">
+		SELECT count(*) FROM TB_BMS_OUT WITH (NOLOCK)
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+		  AND OUT_CLASS ='83'
+		  AND OUT_APPROVAL_NO =''
+	</select>
+	<insert id="insertOutBatchGen" parameterType="Disposal">
+		INSERT INTO
+			TB_BMS_OUT
+		(
+		  CUSTOMS_REPORT_NO
+		, LAST_POD_DATE
+		, LAST_POD_STATUS
+		, LAST_POD_RAQ_DATE
+		, APPROVAL_DATE
+		, OUT_CLASS
+		, OUT_APPROVAL_NO
+		, OD_JOB_NO
+		, IN_NO
+		, OUT_PLAN_NO
+		, CARGO_REFERENCE_NO
+		, BL_NO
+		, MBL_NO
+		, DO_NO
+		, DO_DATE
+		, CUSTOMS_CODE
+		, CUSTOMS_DPT_CODE
+		, CUSTOMER_CODE
+		, CUSTOMER_NAME
+		, BROKER_CODE
+		, BROKER_NAME
+		, PKG_TYPE
+		, APPROVAL_CT
+		, APPROVAL_WT
+		, APPROVAL_CBM
+		, OUT_CT
+		, OUT_WT
+		, OUT_CBM
+		, CARRYOUT_DATE
+		, CARRYOUT_TIME
+		, APPROVAL_DUTY
+		, APPROVAL_APPRAISE_VALUE
+		, INS_PAYMENT_TYPE
+		, CURRENCY_CODE
+		, INS_PAYMENT_YN
+		, INSPECT_YN
+		, HS_CODE
+		, CRITERIA_CODE
+		, INOUT_DATE_DIFF
+		, REMARKS_1
+		, REMARKS_2
+		, REMARKS_3
+		, REFERENCE_NO
+		, REGISTER_USER_ID
+		, REGISTER_DATE_TIME
+		, UPDATE_USER_ID
+		, UPDATE_DATE_TIME
+		)
+		SELECT
+			 #{customsReportNo} AS CUSTOMS_REPORT_NO
+			 , '' LAST_POD_DATE
+			 , 'BMS01' LAST_POD_STATUS
+			 , '' LAST_POD_RAQ_DATE
+			 , CONVERT(VARCHAR(10),GETDATE(),120) AS APPROVAL_DATE
+			 , '83' OUT_CLASS
+			 , '' OUT_APPROVAL_NO
+			 , tbi.OD_JOB_NO
+			 , tbi.IN_NO
+			 , '' OUT_PLAN_NO
+			 , tbi.CARGO_REFERENCE_NO
+			 , tbi.BL_NO
+			 , tbi.MBL_NO
+			 , '' DO_NO
+			 , '' DO_DATE
+			 , tbi.CUSTOMS_CODE
+			 , tbi.CUSTOMS_DPT_CODE
+			 , tbi.CUSTOMER_CODE
+			 , tbi.CUSTOMER_NAME
+			 , '' BROKER_CODE
+			 , '' BROKER_NAME
+			 , tbi.PKG_TYPE
+			 , tbd.DISPOSAL_CT  APPROVAL_CT
+			 , tbd.DISPOSAL_WT  APPROVAL_WT
+			 , (CASE WHEN tbi.CBM=0 THEN 0
+					 WHEN tbi.WT=tbd.DISPOSAL_WT THEN tbi.CBM
+					 WHEN tbi.WT =0 THEN 0
+					 ELSE ROUND(tbi.CBM * (tbd.DISPOSAL_WT/tbi.WT),3)
+			END) APPROVAL_CBM
+			 , tbd.DISPOSAL_CT OUT_CT
+			 , tbd.DISPOSAL_WT OUT_WT
+			 , (CASE WHEN tbi.CBM=0 THEN 0
+					 WHEN tbi.WT=tbd.DISPOSAL_WT THEN tbi.CBM
+					 WHEN tbi.WT =0 THEN 0
+					 ELSE ROUND(tbi.CBM * (tbd.DISPOSAL_WT/tbi.WT),3)
+			END) OUT_CBM
+			 , CONVERT(VARCHAR(10),GETDATE(),120) CARRYOUT_DATE  /* 현재 날자 10자리 */
+			 , CONVERT(CHAR(8), GETDATE(), 108) CARRYOUT_TIME  /*현재 시간 8자리*/
+			 , 0 APPROVAL_DUTY
+			 , 0 APPROVAL_APPRAISE_VALUE
+			 , '' INS_PAYMENT_TYPE
+			 , '' CURRENCY_CODE
+			 , 'N' INS_PAYMENT_YN
+			 , 'N' INSPECT_YN
+			 , '' HS_CODE
+			 , '' CRITERIA_CODE
+			 , dbo.GET_DATE_DIFF_KOR_STR(concat(tbi.CARRYIN_DATE,' ',tbi.CARRYIN_TIME )) INOUT_DATE_DIFF
+			 , '' REMARKS_1
+			 , '' REMARKS_2
+			 , '' REMARKS_3
+			 , tbi.REFERENCE_NO
+			 ,  #{registerUserId} REGISTER_USER_ID
+			 ,   GETDATE() REGISTER_DATE_TIME
+			 , #{updateUserId} UPDATE_USER_ID
+			 ,   GETDATE()  UPDATE_DATE_TIME
+		FROM TB_BMS_DISPOSAL tbd
+				 LEFT JOIN TB_BMS_IN tbi WITH (NOLOCK)
+						   ON tbd.IN_NO  = tbi.IN_NO
+				 LEFT JOIN TB_SMS_CUSTOMER tsc
+						   ON tbd.CUSTOMER_CODE = tsc.CUSTOMER_CODE
+		where tbd.DISPOSAL_NO  = #{disposalNo}
+		;
+
+		DECLARE  @v_OD_JOB_NO  VARCHAR(24);
+		DECLARE  @v_POD_NAME    NVARCHAR(100);
+		DECLARE  @v_POD_DATE    VARCHAR(10);
+		DECLARE  @v_POD_TIME    VARCHAR(8);
+		DECLARE  @v_REMARKS    NVARCHAR(200);
+
+		SET  @v_POD_TIME    = SUBSTRING(CONVERT(VARCHAR(10), GETDATE(), 108), 1, 8);
+		SET  @v_REMARKS     = '';
+
+		SET @v_POD_NAME = N'체화폐기반출(일괄)';
+
+		SELECT
+			@v_OD_JOB_NO =  tbi.OD_JOB_NO
+		FROM TB_BMS_DISPOSAL tbd
+				 LEFT JOIN TB_BMS_IN tbi WITH (NOLOCK)
+						   ON tbd.IN_NO  = tbi.IN_NO
+		where tbd.DISPOSAL_NO  = #{disposalNo}
+		;
+
+		/* POD multi data */
+		INSERT INTO TB_ECM_POD_05 (
+									ENT_CODE
+								  , OD_JOB_NO
+								  , POD_STATUS , POD_NAME , POD_DATE
+								  , POD_TIME, REMARKS
+								  , REGISTER_USER_ID, REGISTER_DATE_TIME
+								  , UPDATE_USER_ID, UPDATE_DATE_TIME
+		)
+		SELECT
+			 #{entCode}
+			 , @v_OD_JOB_NO
+			 , 'ECM288', @v_POD_NAME, GETDATE()
+			 , @v_POD_TIME, ISNULL(@v_REMARKS,'')
+			 , 'DAEMON', GETDATE()
+			 , 'DAEMON', GETDATE()
+		;
+
+	</insert>
+	<update id="updateInCtWtCbm"  parameterType="Disposal">
+		UPDATE TB_BMS_IN
+		SET TB_BMS_IN.STOCK_CT        = ( TB_BMS_IN.CT - ISNULL(T.OUT_CT,0)),
+			TB_BMS_IN.STOCK_WT        = ( TB_BMS_IN.WT - ISNULL(T.OUT_WT,0)) ,
+			TB_BMS_IN.STOCK_CBM       = ( TB_BMS_IN.CBM - ISNULL(T.OUT_CBM,0)),
+			TB_BMS_IN.CARRYOUT_DATE = T.CARRYOUT_DATE,
+			TB_BMS_IN.CARRYOUT_TIME = T.CARRYOUT_TIME
+		FROM TB_BMS_IN
+				 INNER JOIN (SELECT
+								 IN_NO
+								  , OUT_CT
+								  , OUT_WT
+								  , OUT_CBM
+								  , LEFT(CARRYOUT_DATE_TIME,10) CARRYOUT_DATE
+								  , RIGHT( CARRYOUT_DATE_TIME,8) CARRYOUT_TIME
+							 FROM (
+									  SELECT
+										  #{inNo} AS IN_NO
+										   ,  SUM(OUT_CT) AS OUT_CT
+										   , SUM(OUT_WT) AS OUT_WT
+										   , SUM(OUT_CBM) AS OUT_CBM
+										   , MAX(CONCAT(CARRYOUT_DATE,'', CARRYOUT_TIME))  AS CARRYOUT_DATE_TIME
+									  FROM TB_BMS_OUT WITH (NOLOCK)
+									  where IN_NO = #{inNo}
+									  group by IN_NO
+								  )T1 ) T
+							ON TB_BMS_IN.IN_NO = T.IN_NO
+		WHERE TB_BMS_IN.IN_NO = #{inNo}
+	</update>
+	<update id="updateBmsDisposalOutYn" parameterType="Disposal">
+		update TB_BMS_DISPOSAL
+		<set>
+			OUT_YN            = #{outYn},
+			UPDATE_USER_ID    = #{updateUserId},
+			UPDATE_DATE_TIME  =  GETDATE()
+		</set>
+		where DISPOSAL_NO = #{disposalNo}
+	</update>
+ 
+	<select id="callProcBMSInOutSeq" statementType="CALLABLE" parameterType="spCallVo" resultType="spCallVo" >
+		{ call   USP_GETNextInOut_CUSTOMS_REPORT_NO (
+							 #{mode, mode=IN, jdbcType=VARCHAR, javaType=String}
+							,#{bmsWhCode, mode=IN, jdbcType=VARCHAR, javaType=String}
+							,#{inOut, mode=IN, jdbcType=VARCHAR, javaType=String}
+							,#{retCustomsReportNo, mode=OUT, jdbcType=VARCHAR, javaType=String} )
+		 }
+	</select>
+
+	<!--Dummy User를 등록하고 사용자 아이디에 따라 결과값을 반환받습니다.    -->
+	<!--<select id="procInsertFindUser" statementType="CALLABLE" parameterType="DummyUserDto">
+		CALL multiflex_scma.PROC_INSERT_FIND_USER(
+			#{piUserName, mode=IN, jdbcType=VARCHAR},
+			#{piFindUserId, mode=IN, jdbcType=VARCHAR},
+			#{poFindIdCnt, mode=OUT, jdbcType=INTEGER})
+	</select>-->
+
+	<select id="selectDisposalExcelSeaList" parameterType="HashMap" resultType="camelHashMap">
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+		       A.DISPOSAL_NO
+			 ,  A.IN_NO
+			, (CASE
+				WHEN LEN(A.CARGO_REFERENCE_NO) > 15 THEN (
+					SUBSTRING(A.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 12, 4) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 16, 4)
+				)
+				ELSE SUBSTRING(A.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 12, 4)
+			  END) AS CARGO_REFERENCE_NO
+			 ,  A.BL_NO
+			 -- 화주 정보
+			 ,  A.CUSTOMER_NAME
+			 -- 신청인 정보 ( 담당자 ( 대표자 ) )  테이블 위치 [신청인,신청업체명, 신청인연락처, 신청인 주소, 신청일자]
+			 , usr.BUSINESS_PRESIDENT
+			 , usr.FROM_BUSINESS_NAME
+			 , usr.TEL
+			 , CONCAT (usr.ADDRESS  , usr.ADDRESS_A ) FROM_ADDRESS
+			 , usr.CUSTOMER_NAME_BY_LOGIN
+			 , usr.CUSTOMER_TEL
+			 , usr.CUSTOMER_ADDRESS
+			 ,  A.DISPOSAL_ISSUE_DATE
+			 -- 폐기 업체 정보 ( 폐기 업체명, 사업자 번호, 폐기 업체 주)
+			 ,  A.DISPOSAL_NAME
+			 ,  tsc.BUSINESS_SUB_REG_NO
+			 , CONCAT (tsc.ADDRESS  , tsc.ADDRESS_A, tsc.ADDRESS_B ) AS DISPOSAL_ADDR
+		    ,  CONCAT (usr.BMS_WH_CODE ,' ', usr.CUSTOMER_NAME_BY_LOGIN)   BMS_WH_CODE
+		-- 폐기 정보 (보세구역	폐기장소	폐기예정일자	폐기방법	폐기사유	폐기신청수량	폐기신청중량	폐기신청가격(CIF)	반출일자	폐기완료일자)
+			 ,  A.DISPOSAL_LOC
+			 ,  A.DISPOSAL_EXP_DATE  -- 폐기예정일자, 반출일자 동일
+			 ,  A.DISPOSAL_METHOD
+			 ,  A.DISPOSAL_REASON
+			 ,  A.DISPOSAL_CT
+			 ,  A.DISPOSAL_WT
+			 ,  'uni-pass 등록 승인' AS DISPOSAL_AMOUNT
+			 ,  A.DISPOSAL_EXP_DATE DISP_OUT_DATE --  반출일자 ( 폐기에서 반출 넘기는 날자?)
+			 ,  A.DISPOSAL_FINISH_DATE
+			 -- 폐기 물품 내역  ( 품명	규격	수량	중량	가격(USD))
+			 , B.COMMODITY_ITEM_LOC  -- 품명, 규격 동
+			 , B.COMMODITY_ITEM_LOC ITEM_SPEC
+			 , B.STOCK_CT
+			 , B.STOCK_WT
+			 , 'uni-pass 등록 승인' AMOUNT_USD
+		FROM
+			TB_BMS_DISPOSAL A
+				LEFT JOIN TB_BMS_IN B WITH (NOLOCK)
+						  ON A.IN_NO = B.IN_NO
+				LEFT JOIN  TB_SMS_CUSTOMER tsc
+						   ON A.DISPOSAL_CODE = tsc.CUSTOMER_CODE
+				LEFT JOIN (
+				SELECT su.USER_ID /* 사용자 아이디 */
+					 , su.USER_NAME /* 사용자명 */
+					 , su.ENT_CODE AS FROM_ENT_CODE /* 도입사 코드 */
+					 , su.USER_TEL AS FROM_USER_TEL /* 사용자 전화번호 */
+					 , su.USER_TEL_EXTENSION AS FROM_USER_TEL_EX /* 사용자 내선번호 */
+					 , su.USER_FAX AS FROM_USER_FAX /* 사용자 팩스번호 */
+					 , su.USER_EMAIL AS FROM_USER_EMAIL /* 사용자 이메일 */
+					 , busi.ENT_BUSINESS_CODE AS FROM_BUSINESS_CODE /* 사업장 코드 (로그인 오피스의 거래처 코드) */
+					 , busi.ENT_BUSINESS_NAME AS FROM_BUSINESS_NAME /* 사업장명 (로그인 오피스의 거래처명) */
+					 , busi.ENT_BUSINESS_NAME_ENG AS OFFICE_NAME_ENG /* 사업장명 영문 (로그인 오피스의 거래처명 영문) */
+					 , busi.BMS_WH_CODE /* 사업장 보세구역번호*/
+					 , busi.TEL /* 사업장 전화번호 */
+					 , busi.FAX /* 사업장 FAX번호  */
+					 , busi.EMAIL /* 사업장 이메일 */
+					 , busi.ZIPCODE /* 우편번호 */
+					 , busi.ADDRESS /* 주소 */
+					 , busi.ADDRESS_A /* 사업장주소A */
+					 , busi.ADDRESS_ENG /* 사업장주소 영문 */
+					 , busi.ADDRESS_A_ENG /* 사업장주소A 영문 */
+					 , busi.ADDRESS_B_ENG /* 사업장주소B 영문 */
+					 , busi.HOME_PAGE_URL AS FROM_BUSINESS_HOMPAGE_URL /* 사업장 홈페이지 */
+					 , ( SELECT BUSINESS_PRESIDENT
+						 FROM VTB_SMS_BUSINESS_REG_INFO reg
+						 WHERE cus.REGISTRATION_CODE = reg.REGISTRATION_CODE
+					 ) AS BUSINESS_PRESIDENT /* 사업장 대표자성명 */
+					 , cus.CUSTOMER_NAME AS CUSTOMER_NAME_BY_LOGIN /* 로그인한 지점의 거래처의정보의 거래처명 */
+  	 				 , cus.TEL AS CUSTOMER_TEL /* 로그인한 지점의 거래처의정보의 전화 */
+  	 				 , CONCAT_WS (' ', cus.ADDRESS  , cus.ADDRESS_A , cus.ADDRESS_B ) AS CUSTOMER_ADDRESS /* 로그인한 지점의 거래처의정보의 주소 */
+				FROM TB_SMS_USER su
+						 LEFT JOIN TB_SMS_ENT_BUSINESS busi ON su.ENT_CODE = busi.ENT_CODE AND su.ENT_BUSINESS_CODE = busi.ENT_BUSINESS_CODE
+						 LEFT JOIN TB_SMS_CUSTOMER cus ON busi.ENT_CODE = cus.ENT_CODE AND busi.CUSTOMER_CODE = cus.CUSTOMER_CODE
+				WHERE su.USER_ID = #{srchUserId}
+				  AND su.ENT_CODE = #{srchEntCode}
+				  AND su.ENT_BUSINESS_CODE = #{srchEntBusinessCode}
+			) usr ON (1=1)
+		WHERE 1 = 1
+		  <!-- AND B.IMPORT_EXPORT_CLASS  ='1' -->
+		<include refid="org.yht.exps.express.mapper.bms.BmsDisposalMapper.searchDisposalListCondi"/>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	<select id="selectDisposalExcelAirList" parameterType="HashMap" resultType="camelHashMap">
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT A.DISPOSAL_NO
+			 , (CASE
+				WHEN LEN(A.CARGO_REFERENCE_NO) > 15 THEN (
+					SUBSTRING(A.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 12, 4) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 16, 4)
+				)
+					ELSE SUBSTRING(A.CARGO_REFERENCE_NO, 1, 11) + '-' + SUBSTRING(A.CARGO_REFERENCE_NO, 12, 4)
+				END) AS CARGO_REFERENCE_NO
+			 , '001' LAN_NO
+			 ,  A.BL_NO
+			 , '1' TOT_LAN
+			 , B.COMMODITY_ITEM_LOC  -- 품명, 규격 동
+			 , '' ITEM_SPEC
+			 , '' DISP_YY
+			 , '' DISP_CHA
+			 , '' DISP_HS
+			 , '' DISP_REASON_CD
+			 ,  A.DISPOSAL_REASON
+			 ,  A.DISPOSAL_CT
+			 ,  A.PKG_TYPE
+			 ,  A.DISPOSAL_WT
+			 ,  'KG' KG
+		     , 0 F_AMT
+			 , usr.BMS_WH_CODE
+			 , usr.FROM_BUSINESS_NAME
+			 , B.CARRYOUT_DATE
+			 , A.CUSTOMER_NAME
+			 , usr.CUSTOMER_NAME_BY_LOGIN
+		     , B.CARRYIN_DATE
+			 , '폐기예정 (NCV포함)/유찰(국고귀속/폐기예정)' STATUS
+			 , usr.FROM_BUSINESS_NAME IN_BUSINESS_NAME
+		FROM
+			TB_BMS_DISPOSAL A
+				LEFT JOIN TB_BMS_IN B WITH (NOLOCK)
+						  ON A.IN_NO = B.IN_NO
+				LEFT JOIN  TB_SMS_CUSTOMER tsc
+						   ON A.DISPOSAL_CODE = tsc.CUSTOMER_CODE
+				LEFT JOIN (
+				SELECT su.USER_ID /* 사용자 아이디 */
+					 , su.USER_NAME /* 사용자명 */
+					 , su.ENT_CODE AS FROM_ENT_CODE /* 도입사 코드 */
+					 , su.USER_TEL AS FROM_USER_TEL /* 사용자 전화번호 */
+					 , su.USER_TEL_EXTENSION AS FROM_USER_TEL_EX /* 사용자 내선번호 */
+					 , su.USER_FAX AS FROM_USER_FAX /* 사용자 팩스번호 */
+					 , su.USER_EMAIL AS FROM_USER_EMAIL /* 사용자 이메일 */
+					 , busi.ENT_BUSINESS_CODE AS FROM_BUSINESS_CODE /* 사업장 코드 (로그인 오피스의 거래처 코드) */
+					 , busi.ENT_BUSINESS_NAME AS FROM_BUSINESS_NAME /* 사업장명 (로그인 오피스의 거래처명) */
+					 , busi.ENT_BUSINESS_NAME_ENG AS OFFICE_NAME_ENG /* 사업장명 영문 (로그인 오피스의 거래처명 영문) */
+					 , busi.BMS_WH_CODE /* 사업장 보세구역번호*/
+					 , busi.TEL /* 사업장 전화번호 */
+					 , busi.FAX /* 사업장 FAX번호  */
+					 , busi.EMAIL /* 사업장 이메일 */
+					 , busi.ZIPCODE /* 우편번호 */
+					 , busi.ADDRESS /* 주소 */
+					 , busi.ADDRESS_A /* 사업장주소A */
+					 , busi.ADDRESS_ENG /* 사업장주소 영문 */
+					 , busi.ADDRESS_A_ENG /* 사업장주소A 영문 */
+					 , busi.ADDRESS_B_ENG /* 사업장주소B 영문 */
+					 , busi.HOME_PAGE_URL AS FROM_BUSINESS_HOMPAGE_URL /* 사업장 홈페이지 */
+					 , ( SELECT BUSINESS_PRESIDENT
+						 FROM VTB_SMS_BUSINESS_REG_INFO reg
+						 WHERE busi.REGISTRATION_CODE = reg.REGISTRATION_CODE
+					 ) AS BUSINESS_PRESIDENT /* 사업장 대표자성명 */
+					 , (SELECT CUSTOMER_NAME FROM TB_SMS_CUSTOMER WHERE ENT_CODE = busi.ENT_CODE AND CUSTOMER_CODE = busi.CUSTOMER_CODE) AS CUSTOMER_NAME_BY_LOGIN
+				FROM TB_SMS_USER su
+						 LEFT JOIN TB_SMS_ENT_BUSINESS busi ON su.ENT_CODE = busi.ENT_CODE AND su.ENT_BUSINESS_CODE = busi.ENT_BUSINESS_CODE
+						WHERE su.USER_ID = #{srchUserId}
+						AND su.ENT_CODE = #{srchEntCode}
+						AND su.ENT_BUSINESS_CODE = #{srchEntBusinessCode}
+			) usr ON (1=1)
+		WHERE 1 = 1
+		  <!-- AND B.IMPORT_EXPORT_CLASS  ='3' -->
+		 /* AND B.CARRYOUT_DATE  > '' */
+		<include refid="org.yht.exps.express.mapper.bms.BmsDisposalMapper.searchDisposalListCondi"/>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectOdJobNoListFromDisp" parameterType="HashMap" resultType="InventoryIn">
+		SELECT A.DISPOSAL_NO
+			, A.BL_NO
+			, B.OD_JOB_NO
+		FROM
+			TB_BMS_DISPOSAL A
+				LEFT JOIN TB_BMS_IN B WITH (NOLOCK)
+						  ON A.IN_NO = B.IN_NO
+		WHERE 1 = 1
+		  AND A.IN_NO IN (<foreach collection="dispList" item="item" separator=",">#{item.inNo}</foreach>)
+	</select>
+	
+	<select id="selectDiscardScan" parameterType="searchDisposal" resultType="Disposal">	
+		/* BmsDisposalMapper.selectDiscardScan : 폐기자료 조회 */
+		SELECT 
+			PKG.PACKING_NO
+			,D.BL_NO
+			,D.CARGO_REFERENCE_NO
+			,D.DISPOSAL_REASON
+		FROM TB_BMS_DISPOSAL D
+		INNER JOIN(  
+			SELECT 
+				P.CARGO_REFERENCE_NO
+				,K.PACKING_NO         
+		    FROM TB_BMS_IN_PLAN_PKG K 
+		    LEFT JOIN TB_BMS_IN_PLAN P
+		    ON K.IN_PLAN_NO = P.IN_PLAN_NO
+		    WHERE (K.PACKING_NO = #{blNo}  OR P.BL_NO =  #{blNo}) AND K.DELETE_YN = 'N'
+		) PKG
+		ON D.CARGO_REFERENCE_NO = PKG.CARGO_REFERENCE_NO
+	</select>
+	
+	<insert id="insertDiscardScanLog" parameterType="HashMap">
+		/* BmsDisposalMapper.insertDiscardScanLog : 폐기스캔 로그 저장 */
+		INSERT INTO TB_BMS_LOCATION_SCAN (	
+			  LOCATION_PLACE
+			, SCAN_NO
+			, SCAN_RESULT
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+		)
+		VALUES(
+			  #{locationPlace}
+			, #{blNo}
+			, #{scanResult}
+			, #{registerUserId}
+			, GETDATE()
+		)
+	</insert>
+	
+	<update id="updateDiscardScan"  parameterType="HashMap">
+		/* BmsDisposalMapper.updateDiscardScan : 폐기자료 업데이트 */
+		UPDATE TB_BMS_DISPOSAL
+		<set>
+			DISPOSAL_EXP_DATE = CONVERT(DATE, GETDATE())
+			,DISPOSAL_METHOD  = #{locationPlace}
+			,UPDATE_USER_ID   = #{updateUserId}
+			,UPDATE_DATE_TIME  = GETDATE()
+		</set>
+		WHERE CARGO_REFERENCE_NO = #{cargoReferenceNo}
+	</update>
+
+</mapper>

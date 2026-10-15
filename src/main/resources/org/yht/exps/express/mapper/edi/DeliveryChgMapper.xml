@@ -1,0 +1,833 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.edi.DeliveryChgMapper">
+
+	<select id="selectDeliveryDocList" parameterType="searchDeliveryChgList" resultType="deliveryChg">
+		/* DeliveryChgMapper.selectDeliveryDocList : 배송지변경신고 제출번호 그룹 List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			edi.EDI_DOC_NO			
+			,MAX(edi.EDI_SEND_DATE) AS EDI_SEND_DATE	
+			,MAX(edi.REGISTER_DATE_TIME) AS REGISTER_DATE_TIME
+			,MAX(edi.BOUND) AS BOUND
+			,(SELECT count(*)
+			  FROM TB_ECM_OD_ADDITIONAL odAdd
+			  WHERE edi.EDI_DOC_NO = odAdd.DELIVERY_DOC_NO
+			  ) AS DOC_CNT
+			,MAX(edi.EDI_STATUS) AS EDI_STATUS
+			,MAX(edi.EDI_PORTAL_MAILBOX_ID) AS EDI_PORTAL_MAILBOX_ID
+			,SUM(CASE WHEN edi.EDI_STATUS IN ('READY','SEND','RECV','1','2','3','4') THEN 1 ELSE 0 END) AS SEND_CNT			
+		FROM TB_EDI_LINKED edi
+		WHERE edi.ENT_CODE = #{srchEntCode}
+		AND edi.EDI_CODE = 'GOVCBR109'
+		<if test="srchStartDate != null and srchStartDate != ''">
+		AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+		</if>
+		<if test="srchEndDate != null and srchEndDate != ''">
+		AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+		</if>
+		
+		<if test="srchBoundType != null and srchBoundType != ''">
+			<choose>
+			<when test='srchBoundType == "AI"'>AND edi.BOUND = 'AIR'</when>
+			<when test='srchBoundType == "SI"'>AND edi.BOUND = 'SEA'</when>
+			</choose>
+		</if>
+		AND edi.BOUND_TYPE = 'IMP'
+		GROUP BY edi.EDI_DOC_NO
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>	
+	
+	<select id="selectDeliveryList" parameterType="searchDeliveryChgList" resultType="deliveryChg">
+		/* DeliveryChgMapper.selectDeliveryList : 배송지변경신고  List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			edi.EDI_JOB_NO
+			,edi.ENT_CODE
+			,edi.ENT_BUSINESS_CODE
+			,od.OD_JOB_NO
+			,od.BOUND
+			,od.BOUND_TYPE
+			,edi.EDI_DOC_NO
+			,edi.ISSUE_DATE
+			,edi.EDI_STATUS
+			,edi.EDI_SEND_DATE
+			,edi.EDI_RECEIPT_DATE
+			,edi.EDI_RESULT_DATE
+			,edi.REGISTER_DATE_TIME AS EDI_REGISTER_DATE_TIME
+			,(SELECT USER_NAME FROM TB_SMS_USER WHERE ENT_CODE = edi.ENT_CODE AND USER_ID = edi.REGISTER_USER_ID) AS REGISTER_USER_NAME
+			,odAdd.CLEARANCE_RECEIPT_DATE
+			,od.PO_NO
+			,od.CD_TYPE
+			,od.MBL_NO
+			,od.HBL_NO
+			,od.DEST_PORT
+			,od.MASTER_OD_JOB_NO
+			,odAdd.DELIVERY_DATE
+			,CONVERT(VARCHAR(10), odAdd.DELIVERY_DATE, 23) AS DELIVERY_DATE_EXCEL
+			,od.DELIVERY_NAME_CHANGED
+			,od.DELIVERY_CODE
+<!-- 			,od.DELIVERY_NAME -->
+			,(SELECT NAME_${userLanguage} FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND GROUP_CODE = 'ECM_DELIVERY_CODE' AND CODE = od.DELIVERY_CODE) AS DELIVERY_NAME
+			,CASE WHEN ISNULL(od.CONSIGNEE_ADDRESS_LOC, '') = '' THEN CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) ELSE od.CONSIGNEE_ADDRESS_LOC END AS CONSIGNEE_ADDRESS
+			,CONSIGNEE_ADDRESS_LOC
+			,od.DELIVERY_ADDRESS_CHANGED
+			,od.DELIVERY_REASON_CHANGED
+			,od.CONSIGNEE_NAME
+			,od.COMMODITY_ITEM
+			,od.CUSTOMS_CODE
+			,od.ORIG_CODE
+			,od.VESSEL_FLIGHT
+			,odAdd.SIMPLE_REPORT_DATE
+			,odAdd.SIMPLE_DOC_NO
+			,odAdd.DELIVERY_CHANGED_SEQ_NO
+			,edi.REGISTER_DATE_TIME 
+			,od.PENALTY_YN
+			,od.DELIVERY_CHANGE_DATE_TIME
+			<if test='srchDataGen == "N"'>
+			,(SELECT EDI_PORTAL_MAILBOX_ID FROM TB_SMS_ENT_BUS_EDI_ECM WHERE ENT_CODE = od.ENT_CODE AND SEQ_NO = odAdd.EDI_MAILBOX_SEQ_NO) AS EDI_PORTAL_MAILBOX_ID		
+			</if>
+		FROM TB_ECM_OD od
+		<choose>
+			<when test="(srchEntCode == 'TYGCK' or srchEntCode == 'TPCNK') and srchDateGbn == 'od.AR_DATE' and searchType != 'multi' and (srchNo == null or srchNo == '')">WITH (INDEX(TB_ECM_OD_X02))</when>
+			<when test="(srchEntCode == 'TYGCK' or srchEntCode == 'TPCNK') and srchDateGbn == 'od.DELIVERY_CHANGE_DATE_TIME' and searchType != 'multi' and (srchNo == null or srchNo == '')">WITH (INDEX(TB_ECM_OD_X06_TY_TP))</when>
+		</choose>
+		LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+		LEFT OUTER JOIN TB_EDI_LINKED edi ON edi.EDI_DOC_NO = odAdd.DELIVERY_DOC_NO
+		WHERE od.ENT_CODE = #{srchEntCode}
+		AND od.CONSOL_YN = 'Y'
+		AND (ISNULL(od.DELIVERY_ADDRESS_CHANGED,'') <![CDATA[<>]]> '' OR ISNULL(od.DELIVERY_NAME_CHANGED,'') <![CDATA[<>]]> '')
+		<choose>
+		<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+		<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+		</choose>
+		
+		<if test='srchDataGen == "N"'>		
+		AND edi.EDI_JOB_NO IS NULL
+		</if>
+		<if test='srchDataGen == "Y"'>
+		AND edi.EDI_JOB_NO IS NOT NULL
+		</if>
+		
+		<if test="srchCdType != null and srchCdType != ''">
+			AND od.CD_TYPE = #{srchCdType}
+		</if>
+		
+		<if test="srchNoHouse != null and srchNoHouse != ''">
+			AND od.HBL_NO = #{srchNoHouse}
+		</if>
+		
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+			<when test='srchNoLikeYn == "Y"'>
+			AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+			</when>
+			<otherwise>
+				<choose>
+					<when test='searchType == "multi"'>
+					AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<otherwise>
+					AND ${srchNoType} = #{srchNo}
+					</otherwise>
+				</choose>
+			</otherwise>
+			</choose>
+		</if>
+		
+		<if test='srchSendStatus == "Y"'>
+			AND (edi.EDI_STATUS IS NOT NULL AND edi.EDI_STATUS <![CDATA[<>]]> '')
+		</if>
+		<if test='srchSendStatus == "N"'>
+			AND (edi.EDI_STATUS IS NULL OR edi.EDI_STATUS = '')
+		</if>
+		<if test="srchCustomsCode != null and srchCustomsCode != ''">
+			AND od.CUSTOMS_CODE = #{srchCustomsCode}
+		</if>
+		<if test="srchStartDate != null and srchStartDate != ''">
+		AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+		</if>
+		<if test="srchEndDate != null and srchEndDate != ''">
+			<choose>
+			<when test='srchDateGbn == "edi.REGISTER_DATE_TIME" or srchDateGbn == "od.DELIVERY_CHANGE_DATE_TIME"'>
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</when>
+			<otherwise>
+			AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</otherwise>
+			</choose>
+		</if>	
+		
+		<if test="ediDocNo != null and ediDocNo != ''">
+			AND edi.EDI_DOC_NO = #{ediDocNo}
+		</if>
+			
+		<if test="ediDocNoList != null and ediDocNoList.size > 0">
+			AND edi.EDI_DOC_NO IN (
+						<foreach collection="ediDocNoList" item="item" separator=",">
+							#{item.ediDocNo}
+						</foreach>
+						)
+		</if>
+				
+		<if test="deliveryChgList != null and deliveryChgList.size > 0">
+		AND od.OD_JOB_NO IN (
+						<foreach collection="deliveryChgList" item="item" separator=",">
+							#{item.odJobNo}
+						</foreach>
+						)
+		</if>
+		
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>	
+	
+	<insert id="insertDeliveryChg" parameterType="deliveryChg">
+		/* DeliveryChgMapper.insertDeliveryChg : 배송지변경신고 insert */
+		INSERT INTO TB_EDI_LINKED(
+			EDI_JOB_NO
+			,ENT_CODE
+			,ENT_BUSINESS_CODE
+			,OD_JOB_NO
+			,BOUND
+			,BOUND_TYPE
+			,EDI_CODE
+			,EDI_DOC_NO
+			,ISSUE_DATE	
+			,EDI_STATUS
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,EDI_PORTAL_MAILBOX_ID
+		)VALUES(
+			 #{ediJobNo}
+			,#{entCode}
+			,#{entBusinessCode}
+			,#{masterOdJobNo}
+			,#{bound}
+			,#{boundType}
+			,'GOVCBR109'
+			,#{ediDocNo}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,'EDI'
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{ediPortalMailboxId}
+		)
+	</insert>
+	
+	<insert id="updateDeliveryJob" parameterType="deliveryChg">
+		/* DeliveryChgMapper.updateDeliveryJob : 배송지변경신고 insert */
+		UPDATE TB_ECM_OD_ADDITIONAL
+		SET DELIVERY_DOC_NO = #{ediDocNo}
+		WHERE OD_JOB_NO = #{odJobNo}
+	</insert>
+		
+	<select id="getDeliveryDocNo" parameterType="deliveryChg" resultType="deliveryChg">
+		/* DeliveryChgMapper.getDeliveryDocNo : 배송지변경신고 추출  배송지변경 번호: 특송부호(6) +년도(4) +일련번호(8) TODO 특송부호 prefix 받아야함*/
+		SELECT CONCAT('ABCDEF',CONVERT(CHAR(4), GETDATE(), 112),CONCAT(REPLICATE('0', 8 - LEN(num)), num)) AS ediDocNo
+		FROM
+		(
+			SELECT ISNULL(MAX(SUBSTRING(EDI_DOC_NO,11,8)),0) + 1 AS num 
+			FROM TB_EDI_LINKED 
+			WHERE SUBSTRING(EDI_DOC_NO,1,10) = CONCAT('ABCDEF',CONVERT(CHAR(4), GETDATE(), 112))
+		) A
+	</select>
+	
+	<select id="selectEdiCreateChk" parameterType="deliveryChgDoc" resultType="HashMap">
+		/* DeliveryChgMapper.selectEdiCreateChk : 배송지변경신고 생성유무 체크 */
+			SELECT
+				 COUNT(CASE WHEN ISNULL(DELIVERY_DOC_NO, '') != '' THEN 1 END) AS DOC_NO_CNT
+				,COUNT(CASE WHEN ISNULL(SIMPLE_REPORT_DATE, '') = '' THEN 1 END) AS DATE_NULL_CNT
+			FROM TB_ECM_OD_ADDITIONAL
+			WHERE OD_JOB_NO IN(<foreach collection="deliveryChgList" item="item" separator=",">#{item.odJobNo}</foreach>)
+	</select>
+	
+	<select id="selectEdiSendChk" parameterType="deliveryChgDoc" resultType="int">
+		/* DeliveryChgMapper.selectEdiSendChk : 배송지변경신고 전송유무 체크 */
+			
+			<choose>
+			<when test='action == "excelUpload"'>
+			SELECT COUNT(od.OD_JOB_NO) AS CNT
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+				 INNER JOIN TB_EDI_LINKED edi
+				 			ON edi.EDI_DOC_NO = ad.DELIVERY_DOC_NO
+			WHERE 
+			(
+				<foreach collection="deliveryChgList" item="item" separator="OR">
+				(
+					od.HBL_NO = #{item.hblNo}
+					<if test="item.mblNo != null and item.mblNo != ''">
+					AND od.MBL_NO = #{item.mblNo}
+					</if> 
+				)
+				</foreach>
+			)
+			AND edi.EDI_SEND_DATE IS NOT NULL
+			</when>
+			<when test='action == "blAdd"'>
+			SELECT COUNT(ad.OD_JOB_NO) AS CNT
+			FROM TB_ECM_OD_ADDITIONAL ad
+				 INNER JOIN TB_EDI_LINKED edi
+				 			ON edi.EDI_DOC_NO = ad.DELIVERY_DOC_NO
+			WHERE ad.OD_JOB_NO IN(<foreach collection="deliveryChgList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			AND edi.EDI_SEND_DATE IS NOT NULL
+			</when>
+			<when test='action == "deliveryDeclareDel"'>
+			SELECT COUNT(EDI_JOB_NO) AS CNT
+			FROM TB_EDI_LINKED
+			WHERE ISNULL(EDI_STATUS, '') NOT IN ('', 'EXCEL', 'EDI', 'ERROR')
+			AND EDI_DOC_NO IN(<foreach collection="deliveryChgList" item="item" separator=",">#{item.ediDocNo}</foreach>)
+			</when>
+			<otherwise>
+			SELECT COUNT(EDI_JOB_NO) AS CNT
+			FROM TB_EDI_LINKED
+			WHERE EDI_SEND_DATE IS NOT NULL
+			AND EDI_DOC_NO IN(<foreach collection="deliveryChgList" item="item" separator=",">#{item.ediDocNo}</foreach>)
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectEdiSendChk2" parameterType="HashMap" resultType="String">
+		/* DeliveryChgMapper.selectEdiSendChk2 : 배송지변경신고 전송유무 체크2 */
+			
+			<choose>
+			<when test='action == "excelUpload"'>
+			<!-- SELECT COUNT(od.OD_JOB_NO) AS CNT -->
+			SELECT od.HBL_NO
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+				 INNER JOIN TB_EDI_LINKED edi
+				 			ON edi.EDI_DOC_NO = ad.DELIVERY_DOC_NO
+			WHERE 
+			(
+				<foreach collection="deliveryChgList" item="item" separator="OR">
+				(
+					od.HBL_NO = LTRIM(RTRIM(#{item.hblNo}))
+					<if test="item.mblNo != null and item.mblNo != ''">
+					AND od.MBL_NO = LTRIM(RTRIM(#{item.mblNo}))
+					</if> 
+				)
+				</foreach>
+			)
+			AND edi.EDI_SEND_DATE IS NOT NULL
+			</when>
+			<when test='action == "blAdd"'>
+			<!-- SELECT COUNT(ad.OD_JOB_NO) AS CNT -->
+			SELECT od.HBL_NO
+			FROM TB_ECM_OD_ADDITIONAL ad
+				 INNER JOIN TB_EDI_LINKED edi
+				 			ON edi.EDI_DOC_NO = ad.DELIVERY_DOC_NO
+			WHERE ad.OD_JOB_NO IN(<foreach collection="deliveryChgList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			AND edi.EDI_SEND_DATE IS NOT NULL
+			</when>
+			<when test='action == "deliveryDeclareDel"'>
+			<!-- SELECT COUNT(EDI_JOB_NO) AS CNT -->
+			SELECT od.HBL_NO
+			FROM TB_EDI_LINKED
+			WHERE ISNULL(EDI_STATUS, '') NOT IN ('', 'EXCEL', 'EDI', 'ERROR')
+			AND EDI_DOC_NO IN(<foreach collection="deliveryChgList" item="item" separator=",">#{item.ediDocNo}</foreach>)
+			</when>
+			<otherwise>
+			<!-- SELECT COUNT(EDI_JOB_NO) AS CNT -->
+			SELECT od.HBL_NO
+			FROM TB_EDI_LINKED
+			WHERE EDI_SEND_DATE IS NOT NULL
+			AND EDI_DOC_NO IN(<foreach collection="deliveryChgList" item="item" separator=",">#{item.ediDocNo}</foreach>)
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectDeliveryChgList" parameterType="deliveryChgDoc" resultType="deliveryChg">
+		/* DeliveryChgMapper.selectDeliveryChgList : 배송지변경신고 일괄변경 리스트조회 */
+			SELECT
+				 od.BOUND
+				,od.BOUND_TYPE
+				,od.OD_JOB_NO
+				,od.MBL_NO
+				,od.HBL_NO
+				,(
+					SELECT TOP 1 A.POD_JOB_NO FROM(
+						SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM420'
+						UNION ALL
+						SELECT POD_JOB_NO FROM TB_ECM_POD_04 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM420' 
+					) A
+				 ) AS POD_JOB_NO
+			FROM TB_ECM_OD od
+			WHERE od.OD_JOB_NO IN(<foreach collection="deliveryChgList" item="item" separator=",">#{item.odJobNo}</foreach>)
+	</select>
+	
+	<insert id="updateBatchDeliveryChg" parameterType="deliveryChgDoc">
+		/* DeliveryChgMapper.updateBatchDeliveryChg : 배송지변경신고 update */
+		<foreach collection="deliveryChgList" item="item">
+		UPDATE TB_ECM_OD SET
+			  UPDATE_USER_ID = #{updateUserId}
+			  ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  <if test="deliveryReasonChanged != null and deliveryReasonChanged != ''">
+			  , DELIVERY_REASON_CHANGED = #{deliveryReasonChanged}
+			  </if>
+			  <if test="deliveryNameChanged != null and deliveryNameChanged != ''">
+			  ,DELIVERY_NAME_CHANGED = #{deliveryNameChanged}
+			  </if>
+			  <if test="deliveryAddressChanged != null and deliveryAddressChanged != ''">
+			  ,DELIVERY_ADDRESS_CHANGED = #{deliveryAddressChanged}
+			  </if>			  
+			  <choose>
+			  <when test="deliveryAddressChanged != null and deliveryAddressChanged != ''">
+			  ,DELIVERY_CHANGE_DATE_TIME = CASE WHEN DELIVERY_CHANGE_DATE_TIME IS NULL THEN DATEADD(HOUR, ${gmtTime}, GETDATE()) ELSE DELIVERY_CHANGE_DATE_TIME END
+			  </when>
+			  <when test='action == "deliveryChgDel"'>
+			  ,DELIVERY_CHANGE_DATE_TIME = NULL
+			  ,DELIVERY_REASON_CHANGED = NULL
+			  ,DELIVERY_NAME_CHANGED = NULL
+			  ,DELIVERY_ADDRESS_CHANGED = NULL
+			  </when>
+			  </choose>
+		WHERE OD_JOB_NO = #{item.odJobNo};
+		<if test="(deliveryDate != null and deliveryDate != '') or action == 'deliveryChgDel'">
+		UPDATE TB_ECM_OD_ADDITIONAL SET
+			   <choose>
+			   <when test="deliveryDate != null and deliveryDate != ''">
+			   DELIVERY_DATE = CONVERT(DATE, #{deliveryDate}, ${dateFormat})
+			  ,DELIVERY_YN = 'Y'
+			  ,LAST_POD_STATUS = CASE WHEN ISNULL(LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM420' THEN 'ECM420' ELSE LAST_POD_STATUS END
+			  <!-- ,LAST_POD_DATE = CASE WHEN ISNULL(LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM420' THEN CONVERT(DATE, #{deliveryDate}, ${dateFormat}) ELSE LAST_POD_DATE END -->
+			   </when>
+			   <when test='action == "deliveryChgDel"'>
+			   DELIVERY_DATE = NULL
+			  ,DELIVERY_YN = 'N'
+			   </when>
+			   </choose>
+		WHERE OD_JOB_NO = #{item.odJobNo};
+		</if>
+		</foreach>
+		
+	</insert>
+		
+	<delete id="deleteBatchDeliveryChg" parameterType="deliveryChgDoc">
+		/* DeliveryChgMapper.deleteBatchDeliveryChg : 배송지변경신고 delete */
+		<foreach collection="deliveryChgList" item="item">		
+			DELETE TB_EDI_LINKED 				
+			WHERE EDI_DOC_NO = #{item.ediDocNo};
+			UPDATE TB_ECM_OD_ADDITIONAL 	
+			SET DELIVERY_DOC_NO = ''
+			WHERE DELIVERY_DOC_NO = #{item.ediDocNo};
+		</foreach>	
+	</delete>
+	
+	<select id="selectHblValidate" parameterType="HashMap" resultType="HashMap">
+		/* DeliveryChgMapper.selectHblValidate : hbl유효성체크 */		
+		
+		<choose>
+		<when test='excelUploadType == "deliveryChg"'>
+		WITH TMP AS(
+		SELECT A.ENT_CODE, A.HBL_NO
+		FROM 
+		(
+			<foreach collection="dataList" item="item" separator="UNION">
+			SELECT #{entCode} AS ENT_CODE,#{item.mblNo} AS MBL_NO ,#{item.hblNo} AS HBL_NO 
+			</foreach>
+		) A
+		LEFT JOIN TB_ECM_OD OD ON OD.ENT_CODE = #{entCode} AND A.MBL_NO = OD.MBL_NO AND A.HBL_NO = OD.HBL_NO
+		WHERE OD.OD_JOB_NO IS NULL
+		)
+		</when>
+		<when test='excelUploadType == "odChg"'>
+		WITH TMP AS(
+		SELECT A.ENT_CODE, A.HBL_NO
+		FROM 
+		(
+			<foreach collection="dataList" item="item" separator="UNION">
+			SELECT #{entCode} AS ENT_CODE, #{item.MBL_NO} AS EXCEL_MBL_NO ,#{item.HBL_NO} AS HBL_NO 
+			</foreach>
+		) A
+		LEFT JOIN TB_ECM_OD OD
+					ON OD.ENT_CODE = A.ENT_CODE
+					AND OD.HBL_NO = A.HBL_NO
+					AND (
+						(OD.MBL_NO = A.EXCEL_MBL_NO)
+						OR
+						(ISNULL(OD.MBL_NO, '') = '' AND ISNULL(A.EXCEL_MBL_NO, '') = '')
+					)
+		WHERE OD.OD_JOB_NO IS NULL
+		)
+		</when>
+		<when test='excelUploadType == "updateLicense"'>
+		WITH TMP AS(
+		SELECT A.ENT_CODE, A.HBL_NO
+		FROM 
+		(
+			<foreach collection="dataList" item="item" separator="UNION">
+			SELECT #{entCode} AS ENT_CODE,#{item.HBL_NO} AS HBL_NO 
+			</foreach>
+		) A
+		LEFT JOIN TB_ECM_OD OD ON OD.ENT_CODE = #{entCode} AND A.HBL_NO = OD.HBL_NO
+		WHERE OD.OD_JOB_NO IS NULL
+		)
+		</when>
+		<when test='excelUploadType == "insertMgn"'>
+		WITH TMP AS(
+		SELECT A.ENT_CODE, A.MBL_NO, A.HBL_NO
+		FROM 
+		(
+			<foreach collection="dataList" item="item" separator="UNION">
+			SELECT #{entCode} AS ENT_CODE, #{item.MBL_NO} AS MBL_NO, #{item.HBL_NO} AS HBL_NO 
+			</foreach>
+		) A
+		LEFT JOIN TB_ECM_OD OD ON OD.ENT_CODE = #{entCode} AND A.MBL_NO = OD.MBL_NO AND A.HBL_NO = OD.HBL_NO AND OD.BOUND = 'SEA' AND OD.BOUND_TYPE = 'IMP'
+		WHERE OD.OD_JOB_NO IS NULL
+		)
+		</when>
+		<when test='excelUploadType == "insertMfn"'>
+		WITH TMP AS(
+		SELECT A.ENT_CODE, A.MBL_NO
+		FROM 
+		(
+			<foreach collection="dataList" item="item" separator="UNION">
+			SELECT #{entCode} AS ENT_CODE, #{item.MBL_NO} AS MBL_NO
+			</foreach>
+		) A
+		LEFT JOIN TB_ECM_OD OD ON OD.ENT_CODE = #{entCode} AND A.MBL_NO = OD.MBL_NO AND OD.BOUND = 'SEA' AND OD.BOUND_TYPE = 'IMP'
+		WHERE OD.OD_JOB_NO IS NULL
+		)
+		</when>
+		<when test='excelUploadType == "insertBondedTrans"'>
+		WITH TMP AS(
+		SELECT A.ENT_CODE, A.HBL_NO
+		FROM 
+		(
+			<foreach collection="dataList" item="item" separator="UNION">
+			SELECT #{entCode} AS ENT_CODE,#{item.HBL_NO} AS HBL_NO 
+			</foreach>
+		) A
+		LEFT JOIN TB_ECM_OD OD ON OD.ENT_CODE = #{entCode} AND A.HBL_NO = OD.HBL_NO AND OD.BOUND = 'SEA' AND OD.BOUND_TYPE = 'IMP'
+		WHERE OD.OD_JOB_NO IS NULL
+		)
+		</when>
+		<when test='excelUploadType == "insertChangeDelivery" or excelUploadType == "insertQuickRequest"'>
+		WITH TMP AS(
+		SELECT A.ENT_CODE, A.HBL_NO
+		FROM 
+		(
+			<foreach collection="dataList" item="item" separator="UNION">
+			SELECT #{entCode} AS ENT_CODE,#{item.HBL_NO} AS HBL_NO 
+			</foreach>
+		) A
+		LEFT JOIN TB_ECM_OD OD ON OD.ENT_CODE = #{entCode} AND A.HBL_NO = OD.HBL_NO
+		LEFT JOIN TB_ECM_OD_MULTI MULTI ON A.HBL_NO = MULTI.DELIVERY_NO
+		WHERE OD.OD_JOB_NO IS NULL AND MULTI.OD_JOB_NO IS NULL
+		)
+		</when>
+		
+		</choose>
+		<choose>
+		<when test='excelUploadType == "insertMfn"'>
+			SELECT COUNT(t.MBL_NO) AS NOT_BL_CNT
+			, STUFF((SELECT ', ' + MBL_NO FROM TMP WHERE ENT_CODE = t.ENT_CODE FOR XML PATH('')), 1, 2, '') AS NOT_HBL_LIST
+	 		FROM TMP t
+			GROUP BY t.ENT_CODE
+		</when>
+		<otherwise>
+			SELECT COUNT(t.HBL_NO) AS NOT_BL_CNT
+			, STUFF((SELECT ', ' + HBL_NO FROM TMP WHERE ENT_CODE = t.ENT_CODE FOR XML PATH('')), 1, 2, '') AS NOT_HBL_LIST
+	 		FROM TMP t
+			GROUP BY t.ENT_CODE
+		</otherwise>
+		</choose>
+		
+	</select>
+	
+	<select id="selectHblValidate2" parameterType="HashMap" resultType="HashMap">
+		/* DeliveryChgMapper.selectHblValidate2 : hbl유효성체크 */
+			SELECT
+				 excel.ENT_CODE
+				,excel.HBL_NO
+				,od.OD_JOB_NO
+				,od.MASTER_OD_JOB_NO
+				,od.MBL_NO
+				,ad.LAST_POD_STATUS
+			FROM(
+				<foreach collection="dataList" item="item" separator="UNION ALL">
+				SELECT #{entCode} AS ENT_CODE, #{item.MBL_NO} AS MBL_NO ,#{item.HBL_NO} AS HBL_NO
+				</foreach>
+			) excel
+				 LEFT JOIN TB_ECM_OD od
+				 		   ON od.MBL_NO = excel.MBL_NO
+				 		   AND od.HBL_NO = excel.HBL_NO
+				 LEFT JOIN TB_ECM_OD_ADDITIONAL ad
+				 		   ON ad.OD_JOB_NO = od.OD_JOB_NO
+	</select>
+	
+	<select id="selectHblValidate3" parameterType="HashMap" resultType="int">
+		/* DeliveryChgMapper.selectHblValidate3 : hbl유효성체크 */
+			SELECT COUNT(OD_JOB_NO) AS CNT
+			FROM TB_ECM_OD
+			WHERE HBL_NO = LTRIM(RTRIM(#{hblNo}))
+			<if test="mblNo != null and mblNo != ''">
+			AND MBL_NO = LTRIM(RTRIM(#{mblNo}))
+			</if>
+	</select>
+	
+	<insert id="updateExcelDeliveryChg" parameterType="HashMap">
+		/* DeliveryChgMapper.updateExcelDeliveryChg : 배송지변경신고 Excel update */
+		<foreach collection="deliveryChgList" item="item">
+		UPDATE TB_ECM_OD SET
+			 UPDATE_USER_ID = #{updateUserId}
+			 ,UPDATE_DATE_TIME = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			<if test="item.deliveryNameChanged != null and item.deliveryNameChanged != ''">
+			 ,DELIVERY_NAME_CHANGED = #{item.deliveryNameChanged}	
+			</if>
+			<if test="item.deliveryAddressChanged != null and item.deliveryAddressChanged != ''">
+			,DELIVERY_ADDRESS_CHANGED = #{item.deliveryAddressChanged}
+			</if>
+			<if test="item.deliveryReasonChanged != null and item.deliveryReasonChanged != ''">
+			,DELIVERY_REASON_CHANGED = #{item.deliveryReasonChanged}
+			</if>
+			<if test="item.deliveryAddressChanged != null and item.deliveryAddressChanged != ''">
+			,DELIVERY_CHANGE_DATE_TIME = CASE WHEN DELIVERY_CHANGE_DATE_TIME IS NULL OR DELIVERY_CHANGE_DATE_TIME = '1900-01-01 00:00:00' 
+				THEN DATEADD(HOUR, ${gmtTime}, GETDATE()) ELSE DELIVERY_CHANGE_DATE_TIME END
+			</if>
+		WHERE HBL_NO = LTRIM(RTRIM(#{item.hblNo}))
+		<if test="item.mblNo != null and item.mblNo != ''">
+		AND MBL_NO = LTRIM(RTRIM(#{item.mblNo}))
+		</if>;
+		
+		
+		UPDATE ad SET
+			  <choose>
+			  <when test="item.deliveryDate != null and item.deliveryDate != ''">
+			   ad.DELIVERY_DATE = #{item.deliveryDate}
+			  ,ad.DELIVERY_YN = 'Y'
+			  </when>
+			  </choose>
+		FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+			 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+		WHERE od.HBL_NO = LTRIM(RTRIM(#{item.hblNo}))
+		<if test="item.mblNo != null and item.mblNo != ''">
+		AND od.MBL_NO = LTRIM(RTRIM(#{item.mblNo}))
+		</if>;
+		</foreach>
+		
+	</insert>
+	
+	<select id="selectOdList" parameterType="deliveryChgDoc" resultType="deliveryChg">
+		/* DeliveryChgMapper.selectOdList : hbl유효성체크 */		
+		SELECT 
+			OD_JOB_NO
+		FROM TB_ECM_OD OD
+		WHERE 1 = 1
+		<choose>		
+			<when test="dataList != null and dataList.size > 0">
+				AND (
+			 	<foreach collection="dataList" item="item" separator="OR">
+					(MBL_NO = #{item.MBL_NO} AND HBL_NO = #{item.HBL_NO})
+				</foreach>
+				)
+			</when>	
+			<otherwise>
+				AND 1=0
+			</otherwise>	
+		</choose>
+	</select>	
+	
+	<select id="selectDeliveryListTargetCount" parameterType="searchDeliveryChgList" resultType="deliveryChg">
+		/* DeliveryChgMapper.selectDeliveryListTargetCount : 배송지변경신고카운트  List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		SELECT
+			od.OD_JOB_NO
+			,od.DELIVERY_NAME_CHANGED
+			,od.DELIVERY_ADDRESS_CHANGED
+			,od.DELIVERY_REASON_CHANGED
+			,od.DEST_PORT
+			,od.BOUND
+			,od.BOUND_TYPE
+			,od.MASTER_OD_JOB_NO
+			,edi.EDI_DOC_NO
+			,(SELECT EDI_PORTAL_MAILBOX_ID FROM TB_SMS_ENT_BUS_EDI_ECM WHERE ENT_CODE = od.ENT_CODE AND SEQ_NO = odAdd.EDI_MAILBOX_SEQ_NO) AS EDI_PORTAL_MAILBOX_ID
+			,edi.EDI_JOB_NO
+		FROM TB_ECM_OD od
+		<choose>
+			<when test="srchEntCode == 'TYGCK' and srchDateGbn == 'od.AR_DATE' and searchType != 'multi' and (srchNo == null or srchNo == '')">WITH (INDEX(TB_ECM_OD_X02))</when>
+			<when test="srchEntCode == 'TYGCK' and srchDateGbn == 'od.DELIVERY_CHANGE_DATE_TIME' and searchType != 'multi' and (srchNo == null or srchNo == '')">WITH (INDEX(TB_ECM_OD_X06_TY_TP))</when>
+		</choose>
+		LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+		LEFT OUTER JOIN TB_EDI_LINKED edi ON edi.EDI_DOC_NO = odAdd.DELIVERY_DOC_NO
+		WHERE od.ENT_CODE = #{srchEntCode}
+		AND od.CONSOL_YN = 'Y'
+		AND (ISNULL(od.DELIVERY_ADDRESS_CHANGED,'') <![CDATA[<>]]> '' OR ISNULL(od.DELIVERY_NAME_CHANGED,'') <![CDATA[<>]]> '')
+		
+		<choose>
+		<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+		<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+		</choose>
+		
+		<if test='srchDataGen == "N"'>		
+		AND edi.EDI_JOB_NO IS NULL
+		</if>
+		<if test='srchDataGen == "Y"'>
+		AND edi.EDI_JOB_NO IS NOT NULL
+		</if>
+		
+		<if test="srchCdType != null and srchCdType != ''">
+			AND od.CD_TYPE = #{srchCdType}
+		</if>
+		
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+			<when test='srchNoLikeYn == "Y"'>
+			AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+			</when>
+			<otherwise>
+				<choose>
+					<when test='searchType == "multi"'>
+					AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<otherwise>
+					AND ${srchNoType} = #{srchNo}
+					</otherwise>
+				</choose>
+			</otherwise>
+			</choose>
+		</if>
+		
+		<if test='srchSendStatus == "Y"'>
+			AND (edi.EDI_STATUS IS NOT NULL AND edi.EDI_STATUS <![CDATA[<>]]> '')
+		</if>
+		<if test='srchSendStatus == "N"'>
+			AND (edi.EDI_STATUS IS NULL OR edi.EDI_STATUS = '')
+		</if>
+		<if test="srchCustomsCode != null and srchCustomsCode != ''">
+			AND od.CUSTOMS_CODE = #{srchCustomsCode}
+		</if>
+		<if test="srchStartDate != null and srchStartDate != ''">
+		AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+		</if>
+		<if test="srchEndDate != null and srchEndDate != ''">
+			<choose>
+			<when test='srchDateGbn == "edi.REGISTER_DATE_TIME" or srchDateGbn == "od.DELIVERY_CHANGE_DATE_TIME"'>
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</when>
+			<otherwise>
+			AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</otherwise>
+			</choose>
+		</if>	
+		
+		<if test="ediDocNo != null and ediDocNo != ''">
+			AND edi.EDI_DOC_NO = #{ediDocNo}
+		</if>
+				
+		<if test="deliveryChgList != null and deliveryChgList.size > 0">
+		AND od.OD_JOB_NO IN (
+						<foreach collection="deliveryChgList" item="item" separator=",">
+							#{item.odJobNo}
+						</foreach>
+						)
+		</if>		
+	</select>
+	
+	<select id="selectOrderList" parameterType="HashMap" resultType="HashMap">
+		/* DeliveryChgMapper.selectOrderList : 배송지변경신고 과태료검증 bl list 조회 */
+			SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+				SELECT
+					od.HBL_NO AS hblNo
+					,od.MBL_NO AS mblNo
+					,od.MASTER_OD_JOB_NO AS masterOdJobNo
+					,od.OD_JOB_NO AS odJobNo
+					,od.DELIVERY_ADDRESS_CHANGED AS deliveryAddressChanged
+					,od.HSN AS hsn
+				FROM TB_ECM_OD od 
+				LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+				LEFT OUTER JOIN TB_EDI_LINKED edi ON edi.EDI_DOC_NO = odAdd.DELIVERY_DOC_NO
+				WHERE od.ENT_CODE = #{srchEntCode}
+				AND od.CONSOL_YN = 'Y'
+				AND (ISNULL(od.DELIVERY_ADDRESS_CHANGED,'') <![CDATA[<>]]> '' OR ISNULL(od.DELIVERY_NAME_CHANGED,'') <![CDATA[<>]]> '')
+				<choose>
+				<when test='srchBoundType == "AI"'>AND od.BOUND = 'AIR' AND od.BOUND_TYPE = 'IMP'</when>
+				<when test='srchBoundType == "SI"'>AND od.BOUND = 'SEA' AND od.BOUND_TYPE = 'IMP'</when>
+				</choose>
+				
+				<if test='srchDataGen == "N"'>		
+				AND edi.EDI_JOB_NO IS NULL
+				</if>
+				<if test='srchDataGen == "Y"'>
+				AND edi.EDI_JOB_NO IS NOT NULL
+				</if>
+				
+				<if test="srchCdType != null and srchCdType != ''">
+					AND od.CD_TYPE = #{srchCdType}
+				</if>
+				
+				<if test="srchNoHouse != null and srchNoHouse != ''">
+					AND od.HBL_NO = #{srchNoHouse}
+				</if>
+				
+				<if test="srchNo != null and srchNo != ''">
+					<choose>
+					<when test='srchNoLikeYn == "Y"'>
+					AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+					</when>
+					<otherwise>
+						<choose>
+							<when test='searchType == "multi"'>
+							AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+							</when>
+							<otherwise>
+							AND ${srchNoType} = #{srchNo}
+							</otherwise>
+						</choose>
+					</otherwise>
+					</choose>
+				</if>
+				
+				<if test='srchSendStatus == "Y"'>
+					AND (edi.EDI_STATUS IS NOT NULL AND edi.EDI_STATUS <![CDATA[<>]]> '')
+				</if>
+				<if test='srchSendStatus == "N"'>
+					AND (edi.EDI_STATUS IS NULL OR edi.EDI_STATUS = '')
+				</if>
+				<if test="srchCustomsCode != null and srchCustomsCode != ''">
+					AND od.CUSTOMS_CODE = #{srchCustomsCode}
+				</if>
+				<if test="srchStartDate != null and srchStartDate != ''">
+				AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+				</if>
+				<if test="srchEndDate != null and srchEndDate != ''">
+					<choose>
+					<when test='srchDateGbn == "edi.REGISTER_DATE_TIME" or srchDateGbn == "od.DELIVERY_CHANGE_DATE_TIME"'>
+					AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+					</when>
+					<otherwise>
+					AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+					</otherwise>
+					</choose>
+				</if>	
+				
+				<if test="ediDocNo != null and ediDocNo != ''">
+					AND edi.EDI_DOC_NO = #{ediDocNo}
+				</if>
+					
+				<if test="ediDocNoList != null and ediDocNoList.size > 0">
+					AND edi.EDI_DOC_NO IN (
+								<foreach collection="ediDocNoList" item="item" separator=",">
+									#{item.ediDocNo}
+								</foreach>
+								)
+				</if>
+						
+				<if test="deliveryChgList != null and deliveryChgList.size > 0">
+				AND od.OD_JOB_NO IN (
+								<foreach collection="deliveryChgList" item="item" separator=",">
+									#{item.odJobNo}
+								</foreach>
+								)
+				</if>
+	</select>
+</mapper>

@@ -1,0 +1,2862 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsCargoAbnormalMapper">
+	
+	<select id="selectAbnormalList" parameterType="searchAbnormalList" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectAbnormalList : 배송지변경신고  List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			od.OD_JOB_NO
+			,odAdnor.AR_DATE
+			,odAdnor.MRN
+			,odAdnor.MSN
+			,od.MBL_NO
+			,od.BOUND
+			,od.BOUND_TYPE
+			,COUNT(1) OVER (PARTITION BY od.OD_JOB_NO) AS HBL_CNT
+			,od.SHIPPER_ATTN
+			,od.HBL_NO
+			,od.MASTER_OD_JOB_NO
+			,od.HSN
+			<!-- ,CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' AND odAdnor.SEQ_NO_ID = 1 THEN 0 ELSE MAX(od.PIECES) OVER (PARTITION BY od.OD_JOB_NO) END AS HBL_PIECES -->
+			<!-- ,CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' AND odAdnor.SEQ_NO_ID = 1 THEN 0 ELSE MAX(od.GWT) OVER (PARTITION BY od.OD_JOB_NO) END AS HBL_GWT -->
+			<!-- ,od.PIECES AS HBL_PIECES --> 	<!-- 2024.10.21 HBL_PIECES 수정 -->
+			<!-- ,od.GWT AS HBL_GWT --> 		<!-- 2024.10.21 HBL_GWT 수정 -->
+			,CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' THEN 0 ELSE od.PIECES END AS HBL_PIECES
+			,CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' THEN 0 ELSE od.GWT END AS HBL_GWT
+			,odAdnor.PIECES
+			,odAdnor.GWT
+			,odAdnor.CNT
+			,odAdnor.ABNORMAL_CODE
+			,(SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND CODE = odAdnor.ABNORMAL_CODE AND GROUP_CODE = 'ABNORMALITY_CODE') AS ABNORMAL_CODE_NAME
+			,odAdnor.DISC_WH_CODE
+			,CASE WHEN odAdnor.SEND_DATE IS NULL THEN 'N' ELSE 'Y' END AS SEND_YN
+			,odAdnor.SEQ_NO_ID
+			,odAdnor.REGISTER_DATE_TIME
+			,od.VENDER_ID_1 as VENDER_ID1
+		FROM TB_ECM_OD od 
+		INNER JOIN TB_ECM_OD mod ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+		LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+		INNER JOIN TB_ECM_OD_ABNORMAL odAdnor ON od.OD_JOB_NO = odAdnor.OD_JOB_NO
+		WHERE od.ENT_CODE = #{srchEntCode}
+		AND ISNULL(odAdnor.SEND_DATE,'') = ''
+		<if test="srchAbnormalCode != null and srchAbnormalCode != ''">
+		AND odAdnor.ABNORMAL_CODE = #{srchAbnormalCode}
+		</if>
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+			<when test='srchNoLikeYn == "Y"'>
+			AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+			</when>
+			<otherwise>
+				<choose>
+					<when test='searchType == "multi"'>
+					AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<otherwise>
+					AND ${srchNoType} = #{srchNo}
+					</otherwise>
+				</choose>
+			</otherwise>
+			</choose>
+		</if>
+		<if test="srchStartDate != null and srchStartDate != ''">
+		AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+		</if>
+		<if test="srchEndDate != null and srchEndDate != ''">
+			<choose>
+			<when test='srchDateGbn == "odAdnor.REGISTER_DATE_TIME"'>
+			AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+			</when>
+			<otherwise>
+			AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+			</otherwise>
+			</choose>
+		</if>	
+						
+		<if test="abnormalList != null and abnormalList.size > 0">
+		AND od.OD_JOB_NO IN (
+						<foreach collection="abnormalList" item="item" separator=",">
+							#{item.odJobNo}
+						</foreach>
+						)
+		</if>				
+		
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectBmsInPlanAbnormalList" parameterType="searchAbnormalList" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectBmsInPlanAbnormalList : 배송지변경신고 List(반입예정데이터) */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT 
+			*
+		FROM (
+			SELECT
+				 bip.OD_JOB_NO AS OD_JOB_NO
+				, bip.AR_DATE
+		 		, (CASE   WHEN bip.CARGO_REFERENCE_NO IS NULL THEN ''   ELSE SUBSTRING(bip.CARGO_REFERENCE_NO, 1, 11) END) AS MRN
+				, (CASE   WHEN bip.CARGO_REFERENCE_NO IS NULL THEN ''   ELSE SUBSTRING(bip.CARGO_REFERENCE_NO, 12, 4) END) AS MSN
+				, bip.MBL_NO
+				, 'AIR' AS BOUND
+				, 'IMP' AS BOUND_TYPE
+				, COUNT(1) OVER (PARTITION BY bip.IN_PLAN_NO) AS HBL_CNT
+				, abnormal.REGISTER_USER_ID AS SHIPPER_ATTN
+				, bip.BL_NO AS HBL_NO
+				, SUBSTRING(bip.CARGO_REFERENCE_NO, 16, 4) AS HSN
+				, bip.EX_CT AS HBL_PIECES
+				, bip.EX_WT AS HBL_GWT
+				, bip.VESSEL_FLIGHT
+				, ISNULL(ISNULL(abnormal.PIECES, bip.EX_CT), 0) AS PIECES
+				, ISNULL(ISNULL(abnormal.GWT, bip.EX_WT), 0) AS GWT
+				, ISNULL(abnormal.CNT, 0) AS CNT
+				, ISNULL(abnormal.ABNORMAL_CODE, '') AS ABNORMAL_CODE
+				, '' AS ABNORMAL_CODE_NAME
+				<!-- , ISNULL(abnormal.DISC_WH_CODE, '') AS DISC_WH_CODE -->
+				, 'N' AS SEND_YN
+				, 0 AS SEQ_NO_ID
+				, CASE WHEN abnormal.REGISTER_DATE_TIME = '1900-01-01 00:00:00.000' THEN '' ELSE abnormal.REGISTER_DATE_TIME END AS REGISTER_DATE_TIME 
+				, 'QQ' AS VENDER_ID1
+				, ROW_NUMBER() OVER (PARTITION BY CASE WHEN bip.CARGO_REFERENCE_NO IS NULL THEN '' ELSE SUBSTRING(bip.CARGO_REFERENCE_NO, 1, 11) END, bip.MBL_NO, bip.BL_NO ORDER BY bip.OD_JOB_NO) AS RN
+				, bip.ORIG_COUNTRY
+				, CAST(bi.CARRYIN_DATE + ' ' + bi.CARRYIN_TIME AS DATETIME) AS CARRYIN_DATE
+			FROM 
+				TB_BMS_IN_PLAN bip WITH (NOLOCK)
+				LEFT JOIN TB_BMS_IN bi WITH (NOLOCK) ON bi.IN_PLAN_NO = bip.IN_PLAN_NO
+				LEFT JOIN TB_ECM_OD_PANTOS_ABNORMAL abnormal ON abnormal.OD_JOB_NO = bip.OD_JOB_NO
+			<!-- WHERE ISNULL(odAdnor.SEND_DATE,'') = '' -->
+			WHERE
+				1=1
+				<choose>
+					<when test='srchAbnormalCode == "MFN"'>
+						AND bip.IN_YN = 'Y'
+						AND abnormal.ABNORMAL_CODE = 'MGN'
+						AND abnormal.MANIFEST_DEL_YN = 'N'
+						<!-- 해당 이상코드로 신고된 데이터 안나오도록 수정 2025.12.12 2sowell -->
+						AND NOT EXISTS (SELECT 1 FROM TB_ECM_OD_PANTOS_ABNORMAL WHERE OD_JOB_NO = bip.OD_JOB_NO AND ABNORMAL_CODE = #{srchAbnormalCode})
+					</when>
+					<when test='srchAbnormalCode != null and srchAbnormalCode != ""'>
+						<!-- 해당 이상코드로 신고된 데이터 안나오도록 수정 2025.12.12 2sowell -->
+						<!-- 반입삭제로 IN_YN 'C'가 된 반입예정도 하기이상 신고 대상에 포함 2026.09.23 -->
+						AND bip.IN_YN IN ('N', 'C')
+						AND NOT EXISTS (SELECT 1 FROM TB_ECM_OD_PANTOS_ABNORMAL WHERE OD_JOB_NO = bip.OD_JOB_NO AND ABNORMAL_CODE = #{srchAbnormalCode})
+						<!-- AND (
+							abnormal.ABNORMAL_CODE <![CDATA[<>]]> #{srchAbnormalCode}
+							OR NOT EXISTS (SELECT 1 FROM TB_ECM_OD_PANTOS_ABNORMAL WHERE OD_JOB_NO = bip.OD_JOB_NO)
+						) -->
+					</when>
+				</choose>
+				<if test="srchNo != null and srchNo != ''">
+					<choose>
+					<when test='srchNoLikeYn == "Y"'>
+					AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+					</when>
+					<otherwise>
+						<choose>
+							<when test='searchType == "multi"'>
+							AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+							</when>
+							<otherwise>
+							AND ${srchNoType} = #{srchNo}
+							</otherwise>
+						</choose>
+					</otherwise>
+					</choose>
+				</if>
+				<if test="srchStartDate != null and srchStartDate != ''">
+					AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+				</if>
+				<if test="srchEndDate != null and srchEndDate != ''">
+					<choose>
+						<when test='srchDateGbn == "odAdnor.REGISTER_DATE_TIME"'>
+							AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(DATE, #{srchEndDate}, ${srchDateFormat}))
+						</when>
+						<otherwise>
+							AND ${srchDateGbn} <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+						</otherwise>
+					</choose>
+				</if>
+				<if test="abnormalList != null and abnormalList.size > 0">
+					AND bip.IN_PLAN_NO IN (
+						<foreach collection="abnormalList" item="item" separator=",">
+							#{item.odJobNo}
+						</foreach>
+					)
+				</if>
+		) t
+		WHERE t.RN = 1
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectAbnormalEntryList" parameterType="searchAbnormalList" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectAbnormalEntryList : 하기이상결과보고 entry List */
+			SELECT
+				 od.HBL_NO
+				,od.HSN
+				,od.PIECES AS HBL_PIECES
+				,od.GWT AS HBL_GWT
+				,od.DEST_CODE
+				,od.MBL_NO
+				,abnormal.PIECES
+				,abnormal.GWT
+				,abnormal.ABNORMAL_CODE
+				,abnormal.CNT
+				,abnormal.DISC_WH_CODE
+				,abnormal.AR_DATE
+				,abnormal.MRN
+				,abnormal.MSN
+				,abnormal.VESSEL_FLIGHT
+				,abnormal.OD_JOB_NO
+				,abnormal.SEQ_NO_ID
+				,CASE abnormal.SEQ_NO_ID WHEN 2 THEN 'N' ELSE ISNULL((SELECT 'Y' FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = od.OD_JOB_NO AND SEQ_NO_ID = 2), 'N') END AS SEND_YN
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ABNORMAL abnormal
+				 			ON abnormal.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.MASTER_OD_JOB_NO = #{srchMasterOdJobNo}
+			AND od.BL_TYPE_MH = 'H'
+			<if test="srchAbnormalCode != null and srchAbnormalCode != ''">
+			AND abnormal.ABNORMAL_CODE = #{srchAbnormalCode}
+			</if>
+	</select>
+	
+	<select id="selectBmsInPlanAbnormalEntryList" parameterType="searchAbnormalList" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectBmsInPlanAbnormalEntryList : 하기이상결과보고 entry List(반입예정데이터) */
+			SELECT
+				 bip.BL_NO AS HBL_NO
+				,SUBSTRING(bip.CARGO_REFERENCE_NO, 16, 4) AS HSN
+				,bip.EX_CT AS HBL_PIECES
+				,bip.EX_WT AS HBL_GWT
+				,bip.MBL_NO
+				,abnormal.PIECES
+				,abnormal.GWT
+				,abnormal.ABNORMAL_CODE
+				,abnormal.CNT
+				,abnormal.DISC_WH_CODE
+				,abnormal.AR_DATE
+				,abnormal.MRN
+				,abnormal.MSN
+				,abnormal.VESSEL_FLIGHT
+				,abnormal.OD_JOB_NO
+				,abnormal.SEQ_NO_ID
+				,CASE abnormal.SEQ_NO_ID WHEN 2 THEN 'N' ELSE ISNULL((SELECT 'Y' FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = CONVERT(VARCHAR(20), bip.IN_PLAN_NO) AND SEQ_NO_ID = 2), 'N') END AS SEND_YN
+			FROM TB_BMS_IN_PLAN bip WITH (NOLOCK)
+				 INNER JOIN TB_ECM_OD_ABNORMAL abnormal
+				 			ON abnormal.OD_JOB_NO = CONVERT(VARCHAR(20), bip.IN_PLAN_NO)
+			WHERE bip.MBL_NO = #{srchMblNo}
+			<if test="srchAbnormalCode != null and srchAbnormalCode != ''">
+			AND abnormal.ABNORMAL_CODE = #{srchAbnormalCode}
+			</if>
+	</select>
+	
+	<select id="selectAbnormalDeclareList" parameterType="searchAbnormalList" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectAbnormalDeclareList : 배송지변경신고  List */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+		WITH Main_CTE AS(
+		SELECT A.* FROM (
+			SELECT X.*
+				 ,(SELECT CONCAT('H.B/L ',NAME_${userLanguage}) FROM exps_master.dbo.TB_SMS_MESSAGE WHERE MESSAGE_ID = CASE MOD_TYPE WHEN '05' THEN 'EXPS003300' WHEN '06' THEN 'EXPS001554' WHEN '07' THEN 'EXPS001463' END) AS MOD_TYPE_NAME
+			FROM(
+				SELECT
+					od.OD_JOB_NO	
+					,odAdnor.SEQ_NO_ID		
+					,odAdnor.AR_DATE
+					,odAdnor.MRN
+					,odAdnor.MSN
+					,od.MBL_NO
+					,od.HBL_NO
+					,od.PO_DATE
+					,od.MASTER_OD_JOB_NO
+					,od.HSN
+					,od.DEST_CODE
+					,od.DEST_PORT
+					,od.VESSEL_FLIGHT
+					<!-- ,CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' AND odAdnor.SEQ_NO_ID = 1 THEN 0 ELSE MAX(od.PIECES) OVER (PARTITION BY od.OD_JOB_NO) END AS HBL_PIECES -->
+					<!-- ,CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' AND odAdnor.SEQ_NO_ID = 1 THEN 0 ELSE MAX(od.GWT) OVER (PARTITION BY od.OD_JOB_NO) END AS HBL_GWT -->
+					<!-- ,od.PIECES AS HBL_PIECES --> 	<!-- 2024.10.21 HBL_PIECES 수정 -->
+					<!-- ,od.GWT AS HBL_GWT --> 		<!-- 2024.10.21 HBL_GWT 수정 -->
+					,CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' THEN 0 ELSE od.PIECES END AS HBL_PIECES
+					,CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' THEN 0 ELSE od.GWT END AS HBL_GWT
+					,SUM(CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' THEN 1 ELSE 0 END ) OVER (PARTITION BY od.OD_JOB_NO) AS MFN_CNT
+					,odAdnor.PIECES
+					,odAdnor.GWT
+					,odAdnor.CNT
+					,odAdnor.ABNORMAL_CODE
+					,CONCAT(odAdnor.ABNORMAL_CODE, '.', (SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND CODE = odAdnor.ABNORMAL_CODE AND GROUP_CODE = 'ABNORMALITY_CODE')) AS ABNORMAL_CODE_NAME
+					,odAdnor.DISC_WH_CODE
+					,odAdnor.SEND_DATE
+					,odAdd.CARRYIN_DATE
+					,odAdd.UNMANAGEMENT_DATE
+					,odAdd.MF_CORRECTION_DATE
+					,odAdd.MF_CORRECTION_CONTENTS	
+					,odAdd.ABNORMAL_MFN_DATE
+					,odAdd.ABNORMAL_MFN_YN
+					,od.MRN AS MOD_MRN
+					,od.SHIPPER_NAME
+					,od.SHIPPER_TEL
+					,od.CONSIGNEE_NAME
+					,od.PIECES AS MOD_PIECES
+					,od.GWT AS MOD_GWT
+					,od.COMMODITY_ITEM
+					,od.BOUND
+					<choose>
+					<when test='srchMode == "excel"'>
+					,(SELECT NAME_DEFAULT FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = od.ENT_CODE AND CODE = odAdd.LAST_POD_STATUS) AS LAST_POD_STATUS
+					</when>
+					<otherwise>
+					,odAdd.LAST_POD_STATUS
+					</otherwise>
+					</choose>
+					,(SELECT TOP 1 MOD_TYPE FROM TB_EDI_MOD_HBL WHERE OD_JOB_NO = od.OD_JOB_NO ORDER BY REGISTER_DATE_TIME DESC) AS MOD_TYPE
+					<!-- ,(SELECT CONCAT('H.B/L ',NAME_${userLanguage}) FROM exps_master.dbo.TB_SMS_MESSAGE WHERE MESSAGE_ID = CASE (SELECT TOP 1 MOD_TYPE FROM TB_EDI_MOD_HBL WHERE OD_JOB_NO = od.OD_JOB_NO ORDER BY REGISTER_DATE_TIME DESC) WHEN '05' THEN 'EXPS003300' WHEN '06' THEN 'EXPS001554' WHEN '07' THEN 'EXPS001463' END) AS MOD_TYPE_NAME -->
+					,od.VENDER_ID_1 as VENDER_ID1
+					,(SELECT SEND_DATE FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = od.OD_JOB_NO AND SEQ_NO_ID = 2) AS MGN_MFN_SEND_DATE
+					<choose>
+					<when test='cryptographyYn == "Y"'>
+					,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+					</when>
+					<otherwise>
+					,od.CONSIGNEE_TEL
+					</otherwise>
+					</choose>
+				FROM TB_ECM_OD od 
+				INNER JOIN TB_ECM_OD mod ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO
+				LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON od.OD_JOB_NO = odAdd.OD_JOB_NO
+				INNER JOIN TB_ECM_OD_ABNORMAL odAdnor ON od.OD_JOB_NO = odAdnor.OD_JOB_NO AND odAdnor.SEQ_NO_ID = 1	<!-- MFN(SHT) 후 MFN은 행으로 표현하지 않음 -->
+				WHERE od.ENT_CODE = #{srchEntCode}
+				AND ISNULL(odAdnor.SEND_DATE,'') <![CDATA[<>]]> ''
+				
+				
+				<if test="srchNo != null and srchNo != ''">
+					<choose>
+						<when test='searchType == "multi"'>
+						AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+						AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+						</otherwise>
+					</choose>
+				</if>	
+				<if test="srchStartDate != null and srchStartDate != ''">
+				AND ${srchDateGbn} >= CONVERT(DATE, #{srchStartDate}, ${srchDateFormat}) 
+				</if>
+				<if test="srchEndDate != null and srchEndDate != ''">
+				AND CONVERT(DATE, ${srchDateGbn}, ${srchDateFormat}) <![CDATA[<=]]> CONVERT(DATE, #{srchEndDate}, ${srchDateFormat})
+				</if>	
+				<if test="srchAbnormalCode != null and srchAbnormalCode != ''">
+					AND odAdnor.ABNORMAL_CODE = #{srchAbnormalCode}
+				</if>		
+				<if test='srchUnmng == "Y"'>
+					AND ISNULL(odAdd.UNMANAGEMENT_DATE,'') <![CDATA[<>]]> ''
+				</if>	
+				<if test='srchUnmng == "N"'>
+					AND ISNULL(odAdd.UNMANAGEMENT_DATE,'') = ''
+				</if>	
+				<if test='srchCorrection == "Y"'>
+					AND ISNULL(odAdd.MF_CORRECTION_DATE,'') <![CDATA[<>]]> ''
+				</if>	
+				<if test='srchCorrection == "N"'>
+					AND ISNULL(odAdd.MF_CORRECTION_DATE,'') = ''
+				</if>
+				<if test="srchAbnormalMfnYn != null and srchAbnormalMfnYn != ''">
+					<choose>
+					<when test='srchAbnormalMfnYn == "Y"'>
+					AND odAdd.ABNORMAL_MFN_YN = 'Y'
+					</when>
+					<otherwise>
+					AND (odAdd.ABNORMAL_MFN_YN = 'N' OR odAdd.ABNORMAL_MFN_YN IS NULL)
+					</otherwise>
+					</choose>
+				</if>
+				<if test="srchCarryInYn != null and srchCarryInYn != ''">
+					<choose>
+					<when test='srchCarryInYn == "Y"'>
+					AND odAdd.CARRYIN_DATE IS NOT NULL
+					AND odAdd.CARRYIN_DATE <![CDATA[<>]]> ''
+					</when>
+					<when test='srchCarryInYn == "N"'>
+					AND (odAdd.CARRYIN_DATE IS NULL OR odAdd.CARRYIN_DATE = '')
+					</when>
+					</choose>
+				</if>
+			
+			<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+			) X
+		) A
+		<if test="filter != null">
+			<include refid="org.yht.exps.express.mapper.CommonMapper.filter"/>
+		</if>
+		)
+		, Count_CTE AS (
+		    SELECT COUNT(*) AS TOTAL
+		    FROM Main_CTE
+		)
+		SELECT *
+		
+		, ROW_NUMBER() OVER(<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+			<if test="defaultSort2 != null and defaultSort2 != ''">
+			, ${defaultSort2}
+			</if>
+		) AS NUM
+		FROM Count_CTE, Main_CTE
+		<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+		<if test="defaultSort2 != null and defaultSort2 != ''">
+		, ${defaultSort2}
+		</if>
+		<if test="srchMode != 'excel' and srchMode != 'client' and page != null and page != 0">
+		OFFSET ${startNum} ROWS FETCH NEXT ${pageSize} ROWS ONLY
+		</if>
+	</select>	
+	
+	<select id="selectBmsInPlanAbnormalDeclareList" parameterType="searchAbnormalList" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectBmsInPlanAbnormalDeclareList : 배송지변경신고 List(반입예정데이터) */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		WITH Main_CTE AS(
+		SELECT A.* FROM (
+			SELECT X.*
+				<!-- ,(SELECT CONCAT('H.B/L ',NAME_${userLanguage}) FROM exps_master.dbo.TB_SMS_MESSAGE WHERE MESSAGE_ID = CASE MOD_TYPE WHEN '05' THEN 'EXPS003300' WHEN '06' THEN 'EXPS001554' WHEN '07' THEN 'EXPS001463' END) AS MOD_TYPE_NAME -->
+			FROM(
+				SELECT
+					 bip.OD_JOB_NO AS OD_JOB_NO
+					, odAdnor.SEQ_NO_ID
+					, odAdnor.AR_DATE
+					, odAdnor.MRN
+					, odAdnor.MSN
+					,bip.MBL_NO
+					,bip.BL_NO AS HBL_NO
+					,SUBSTRING(bip.CARGO_REFERENCE_NO, 16, 4) AS HSN
+					,bip.VESSEL_FLIGHT
+					,CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' THEN 0 ELSE bip.EX_CT END AS HBL_PIECES
+					,CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' THEN 0 ELSE bip.EX_WT END AS HBL_GWT
+					,SUM(CASE WHEN odAdnor.ABNORMAL_CODE = 'MFN' THEN 1 ELSE 0 END ) OVER (PARTITION BY bip.OD_JOB_NO) AS MFN_CNT
+					<!-- ,0 AS MFN_CNT -->
+					,odAdnor.PIECES
+					,odAdnor.GWT
+					,odAdnor.CNT
+					,odAdnor.ABNORMAL_CODE
+					,CONCAT(odAdnor.ABNORMAL_CODE, '.', (SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = 'PANTK' AND CODE = odAdnor.ABNORMAL_CODE AND GROUP_CODE = 'ABNORMALITY_CODE')) AS ABNORMAL_CODE_NAME
+					,odAdnor.DISC_WH_CODE
+					,odAdnor.SEND_DATE
+					,ISNULL(odAdd.CARRYIN_DATE, '') AS CARRYIN_DATE
+					,ISNULL(odAdd.UNMANAGEMENT_DATE, '') AS UNMANAGEMENT_DATE
+					,ISNULL(odAdd.MF_CORRECTION_DATE, '') AS MF_CORRECTION_DATE
+					,ISNULL(odAdd.MF_CORRECTION_CONTENTS, '') AS MF_CORRECTION_CONTENTS
+					,ISNULL(odAdd.ABNORMAL_MFN_DATE, '') AS ABNORMAL_MFN_DATE
+					,ISNULL(odAdd.ABNORMAL_MFN_YN, '') AS ABNORMAL_MFN_YN
+					,SUBSTRING(bip.CARGO_REFERENCE_NO, 1, 11) AS MOD_MRN
+					,bip.SHIPPER_NAME
+					,bip.SHIPPER_TEL
+					,bip.CONSIGNEE_NAME
+					,bip.EX_CT AS MOD_PIECES
+					,bip.EX_WT AS MOD_GWT
+					,bip.COMMODITY_ITEM_LOC
+					,'AIR' AS BOUND
+					,ISNULL(odAdnor.LAST_POD_STATUS, '') AS LAST_POD_STATUS
+					,(SELECT TOP 1 MOD_TYPE FROM TB_EDI_MOD_HBL WHERE OD_JOB_NO = bip.OD_JOB_NO ORDER BY REGISTER_DATE_TIME DESC) AS MOD_TYPE
+					,'QQ' AS VENDER_ID1
+					,(SELECT SEND_DATE FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = bip.OD_JOB_NO AND SEQ_NO_ID = 2) AS MGN_MFN_SEND_DATE
+					<choose>
+						<when test='cryptographyYn == "Y"'>
+							,dbo.Cryptography(bip.OD_JOB_NO, bip.CONSIGNEE_TEL, 1) AS CONSIGNEE_TEL
+						</when>
+						<otherwise>
+							,bip.CONSIGNEE_TEL
+						</otherwise>
+					</choose>
+					,bip.MANIFEST_DEL_YN AS MANIFEST_DEL_YN
+					,CASE WHEN odAdnor.ABNORMAL_CODE = 'MGN' AND DATEDIFF(DAY, SEND_DATE, GETDATE()) <![CDATA[>]]> 13 THEN 'Y' ELSE 'N' END AS NOT_PROCESS_YN
+					,CASE WHEN odAdnor.ABNORMAL_CODE = 'MGN' AND DATEDIFF(DAY, SEND_DATE, GETDATE()) <![CDATA[<=]]> 15 AND (bip.MANIFEST_DEL_YN = 'N' OR bip.IN_YN = 'N') THEN DATEDIFF(DAY, SEND_DATE, GETDATE()) ELSE -1 END AS MGN_MARK_DATE
+				FROM TB_BMS_IN_PLAN bip WITH (NOLOCK)
+					LEFT OUTER JOIN TB_ECM_OD_ADDITIONAL odAdd ON bip.OD_JOB_NO = odAdd.OD_JOB_NO
+					INNER JOIN TB_ECM_OD_ABNORMAL odAdnor ON bip.OD_JOB_NO = odAdnor.OD_JOB_NO AND odAdnor.SEQ_NO_ID = 1	<!-- MFN(SHT) 후 MFN은 행으로 표현하지 않음 -->
+				WHERE 
+					1=1
+				<if test="srchNo != null and srchNo != ''">
+					<choose>
+						<when test='searchType == "multi"'>
+							AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+							AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+						</otherwise>
+					</choose>
+				</if>	
+				<if test="srchStartDate != null and srchStartDate != ''">
+					AND ${srchDateGbn} >= #{srchStartDate}
+				</if>
+				<if test="srchEndDate != null and srchEndDate != ''">
+					AND ${srchDateGbn} <![CDATA[<=]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+				</if>	
+				<if test="srchAbnormalCode != null and srchAbnormalCode != ''">
+					AND odAdnor.ABNORMAL_CODE = #{srchAbnormalCode}
+				</if>
+				<if test="srchLastPodStatus != null and srchLastPodStatus != ''">
+					AND odAdnor.LAST_POD_STATUS = #{srchLastPodStatus}
+				</if>
+				<if test="srchCarryInYn != null and srchCarryInYn != ''">
+					<choose>
+						<when test='srchCarryInYn == "Y"'>
+							AND bip.IN_YN = 'Y'
+						</when>
+						<when test='srchCarryInYn == "N"'>
+							AND bip.IN_YN = 'N'
+						</when>
+					</choose>
+				</if>
+			) X
+		) A
+		<if test="filter != null">
+			<include refid="org.yht.exps.express.mapper.CommonMapper.filter"/>
+		</if>
+		)
+		, Count_CTE AS (
+		    SELECT COUNT(*) AS TOTAL
+		    FROM Main_CTE
+		)
+		SELECT *
+		
+		, ROW_NUMBER() OVER(<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+			<if test="defaultSort2 != null and defaultSort2 != ''">
+			, ${defaultSort2}
+			</if>
+		) AS NUM
+		FROM Count_CTE, Main_CTE
+		<include refid="org.yht.exps.express.mapper.CommonMapper.orderBy"/>
+		<if test="defaultSort2 != null and defaultSort2 != ''">
+		, ${defaultSort2}
+		</if>
+		<if test="srchMode != 'excel' and srchMode != 'client' and page != null and page != 0">
+		OFFSET ${startNum} ROWS FETCH NEXT ${pageSize} ROWS ONLY
+		</if>
+	</select>
+
+	<select id="selectBmsAbnormalDeclareList" parameterType="searchAbnormalList" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectBmsAbnormalDeclareList : 하기이상보고 저장 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT 
+			*
+		FROM (
+			SELECT
+				A.OD_JOB_NO
+				, A.SEQ_NO_ID
+				, A.ABNORMAL_CODE
+				, A.LAST_POD_STATUS
+				, A.MRN
+				, A.MSN
+				, A.HSN
+				, A.MBL_NO
+				, A.HBL_NO
+				<!-- , CASE WHEN A.ABNORMAL_CODE = 'MFN' THEN 0 ELSE A.EX_CT END AS HBL_PIECES -->
+				<!-- , CASE WHEN A.ABNORMAL_CODE = 'MFN' THEN 0 ELSE A.EX_WT END AS HBL_GWT -->
+				, A.EX_CT AS HBL_PIECES 	<!-- 저장된값 나오도록 수정 2025.12.12 2sowell -->
+				, A.EX_WT AS HBL_GWT 
+				, A.VESSEL_FLIGHT
+				, A.DISC_WH_CODE
+				, A.AR_DATE
+				, A.PIECES
+				, A.GWT
+				, A.CNT
+				<!-- , ISNULL(STUFF(( SELECT DISTINCT ','+ PA.ABNORMAL_CODE FROM TB_ECM_OD_PANTOS_ABNORMAL PA WHERE PA.MRN = A.MRN AND PA.ABNORMAL_CODE NOT IN ('MFN', 'MGN') FOR XML PATH('') ), 1, 1, ''), '') AS ABNORMAL_CODE_NAME -->
+				<!-- MGN, MFN 값도 나오도록 수정 2026.05.11 2sowell -->
+				, ISNULL(STUFF(( SELECT DISTINCT ','+ PA.ABNORMAL_CODE FROM TB_ECM_OD_PANTOS_ABNORMAL PA WHERE PA.MRN = A.MRN FOR XML PATH('') ), 1, 1, ''), '') AS ABNORMAL_CODE_NAME
+				<!-- , CONCAT(A.ABNORMAL_CODE, '.', (SELECT NAME_KOR FROM TB_SMS_CODE_DETAIL WHERE ENT_CODE = #{srchEntCode} AND CODE = A.ABNORMAL_CODE AND GROUP_CODE = 'ABNORMALITY_CODE')) AS ABNORMAL_CODE_NAME -->
+				, A.SEND_DATE
+				, A.DECLARATION_DATE
+				, ISNULL(G.SEND_DATE, '') AS MGN_SEND_DATE
+				, ISNULL(F.SEND_DATE, '') AS MFN_SEND_DATE
+				, CASE WHEN ISNULL(G.OD_JOB_NO, '') <![CDATA[<>]]> '' THEN 'Y' ELSE 'N' END AS MGN_YN
+				, CASE WHEN ISNULL(F.OD_JOB_NO, '') <![CDATA[<>]]> '' THEN 'Y' ELSE 'N' END AS MFN_YN
+				, ISNULL(F.SEND_DATE, '') AS ABNORMAL_MFN_DATE
+				, CASE WHEN ISNULL(F.OD_JOB_NO, '') <![CDATA[<>]]> '' AND ISNULL(F.OD_JOB_NO, '') <![CDATA[<>]]> '' THEN 'Y' ELSE 'N' END AS ABNORMAL_MFN_YN
+				, A.REGISTER_USER_ID
+				, A.REGISTER_DATE_TIME
+				, A.UPDATE_USER_ID
+				, A.UPDATE_DATE_TIME
+				, A.MANIFEST_DEL_YN
+				, A.LAST_POD_RAQ_DATE
+				, CASE WHEN DATEDIFF(DAY, G.SEND_DATE, GETDATE()) <![CDATA[>]]> 13 THEN 'Y' ELSE 'N' END AS NOT_PROCESS_YN
+				, CASE WHEN DATEDIFF(DAY, G.SEND_DATE, GETDATE()) <![CDATA[<=]]> 15 AND (A.MANIFEST_DEL_YN = 'N' OR P.IN_YN = 'N') THEN DATEDIFF(DAY, G.SEND_DATE, GETDATE()) ELSE -1 END AS MGN_MARK_DATE
+				, ROW_NUMBER() OVER (PARTITION BY A.MRN ORDER BY A.REGISTER_DATE_TIME DESC, A.OD_JOB_NO) AS RN
+				, P.ORIG_COUNTRY
+				, CAST(I.CARRYIN_DATE + ' ' + I.CARRYIN_TIME AS DATETIME) AS CARRYIN_DATE
+				, B.TOTAL_HBL
+			FROM 
+				TB_ECM_OD_PANTOS_ABNORMAL A WITH (NOLOCK)
+				LEFT JOIN TB_ECM_OD_PANTOS_ABNORMAL G WITH (NOLOCK) ON G.MRN = A.MRN <!-- AND G.MBL_NO = A.MBL_NO AND G.HBL_NO = A.HBL_NO --> AND G.ABNORMAL_CODE = 'MGN'
+				LEFT JOIN TB_ECM_OD_PANTOS_ABNORMAL F WITH (NOLOCK) ON F.MRN = A.MRN <!-- AND F.MBL_NO = A.MBL_NO AND F.HBL_NO = A.HBL_NO --> AND F.ABNORMAL_CODE = 'MFN'
+				<!-- LEFT JOIN TB_BMS_IN_PLAN P WITH (NOLOCK) ON A.OD_JOB_NO = P.OD_JOB_NO -->
+				LEFT JOIN TB_BMS_IN_PLAN P WITH (NOLOCK) ON A.MBL_NO = P.MBL_NO AND A.HBL_NO = P.BL_NO	<!-- 조인조건 MBL_NO, BL_NO로 변경 2026.05.06 2sowell -->
+				LEFT JOIN TB_BMS_IN I WITH (NOLOCK) ON I.IN_PLAN_NO = P.IN_PLAN_NO
+				CROSS JOIN (	<!-- HBL 전체개수 추가 2026.05.06 2sowell -->
+				    SELECT COUNT(DISTINCT HBL_NO) AS TOTAL_HBL 
+				    FROM TB_ECM_OD_PANTOS_ABNORMAL A WITH (NOlOCK)
+				    <if test="srchCarryInYn != null and srchCarryInYn != ''">
+				    LEFT JOIN TB_BMS_IN_PLAN P WITH (NOLOCK) ON A.MBL_NO = P.MBL_NO AND A.HBL_NO = P.BL_NO
+				    </if>
+				    WHERE 1=1
+				    <if test="srchAbnormalCode != null and srchAbnormalCode != ''">
+						AND A.ABNORMAL_CODE = #{srchAbnormalCode}
+					</if>
+					<if test="srchNo != null and srchNo != ''">
+						<choose>
+							<when test='searchType == "multi"'>
+								AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+							</when>
+							<otherwise>
+								AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+							</otherwise>
+						</choose>
+					</if>
+					<if test="srchStartDate != null and srchStartDate != ''">
+						AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+					</if>
+					<if test="srchEndDate != null and srchEndDate != ''">
+						AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+					</if>
+					<if test="srchSendStatus != null and srchSendStatus != ''">
+						<choose>
+							<when test='srchSendStatus == "Y"'>
+								AND ISNULL(A.SEND_DATE,'') <![CDATA[<>]]> ''
+							</when>
+							<when test='srchSendStatus == "N"'>
+								AND ISNULL(A.SEND_DATE,'') = ''
+							</when>
+						</choose>
+					</if>
+					<if test="srchCarryInYn != null and srchCarryInYn != ''">
+					<choose>
+						<when test='srchCarryInYn == "Y"'>
+							AND P.IN_YN = 'Y'
+						</when>
+						<when test='srchCarryInYn == "N"'>
+							AND P.IN_YN IN ('N','C')
+						</when>
+					</choose>
+					</if>
+				) B
+			WHERE 
+				1 = 1
+				<if test="srchAbnormalCode != null and srchAbnormalCode != ''">
+					AND A.ABNORMAL_CODE = #{srchAbnormalCode}
+				</if>
+				<if test="srchNo != null and srchNo != ''">
+					<choose>
+						<when test='searchType == "multi"'>
+							AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+							AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+						</otherwise>
+					</choose>
+				</if>
+				<if test="srchStartDate != null and srchStartDate != ''">
+					AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+				</if>
+				<if test="srchEndDate != null and srchEndDate != ''">
+					AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+				</if>
+				<if test="srchSendStatus != null and srchSendStatus != ''">
+					<choose>
+						<when test='srchSendStatus == "Y"'>
+							AND ISNULL(A.SEND_DATE,'') <![CDATA[<>]]> ''
+						</when>
+						<when test='srchSendStatus == "N"'>
+							AND ISNULL(A.SEND_DATE,'') = ''
+						</when>
+					</choose>
+				</if>
+				<if test="srchCarryInYn != null and srchCarryInYn != ''">
+					<choose>
+						<when test='srchCarryInYn == "Y"'>
+							AND P.IN_YN = 'Y'
+						</when>
+						<when test='srchCarryInYn == "N"'>
+							AND P.IN_YN IN ('N','C')
+						</when>
+					</choose>
+				</if>
+			) t
+		WHERE t.RN = 1
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<select id="selectAbnormalAddPopupList" parameterType="searchAbnormalList" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectAbnormalAddPopupList : 하기이상추가팝업 List(반입예정데이터) */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			 SUBSTRING(bip.CARGO_REFERENCE_NO, 1, 11) AS MRN
+			,SUBSTRING(bip.CARGO_REFERENCE_NO, 12, 4) AS MSN
+			,bip.MBL_NO
+			,bip.VESSEL_FLIGHT
+			,'AIR' AS BOUND
+			,bip.BL_NO AS HBL_NO
+			,SUBSTRING(bip.CARGO_REFERENCE_NO, 16, 4) AS HSN
+			,bip.EX_CT AS OD_PIECES
+			,bip.EX_WT AS GWT
+			,bip.AMOUNT_USD AS AMOUNT_CUR
+			,bip.CONSIGNEE_NAME
+			,CONCAT(bip.CONSIGNEE_ADDRESS_1, bip.CONSIGNEE_ADDRESS_2) AS CONSIGNEE_ADDRESS
+			,bip.AR_DATE
+			,bip.REGISTER_DATE_TIME AS PO_DATE
+		FROM TB_BMS_IN_PLAN bip WITH (NOLOCK)
+		WHERE bip.MBL_NO = #{srchMblNo}
+		<if test="srchNo != null and srchNo != ''">
+		AND bip.BL_NO = #{srchNo}
+		</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+	
+	<insert id="insertAbnormalList" parameterType="abnormal">
+		/* BmsCargoAbnormalMapper.insertAbnormalList : 하기이상결과보고  insert */
+		INSERT INTO TB_ECM_OD_ABNORMAL
+		(
+			OD_JOB_NO
+			, SEQ_NO_ID
+			, ABNORMAL_CODE
+			, MRN
+			, MSN
+			, VESSEL_FLIGHT
+			, DISC_WH_CODE
+			, AR_DATE
+			, PIECES
+			, GWT
+			, CNT
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME)			
+		SELECT
+			od.OD_JOB_NO
+			,(SELECT ISNULL(MAX(SEQ_NO_ID),0) + 1 FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = od.OD_JOB_NO )
+			, #{abnormalCode}
+			, mod.MRN
+			, mod.MSN
+			, mod.VESSEL_FLIGHT
+			, #{discWhCode}
+			, mod.AR_DATE
+			, #{pieces}
+			, #{gwt}
+			, #{cnt}
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())		
+		FROM TB_ECM_OD od	
+		INNER JOIN TB_ECM_OD mod ON od.MASTER_OD_JOB_NO = mod.OD_JOB_NO		
+		WHERE od.OD_JOB_NO = #{odJobNo};		
+	</insert>
+	
+	<select id="selectAbnormalDeleteCheck" parameterType="abnormalList" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectAbnormalDeleteCheck : 하기이상결과보고 삭제 전 체크 */
+			SELECT
+				 ab.OD_JOB_NO
+				,ab.SEQ_NO_ID
+				,ab.ABNORMAL_CODE
+				,ab.MRN
+				,ab.HBL_NO
+				,ab.SEND_DATE
+				,(SELECT ISNULL(CONVERT(VARCHAR(10), SEND_DATE, 23), 'N') FROM TB_ECM_OD_PANTOS_ABNORMAL WHERE OD_JOB_NO = ab.OD_JOB_NO AND SEQ_NO_ID = 2) AS MGN_MFN
+			FROM TB_ECM_OD_PANTOS_ABNORMAL ab
+			WHERE (
+			<foreach collection="abnormalList" item="item" separator="OR">
+			<!-- (ab.OD_JOB_NO = #{item.odJobNo} AND ab.SEQ_NO_ID = #{item.seqNoId}) -->
+				(ab.MRN = #{item.mrn})
+			</foreach>
+			)
+			<!-- <if test='action != "sendDel"'>
+				AND ISNULL(ab.SEND_DATE,'') = ''
+			</if> -->
+	</select>
+	
+	<delete id="deleteAbnormalList" parameterType="abnormalList">
+		/* BmsCargoAbnormalMapper.deleteAbnormalList : 하기이상결과보고  delete */
+			DELETE FROM TB_ECM_OD_PANTOS_ABNORMAL
+			WHERE 
+			(
+			<choose>
+				<when test="abnormalList != null and abnormalList.size > 0">
+					<foreach collection="abnormalList" item="item" separator="OR">
+						<!-- (OD_JOB_NO = #{item.odJobNo} AND SEQ_NO_ID = #{item.seqNoId}) -->
+						(MRN = #{item.mrn})
+					</foreach>
+				</when>
+				<when test="editDelList != null and editDelList.size > 0">
+					<foreach collection="editDelList" item="item" separator="OR">
+						(OD_JOB_NO = #{item.odJobNo} AND ABNORMAL_CODE = #{item.abnormalCode})
+					</foreach>
+				</when>
+			</choose>
+			)
+	</delete>
+	
+	<delete id="deleteSpecialItemList" parameterType="ArrayList">
+		/* BmsCargoAbnormalMapper.deleteAbnormalList : 하기이상결과보고  delete */
+			DELETE FROM TB_ECM_OD_SPECIAL_ITEM
+			WHERE OD_JOB_NO IN(<foreach collection="list" item="item" separator=",">#{item.OD_JOB_NO}</foreach>)
+	</delete>
+	
+	<update id="updateAbnormal" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.updateAbnormal : 하기이상결과보고 update */
+			UPDATE 
+				TB_ECM_OD_PANTOS_ABNORMAL 
+			SET
+				PIECES = #{pieces}
+				,GWT = #{gwt}
+				,CNT = #{cnt}
+				,ABNORMAL_CODE = #{editAbnormalCode}
+				,EX_CT = #{hblPieces}	<!-- 적하목록 수량 추가 2025.12.15 2sowell -->
+				,EX_WT = #{hblGwt}
+				,UPDATE_USER_ID = #{registerUserId}
+				,UPDATE_DATE_TIME = GETDATE()	<!-- DATEADD(HOUR, ${gmtTime}, GETDATE())에서 GETDATE() 로 변경 2025.12.15 2sowell -->
+			WHERE 
+				OD_JOB_NO = #{odJobNo}
+				AND ABNORMAL_CODE = #{abnormalCode}
+	</update>
+	
+	<update id="updateAbnormalAdditional" parameterType="abnormal">
+		/* BmsCargoAbnormalMapper.updateAbnormalAdditional : 하기이상결과보고신고 삭제건 ad update */
+			UPDATE ad
+			SET   ad.ABNORMAL_MFN_DATE = NULL
+				, ad.ABNORMAL_MFN_YN = NULL
+			<choose>
+			<when test='mgnMfnSendDate == null or mgnMfnSendDate == ""'> <!-- mgn/sht + mfn이 아닌 경우 : 신고일자 삭제 -->
+				, ad.ABNORMAL_DATE = NULL
+			</when>
+			<otherwise>
+				, ad.ABNORMAL_DATE = #{sendDate}
+			</otherwise>
+			</choose>
+			FROM TB_ECM_OD_ADDITIONAL ad
+			INNER JOIN TB_ECM_OD_ABNORMAL abnormal ON abnormal.MRN = #{mrn}
+		 	WHERE abnormal.OD_JOB_NO = #{odJobNo} AND abnormal.SEQ_NO_ID = #{seqNoId}
+			<!-- INNER JOIN TB_ECM_OD_ABNORMAL abnormal ON abnormal.OD_JOB_NO = ad.OD_JOB_NO
+		 	WHERE abnormal.OD_JOB_NO = #{odJobNo} AND abnormal.SEQ_NO_ID = #{seqNoId}	 -->		
+	</update>
+	
+	<update id="updateLastPodMax" parameterType="abnormal">
+		/* BmsCargoAbnormalMapper.updateLastPodMax : 하기이상결과보고신고 삭제건 last pod update */
+			UPDATE ad SET
+				   LAST_POD_STATUS = pod.POD_STATUS
+				  <!-- ,LAST_POD_DATE = CASE WHEN pod.POD_DATE IS NULL THEN NULL ELSE CONCAT(pod.POD_DATE, ' ' , pod.POD_TIME) END -->
+			FROM TB_ECM_OD_ADDITIONAL ad
+				 LEFT JOIN (
+				 	SELECT TOP 1 A.OD_JOB_NO, A.POD_STATUS, A.POD_DATE, A.POD_TIME
+				 	FROM(
+				 		SELECT #{odJobNo} AS OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD WHERE OD_JOB_NO = (SELECT MASTER_OD_JOB_NO FROM TB_ECM_OD WHERE OD_JOB_NO = #{odJobNo}) AND POD_STATUS IN ('ECM060','ECM070')
+				 		UNION ALL
+				 		SELECT #{odJobNo} AS OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_01 WHERE OD_JOB_NO = (SELECT MASTER_OD_JOB_NO FROM TB_ECM_OD WHERE OD_JOB_NO = #{odJobNo}) AND POD_STATUS IN ('ECM060','ECM070')
+				 		UNION ALL
+				 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD WHERE OD_JOB_NO = #{odJobNo} AND POD_STATUS NOT IN ('ECM060','ECM070')
+				 		UNION ALL
+				 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_01 WHERE OD_JOB_NO = #{odJobNo} AND POD_STATUS NOT IN ('ECM060','ECM070')
+				 		UNION ALL
+				 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_02 WHERE OD_JOB_NO = #{odJobNo}
+				 		UNION ALL
+				 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_03 WHERE OD_JOB_NO = #{odJobNo}
+				 		UNION ALL
+				 		SELECT OD_JOB_NO, POD_STATUS, POD_DATE, POD_TIME FROM TB_ECM_POD_04 WHERE OD_JOB_NO = #{odJobNo} AND POD_STATUS IN ('ECM400', 'ECM420')
+				 	) A
+				 	ORDER BY A.POD_STATUS DESC
+				 ) pod
+				 		   ON pod.OD_JOB_NO = ad.OD_JOB_NO
+			WHERE ad.OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<delete id="deleteAbnormalDeclareList" parameterType="abnormalList">
+		/* BmsCargoAbnormalMapper.deleteAbnormalDeclareList : 하기이상결과보고신고 delete */
+			DELETE FROM TB_ECM_OD_ABNORMAL
+ 			WHERE (
+ 			<foreach collection="abnormalList" item="item" separator="OR">
+ 				(OD_JOB_NO = #{item.odJobNo} AND SEQ_NO_ID = #{item.seqNoId})
+ 			</foreach>
+ 			);
+	</delete>
+	
+	<delete id="deleteAbnormalDeclarePod" parameterType="abnormal">
+		/* BmsCargoAbnormalMapper.deleteAbnormalDeclarePod : 하기이상결과보고신고 POD delete */
+			DELETE FROM TB_ECM_POD_02
+			WHERE OD_JOB_NO IN (#{odJobNo})
+			AND POD_STATUS = 'ECM160'
+			;
+	</delete>
+	
+	<insert id="insertAbnormal" parameterType="abnormal">
+		/* BmsCargoAbnormalMapper.insertAbnormal : 하기이상결과보고  insert */
+		INSERT INTO TB_ECM_OD_ABNORMAL(
+			   OD_JOB_NO
+			  ,SEQ_NO_ID
+			  ,ABNORMAL_CODE
+			  ,MRN
+			  ,MSN
+			  ,VESSEL_FLIGHT
+			  ,DISC_WH_CODE
+			  ,AR_DATE
+			  ,PIECES
+			  ,GWT
+			  ,CNT
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)
+		SELECT
+			 od.OD_JOB_NO
+			,#{seqNoId}
+			,#{abnormalCode}
+			,#{mrn}
+			,#{msn}
+			,#{vesselFlight}
+			,#{discWhCode}
+			,#{arDate}
+			<choose>
+			<when test='abnormalCode == "MGN"'>
+			,0
+			,0
+			,od.PIECES
+			</when>
+			<when test='abnormalCode == "MFN"'>
+				<choose>
+				<when test="odJobNoList != null and odJobNoList.size == 1">
+				,#{pieces}
+				,#{gwt}
+				</when>
+				<otherwise>
+				,od.PIECES
+				,od.GWT
+				</otherwise>
+				</choose>
+			,od.PIECES
+			</when>
+			<when test='abnormalCode == "SHT"'>
+				,#{pieces}
+				,#{gwt}
+				,od.PIECES-#{pieces}
+			</when>
+			<otherwise>
+			,#{pieces}
+			,#{gwt}
+			,0
+			</otherwise>
+			</choose>
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())		
+		FROM TB_ECM_OD od
+		<choose>
+			<when test="odJobNoList != null and odJobNoList.size > 0">
+	 		WHERE od.OD_JOB_NO IN (<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+	 		</when>
+	 		<when test="masterOdJobNo != null and masterOdJobNo != ''">
+	 		 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+	 		 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+	 		WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+	 		AND od.BL_TYPE_MH = 'H'
+	 		<include refid="org.yht.exps.express.mapper.bms.BmsCargoAbnormalMapper.searchManifestHouseInList"/>
+	 		</when>
+	 		<otherwise>
+			WHERE od.OD_JOB_NO = #{odJobNo}
+			</otherwise>
+		</choose>
+	</insert>
+	
+	<insert id="insertBmsInPlanAbnormal" parameterType="abnormal">
+		/* BmsCargoAbnormalMapper.insertBmsInPlanAbnormal : 하기이상결과보고  insert(반입예정데이터) */
+		INSERT INTO TB_ECM_OD_ABNORMAL(
+			   OD_JOB_NO
+			  ,SEQ_NO_ID
+			  ,ABNORMAL_CODE
+			  ,MRN
+			  ,MSN
+			  ,VESSEL_FLIGHT
+			  ,DISC_WH_CODE
+			  ,AR_DATE
+			  ,PIECES
+			  ,GWT
+			  ,CNT
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)
+		SELECT
+			 bip.IN_PLAN_NO
+			,#{seqNoId}
+			,#{abnormalCode}
+			,#{mrn}
+			,#{msn}
+			,#{vesselFlight}
+			,#{discWhCode}
+			,#{arDate}
+			<choose>
+			<when test='abnormalCode == "MGN"'>
+			,0
+			,0
+			,bip.EX_CT
+			</when>
+			<when test='abnormalCode == "MFN"'>
+				<choose>
+				<when test="odJobNoList != null and odJobNoList.size == 1">
+				,#{pieces}
+				,#{gwt}
+				</when>
+				<otherwise>
+				,bip.EX_CT
+				,bip.EX_WT
+				</otherwise>
+				</choose>
+			,bip.EX_CT
+			</when>
+			<when test='abnormalCode == "SHT"'>
+				,#{pieces}
+				,#{gwt}
+				,bip.EX_CT-#{pieces}
+			</when>
+			<otherwise>
+			,#{pieces}
+			,#{gwt}
+			,0
+			</otherwise>
+			</choose>
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())		
+		FROM TB_BMS_IN_PLAN bip WITH (NOLOCK)
+		<choose>
+			<when test="odJobNoList != null and odJobNoList.size > 0">
+	 		WHERE bip.IN_PLAN_NO IN (<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+	 		</when>
+	 		<otherwise>
+			WHERE bip.IN_PLAN_NO = #{odJobNo}
+			</otherwise>
+		</choose>
+	</insert>
+	
+	<insert id="insertAbnormalMgnMfn" parameterType="abnormal">
+		/* BmsCargoAbnormalMapper.insertAbnormalMgnMfn : 적하목록 마스터로 MGN or SHT후 MFN생성 */
+		INSERT INTO TB_ECM_OD_ABNORMAL(
+			   OD_JOB_NO
+			  ,SEQ_NO_ID
+			  ,ABNORMAL_CODE
+			  ,MRN
+			  ,MSN
+			  ,VESSEL_FLIGHT
+			  ,DISC_WH_CODE
+			  ,AR_DATE
+			  ,PIECES
+			  ,GWT
+			  ,CNT
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)VALUES(
+			   #{odJobNo}
+			  ,#{seqNoId}
+			  ,#{abnormalCode}
+			  ,#{mrn}
+			  ,#{msn}
+			  ,#{vesselFlight}
+			  ,#{discWhCode}
+			  ,#{arDate}
+			  ,#{pieces}
+			  ,#{gwt}
+			  ,#{hblPieces}
+			  ,#{registerUserId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			  ,#{registerUserId}
+			  ,DATEADD(HOUR, ${gmtTime}, GETDATE())		
+		)
+	</insert>
+	
+	<insert id="insertSpecialManageItem" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.insertSpecialManageItem : 별도관리물품  insert */
+		INSERT INTO TB_ECM_OD_SPECIAL_ITEM
+		(
+			OD_JOB_NO
+			, SEQ_NO_ID
+			, MANAGE_TYPE
+			, AR_DATE
+			, FLIGHT_NO
+			, DEST_PORT
+			, PIECES
+			, ITEM_DESC
+			, GWT
+		)	
+	<choose>
+		<when test="MASTER_OD_JOB_NO != null and MASTER_OD_JOB_NO != ''">
+		SELECT od.OD_JOB_NO
+			,(SELECT ISNULL(MAX(SEQ_NO_ID),0) + 1 FROM TB_ECM_OD_SPECIAL_ITEM WHERE OD_JOB_NO = od.OD_JOB_NO)
+			,#{MANAGE_TYPE}
+			,#{AR_DATE}
+			,#{FLIGHT_NO}
+			,#{DEST_PORT}
+			,#{PIECES}
+			,#{ITEM_DESC}
+			,#{GWT}
+		FROM TB_ECM_OD od
+			 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON od.OD_JOB_NO = ad.OD_JOB_NO
+		WHERE od.MASTER_OD_JOB_NO = #{MASTER_OD_JOB_NO}
+		AND od.BL_TYPE_MH = 'H'
+		<include refid="org.yht.exps.express.mapper.bms.BmsCargoAbnormalMapper.searchManifestHouseInList"/>
+		</when>
+		<otherwise>
+		VALUES
+		(
+			#{OD_JOB_NO}
+			,(SELECT ISNULL(MAX(SEQ_NO_ID),0) + 1 FROM TB_ECM_OD_SPECIAL_ITEM WHERE OD_JOB_NO = #{OD_JOB_NO} )
+			,#{MANAGE_TYPE}
+			,#{AR_DATE}
+			,#{FLIGHT_NO}
+			,#{DEST_PORT}
+			,#{PIECES}
+			,#{ITEM_DESC}
+			,#{GWT}
+		)
+		</otherwise>
+	</choose>
+	</insert>
+	
+	<insert id="insertSpecialManageItemMgnMfn" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.insertSpecialManageItemMgnMfn : 별도관리물품  insert */
+		INSERT INTO TB_ECM_OD_SPECIAL_ITEM(
+			   OD_JOB_NO
+			  ,SEQ_NO_ID
+			  ,MANAGE_TYPE
+			  ,AR_DATE
+			  ,FLIGHT_NO
+			  ,DEST_PORT
+			  ,PIECES
+			  ,ITEM_DESC
+			  ,GWT
+		)VALUES(
+			   #{OD_JOB_NO}
+			  ,(SELECT ISNULL(MAX(SEQ_NO_ID),0) + 1 FROM TB_ECM_OD_SPECIAL_ITEM WHERE OD_JOB_NO = #{OD_JOB_NO})
+			  ,#{MANAGE_TYPE}
+			  ,#{AR_DATE}
+			  ,#{FLIGHT_NO}
+			  ,#{DEST_PORT}
+			  ,#{PIECES}
+			  ,#{ITEM_DESC}
+			  ,#{GWT}
+		)
+	</insert>
+	
+	<insert id="insertSpecialItem" parameterType="abnormal">
+		/* BmsCargoAbnormalMapper.insertSpecialItem : 별도관리물품  insert */
+		INSERT INTO TB_ECM_OD_SPECIAL_ITEM
+		(
+			OD_JOB_NO
+			, SEQ_NO_ID
+			, MANAGE_TYPE
+			, AR_DATE
+			, FLIGHT_NO
+			, DEST_PORT
+			, PIECES
+			, ITEM_DESC
+			, GWT
+		)	
+		SELECT
+			#{odJobNo}
+			,(SELECT ISNULL(MAX(SEQ_NO_ID),0) + 1 FROM TB_ECM_OD_SPECIAL_ITEM WHERE OD_JOB_NO = #{odJobNo} )
+			, '2'
+			, od.AR_DATE
+			, od.VESSEL_FLIGHT
+			, od.DEST_PORT
+			, od.PIECES
+			, od.COMMODITY_ITEM
+			, od.GWT					
+		FROM TB_ECM_OD od			
+		WHERE od.OD_JOB_NO = #{mfnOdJobNo}		
+	</insert>
+	
+		<insert id="insertAbnormalOrderAdditional" parameterType="abnormal">
+		/* BmsCargoAbnormalMapper.insertAbnormalOrderAdditional : MGN이 없는 MFN 발생시 orderAdditional insert */
+		INSERT INTO TB_ECM_OD_ADDITIONAL(
+			   OD_JOB_NO
+			  ,CUSTOMS_ID_VERIFY
+			  ,MASTER_OD_JOB_NO
+			  ,MBL_NO
+			  ,HBL_NO
+			  ,CD_TYPE
+			  ,BL_TYPE_MH
+			  ,HSN
+<!-- 			  <if test="entCode == 'YHTXX' or entCode == 'UPSXK'"> -->
+<!-- 			  ,PACKING_ERROR_YN -->
+<!-- 			  </if> -->
+		)
+		SELECT TOP 1
+			 #{odJobNo}
+			,'NV'
+			,MASTER_OD_JOB_NO
+			,MBL_NO
+			,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+			,#{cdType}
+			,'H'
+			,#{hsn}
+<!-- 			<if test="entCode == 'YHTXX' or entCode == 'UPSXK'"> -->
+<!-- 			,#{packingErrorYn} -->
+<!-- 			</if> -->
+		FROM TB_ECM_OD
+		WHERE OD_JOB_NO = #{masterOdJobNo}
+	</insert>
+	
+	<insert id="insertAbnormalOrder" parameterType="abnormal">
+		/* BmsCargoAbnormalMapper.insertAbnormalOrder : MGN이 없는 MFN 발생시 order insert */
+		INSERT INTO TB_ECM_OD(
+			   OD_JOB_NO
+			  ,ENT_CODE
+			  ,ENT_BUSINESS_CODE
+			  ,SOLUTION
+			  ,BOUND
+			  ,BOUND_TYPE
+			  ,PO_DATE
+			  ,CUST_CODE_LV1
+			  ,BL_TYPE_MH
+			  ,BL_TYPE_IERT
+			  ,CONSOL_YN
+			  ,MASTER_OD_JOB_NO
+			  ,MBL_NO
+			  ,HBL_NO
+			  ,MRN
+			  ,MSN
+			  ,HSN
+			  ,CD_TYPE
+<!-- 			  ,CD_TYPE_OLD -->
+			  ,CD_USE_TYPE
+			  ,ECM_TYPE
+<!-- 			  ,CUSTOMS_ID_TYPE -->
+<!-- 			  ,INSPECTION_YN -->
+<!-- 			  ,INSPECTION_TYPE -->
+<!-- 			  ,FTA_YN -->
+			  ,VESSEL_FLIGHT
+			  ,ORIG_CODE
+			  ,ORIG_NAME
+			  ,OB_DATE
+			  ,OB_TIME
+			  ,DEST_CODE
+			  ,DEST_NAME
+			  ,ORIG_COUNTRY
+			  ,AR_DATE
+			  ,AR_TIME
+			  ,PIECES
+			  ,GWT
+			  ,GWT_LBS
+			  ,AMOUNT_LOC
+			  ,AMOUNT_CUR
+			  ,AMOUNT_USD
+			  ,FINISH_YN
+			  ,INPUT_METHOD
+			  ,REGISTER_USER_ID
+			  ,REGISTER_DATE_TIME
+			  ,UPDATE_USER_ID
+			  ,UPDATE_DATE_TIME
+		)
+		SELECT TOP 1
+			 #{odJobNo}
+			,ENT_CODE
+			,ENT_BUSINESS_CODE
+			,SOLUTION
+			,BOUND
+			,BOUND_TYPE
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,CUST_CODE_LV1
+			,'H'
+			,BL_TYPE_IERT
+			,CONSOL_YN
+			,MASTER_OD_JOB_NO
+			,MBL_NO
+			,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+			,MRN
+			,MSN
+			,#{hsn}
+			,#{cdType}
+<!-- 			,CD_TYPE_OLD -->
+			,#{cdUseType}
+			,#{ecmType}
+<!-- 			,CUSTOMS_ID_TYPE -->
+<!-- 			,INSPECTION_YN -->
+<!-- 			,INSPECTION_TYPE -->
+<!-- 			,FTA_YN -->
+			,VESSEL_FLIGHT
+			,ORIG_CODE
+			,ORIG_NAME
+			,OB_DATE
+			,OB_TIME
+			,DEST_CODE
+			,DEST_NAME
+			,ORIG_COUNTRY
+			,AR_DATE
+			,AR_TIME
+			,#{pieces}
+			,#{gwt}
+			,#{gwt} * 2.20462262
+			,0
+			,0
+			,0
+			,FINISH_YN
+			,'WEB'
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		FROM TB_ECM_OD
+		WHERE OD_JOB_NO = #{masterOdJobNo}
+	</insert>
+	
+	<update id="updateMblCorrectByAb" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.updateMblCorrectByAb : 적하정정 update */
+			UPDATE TB_EDI_MOD_MBL SET
+				   HBL_CNT = #{hblCnt}
+				  ,MOD_REQ_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE MOD_JOB_NO = #{modJobNo}
+	</update>
+	
+	<update id="updateDiscWhCode" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.updateDiscWhCode : 적하정정 하기장소 업데이트 */
+			UPDATE TB_ECM_OD SET DISC_WH_CODE = #{discWhCode}
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<update id="updateDiscItemCode" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.updateDiscItemCode : 적하정정 하기물품코드 업데이트 */
+			UPDATE TB_ECM_OD_ADDITIONAL SET DISC_ITEM_CODE = #{discItemCode}
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>
+	
+	<insert id="insertMblCorrectByAb" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.insertMblCorrectByAb : 적하정정 insert */
+		INSERT INTO TB_EDI_MOD_MBL(
+			MOD_JOB_NO
+			,ENT_CODE
+			,ENT_BUSINESS_CODE
+			,SOLUTION
+			,BOUND
+			,MRN
+			,MSN
+			,MBL_NO
+			,MOD_TYPE
+			,HBL_CNT
+			,MOD_SERIAL_NO
+			,MOD_REQ_NO
+			,MOD_REQ_DATE
+			,CUSTOMS_CODE
+			,CUSTOMS_DPT_CODE		
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+		)
+		SELECT TOP 1
+			#{modJobNo}
+			,od.ENT_CODE
+			,od.ENT_BUSINESS_CODE
+			,#{solution}
+			,od.BOUND
+			,od.MRN
+			,od.MSN
+			,od.MBL_NO
+			,#{modType}
+			,#{hblCnt}
+			,#{modSerialNo}
+			,#{modReqNo}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,CASE WHEN od.BOUND_TYPE = 'EXP' THEN code.ETC3 ELSE code.ETC7 END
+			,CASE WHEN od.BOUND_TYPE = 'EXP' THEN code.ETC4 ELSE code.ETC8 END
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		FROM TB_ECM_OD od
+			 LEFT JOIN TB_SMS_CODE_DETAIL code
+			 		   ON code.ENT_CODE = od.ENT_CODE
+			 		   AND code.GROUP_CODE = 'ECM_CUSTOMS_DPT'
+			 		   AND code.CODE = CASE WHEN od.BOUND_TYPE = 'EXP' THEN od.ORIG_CODE ELSE od.DEST_CODE END
+		WHERE od.MBL_NO = LTRIM(RTRIM(REPLACE(#{mblNo},char(9),'')))
+		AND od.BL_TYPE_MH = 'M'
+	</insert>
+	
+	<select id="getSeqNoIdByAb" parameterType="abnormal" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.getSeqNoIdByAb : 적하정정 House seq_id 추출 */
+		SELECT
+			 ISNULL(MAX(hbl.SEQ_NO_ID),0) + 1 AS SEQ_NO_ID
+			<if test='modType == "99"'>
+			,MAX(hblOd.SEQ_NO_ID) AS HBL_SEQ_NO_ID
+			,(SELECT ISNULL(MAX(CNTR_SEQ_NO_ID),0) + 1 FROM TB_EDI_MOD_CONTAINER WHERE MOD_JOB_NO = #{modJobNo} AND SEQ_NO_ID = MAX(hblOd.SEQ_NO_ID)) AS CNTR_SEQ_NO_ID
+			</if>
+		FROM TB_EDI_MOD_HBL hbl
+			 <if test='modType == "99"'>
+			 LEFT JOIN TB_EDI_MOD_HBL hblOd
+			 		   ON hblOd.MOD_JOB_NO = hbl.MOD_JOB_NO
+			 		   AND hblOd.OD_JOB_NO = #{odJobNo}
+			 </if>
+		WHERE hbl.MOD_JOB_NO = #{modJobNo}
+
+	</select>
+	
+	<select id="getIsModData" parameterType="abnormalList" resultType="int">
+		/* BmsCargoAbnormalMapper.getIsModData : 적하정정 존재여부 추출 */
+		SELECT COUNT(*)
+		FROM TB_EDI_MOD_HBL 
+		WHERE MOD_JOB_NO = #{modJobNo}
+		AND OD_JOB_NO IN (
+						<foreach collection="abnormalList" item="item" separator=",">
+							#{item.odJobNo}
+						</foreach>
+						)
+		<if test='modType == "05"'>
+			<choose>
+			<when test="singleModCode != null and singleModCode != ''">
+			AND SINGLE_MOD_CODE = #{singleModCode}
+			</when>
+			<otherwise>
+			AND SINGLE_MOD_CODE IN (<foreach collection="singleModCodeList" item="item" separator=",">#{item}</foreach>)
+			</otherwise>
+			</choose>
+		</if>
+	</select>
+	
+	<select id="getIsModContainerData" parameterType="abnormalList" resultType="int">
+		/* BmsCargoAbnormalMapper.getIsModContainerData : 적하정정 존재여부 추출 */
+		SELECT COUNT(*)
+		FROM TB_EDI_MOD_HBL hbl
+			 INNER JOIN TB_EDI_MOD_CONTAINER cntr
+			 			ON cntr.MOD_JOB_NO = hbl.MOD_JOB_NO
+			 			AND cntr.SEQ_NO_ID = hbl.SEQ_NO_ID 
+		WHERE hbl.MOD_JOB_NO = #{modJobNo}
+		AND hbl.OD_JOB_NO IN (<foreach collection="abnormalList" item="item" separator=",">#{item.odJobNo}</foreach>)
+		AND cntr.CNTR_MOD_TYPE = #{cntrModType}
+		<choose>
+		<when test='cntrModType == "U"'>
+		AND (<foreach collection="containerList" item="item" separator="OR">(cntr.CNTR_NO = #{item.cntrNo} AND cntr.CNTR_MOD_CODE = #{item.cntrModCode})</foreach>)
+		</when>
+		<when test='cntrModType == "A"'>
+		AND cntr.CNTR_NO IN (<foreach collection="containerList" item="item" separator=",">#{item.cntrNo}</foreach>)
+		</when>
+		<otherwise>
+		AND cntr.CNTR_NO = #{cntrNo}
+		</otherwise>
+		</choose>
+	</select>
+		
+	<insert id="insertHblCorrectByAb" parameterType="abnormal">
+		/* BmsCargoAbnormalMapper.insertHblCorrectByAb : 적하정정 insert */
+		INSERT INTO TB_EDI_MOD_HBL(
+			MOD_JOB_NO
+			,SEQ_NO_ID
+			,HSN
+			,HBL_NO
+			,OD_JOB_NO
+			,MOD_TYPE
+			,MOD_REASON
+			,SINGLE_MOD_CODE
+			,SINGLE_MOD_REASON_CODE
+			,BEFORE_VALUE
+			,AFTER_VALUE
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+		)VALUES(
+			#{modJobNo}
+			,#{seqNoId}
+			,#{hsn}
+			,LTRIM(RTRIM(REPLACE(#{hblNo},char(9),'')))
+			,#{odJobNo}
+			,#{modType}
+			,#{modReason}
+			,#{singleModCode}
+			,#{singleModReasonCode}
+			,#{beforeValue}
+			,NULL
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</insert>
+	
+	<update id="updateModContainerNo" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.updateModContainerNo : 적하정정 컨테이너번호 update */
+		UPDATE TB_EDI_MOD_CONTAINER SET
+			   CNTR_NO = #{afterCntrNo}
+		WHERE MOD_JOB_NO = #{modJobNo}
+		AND SEQ_NO_ID = #{seqNoId}
+		AND CNTR_NO = #{beforeCntrNo}
+	</update>
+	
+	<insert id="insertContainerCorrectByAb" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.insertContainerCorrectByAb : 적하정정 insert */
+		INSERT INTO TB_EDI_MOD_CONTAINER(
+			   MOD_JOB_NO
+			  ,SEQ_NO_ID
+			  ,CNTR_SEQ_NO_ID
+			  ,CNTR_NO
+			  ,CNTR_MOD_TYPE
+			  ,CNTR_MOD_CODE
+			  ,BEFORE_VALUE
+			  ,AFTER_VALUE
+			  ,CNTR_CODE
+			  ,CNTR_EDI_CODE
+			  ,CNTR_SEAL_NO_1
+			  ,CNTR_SEAL_NO_2
+			  ,CNTR_SEAL_NO_3
+			  ,PIECES
+			  ,UNIT_PIECES
+		)VALUES
+		<foreach collection="cntrModList" item="item" separator=",">
+		(
+			   #{modJobNo}
+			  ,#{seqNoId}
+			  ,#{item.cntrSeqNoId}
+			  ,#{cntrNo}
+			  ,#{cntrModType}
+			  ,#{item.cntrModCode}
+			  ,#{item.beforeValue}
+			  ,#{item.afterValue}
+			  ,#{cntrCode}
+			  ,#{cntrEdiCode}
+			  ,#{cntrSealNo1}
+			  ,#{cntrSealNo2}
+			  ,#{cntrSealNo3}
+			  ,#{pieces}
+			  ,#{unitPieces}
+		)
+		</foreach>
+	</insert>
+	
+	<insert id="insertOrderContainer" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.insertOrderContainer : 적하정정시 컨테이너 insert */
+			INSERT INTO TB_ECM_OD_CONTAINER(
+				   OD_JOB_NO
+				  ,CNTR_NO
+				  ,CNTR_SEAL_NO_1
+				  ,CNTR_SEAL_NO_2
+				  ,CNTR_SEAL_NO_3
+				  ,CNTR_CODE
+				  ,CNTR_EDI_CODE
+				  ,PIECES
+				  ,UNIT_PIECES
+			)VALUES(
+				   #{odJobNo}
+				  ,#{cntrNo}
+				  ,#{cntrSealNo1}
+				  ,#{cntrSealNo2}
+				  ,#{cntrSealNo3}
+				  ,#{cntrCode}
+				  ,#{cntrEdiCode}
+				  ,#{pieces}
+				  ,#{unitPieces}
+			)
+	</insert>
+	
+	<update id="updateOrderContainer" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.updateOrderContainer : 적하정정시 컨테이너 update */
+			UPDATE TB_ECM_OD_CONTAINER SET
+				  <foreach collection="cntrModList" item="item" separator=",">
+				  <choose>
+				  <when test='item.cntrModCode == "EA"'>
+				  CNTR_CODE = #{item.cntrCode}
+				  ,CNTR_EDI_CODE = #{item.afterValue}
+				  </when>
+				  <when test='item.cntrModCode == "EB"'>
+				  CNTR_SEAL_NO_1 = #{item.afterValue}
+				  </when>
+				  <when test='item.cntrModCode == "EC"'>
+				  CNTR_SEAL_NO_2 = #{item.afterValue}
+				  </when>
+				  <when test='item.cntrModCode == "EH"'>
+				  CNTR_NO = #{item.afterValue}
+				  </when>
+				  <when test='item.cntrModCode == "EI"'>
+				  CNTR_SEAL_NO_3 = #{item.afterValue}
+				  </when>
+				  <when test='item.cntrModCode == "EJ"'>
+				  PIECES = #{item.afterValue}
+				  </when>
+				  </choose>
+				  </foreach>
+			WHERE OD_JOB_NO = #{odJobNo}
+			AND CNTR_NO = #{cntrNo};
+			UPDATE TB_EDI_MOD_CONTAINER SET
+				  <foreach collection="cntrModList" item="item" separator=",">
+				  <choose>
+				  <when test='item.cntrModCode == "EA"'>
+				  CNTR_CODE = #{item.cntrCode}
+				  ,CNTR_EDI_CODE = #{item.afterValue}
+				  </when>
+				  <when test='item.cntrModCode == "EB"'>
+				  CNTR_SEAL_NO_1 = #{item.afterValue}
+				  </when>
+				  <when test='item.cntrModCode == "EC"'>
+				  CNTR_SEAL_NO_2 = #{item.afterValue}
+				  </when>
+				  <when test='item.cntrModCode == "EH"'>
+				  CNTR_NO = #{item.afterValue}
+				  </when>
+				  <when test='item.cntrModCode == "EI"'>
+				  CNTR_SEAL_NO_3 = #{item.afterValue}
+				  </when>
+				  <when test='item.cntrModCode == "EJ"'>
+				  PIECES = #{item.afterValue}
+				  </when>
+				  </choose>
+				  </foreach>
+			WHERE MOD_JOB_NO = #{modJobNo}
+			AND SEQ_NO_ID = #{seqNoId}
+			AND CNTR_NO = #{cntrNo}
+	</update>
+	
+	<delete id="deleteOrderContainer" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.deleteOrderContainer : 적하정정시 컨테이너 delete */
+			DELETE FROM TB_ECM_OD_CONTAINER
+			WHERE OD_JOB_NO = #{odJobNo}
+			AND CNTR_NO = #{cntrNo}
+	</delete>
+		
+	<select id="selectHblValidate" parameterType="HashMap" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectHblValidate : hbl유효성체크 */		
+		
+		WITH TMP AS(
+		SELECT A.ENT_CODE, A.HBL_NO
+		FROM 
+		(
+			<foreach collection="dataList" item="item" separator="UNION">
+			SELECT #{entCode} AS ENT_CODE,#{item.HBL_NO} AS HBL_NO 
+			</foreach>
+		) A
+		LEFT JOIN TB_ECM_OD OD ON OD.ENT_CODE = #{entCode} AND A.HBL_NO = OD.HBL_NO
+		WHERE OD.OD_JOB_NO IS NULL
+		)
+		SELECT COUNT(TMP.HBL_NO) AS NOT_BL_CNT
+		, STUFF((SELECT ',' + HBL_NO FROM TMP WHERE ENT_CODE = t.ENT_CODE FOR XML PATH('')), 1, 1, '')
+ 		FROM TMP t
+		GROUP BY t.ENT_CODE
+	</select>
+	
+	<select id="selectAbnormalHouseList" parameterType="HashMap" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectAbnormalHouseList : 정정데이터 생성할 하우스 조회 */
+			<choose>
+			<when test='modType == "99"'>
+				WITH TMP AS(
+					SELECT
+						 od.OD_JOB_NO
+						,od.HBL_NO
+						,od.HSN
+						,cntr.CNTR_NO
+					FROM TB_ECM_OD od
+						 INNER JOIN TB_ECM_OD_CONTAINER cntr
+						 			ON cntr.OD_JOB_NO = od.OD_JOB_NO
+						 			<choose>
+						 			<when test='cntrModType == "D"'>
+						 			AND cntr.CNTR_NO = #{cntrNo}
+						 			</when>
+						 			<when test='cntrModType == "U"'>
+						 			AND cntr.CNTR_NO IN (<foreach collection="containerList" item="item" separator=",">#{item.cntrNo}</foreach>)
+						 			</when>
+						 			</choose>
+					<choose>
+					<when test='action =="master"'>
+					WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+					AND od.BL_TYPE_MH = 'H'
+					</when>
+					<otherwise>
+					WHERE od.OD_JOB_NO IN (<foreach collection="abnormalList" item="item" separator=",">#{item.odJobNo}</foreach>)
+					</otherwise>
+					</choose>
+				)
+				SELECT
+					 t.OD_JOB_NO
+					,MAX(t.HBL_NO) AS HBL_NO
+					,MAX(t.HSN) AS HSN
+					,STUFF((SELECT '|' + CNTR_NO FROM TMP WHERE OD_JOB_NO = t.OD_JOB_NO FOR XML PATH('')), 1, 1, '') AS CNTR_NO_LIST
+				FROM TMP t
+				GROUP BY t.OD_JOB_NO
+			</when>
+			<otherwise>
+				SELECT
+					 od.OD_JOB_NO
+					,od.HBL_NO
+					,od.HSN
+					<if test='modType == "05"'>
+					,od.VESSEL_FLIGHT
+					,od.VOYAGE
+					,od.DEST_CODE
+					,od.AR_DATE
+					,od.SHIPPER_NAME
+					,CONCAT(ISNULL(od.SHIPPER_ADDRESS, ''), ISNULL(od.SHIPPER_ADDRESS_A, ''), ISNULL(od.SHIPPER_ADDRESS_B, ''), ISNULL(od.SHIPPER_ADDRESS_C, ''), ISNULL(od.SHIPPER_ADDRESS_D, '')) AS SHIPPER_ADDRESS
+					,od.SHIPPER_TEL
+					,od.CONSIGNEE_NAME
+					,CONCAT(ISNULL(od.CONSIGNEE_ADDRESS, ''), ISNULL(od.CONSIGNEE_ADDRESS_A, ''), ISNULL(od.CONSIGNEE_ADDRESS_B, ''), ISNULL(od.CONSIGNEE_ADDRESS_C, ''), ISNULL(od.CONSIGNEE_ADDRESS_D, '')) AS CONSIGNEE_ADDRESS
+					,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_BUSINESS_ID, 1) AS CONSIGNEE_BUSINESS_ID
+					,od.COMMODITY_ITEM
+					,od.UNIT_PIECES
+					,od.GWT
+					<choose>
+					<when test='cryptographyYn == "Y"'>
+					,dbo.Cryptography(od.OD_JOB_NO, od.CONSIGNEE_TEL_ENC, 1) AS CONSIGNEE_TEL
+					</when>
+					<otherwise>
+					,od.CONSIGNEE_TEL
+					</otherwise>
+					</choose>
+					</if>
+				FROM TB_ECM_OD od
+				<choose>
+				<when test='action =="master"'>
+				WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+				AND od.BL_TYPE_MH = 'H'
+				</when>
+				<otherwise>
+				WHERE od.OD_JOB_NO IN (<foreach collection="abnormalList" item="item" separator=",">#{item.odJobNo}</foreach>)
+				</otherwise>
+				</choose>
+			</otherwise>
+			</choose>
+	</select>
+	
+	<select id="selectAbnormalCntrInfo" parameterType="HashMap" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectAbnormalCntrInfo : 정정데이터 생성할 컨테이너 조회 */
+			SELECT TOP 1
+				 MAX(cntr.CNTR_NO) AS CNTR_NO
+				,COUNT(cntr.OD_JOB_NO) AS CNTR_CNT
+			<choose>
+			<when test='action =="master"'>
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_CONTAINER cntr
+				 			ON cntr.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+			AND od.BL_TYPE_MH = 'H'
+			</when>
+			<otherwise>
+				FROM TB_ECM_OD_CONTAINER cntr
+				<choose>
+				<when test="odJobNo != null and odJobNo != ''">
+				WHERE cntr.OD_JOB_NO = #{odJobNo}
+				</when>
+				<when test="odJobNoList != null">
+				WHERE cntr.OD_JOB_NO IN (<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<otherwise>
+				WHERE cntr.OD_JOB_NO IN (<foreach collection="abnormalList" item="item" separator=",">#{item.odJobNo}</foreach>)
+				</otherwise>
+				</choose>
+			</otherwise>
+			</choose>
+			
+			<choose>
+			<when test='cntrModType == "A" or modType == "06"'>
+			AND cntr.CNTR_NO IN(<foreach collection="insertCntrNoList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			<when test="updateCntrNoList != null">
+			AND cntr.CNTR_NO IN(<foreach collection="updateCntrNoList" item="item" separator=",">#{item}</foreach>)
+			</when>
+			</choose>
+			
+			GROUP BY cntr.OD_JOB_NO
+			ORDER BY CNTR_CNT DESC
+	</select>
+	
+	<select id="selectAbnormalCntrInfoList" parameterType="HashMap" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectAbnormalCntrInfoList : 정정데이터 생성할 컨테이너 조회 */
+			SELECT
+				 cntr.CNTR_NO
+				,cntr.OD_JOB_NO
+			<choose>
+			<when test='action =="master"'>
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_CONTAINER cntr
+				 			ON cntr.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+			AND od.BL_TYPE_MH = 'H'
+			</when>
+			<otherwise>
+				FROM TB_ECM_OD_CONTAINER cntr
+				<choose>
+				<when test="odJobNo != null and odJobNo != ''">
+				WHERE cntr.OD_JOB_NO = #{odJobNo}
+				</when>
+				<when test="odJobNoList != null">
+				WHERE cntr.OD_JOB_NO IN (<foreach collection="odJobNoList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<otherwise>
+				WHERE cntr.OD_JOB_NO IN (<foreach collection="abnormalList" item="item" separator=",">#{item.odJobNo}</foreach>)
+				</otherwise>
+				</choose>
+			</otherwise>
+			</choose>
+			
+			AND cntr.CNTR_NO IN(<foreach collection="updateCntrNoList" item="item" separator=",">#{item}</foreach>)
+			ORDER BY cntr.OD_JOB_NO
+	</select>
+	
+	<select id="selectAbnormalChk" parameterType="HashMap" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectAbnormalChk : 하기이상저장 전 체크 */
+		SELECT 
+			 od.MBL_NO
+			,od.MASTER_OD_JOB_NO
+			,hod.HBL_NO
+			,hod.OD_JOB_NO
+			<choose>
+			<when test='ABNORMAL_CODE == "MFN" and action == ""'>
+			,(SELECT TOP 1 OD_JOB_NO FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = hod.OD_JOB_NO AND ABNORMAL_CODE NOT IN('MGN','SHT')) AS ABNORMAL_CODE_DUP
+			</when>
+			<otherwise>
+			,(SELECT TOP 1 OD_JOB_NO FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = hod.OD_JOB_NO) AS ABNORMAL_CODE_DUP
+			</otherwise>
+			</choose>
+			,(SELECT ISNULL(MAX(HSN), 0) FROM TB_ECM_OD WHERE MASTER_OD_JOB_NO = od.OD_JOB_NO AND BL_TYPE_MH = 'H') AS MAX_HSN
+		FROM TB_ECM_OD od
+			 LEFT JOIN TB_ECM_OD hod
+			 		   ON hod.MBL_NO = od.MBL_NO
+			 		   AND hod.HBL_NO = LTRIM(RTRIM(#{HBL_NO}))
+		<choose>
+		<when test="MBL_NO != null and MBL_NO != ''">
+		WHERE od.MBL_NO = LTRIM(RTRIM(#{MBL_NO}))
+		</when>
+		<otherwise>
+		WHERE od.OD_JOB_NO = #{odJobNo}
+		</otherwise>
+		</choose>
+		AND od.BL_TYPE_MH = 'M'
+<!-- 		AND od.BOUND = 'AIR' -->
+		AND od.BOUND_TYPE = 'IMP'
+	</select>
+	
+	<select id="selectBmsInPlanAbnormalChk" parameterType="HashMap" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectBmsInPlanAbnormalChk : 하기이상저장 전 체크(반입예정데이터) */
+		SELECT TOP 1
+			bip.MBL_NO
+			, '' AS MASTER_OD_JOB_NO
+			, bip.BL_NO AS HBL_NO
+			, bip.OD_JOB_NO AS OD_JOB_NO
+			, SUBSTRING(bip.CARGO_REFERENCE_NO, 12, 4) AS MSN
+			, SUBSTRING(bip.CARGO_REFERENCE_NO, 16, 4) AS HSN
+			, bip.EX_CT AS EX_CT
+			, bip.EX_WT AS EX_WT
+			, bip.ORIG_COUNTRY AS ORIG_COUNTRY
+			<choose>
+				<when test='abnormalCode == "MFN"'>
+					,(SELECT TOP 1 OD_JOB_NO FROM TB_ECM_OD_PANTOS_ABNORMAL WHERE OD_JOB_NO = #{odJobNo} AND ABNORMAL_CODE = #{abnormalCode} AND ABNORMAL_CODE NOT IN('MGN','SHT')) AS ABNORMAL_CODE_DUP
+				</when>
+				<otherwise>
+					,(SELECT TOP 1 OD_JOB_NO FROM TB_ECM_OD_PANTOS_ABNORMAL WHERE OD_JOB_NO = #{odJobNo} AND ABNORMAL_CODE = #{abnormalCode}) AS ABNORMAL_CODE_DUP
+				</otherwise>
+			</choose>
+			,'' AS MAX_HSN
+		FROM 
+			TB_BMS_IN_PLAN bip WITH (NOLOCK)
+		WHERE 
+			bip.BL_NO = TRIM(#{hblNo})
+			<if test="MBL_NO != null and MBL_NO != ''">
+				AND bip.MBL_NO = TRIM(#{mblNo})
+			</if>
+		ORDER BY bip.REGISTER_DATE_TIME DESC
+	</select>
+
+	<select id="selectNoCargoYn" parameterType="HashMap" resultType="String">
+		/* BmsCargoAbnormalMapper.selectNoCargoYn : 하기이상결과보고 무적 체크 */
+		SELECT
+			'Y' AS NOT_NO_CARGO_YN
+		FROM 
+			TB_ECM_OD_PANTOS_ABNORMAL WITH (NOLOCK)
+		WHERE
+			MRN = TRIM(#{mrn}) 
+			AND MBL_NO = TRIM(#{mblNo})
+			AND HBL_NO = TRIM(#{hblNo})
+			AND ABNORMAL_CODE = TRIM(#{abnormalCode}) 
+	</select>
+
+	<select id="selectBmsSeqNoId" parameterType="HashMap" resultType="String">
+		/* BmsCargoAbnormalMapper.selectBmsSeqNoId : 하기이상코드 인덱스 조회 */
+		SELECT
+			CASE WHEN CODE = 'IND' THEN '17' 
+				WHEN CODE = 'OPN' THEN '18'
+				WHEN CODE = 'RET' THEN '19'
+				ELSE DISPLAY_INDEX END AS DISPLAY_INDEX
+		FROM 
+			TB_SMS_CODE_DETAIL
+		WHERE 
+			ENT_CODE = #{entCode} 
+			AND CODE = #{abnormalCode} 
+			AND GROUP_CODE = 'ABNORMALITY_CODE'
+	</select>
+
+	<insert id="insertExcelAbnormal" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.insertExcelAbnormal : 하기이상결과보고 Excel insert */
+		INSERT INTO TB_ECM_OD_ABNORMAL
+		(
+			OD_JOB_NO
+			, SEQ_NO_ID
+			, ABNORMAL_CODE
+			, MRN
+			, MSN
+			, VESSEL_FLIGHT
+			, DISC_WH_CODE
+			, AR_DATE
+			, PIECES
+			, GWT
+			, CNT
+			, REGISTER_USER_ID
+			, REGISTER_DATE_TIME
+			, UPDATE_USER_ID
+			, UPDATE_DATE_TIME)			
+		SELECT
+			od.OD_JOB_NO
+			,(SELECT ISNULL(MAX(SEQ_NO_ID),0) + 1 FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = od.OD_JOB_NO )
+			, #{ABNORMAL_CODE}
+			, #{MRN}
+			, #{MSN}
+			, #{VESSEL_FLIGHT}
+			, #{DISC_WH_CODE}
+			, #{AR_DATE}
+			, #{PIECES}
+			, #{GWT}
+			, #{CNT}
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())		
+		FROM TB_ECM_OD od			
+		WHERE MBL_NO = LTRIM(RTRIM(REPLACE(#{MBL_NO},char(9),'')))
+		AND HBL_NO = LTRIM(RTRIM(REPLACE(#{HBL_NO},char(9),'')));		
+	</insert>
+	
+	<insert id="insertBmsInPlanExcelAbnormal" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.insertBmsInPlanExcelAbnormal : 하기이상결과보고 Excel insert(반입예정데이터) */
+		IF EXISTS(
+			SELECT
+				OD_JOB_NO
+			FROM
+				TB_ECM_OD_PANTOS_ABNORMAL
+			WHERE
+				MRN = #{mrn}
+				AND MBL_NO = #{mblNo}
+				AND HBL_NO = #{hblNo}
+				AND ABNORMAL_CODE = #{abnormalCode}
+		)
+		BEGIN
+			UPDATE 
+				TB_ECM_OD_PANTOS_ABNORMAL
+			SET
+				MRN = #{mrn}
+				<if test='updateStatus == "Y"'>	<!-- 2026.04.27 2sowell -->
+				, LAST_POD_STATUS = 'BMS01'			<!-- edit시 진행상태 '입력'으로 변경 2026.04.14 2sowell -->
+				</if>
+				, VESSEL_FLIGHT = #{vesselFlight}
+				, ORIG_COUNTRY = #{origCountry}
+				, AR_DATE = #{arDate}
+				, PIECES = #{pieces}
+				, GWT = #{gwt}
+				, CNT = #{cnt}
+				, EX_CT = #{hblPieces}
+				, EX_WT = #{hblGwt}
+				, UPDATE_USER_ID = #{registerUserId}
+				, UPDATE_DATE_TIME = GETDATE()
+			WHERE 
+				MRN = #{mrn}
+				AND MBL_NO = #{mblNo}
+				AND HBL_NO = #{hblNo}
+				AND ABNORMAL_CODE = #{abnormalCode};
+		END 
+		ELSE
+			BEGIN 
+				INSERT INTO TB_ECM_OD_PANTOS_ABNORMAL(
+					OD_JOB_NO
+					, SEQ_NO_ID
+					, ABNORMAL_CODE
+					, LAST_POD_STATUS
+					, MRN
+					<if test="msn != null and msn != ''">
+						, MSN
+					</if>
+					<if test="hsn != null and hsn != ''">
+						, HSN
+					</if>
+					, MBL_NO
+					, HBL_NO
+					, VESSEL_FLIGHT
+					, ORIG_COUNTRY
+					, DISC_WH_CODE
+					, AR_DATE
+					, PIECES
+					, GWT
+					, CNT
+					, EX_CT
+					, EX_WT
+					, DECLARATION_DATE	<!-- 신고일시 추가 2025.12.12 2sowell -->
+					, REGISTER_USER_ID
+					, REGISTER_DATE_TIME
+					, UPDATE_USER_ID
+					, UPDATE_DATE_TIME
+					, REMARKS
+				)VALUES(
+					#{odJobNo}
+					, #{seqId}
+					<!-- <choose>
+						<when test="seqId != null and seqId != ''">
+							, #{seqId}
+						</when>
+						<otherwise>
+							, (SELECT ISNULL(MAX(SEQ_NO_ID),0) + 1 FROM TB_ECM_OD_PANTOS_ABNORMAL WHERE OD_JOB_NO = #{odJobNo})
+						</otherwise>
+					</choose> -->
+					, #{abnormalCode}
+					, 'BMS01'
+					, #{mrn}
+					<if test="msn != null and msn != ''">
+						, #{msn}
+					</if>
+					<if test="hsn != null and hsn != ''">
+						, #{hsn}
+					</if>
+					, #{mblNo}
+					, #{hblNo}
+					, #{vesselFlight}
+					, #{origCountry}
+					, #{discWhCode}
+					, #{arDate}
+					, #{pieces}
+					, #{gwt}
+					, #{cnt}
+					, #{hblPieces}
+					, #{hblGwt}
+					, GETDATE()	<!-- DATEADD(HOUR, ${gmtTime}, GETDATE())에서 GETDATE() 로 변경 2025.12.15 2sowell -->
+					, #{registerUserId}
+					, GETDATE()	<!-- DATEADD(HOUR, ${gmtTime}, GETDATE())에서 GETDATE() 로 변경 2025.12.15 2sowell -->
+					, #{registerUserId}
+					, GETDATE()	<!-- DATEADD(HOUR, ${gmtTime}, GETDATE())에서 GETDATE() 로 변경 2025.12.15 2sowell -->
+					, #{remarks}
+				);
+		END
+		
+	</insert>
+
+	<update id="updateAbnormalSendDate" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.updateAbnormalSendDate : 하기이상 전송일자 업데이트 */
+			UPDATE 
+				TB_ECM_OD_PANTOS_ABNORMAL 
+			SET
+				LAST_POD_STATUS = #{lastPodStatus}
+				<if test='succYn == "Y"'>
+					, SEND_DATE = GETDATE()	<!-- DATEADD(HOUR, ${gmtTime}, GETDATE())에서 GETDATE() 로 변경 2025.12.15 2sowell -->
+				</if>
+			WHERE 
+				OD_JOB_NO = #{OD_JOB_NO}
+				AND SEQ_NO_ID = #{SEQ_NO_ID}
+				AND LAST_POD_STATUS NOT IN ('BMS04', 'BMS05')
+	</update>
+	
+	<update id="updateAbnormalFinishYn" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.updateAbnormalFinishYn : 하기이상 완료 업데이트 */
+			UPDATE TB_ECM_OD_ADDITIONAL SET
+				   ABNORMAL_MFN_YN = 'Y'
+			WHERE OD_JOB_NO = #{OD_JOB_NO}
+	</update>
+	
+	<select id="selectOdList" parameterType="abnormalList" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectOdList : od 리스트 추출 */		
+		SELECT 
+			OD_JOB_NO
+		FROM TB_ECM_OD OD
+		WHERE 1 = 1
+		<choose>		
+			<when test="dataList != null and dataList.size > 0">
+				AND (
+			 	<foreach collection="dataList" item="item" separator="OR">
+					HBL_NO = #{item.HBL_NO}
+				</foreach>
+				)
+			</when>	
+			<otherwise>
+				AND 1=0
+			</otherwise>	
+		</choose>
+	</select>
+	
+	<sql id="searchManifestHouseInList">
+		<if test="srchNo != null and srchNo != ''">
+			<choose>
+				<when test='searchType == "multi"'>
+				AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+				</when>
+				<otherwise>
+				AND ${srchNoType} = #{srchNo}
+				</otherwise>
+			</choose>
+		</if>
+		<if test="srchCarryList != null and srchCarryList.size > 0">
+		AND(
+			<foreach collection="srchCarryList" item="item" separator=" OR ">
+				<choose>
+				<when test='item == "CARRYIN"'>ad.CARRYIN_DATE IS NOT NULL</when>
+				<when test='item == "NOTCARRYIN"'>ad.CARRYIN_DATE IS NULL</when>
+				<when test='item == "CARRYOUT"'>ad.CARRYOUT_DATE IS NOT NULL</when>
+				<when test='item == "NOTCARRYOUT"'>ad.CARRYOUT_DATE IS NULL</when>
+				<when test='item == "CARRYIN_NOTCARRYOUT"'>(ad.CARRYIN_DATE IS NOT NULL AND ad.CARRYOUT_DATE IS NULL)</when>
+				</choose>
+			</foreach>
+		)
+		</if>
+		<if test="srchCdTypeList != null and srchCdTypeList.size > 0">
+		AND od.CD_TYPE IN (<foreach collection="srchCdTypeList" item="item" separator=",">#{item}</foreach>)  
+		</if>
+		<if test="srchCustomsIdVerifyList != null and srchCustomsIdVerifyList.size > 0">
+		AND ad.CUSTOMS_ID_VERIFY IN (<foreach collection="srchCustomsIdVerifyList" item="item" separator=",">#{item}</foreach>)
+		</if>
+		<if test="srchEcmTypeList != null and srchEcmTypeList.size > 0">
+		AND od.ECM_TYPE IN (<foreach collection="srchEcmTypeList" item="item" separator=",">#{item}</foreach>)  
+		</if>
+		<if test="srchEcmBuyTypeList != null and srchEcmBuyTypeList.size > 0">
+		AND od.ECM_BUY_TYPE IN (<foreach collection="srchEcmBuyTypeList" item="item" separator=",">#{item}</foreach>)  
+		</if>
+		<if test='srchEtcYn == "Y"'>
+			AND(
+			<trim prefixOverrides="OR">
+				<if test="srchInspectionYn != null and srchInspectionYn != ''">
+				OR od.INSPECTION_YN = #{srchInspectionYn}
+				</if>
+				<if test="srchSeInspectionYn != null and srchSeInspectionYn != ''">
+				OR ad.SE_INSPECTION_YN = #{srchSeInspectionYn}
+				</if>
+				<if test="srchXrayYn != null and srchXrayYn != ''">
+				OR ad.XRAY_YN = #{srchXrayYn}
+				</if>
+				<if test="srchDropYn != null and srchDropYn != ''">
+				OR ad.DROP_YN = #{srchDropYn}
+				</if>
+				<if test='srchAbnormalYn == "Y"'>
+				AND EXISTS (SELECT 1 FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = od.OD_JOB_NO)
+				</if>
+				<if test="srchSimpleEdiStatus != null and srchSimpleEdiStatus != ''">
+					<choose>
+					<when test='srchSimpleEdiStatus == "ERROR"'>
+					OR ISNULL(ad.SIMPLE_ERROR_DESC, '') != ''
+					</when>
+					<otherwise>
+					OR ad.SIMPLE_EDI_STATUS = #{srchSimpleEdiStatus}
+					</otherwise>
+					</choose>
+				</if>
+				<if test="srchSimpleStatementYn != null and srchSimpleStatementYn != ''">
+				OR ad.SIMPLE_STATEMENT_YN = #{srchSimpleStatementYn}
+				</if>
+				<if test="srchCriminalYn != null and srchCriminalYn != ''">
+				OR ad.CRIME_SELECTION_YN = #{srchCriminalYn}
+				</if>
+			</trim>
+			)
+		</if>
+	</sql>
+		
+	<select id="getNoRegisterCount" parameterType="abnormal" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.getNoRegisterCount : 하기이상 체크할 하우스 리스트 조회 */
+		SELECT
+			 COUNT(A.MGN) AS MGN_CNT
+			,COUNT(A.OTHER) AS OTHER_CNT
+			,COUNT(A.MGN_MFN) AS MGN_MFN_CNT
+			,COUNT(A.OD_JOB_NO) AS TOTAL_CNT
+		FROM (
+			SELECT
+				 od.OD_JOB_NO
+				,MAX(CASE WHEN ab.ABNORMAL_CODE IN('MGN', 'SHT') THEN 1 END) AS MGN
+				,MAX(CASE WHEN ab.ABNORMAL_CODE NOT IN('MGN', 'SHT') THEN 1 END) AS OTHER
+				,CASE WHEN MAX(ab.ABNORMAL_CODE) IN('MGN', 'SHT') AND MIN(ab.ABNORMAL_CODE) = 'MFN' THEN 1 END AS MGN_MFN
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON od.OD_JOB_NO = ad.OD_JOB_NO
+				 LEFT JOIN TB_ECM_OD_ABNORMAL ab
+				 		   ON od.OD_JOB_NO = ab.OD_JOB_NO 
+			WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+			AND od.BL_TYPE_MH = 'H'
+			<include refid="org.yht.exps.express.mapper.bms.BmsCargoAbnormalMapper.searchManifestHouseInList"/>
+			GROUP BY od.OD_JOB_NO
+		) A
+	</select>
+	
+	
+	<select id="selectHouseList" parameterType="HashMap" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectHouseList : 마스터로 하우스 리스트 조회 */
+		SELECT ROW_NUMBER() OVER(ORDER BY HSN) AS SEQ
+			 , A.OD_JOB_NO 	AS odJobNo
+			 , A.HBL_NO 	AS hblNo
+			 , A.HSN 		AS hsn
+		FROM(
+			SELECT od.OD_JOB_NO
+				 , od.HBL_NO
+				 , od.HSN
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON od.OD_JOB_NO = ad.OD_JOB_NO
+			WHERE od.MASTER_OD_JOB_NO = #{odJobNo}
+			AND od.BL_TYPE_MH = 'H'
+			<include refid="org.yht.exps.express.mapper.bms.BmsCargoAbnormalMapper.searchManifestHouseInList"/>
+		) A
+	</select>
+	
+	<select id="selectHouseListMgnMfn" parameterType="abnormal" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectHouseListMgnMfn : MGN or SHT후 MFN생성가능한 데이터 조회 */
+		SELECT
+			 A.OD_JOB_NO AS odJobNo, A.HBL_NO AS hblNo, A.PIECES AS pieces
+		FROM (
+			SELECT
+				 od.OD_JOB_NO
+				,MAX(od.HBL_NO) AS HBL_NO
+				,MAX(od.PIECES) AS PIECES
+				,MIN(ab.ABNORMAL_CODE) AS ABNORMAL_CODE_MIN
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON od.OD_JOB_NO = ad.OD_JOB_NO
+				 INNER JOIN TB_ECM_OD_ABNORMAL ab
+				 			ON od.OD_JOB_NO = ab.OD_JOB_NO
+				 			AND ab.ABNORMAL_CODE IN('MGN', 'SHT', 'MFN')
+			WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+			AND od.BL_TYPE_MH = 'H'
+			<include refid="org.yht.exps.express.mapper.bms.BmsCargoAbnormalMapper.searchManifestHouseInList"/>
+			GROUP BY od.OD_JOB_NO
+		) A
+		WHERE A.ABNORMAL_CODE_MIN != 'MFN'
+	</select>
+	
+	<select id="selectAbnormalDupChk" parameterType="HashMap" resultType="int">
+		/* BmsCargoAbnormalMapper.selectAbnormalDupChk : 무적화물 중복체크 */
+		SELECT COUNT(SEQ_NO_ID)
+		FROM TB_ECM_OD_ABNORMAL
+		WHERE OD_JOB_NO IN(<foreach collection="dataList" item="item" separator=",">#{item.odJobNo}</foreach>)
+		AND SEQ_NO_ID = #{seqNoId}
+	</select>
+
+	<update id="updateManifestDelYn" parameterType="String">
+		/* BmsCargoAbnormalMapper.updateManifestDelYn : 하기이상 적하 삭제여부 업데이트 */
+			UPDATE TB_ECM_OD_PANTOS_ABNORMAL 
+			SET MANIFEST_DEL_YN = 'Y'
+			WHERE OD_JOB_NO = #{odJobNo}
+	</update>	
+
+	<select id="selectSendAbnormalities" parameterType="HashMap" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectSendAbnormalities : 하기결과이상보고 대상 조회 */
+			SELECT
+				 od.OD_JOB_NO
+				,MAX(od.MBL_NO) AS MBL_NO
+				,MAX(od.MRN) AS MRN
+				,MAX(od.MSN) AS MSN
+				,CONVERT(VARCHAR(8), MAX(od.AR_DATE), 112) AS AR_DATE
+				,MAX(od.VESSEL_FLIGHT) AS VESSEL_FLIGHT
+				,MAX(od.DEST_CODE) AS DEST_CODE
+				,MAX(od.CUSTOMS_CODE) AS CUSTOMS_CODE
+				,MAX(od.CUSTOMS_DPT_CODE) AS CUSTOMS_DPT_CODE
+				,MAX(abnormal.ABNORMAL_CODE) AS ABNORMAL_CODE
+				,MAX(abnormal.MRN) AS MRN_ABNORMAL
+				,CONVERT(VARCHAR(8), MAX(abnormal.AR_DATE), 112) AS AR_DATE_ABNORMAL
+				,CONVERT(VARCHAR(8), GETDATE(), 112) AS ISSUE_DATE
+				,MAX(od.LINE_CODE) AS LINE_CODE
+				,MAX(od.VENDER_ID_1) AS EDI_VENDER
+			FROM TB_ECM_OD houseOd
+				 INNER JOIN TB_ECM_OD_ABNORMAL abnormal
+				 			ON abnormal.OD_JOB_NO = houseOd.OD_JOB_NO
+				 			AND abnormal.SEND_DATE IS NULL
+				 INNER JOIN TB_ECM_OD od
+				 			ON houseOd.MASTER_OD_JOB_NO = od.OD_JOB_NO
+			WHERE houseOd.OD_JOB_NO IN(<foreach collection="ediList" item="item" separator=",">#{item.odJobNo}</foreach>)
+			GROUP BY od.OD_JOB_NO
+	</select>
+
+	<select id="selectSendBmsInPlanAbnormalities" parameterType="HashMap" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectSendBmsInPlanAbnormalities : 하기결과이상보고 대상 조회(반입예정데이터) */
+			SELECT
+				OD_JOB_NO
+				, SEQ_NO_ID
+				, MBL_NO
+				, HBL_NO
+				, MRN
+				, MSN
+				, REPLACE(AR_DATE, '-', '') AS AR_DATE
+				, VESSEL_FLIGHT
+				, '' AS DEST_CODE
+				, bus.BMS_CUSTOMS_CODE AS CUSTOMS_CODE
+				, bus.BMS_CUSTOMS_DPT_CODE AS CUSTOMS_DPT_CODE
+				, ABNORMAL_CODE
+				, MRN AS MRN_ABNORMAL
+				, CONVERT(VARCHAR(8), AR_DATE, 112) AS AR_DATE_ABNORMAL
+				, CONVERT(VARCHAR(8), GETDATE(), 112) AS ISSUE_DATE
+				, 'QQ' AS LINE_CODE
+				, opt.SET_VALUE AS EDI_VENDER
+			FROM TB_ECM_OD_PANTOS_ABNORMAL
+				 LEFT JOIN TB_SMS_ENT_BUSINESS bus ON bus.ENT_CODE = #{entCode} AND bus.ENT_BUSINESS_CODE = #{entBusinessCode}
+				 LEFT JOIN TB_SMS_ENT_BUS_OPTION opt ON opt.ENT_CODE = #{entCode} AND opt.ENT_BUSINESS_CODE = #{entBusinessCode} AND opt.OPTION_CODE = 'A13'
+			WHERE 
+				(
+					<foreach collection="ediList" item="item" separator="OR">
+						<!-- (OD_JOB_NO = #{item.odJobNo} AND SEQ_NO_ID = #{item.seqNoId}) -->
+						MRN = #{item.mrn}
+					</foreach>
+				)
+			ORDER BY MRN, OD_JOB_NO, SEQ_NO_ID
+	</select>
+
+	<select id="selectSendAbnormalitiesAbnormal" parameterType="HashMap" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectSendAbnormalitiesAbnormal : 하기결과이상보고 대상 조회 */
+			SELECT
+				 od.HBL_NO
+				,od.PIECES
+				,od.GWT
+				,od.HSN
+				,od.MRN
+				,od.LINE_CODE
+				,abnormal.VESSEL_FLIGHT
+				,od.MBL_NO
+				,od.MSN
+				,od.DEST_CODE
+				,od.OD_JOB_NO
+				,CONVERT(VARCHAR(8), od.AR_DATE, 112) AS AR_DATE
+				,abnormal.ABNORMAL_CODE
+				,abnormal.PIECES AS PIECES_ABNORMAL
+				,abnormal.GWT AS GWT_ABNORMAL
+				,abnormal.DISC_WH_CODE
+				,abnormal.MRN AS MRN_ABNORMAL
+				,abnormal.MSN AS MSN_ABNORMAL
+				,abnormal.SEQ_NO_ID
+				,CONVERT(VARCHAR(8), abnormal.AR_DATE, 112) AS AR_DATE_ABNORMAL
+				,CASE abnormal.ABNORMAL_CODE WHEN 'MFN' THEN 2 ELSE 1 END AS SORT_SEQ_NO
+				,(SELECT OD_JOB_NO FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = od.OD_JOB_NO AND SEQ_NO_ID = 1 AND SEND_DATE IS NULL) AS UPDATE_OD_JOB_NO
+				,(
+					SELECT TOP 1 A.POD_JOB_NO FROM(
+						SELECT POD_JOB_NO FROM TB_ECM_POD WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM160'
+						UNION ALL
+						SELECT POD_JOB_NO FROM TB_ECM_POD_02 WHERE OD_JOB_NO = od.OD_JOB_NO AND POD_STATUS = 'ECM160'
+					) A
+				 ) AS ECM160_POD_JOB_NO
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ABNORMAL abnormal
+				 			ON abnormal.OD_JOB_NO = od.OD_JOB_NO
+				 			AND abnormal.SEND_DATE IS NULL
+			WHERE od.MASTER_OD_JOB_NO = #{masterOdJobNo}
+			AND(
+			<foreach collection="ediList" item="item" separator="OR">
+			(abnormal.OD_JOB_NO = #{item.odJobNo} AND abnormal.SEQ_NO_ID = #{item.seqNoId})
+			</foreach>
+			)
+			ORDER BY od.OD_JOB_NO, SORT_SEQ_NO
+	</select>
+
+	<select id="selectSendBmsInPlanAbnormalitiesAbnormal" parameterType="HashMap" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectSendBmsInPlanAbnormalitiesAbnormal : 하기결과이상보고 대상 조회(반입예정데이터) */
+			SELECT
+				HBL_NO AS HBL_NO
+				, EX_CT AS PIECES
+				, EX_WT AS GWT
+				, MRN AS MRN
+				, MSN AS MSN
+				, HSN AS HSN
+				, 'QQ' AS LINE_CODE
+				, VESSEL_FLIGHT AS VESSEL_FLIGHT
+				, MBL_NO AS MBL_NO
+				, OD_JOB_NO AS OD_JOB_NO
+				, REPLACE(AR_DATE, '-', '') AS AR_DATE
+				, ABNORMAL_CODE AS ABNORMAL_CODE
+				, PIECES AS PIECES_ABNORMAL
+				, GWT AS GWT_ABNORMAL
+				, 'PEX' AS DISC_WH_CODE <!-- 고정 값 -->
+				, MRN AS MRN_ABNORMAL
+				, MSN AS MSN_ABNORMAL
+				, SEQ_NO_ID AS SEQ_NO_ID
+				, CONVERT(VARCHAR(8), AR_DATE, 112) AS AR_DATE_ABNORMAL
+				, CASE ABNORMAL_CODE WHEN 'MFN' THEN 2 ELSE 1 END AS SORT_SEQ_NO
+				<!-- , (SELECT OD_JOB_NO FROM TB_ECM_OD_ABNORMAL WHERE OD_JOB_NO = CONVERT(VARCHAR(20), bip.IN_PLAN_NO) AND SEQ_NO_ID = 1 AND SEND_DATE IS NULL) AS UPDATE_OD_JOB_NO -->
+			FROM TB_ECM_OD_PANTOS_ABNORMAL
+			WHERE
+				MRN = #{masterMrn}
+				<!-- OD_JOB_NO = #{masterOdJobNo}
+				AND (
+				<foreach collection="ediList" item="item" separator="OR">
+					(OD_JOB_NO = #{item.odJobNo} AND SEQ_NO_ID = #{item.seqNoId})
+					MRN = #{item.mrn}
+				</foreach>
+				) -->
+			ORDER BY OD_JOB_NO
+	</select>
+
+	<update id="updateSendAbnormalitiesReportd" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.updateSendAbnormalitiesReportd : 하기결과이상보고 신고 업데이트 */
+			UPDATE ad SET
+				   ad.ABNORMAL_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+				  ,ad.ABNORMAL_MFN_DATE = CASE WHEN abnormal.ABNORMAL_CODE IN('MGN', 'SHT') THEN DATEADD(DAY, 15, abnormal.AR_DATE) ELSE NULL END
+<!-- 				  ,ad.ABNORMAL_MFN_YN = CASE WHEN abnormal.ABNORMAL_CODE = 'MFN' AND ad.ABNORMAL_MFN_DATE >= CONVERT(VARCHAR(10), DATEADD(HOUR, ${gmtTime}, GETDATE()), 23) THEN 'Y' ELSE NULL END -->
+				  ,ad.LAST_POD_STATUS = CASE WHEN ISNULL(ad.LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM160' THEN 'ECM160' ELSE ad.LAST_POD_STATUS END
+				  <!-- ,ad.LAST_POD_DATE = CASE WHEN ISNULL(ad.LAST_POD_STATUS, '') <![CDATA[<]]> 'ECM160' THEN DATEADD(HOUR, ${gmtTime}, GETDATE()) ELSE ad.LAST_POD_DATE END -->
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ABNORMAL abnormal
+				 			ON abnormal.OD_JOB_NO = od.OD_JOB_NO
+				 			AND abnormal.SEND_DATE IS NULL
+				 			AND(
+							<foreach collection="ediList" item="item" separator="OR">
+							(abnormal.OD_JOB_NO = #{item.odJobNo} AND abnormal.SEQ_NO_ID = #{item.seqNoId})
+							</foreach>
+							)
+				 INNER JOIN TB_ECM_OD_ADDITIONAL ad
+				 			ON ad.OD_JOB_NO = od.OD_JOB_NO
+			WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="tempDataList" item="item" separator=",">#{item.OD_JOB_NO}</foreach>);
+			
+			UPDATE abnormal SET
+				   abnormal.SEND_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			FROM TB_ECM_OD od
+				 INNER JOIN TB_ECM_OD_ABNORMAL abnormal
+				 			ON abnormal.OD_JOB_NO = od.OD_JOB_NO
+				 			AND abnormal.SEND_DATE IS NULL
+				 			AND(
+							<foreach collection="ediList" item="item" separator="OR">
+							(abnormal.OD_JOB_NO = #{item.odJobNo} AND abnormal.SEQ_NO_ID = #{item.seqNoId})
+							</foreach>
+							)
+			WHERE od.MASTER_OD_JOB_NO IN(<foreach collection="tempDataList" item="item" separator=",">#{item.OD_JOB_NO}</foreach>);
+	</update>
+
+	<update id="updateSendBmsInPlanAbnormalitiesReportd" parameterType="HashMap">
+		/* BmsCargoAbnormalMapper.updateSendBmsInPlanAbnormalitiesReportd : 하기결과이상보고 신고 업데이트(반입예정데이터) */
+			UPDATE 
+				TB_ECM_OD_ABNORMAL 
+			SET
+				LAST_POD_STATUS = 'BMS03'
+				, SEND_DATE = DATEADD(HOUR, ${gmtTime}, GETDATE())
+			WHERE SEND_DATE IS NULL
+			AND(
+			<foreach collection="ediList" item="item" separator="OR">
+			(OD_JOB_NO = #{item.odJobNo} AND SEQ_NO_ID = #{item.seqNoId})
+			</foreach>
+			)
+	</update>
+
+	<select id="selectAddPopupSearchList" parameterType="HashMap" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectAddPopupSearchList : 하기결과이상보고 - 추가 팝업 조회 */
+		SELECT
+			bip.OD_JOB_NO AS OD_JOB_NO
+			, SUBSTRING(bip.CARGO_REFERENCE_NO, 1, 11) AS MRN
+			, bip.VESSEL_FLIGHT AS VESSEL_FLIGHT
+			, bip.ORIG_COUNTRY AS ORIG_COUNTRY
+			, bip.AR_DATE AS AR_DATE
+			, bip.MBL_NO AS MBL_NO
+			, bip.BL_NO AS HBL_NO
+			, ISNULL(ISNULL(abnormal.EX_CT, bip.EX_CT), 0) AS HBL_PIECES
+			, ISNULL(ISNULL(abnormal.EX_WT, bip.EX_WT), 0) AS HBL_GWT
+			, ISNULL(ISNULL(abnormal.PIECES, bip.EX_CT), 0) AS PIECES
+			, ISNULL(ISNULL(abnormal.GWT, bip.EX_WT), 0) AS GWT
+			, ISNULL(abnormal.CNT, 0) AS CNT
+			, ISNULL(abnormal.ABNORMAL_CODE, '') AS ABNORMAL_CODE
+			, SUBSTRING(bip.CARGO_REFERENCE_NO, 1, 11) AS MRN_ORG
+			, ISNULL(ISNULL(abnormal.EX_CT, bip.EX_CT), 0) AS HBL_PIECES_ORG
+			, ISNULL(ISNULL(abnormal.EX_WT, bip.EX_WT), 0) AS HBL_GWT_ORG
+			, ISNULL(ISNULL(abnormal.PIECES, bip.EX_CT), 0) AS PIECES_ORG
+			, ISNULL(ISNULL(abnormal.GWT, bip.EX_WT), 0) AS GWT_ORG
+			, ISNULL(abnormal.CNT, 0) AS CNT_ORG
+		FROM 
+			TB_BMS_IN_PLAN bip WITH (NOLOCK)
+			LEFT JOIN TB_ECM_OD_PANTOS_ABNORMAL abnormal WITH (NOLOCK) ON abnormal.OD_JOB_NO = bip.OD_JOB_NO AND abnormal.ABNORMAL_CODE = #{abnormalCode}
+		WHERE 
+			bip.OD_JOB_NO = #{odJobNo} 
+	</select>
+
+	<select id="selectEditPopupSearchList" parameterType="HashMap" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectEditPopupSearchList : 하기결과이상보고 - 수정 팝업 조회 */
+		SELECT
+			OD_JOB_NO
+			, MRN
+			, MSN
+			, HSN
+			, VESSEL_FLIGHT
+			, ORIG_COUNTRY
+			, AR_DATE
+			, MBL_NO
+			, HBL_NO
+			, EX_CT AS HBL_PIECES
+			, EX_WT AS HBL_GWT
+			, PIECES
+			, GWT
+			, CNT
+			, ABNORMAL_CODE
+			, LAST_POD_STATUS
+		FROM 
+			TB_ECM_OD_PANTOS_ABNORMAL
+		WHERE 
+			<choose>
+				<when test="mrn != null and mrn != ''">
+					MRN = #{mrn}
+				</when>
+				<otherwise>
+					HBL_NO = #{hblNo}
+				</otherwise>
+			</choose>
+	</select>
+
+	<select id="selectAddPopupSrchBlNoList" parameterType="String" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectAddPopupSrchBlNoList : 하기결과이상보고 - 추가 팝업 다중 BL 조회 */
+		SELECT
+			bip.OD_JOB_NO AS OD_JOB_NO
+			, SUBSTRING(bip.CARGO_REFERENCE_NO, 1, 11) AS MRN
+			, bip.VESSEL_FLIGHT AS VESSEL_FLIGHT
+			, bip.ORIG_COUNTRY AS ORIG_COUNTRY
+			, bip.AR_DATE AS AR_DATE
+			, bip.MBL_NO AS MBL_NO
+			, bip.BL_NO AS HBL_NO
+			, bip.EX_CT AS HBL_PIECES
+			, bip.EX_WT AS HBL_GWT
+			, ISNULL(bip.EX_CT, 0) AS PIECES
+			, ISNULL(bip.EX_WT, 0) AS GWT
+			, 0 AS CNT
+		FROM 
+			TB_BMS_IN_PLAN bip WITH (NOLOCK)
+		WHERE 
+			bip.BL_NO = (SELECT TOP 1 BL_NO FROM TB_BMS_IN_PLAN P WITH (NOLOCK) WHERE P.BL_NO = #{blNo} ORDER BY P.UPDATE_DATE_TIME DESC) 
+	</select>
+
+	<select id="selectMaxAbnormalBlCnt" parameterType="HashMap" resultType="String">
+		/* BmsCargoAbnormalMapper.selectMaxAbnormalBlCnt : 하기결과이상보고 - 추가 팝업 다중 BL 조회 */
+		SELECT
+			RIGHT(REPLICATE('0', 4) + CAST(COUNT(OD_JOB_NO) + 1 AS VARCHAR(4)), 4) AS CNT_STR
+		FROM
+			TB_ECM_OD_PANTOS_ABNORMAL
+		WHERE 
+			HBL_NO = #{hblNo}; 
+	</select>
+
+	<select id="selectAbnormalResultList" parameterType="searchAbnormalList" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectAbnormalResultList : 하기이상보고 결과 조회 */
+		SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT 
+			*
+		FROM (
+			SELECT
+				A.OD_JOB_NO
+				, A.HBL_NO
+				<!-- , CONVERT(CHAR(19), A.DECLARATION_DATE , 20) AS DECLARATION_DATE -->
+				<!-- , DATEDIFF(DAY, A.DECLARATION_DATE, GETDATE()) + 1 AS ELAPSE_DATE -->	<!-- 경과일자 신고일자 당일부터 1일로 변경 2026.04.21 2sowell -->
+				, CONVERT(
+					  CHAR(19),
+				      COALESCE(
+				          FIRST_MGN.FIRST_MGN_DECLARATION_DATE,
+				          A.DECLARATION_DATE
+				      ),
+      				  20
+  				) AS DECLARATION_DATE
+				, DATEDIFF(
+				      DAY,
+				      COALESCE(
+				          FIRST_MGN.FIRST_MGN_DECLARATION_DATE,
+				          A.DECLARATION_DATE
+				      ),
+				      GETDATE()
+				  ) + 1 AS ELAPSE_DATE
+				, G.MBL_NO AS SEND_MGN_MBL
+				, NF.MBL_NO AS NO_CARGO_MFN_MBL
+				, CASE WHEN ISNULL(G.OD_JOB_NO, '') <![CDATA[<>]]> '' THEN 'Y' ELSE 'N' END AS MGN_YN
+				, CASE WHEN ISNULL(F.OD_JOB_NO, '') <![CDATA[<>]]> '' THEN 'Y' ELSE 'N' END AS MFN_YN
+				, A.MANIFEST_DEL_YN
+				, A.ABNORMAL_CODE 
+				, CASE WHEN ISNULL(NF.MBL_NO, '') <![CDATA[<>]]> '' THEN CONCAT(NF.PIECES, '/', CONVERT(NUMERIC (5,1), NF.GWT)) ELSE '' END AS MANIFEST_ADD
+				, '' AS RESULT_DETAIL
+				, A.REMARKS
+				, ISNULL(P.IN_YN, 'N') AS IN_YN
+				, CASE WHEN ISNULL(G.LAST_POD_STATUS, '') = 'BMS04' THEN 'Y' ELSE 'N' END AS MGN_RAQ_YN
+				, CASE WHEN ISNULL(F.LAST_POD_STATUS, '') = 'BMS04' THEN 'Y' 
+					   WHEN ISNULL(NF.LAST_POD_STATUS, '') = 'BMS04' THEN 'Y' ELSE 'N' END AS MFN_RAQ_YN
+				, ROW_NUMBER() OVER (PARTITION BY A.HBL_NO ORDER BY A.OD_JOB_NO) AS RN
+				, P.ORIG_COUNTRY
+				, CAST(I.CARRYIN_DATE + ' ' + I.CARRYIN_TIME AS DATETIME) AS CARRYIN_DATE
+				, CASE 
+				    WHEN ISNULL(MRN_STATUS.HAS_MGN, 0) = 1
+				     AND ISNULL(MRN_STATUS.HAS_NON_MGN, 0) = 0
+				    THEN 'Y' ELSE 'N'
+				  END AS MRN_ONLY_MGN_YN
+				, MRN_STATUS.MGN_LAST_POD_STATUS AS MRN_MGN_LAST_POD_STATUS
+				, CASE  WHEN MRN_STATUS2.ABNORMAL_CODE_SUM = 0 THEN 'N' ELSE 'Y' END AS NOT_MGN_CODE_YN
+				, CASE  WHEN MRN_STATUS2.RAQ_SUM = 0 THEN 'N'
+						WHEN MRN_STATUS2.ABNORMAL_CODE_SUM = MRN_STATUS2.RAQ_SUM THEN 'Y' ELSE 'N' END AS NOT_MGN_CODE_ALL_RAQ_YN
+				, A.LAST_POD_STATUS AS LAST_POD_STATUS
+				, ISNULL(I.IN_NO, 0) AS IN_NO 
+			FROM 
+				TB_ECM_OD_PANTOS_ABNORMAL A WITH (NOLOCK)
+				LEFT JOIN (
+					SELECT
+						GA.OD_JOB_NO,
+						GA.MRN,
+						GA.MBL_NO,
+						GA.HBL_NO,
+						GA.SEND_DATE,
+						GA.DECLARATION_DATE,
+						GA.ABNORMAL_CODE,
+						GA.LAST_POD_STATUS
+					FROM
+						TB_ECM_OD_PANTOS_ABNORMAL GA WITH (NOLOCK)
+					WHERE
+						GA.ABNORMAL_CODE = 'MGN'
+				<!-- ) G ON G.MRN = A.MRN AND G.MBL_NO = A.MBL_NO AND G.HBL_NO = A.HBL_NO -->	<!-- MGN, MFN 조인 MBL, HBL로 변경 2026.04.13 2sowell -->
+				) G ON G.MBL_NO = A.MBL_NO AND G.HBL_NO = A.HBL_NO 
+				LEFT JOIN (
+					SELECT
+						GA.OD_JOB_NO,
+						GA.MRN,
+						GA.MBL_NO,
+						GA.HBL_NO,
+						GA.SEND_DATE,
+						GA.DECLARATION_DATE,
+						GA.ABNORMAL_CODE,
+						GA.LAST_POD_STATUS
+					FROM
+						TB_ECM_OD_PANTOS_ABNORMAL GA WITH (NOLOCK)
+					WHERE
+						GA.ABNORMAL_CODE = 'MFN'
+				<!-- ) F ON F.MRN = A.MRN AND F.MBL_NO = A.MBL_NO AND F.HBL_NO = A.HBL_NO -->	<!-- MGN, MFN 조인 MBL, HBL로 변경 2026.04.13 2sowell -->
+				) F ON F.MBL_NO = A.MBL_NO AND F.HBL_NO = A.HBL_NO 
+				LEFT JOIN (
+					SELECT
+						FA.OD_JOB_NO,
+						FA.MRN,
+						FA.MBL_NO,
+						FA.HBL_NO,
+						FA.PIECES,
+						FA.GWT,
+						FA.SEND_DATE,
+						FA.DECLARATION_DATE,
+						FA.ABNORMAL_CODE,
+						FA.LAST_POD_STATUS
+					FROM
+						TB_ECM_OD_PANTOS_ABNORMAL FA WITH (NOLOCK)
+					WHERE
+						FA.ABNORMAL_CODE = 'MFN'
+						AND NOT EXISTS( SELECT 1 FROM TB_BMS_IN_PLAN P WITH (NOLOCK) WHERE P.OD_JOB_NO = FA.OD_JOB_NO )
+				<!-- ) NF ON NF.MRN = A.MRN AND NF.MBL_NO = A.MBL_NO AND NF.HBL_NO = A.HBL_NO -->	<!-- MGN, MFN 조인 MBL, HBL로 변경 2026.04.13 2sowell -->
+				) NF ON NF.MBL_NO = A.MBL_NO AND NF.HBL_NO = A.HBL_NO
+				<!-- LEFT JOIN TB_BMS_IN_PLAN P WITH (NOLOCK)
+				ON P.OD_JOB_NO = A.OD_JOB_NO -->
+				<!-- 조인조건 MBL_NO, BL_NO로 변경 2026.05.06 2sowell -->
+				LEFT JOIN TB_BMS_IN_PLAN P WITH (NOLOCK) ON A.MBL_NO = P.MBL_NO AND A.HBL_NO = P.BL_NO
+				LEFT JOIN TB_BMS_IN I WITH (NOLOCK)
+				ON I.IN_PLAN_NO = P.IN_PLAN_NO
+				OUTER APPLY (
+				    SELECT
+				        MAX(CASE WHEN GA.ABNORMAL_CODE = 'MGN' THEN 1 ELSE 0 END) AS HAS_MGN,
+				        MAX(CASE WHEN GA.ABNORMAL_CODE <![CDATA[<>]]> 'MGN' THEN 1 ELSE 0 END) AS HAS_NON_MGN,
+				        MAX(CASE WHEN GA.ABNORMAL_CODE = 'MGN' THEN GA.LAST_POD_STATUS ELSE NULL END) AS MGN_LAST_POD_STATUS
+				    FROM TB_ECM_OD_PANTOS_ABNORMAL GA WITH (NOLOCK)
+				    WHERE GA.MRN = A.MRN
+				) MRN_STATUS
+				OUTER APPLY (
+                     SELECT
+                         SUM(CASE WHEN GA.ABNORMAL_CODE <![CDATA[<>]]> 'MGN' THEN 1 ELSE 0 END) AS ABNORMAL_CODE_SUM,
+                         SUM(CASE WHEN GA.ABNORMAL_CODE <![CDATA[<>]]> 'MGN' AND GA.LAST_POD_STATUS = 'BMS04' THEN 1 ELSE 0 END) AS RAQ_SUM
+                     FROM TB_ECM_OD_PANTOS_ABNORMAL GA WITH (NOLOCK)
+                     WHERE GA.MRN = A.MRN
+                 ) MRN_STATUS2
+                 OUTER APPLY (
+				    SELECT
+				        MIN(MGN.DECLARATION_DATE) AS FIRST_MGN_DECLARATION_DATE
+				    FROM TB_ECM_OD_PANTOS_ABNORMAL MGN WITH (NOLOCK)
+				    WHERE MGN.MBL_NO = A.MBL_NO
+				      AND MGN.HBL_NO = A.HBL_NO
+				      AND MGN.ABNORMAL_CODE = 'MGN'
+				) FIRST_MGN
+			WHERE 
+				1 = 1
+				<if test="srchNo != null and srchNo != ''">
+					<choose>
+						<when test='searchType == "multi"'>
+							AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+						</when>
+						<otherwise>
+							AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%')
+						</otherwise>
+					</choose>
+				</if>
+				<if test="srchStartDate != null and srchStartDate != ''">
+					AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+				</if>
+				<if test="srchEndDate != null and srchEndDate != ''">
+					AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+				</if>
+				<choose>
+					<when test='srchManifestDelYn == "ALL"'>
+						AND A.MANIFEST_DEL_YN IN ('Y', 'N') 
+					</when>
+					<when test='srchManifestDelYn == "Y"'>
+						AND A.MANIFEST_DEL_YN = 'Y'
+					</when>
+					<otherwise>
+						AND A.MANIFEST_DEL_YN = 'N'
+					</otherwise>
+				</choose>
+				<if test="abnormalList != null and abnormalList.size > 0">
+					AND A.OD_JOB_NO IN (
+						<foreach collection="abnormalList" item="item" separator=",">
+							#{item.odJobNo}
+						</foreach>
+					)
+				</if>
+			) t
+		WHERE t.RN = 1
+		<choose>
+			<when test='srchInMgnMfnRaqYn == "ALL"'>
+			</when>
+			<when test='srchInMgnMfnRaqYn == "Y"'>
+				AND (
+			          (
+			             t.MRN_ONLY_MGN_YN = 'N'
+			             AND t.LAST_POD_STATUS = 'BMS04'
+			             AND t.MFN_RAQ_YN = 'Y'
+			             AND t.IN_NO > 0
+			             AND t.MFN_YN = 'Y'
+			          )
+			          OR
+			          (
+			             t.MRN_ONLY_MGN_YN = 'Y'
+			             AND t.MFN_RAQ_YN = 'Y'
+			             AND ISNULL(t.MRN_MGN_LAST_POD_STATUS, '') = 'BMS04'
+			          )
+			          OR
+			          (
+                         t.MGN_YN = 'N'
+                         AND t.LAST_POD_STATUS = 'BMS04'
+                         AND t.IN_NO > 0
+                         AND t.NOT_MGN_CODE_ALL_RAQ_YN = 'Y'
+                      )
+				  )
+			</when>
+			<otherwise>
+				AND NOT (
+			          (
+			             t.MRN_ONLY_MGN_YN = 'N'
+			             AND t.LAST_POD_STATUS = 'BMS04'
+			             AND t.MFN_RAQ_YN = 'Y'
+			             AND t.IN_NO > 0
+			             AND t.MFN_YN = 'Y'
+			          )
+			          OR
+			          (
+			             t.MRN_ONLY_MGN_YN = 'Y'
+			             AND t.MFN_RAQ_YN = 'Y'
+			             AND ISNULL(t.MRN_MGN_LAST_POD_STATUS, '') = 'BMS04'
+			          )
+			          OR
+			          (
+                         t.MGN_YN = 'N'
+                         AND t.LAST_POD_STATUS = 'BMS04'
+                         AND t.IN_NO > 0
+                         AND t.NOT_MGN_CODE_ALL_RAQ_YN = 'Y'
+                      )
+				  )
+			</otherwise>
+		</choose>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<select id="selectAddPopupMrnSearchList" parameterType="searchAbnormalList" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectAddPopupMrnSearchList : 하기결과이상보고 무적MFN MRN 조회(반입예정데이터) */
+			SELECT
+				SUBSTRING(CARGO_REFERENCE_NO, 1, 11) AS mrn
+				, MBL_NO AS mblNo
+				, VESSEL_FLIGHT AS vesselFlight
+				, AR_DATE AS arDate
+				, ORIG_COUNTRY AS origCountry
+			FROM TB_BMS_IN_PLAN WITH (NOLOCK)
+			WHERE
+				1=1
+				<if test="srchStartDate != null and srchStartDate != ''">
+					AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+				</if>
+				<if test="srchEndDate != null and srchEndDate != ''">
+					AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+				</if>
+				AND ISNULL(ORIG_COUNTRY, '') <![CDATA[<>]]> ''
+			GROUP BY SUBSTRING(CARGO_REFERENCE_NO, 1, 11), MBL_NO, VESSEL_FLIGHT, AR_DATE, ORIG_COUNTRY
+			ORDER BY AR_DATE DESC, VESSEL_FLIGHT, ORIG_COUNTRY
+	</select>
+
+	<select id="selectAddPopupNoCargoData" parameterType="HashMap" resultType="abnormal">
+		/* BmsCargoAbnormalMapper.selectAddPopupNoCargoData : 하기결과이상보고 - 무적 MFN 추가 팝업 데이터 조회 */
+		SELECT TOP 1
+			OD_JOB_NO
+			, MRN
+			, MSN
+			, HSN
+			, ORIG_COUNTRY
+			, VESSEL_FLIGHT
+			, AR_DATE
+			, MBL_NO
+			, HBL_NO
+			, EX_CT AS PIECES
+			, EX_WT AS GWT
+			, PIECES AS HBL_PIECES
+			, GWT AS HBL_GWT
+			, EX_CT AS CNT
+			, 'MFN' AS ABNORMAL_CODE
+		FROM 
+			TB_ECM_OD_PANTOS_ABNORMAL P WITH (NOLOCK)
+		WHERE 
+			(
+				MRN = #{mrn}
+				AND HBL_NO = #{hblNo}
+				AND ABNORMAL_CODE = #{abnormalCode}
+			)
+			OR (
+				MRN = #{mrn}
+				AND HBL_NO = #{hblNo}
+				AND ABNORMAL_CODE = 'MGN'
+				AND EXISTS (
+					SELECT 
+						1 
+					FROM 
+						TB_BMS_IN_PLAN WITH (NOLOCK)
+					WHERE 
+						SUBSTRING(CARGO_REFERENCE_NO, 1, 11) = #{mrn} 
+						AND MBL_NO = #{mblNo}
+						AND HBL_NO = #{hblNo}
+						AND IN_YN = 'Y'
+				)
+			)
+	</select>
+
+	<select id="selectMaxRemarksNo" parameterType="HashMap" resultType="Integer">
+		/* BmsCargoAbnormalMapper.selectMaxRemarksNo : 하기이상코드 무적MFN 추가 비고 조회 */
+		SELECT
+			ISNULL(MAX(REMARKS), 8999)
+		FROM
+			TB_ECM_OD_PANTOS_ABNORMAL
+		WHERE 
+			MRN = #{mrn}
+	</select>
+	
+	<select id="selectHblInPlanInfoList" resultType="HashMap">
+		/* BmsCargoAbnormalMapper.selectHblInPlanInfoList : 다중 HBL 추가 반입예정정보 조회 */
+		WITH HBL_NOS AS (
+			SELECT HBL_NO
+	        FROM (
+	            VALUES 
+	            <foreach collection="list" item="item" separator=",">
+	                (CAST(#{item} AS VARCHAR(50)))
+	            </foreach>
+	        ) AS H(HBL_NO)
+		),
+		LATEST_INPLAN AS (
+			SELECT
+				A.*
+			FROM(
+				SELECT
+					BL_NO
+					,EX_CT
+					,EX_WT
+					,ROW_NUMBER() OVER (PARTITION BY BL_NO ORDER BY IN_PLAN_NO DESC) AS RN
+				FROM TB_BMS_IN_PLAN WITH (NOLOCK)
+				WHERE BL_NO IN
+				<foreach collection="list" item="item" open="(" separator="," close=")">
+		            #{item}
+		        </foreach>
+			) A
+			WHERE A.RN = 1
+		)
+		SELECT
+			H.HBL_NO
+			,ISNULL(P.EX_CT, 0) AS EX_CT
+			,ISNULL(P.EX_WT, 0) AS EX_WT
+		FROM HBL_NOS H
+		LEFT JOIN LATEST_INPLAN P ON P.BL_NO = H.HBL_NO
+	</select>
+</mapper>

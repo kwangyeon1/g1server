@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.sms.EnterpriseMapper">
+
+    <select id="getBusinessClosingInfo" parameterType="HashMap" resultType="HashMap">
+		SELECT
+			  cls.FINISH_DATE
+			, cls.EXCEPTION_START_DATE
+			, cls.EXCEPTION_END_DATE
+			<if test="srchOblJobNo != null and srchOblJobNo != ''">
+				, IF(cls_exc.JOB_NO IS NOT NULL, 'Y', 'N') AS BL_EXCEPTION_YN
+			</if>
+			, CASE
+				WHEN cls.EXCEPTION_START_DATE IS NOT NULL AND cls.EXCEPTION_END_DATE IS NOT NULL THEN
+					CASE
+						WHEN STR_TO_DATE(#{srchDate}, #{format}) >= cls.EXCEPTION_START_DATE AND STR_TO_DATE(#{srchDate}, #{format}) <![CDATA[<=]]> cls.EXCEPTION_END_DATE THEN 'Y'
+						ELSE 'N'
+					END
+				ELSE 'N'
+			  END AS DATE_EXCEPTION_YN			
+			, CASE
+				<if test="srchOblJobNo != null and srchOblJobNo != ''">		
+					WHEN cls_exc.JOB_NO IS NOT NULL THEN 'N'
+				</if>
+					WHEN STR_TO_DATE(#{srchDate}, #{format}) <![CDATA[<=]]> cls.FINISH_DATE THEN
+						CASE
+							WHEN cls.EXCEPTION_START_DATE IS NOT NULL AND cls.EXCEPTION_END_DATE IS NOT NULL THEN
+								CASE
+									WHEN STR_TO_DATE(#{srchDate}, #{format}) >= cls.EXCEPTION_START_DATE AND STR_TO_DATE(#{srchDate}, #{format}) <![CDATA[<=]]> cls.EXCEPTION_END_DATE THEN 'N'
+									ELSE 'Y'
+								END
+							ELSE 'Y'
+						END
+					ELSE 'N'
+				  END AS ADMIN_FINISH_YN
+			
+		FROM TB_SMS_ENT_BUSINESS_CLOSING cls
+		
+		<if test="srchOblJobNo != null and srchOblJobNo != ''">
+			LEFT JOIN TB_SMS_ENT_BUSINESS_CLO_EXC cls_exc
+			ON cls.ENT_CODE = cls_exc.ENT_CODE
+			AND cls.ENT_BUSINESS_CODE = cls_exc.ENT_BUSINESS_CODE
+			AND cls.SOLUTION = cls_exc.SOLUTION
+			AND cls_exc.JOB_NO = #{srchOblJobNo}
+		</if>
+				
+		WHERE cls.ENT_CODE = #{srchEntCode}
+		AND cls.ENT_BUSINESS_CODE = #{srchEntBusinessCode}
+		AND cls.SOLUTION = #{srchSolution}
+		AND cls.CLOSING_TYPE = #{srchClosingType}
+    </select>
+    
+    <select id="getEntBusinessPrintName" parameterType="String" resultType="String">
+    	SELECT ENT_BUSINESS_PRINT_NAME FROM TB_SMS_ENT_BUSINESS
+    	WHERE ENT_BUSINESS_CODE = #{entBusinessCode}
+    </select>
+</mapper>

@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsBcrNoCargoMapper">
+
+	<select id="selectMaxScanDateTime" resultType="String">
+		/* BmsBcrNoCargoMapper.selectMaxScanDateTime : BCR 무적 조회 : BCR 무적 최근 일자 조회 */
+		SELECT
+			MAX(CONCAT(SCAN_DATE, ' ', SCAN_TIME, '.000')) AS SCAN_DATE_TIME
+		FROM
+			TB_BMS_BCR_CHECK
+	</select>
+
+	<select id="selectBcrCargoTransferList" resultType="map">
+		/* BmsBcrNoCargoMapper.selectBcrCargoTransferList : BCR 무적 조회 : BCR 무적 이관 데이터 조회 */
+		SELECT
+			*
+		FROM
+			TSV_XRAY_BAK.dbo.DEL_BCR_INTF
+		WHERE
+			CREATED > #{maxScanDateTime} 
+			AND BL = '자료없음'
+	</select>
+	
+	<select id="selectBcrCargoTransferListPantos" resultType="map">
+		/* BmsBcrNoCargoMapper.selectBcrCargoTransferListPantos : BCR 무적 조회 : BCR 무적 이관 데이터 조회(판토스) */
+		SELECT
+			*
+		FROM
+			TSV_XRAY_BAK_LXP.dbo.DEL_BCR_INTF
+		WHERE
+			CREATED > #{maxScanDateTime} 
+			AND BL = '자료없음'
+	</select>
+
+	<select id="selectBcrNoCargoList" parameterType="SearchBmsBcrNoCargoList" resultType="BmsBcrNoCargo">
+		/* BmsBcrNoCargoMapper.selectBcrNoCargoList : BCR 무적 조회 : BCR 무적 조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT
+			SERIAL,
+			SCAN_NO,
+			SCAN_RESULT,
+			SCAN_DATE,
+			SCAN_TIME,
+			CHECK_YN,
+			CHECK_REMARKS,
+			(SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = bc.REGISTER_USER_ID) AS REGISTER_USER_ID,
+			REGISTER_DATE_TIME,
+			(SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = bc.UPDATE_USER_ID) AS UPDATE_USER_ID,
+			UPDATE_DATE_TIME
+		FROM
+			TB_BMS_BCR_CHECK bc
+		WHERE
+			1 = 1
+			<if test="srchNo != null and srchNo != ''">
+				<choose>
+					<when test='searchType == "multi"'>
+						AND SCAN_NO IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+					</when>
+					<otherwise>
+						AND SCAN_NO = #{srchNo}
+					</otherwise>
+				</choose>
+			</if>
+			<if test="srchChangeClass != null and srchChangeClass != ''">
+				AND CHECK_YN = #{srchChangeClass}
+			</if>
+			<if test='srchDateGbn != "noDateChk"'>
+				AND ${srchDateGbn} >= #{srchStartDate}
+				AND ${srchDateGbn} <![CDATA[<=]]> #{srchEndDate}
+			</if>
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+	<insert id="insertBcrCheck" parameterType="HashMap">
+		/* BmsBcrNoCargoMapper.insertBcrCheck : BCR 무적 조회 : BCR 무적 정보 이관 */
+		
+		IF EXISTS(
+			SELECT
+				SERIAL
+			FROM
+				TB_BMS_BCR_CHECK
+			WHERE
+				SERIAL = #{SERIAL}
+		)
+		BEGIN
+			SELECT 0 cnt
+		END 
+		ELSE
+			BEGIN 
+				INSERT INTO TB_BMS_BCR_CHECK (
+					SERIAL
+					, SCAN_NO
+					, SCAN_RESULT
+					, SCAN_DATE
+					, SCAN_TIME
+					, CHECK_YN
+					, CHECK_REMARKS
+					, REGISTER_USER_ID
+					, REGISTER_DATE_TIME
+					, UPDATE_USER_ID
+					, UPDATE_DATE_TIME
+				) VALUES (
+					#{SERIAL}
+					, #{SCANCODE}
+					, ''
+					, CONVERT(CHAR(10), #{CREATED}, 23)
+					, CONVERT(CHAR(8), #{CREATED}, 8)
+					, 'N'
+					, ''
+					, #{userId}
+					, GETDATE()
+					, #{userId}
+					, GETDATE()
+				)
+		END
+	</insert>
+
+	<update id="updateBcrNoCargo" parameterType="bmsAllocateCar">
+		/* BmsBcrNoCargoMapper.updateBcrNoCargo : BCR 무적 조회 : 일괄체크완료 update */
+		UPDATE 
+			TB_BMS_BCR_CHECK
+		SET
+			CHECK_YN = 'Y',
+			CHECK_REMARKS = #{checkRemarks},
+			UPDATE_USER_ID = #{updateUserId},
+			UPDATE_DATE_TIME = GETDATE()
+		WHERE
+			SERIAL IN (<foreach collection="serialNoList" item="item" separator=",">#{item}</foreach>)
+	</update>
+</mapper>

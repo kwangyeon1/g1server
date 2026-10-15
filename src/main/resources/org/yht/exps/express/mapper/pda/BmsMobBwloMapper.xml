@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        
+<mapper namespace="org.yht.exps.express.mapper.pda.BmsMobBwloMapper">
+
+	<select id="selectLocationStock" parameterType="SearchInList" resultType="HashMap">
+		/* BmsMobBwloMapper.selectLocationStock : 로케이션재고확인 - 재고수량 조회 */
+			<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+			SELECT 
+				   MAX(I.LOCATION_PLACE) AS LOCATION_PLACE
+				 , MAX(LOC.NAME_DEFAULT) AS LOCATION_NAME
+				 , SUM(I.STOCK_CT) AS SUM_STOCK_CT
+			FROM TB_BMS_IN I WITH (NOLOCK)
+			LEFT JOIN TB_SMS_CODE_DETAIL LOC
+				ON I.LOCATION_PLACE = LOC.CODE 
+				AND LOC.GROUP_CODE =  'WH_LOCATION'					
+			WHERE I.BL_NO =  #{srchWhLocation}
+			<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" /> -->
+	</select>
+	
+	<select id="selectLocationInfoDetail" parameterType="SearchInList" resultType="HashMap" >
+		/* BmsMobBwloMapper.selectLocationInfoDetail : 로케이션적치 - 로케이션정보 조회 */
+			SELECT TOP 1 
+				  CODE AS LOCATION_PLACE
+				, NAME_DEFAULT AS LOCATION_NAME
+			FROM TB_SMS_CODE_DETAIL LOC
+			WHERE  LOC.GROUP_CODE = 'WH_LOCATION'
+			AND LOC.CODE = #{srchWhLocation}
+	</select>
+	
+	<select id="selectLocationCarryInDetail" parameterType="SearchMobBwlo" resultType="mobBwlo" >
+		/* BmsMobBwloMapper.selectLocationCarryInDetail : 로케이션적치 - 반입 조회 */
+			<!-- <include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" /> -->
+			SELECT 
+			       I.OD_JOB_NO, 
+			       I.BL_NO, 
+			       I.STOCK_CT, /* 수량 */	 
+				   I.STOCK_WT, /* 중량 */ 
+			       ISNULL(SIC.NAME_DEFAULT,'') AS SE_INSPECTION_CODE_NAME, /* 선별 */	   
+				   ISNULL(SIC2.NAME_DEFAULT,'') AS XRAY_INSPECTION_CODE_NAME, /* XRAY */	 
+				   ISNULL(SIC3.NAME_DEFAULT,'') AS PALN5EM_INSPECTION_CODE_NAME, /* 관 */	
+				   'Y' AS SCAN_YN, /* 스캔 */		
+				   SUBSTRING(I.CARRYIN_DATE+ ' ' + I.CARRYIN_TIME, 3, LEN(I.CARRYIN_DATE+ ' ' + I.CARRYIN_TIME)) AS CARRYIN_DATE_TIME, /* 반입일시 */
+			       I.LOCATION_PLACE,  /* 장치위치 1) */ 
+			       ISNULL(LOC.NAME_KOR,'') AS LOCATION_PLACE_NAME /* 장치위치 2) */
+			FROM TB_BMS_IN I WITH (NOLOCK)
+			LEFT JOIN TB_SMS_CODE_DETAIL LOC
+			ON I.LOCATION_PLACE = LOC.CODE AND LOC.GROUP_CODE = 'WH_LOCATION'
+			LEFT JOIN TB_SMS_CODE_DETAIL CD
+			ON I.CD_TYPE = CD.CODE AND CD.GROUP_CODE = 'CD_TYPE'
+			LEFT JOIN TB_SMS_CODE_DETAIL SIC
+			ON I.SE_INSPECTION_CODE = SIC.CODE AND SIC.GROUP_CODE = 'SE_INSPECTION_CODE'
+			LEFT JOIN TB_SMS_CODE_DETAIL SIC2
+			ON I.XRAY_INSPECTION_CODE = SIC2.CODE AND SIC2.GROUP_CODE = 'SE_INSPECTION_CODE'
+			LEFT JOIN TB_SMS_CODE_DETAIL SIC3
+			ON I.PALN5EM_INSPECTION_CODE = SIC3.CODE AND SIC3.GROUP_CODE = 'SE_INSPECTION_CODE'
+			LEFT JOIN TB_BMS_LOCAL_INSPECT_RESULT LIR
+			ON I.IN_NO = LIR.IN_NO
+			WHERE I.IN_NO = #{srchNo}	 
+			ORDER BY I.LOCATION_PLACE
+		<!-- 	<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />   -->
+	</select>
+	
+	<update id="updateLocationCarryIn" parameterType="SearchMobBwlo">
+		/* BmsMobBwloMapper.updateLocationCarryIn : 로케이션적치 - 장치위치 업데이트 */
+			UPDATE TB_BMS_IN
+			SET LOCATION_PLACE = #{whLocation}
+			WHERE IN_NO = #{srchNo}
+	</update>
+		
+</mapper>

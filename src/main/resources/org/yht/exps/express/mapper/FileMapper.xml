@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.FileMapper">
+	<select id="selectFileShare" parameterType="FileShare" resultType="HashMap">
+		/* OrderCommonCsMapper.selectFileShare : 파일조회 */
+		SELECT 
+			FS.REFERENCE_NO_ID
+			, MAX(FSF.SEQ_NO) AS MAX_SEQ_NO
+			, COUNT(FSF.REFERENCE_NO_ID) AS FILE_SHARE_COUNT
+		FROM TB_COM_FILE_SHARE FS
+		LEFT OUTER JOIN TB_COM_FILE_SHARE_FILE FSF
+		ON FSF.REFERENCE_NO_ID = FS.REFERENCE_NO_ID
+		WHERE FS.REFERENCE_NO_ID = #{referenceNoId}
+		GROUP BY FS.REFERENCE_NO_ID
+	</select>
+	
+	<delete id="deleteFileShareFile" parameterType="FileShareFile">
+		/* OrderCommonCsMapper.deleteFileShareFile : FileShareFile Delete */
+		DELETE FROM TB_COM_FILE_SHARE_FILE
+		WHERE REFERENCE_NO_ID = #{referenceNoId}
+		AND SEQ_NO = #{seqNo}
+	</delete>
+	
+	<delete id="deleteFileShare" parameterType="FileShare">
+		/* OrderCommonCsMapper.deleteFileShareFile : FileShare Delete */
+		DELETE FROM TB_COM_FILE_SHARE
+		WHERE REFERENCE_NO_ID = #{referenceNoId}
+	</delete>
+	
+	<insert id="insertFileShare" parameterType="FileShare">
+		/* OrderCommonCsMapper.insertFileShare : 파일등록 */
+		<selectKey resultType="int" keyProperty="referenceNoId" order="BEFORE">
+		SELECT ISNULL(MAX(REFERENCE_NO_ID), 0) + 1 
+	  	FROM TB_COM_FILE_SHARE
+		</selectKey>
+			
+		INSERT INTO TB_COM_FILE_SHARE(			
+			REFERENCE_NO_ID
+			,ENT_CODE
+			,ENT_BUSINESS_CODE
+			,SOLUTION
+			,SUBJECT
+			,MEMO
+			,FUNC_TYPE
+			,FUNC_SUB_TYPE
+			,FUNC_JOB_NO
+			,FUNC_REFERENCE_NO
+			,FILE_DOC_TYPE
+			,FILE_NAME
+			,FILE_EXT
+			,FILE_SIZE
+			,FILE_NAME_REMOTE
+			,FILE_PATH_REMOTE
+			,SHARE_YN
+			,MEMO_DATE
+			,FS_SERVER_TYPE
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)	
+		VALUES(
+			#{referenceNoId}
+			,#{entCode}
+			,#{entBusinessCode}
+			,#{solution}
+			,#{subject}
+			,#{memo}
+			,#{funcType}
+			,#{funcSubType}
+			,#{funcJobNo}
+			,#{funcReferenceNo}
+			,#{fileDocType}
+			,#{fileName}
+			,#{fileExt}
+			,#{fileSize}
+			,#{fileNameRemote}
+			,#{filePathRemote}
+			,#{shareYn}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,'WEB'
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+		
+		<if test='fileShareList != null and fileShareList.size > 0'>
+			INSERT INTO TB_COM_FILE_SHARE_FILE(
+				REFERENCE_NO_ID
+				,SEQ_NO
+				,FILE_DOC_TYPE
+				,FILE_NAME
+				,FILE_SIZE
+				,FILE_NAME_REMOTE
+				,FILE_PATH_REMOTE
+			)VALUES
+			<foreach collection="fileShareList" item="item" separator=",">
+			(	
+				#{referenceNoId}
+			  , #{item.seqNo}
+			  , #{item.fileDocType}
+			  , #{item.fileName}
+			  , #{item.fileSize}
+			  , #{item.fileNameRemote}
+			  , #{item.filePathRemote}
+			)
+			</foreach>
+			;
+			</if>
+	</insert>
+	
+	<insert id="insertFileShareFile" parameterType="FileShare">
+		/* OrderCommonCsMapper.insertFileShareFile : 파일등록 */
+		<if test='fileShareList != null and fileShareList.size > 0'>
+			INSERT INTO TB_COM_FILE_SHARE_FILE(
+				REFERENCE_NO_ID
+				,SEQ_NO
+				,FILE_DOC_TYPE
+				,FILE_NAME
+				,FILE_SIZE
+				,FILE_NAME_REMOTE
+				,FILE_PATH_REMOTE
+			)VALUES
+			<foreach collection="fileShareList" item="item" separator=",">
+			(	
+				#{referenceNoId}
+			  , #{item.seqNo}
+			  , #{item.fileDocType}
+			  , #{item.fileName}
+			  , #{item.fileSize}
+			  , #{item.fileNameRemote}
+			  , #{item.filePathRemote}
+			)
+			</foreach>
+			;
+			</if>
+	</insert>
+	
+	<update id="updateFileShare" parameterType="FileShare">
+		UPDATE TB_COM_FILE_SHARE SET
+			SUBJECT = #{subject}
+			,MEMO = #{memo}
+			<if test='removeFileYn != null and removeFileYn != "" and removeFileYn == "Y"'>
+			,FILE_DOC_TYPE = ''
+			,FILE_NAME = ''
+			,FILE_EXT = ''
+			,FILE_SIZE = ''
+			,FILE_NAME_REMOTE = ''
+			,FILE_PATH_REMOTE = ''
+			</if>
+		WHERE REFERENCE_NO_ID = #{referenceNoId}
+		;
+    	
+    	IF @@ROWCOUNT = 0
+    	
+    	INSERT INTO TB_COM_FILE_SHARE(			
+			REFERENCE_NO_ID
+			,ENT_CODE
+			,ENT_BUSINESS_CODE
+			,SOLUTION
+			,SUBJECT
+			,MEMO
+			,FUNC_TYPE
+			,FUNC_SUB_TYPE
+			,FUNC_JOB_NO
+			,FUNC_REFERENCE_NO
+			,FILE_DOC_TYPE
+			,FILE_NAME
+			,FILE_EXT
+			,FILE_SIZE
+			,FILE_NAME_REMOTE
+			,FILE_PATH_REMOTE
+			,SHARE_YN
+			,MEMO_DATE
+			,FS_SERVER_TYPE
+			,REGISTER_USER_ID
+			,REGISTER_DATE_TIME
+			,UPDATE_USER_ID
+			,UPDATE_DATE_TIME
+		)	
+		VALUES(
+			(SELECT ISNULL(MAX(REFERENCE_NO_ID), 0) + 1 FROM TB_COM_FILE_SHARE)
+			,#{entCode}
+			,#{entBusinessCode}
+			,#{solution}
+			,#{subject}
+			,#{memo}
+			,#{funcType}
+			,#{funcSubType}
+			,#{funcJobNo}
+			,#{funcReferenceNo}
+			,#{fileDocType}
+			,#{fileName}
+			,#{fileExt}
+			,#{fileSize}
+			,#{fileNameRemote}
+			,#{filePathRemote}
+			,#{shareYn}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,'WEB'
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+			,#{registerUserId}
+			,DATEADD(HOUR, ${gmtTime}, GETDATE())
+		)
+	</update>
+</mapper>

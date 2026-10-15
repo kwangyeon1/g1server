@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.bms.BmsAirDOMapper">
+
+	<select id="selectBmsAirDOList" parameterType="searchBmsAirDOList" resultType="bmsAirDO">
+		/* BmsAirDOMapper.selectBmsAirDOList : 항공DO조회 */
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageTop" />
+		SELECT AA.*
+			 , COUNT(*) OVER() AS TOTAL_CNT
+			 , SUM(AA.SIMPLE_CNT) OVER() AS TOTAL_SIMPLE_CNT
+			 , SUM(AA.GENERAL_CNT) OVER() AS TOTAL_GENERAL_CNT
+		  FROM (
+					SELECT tbd.DELIVERY_NO
+						 , tbi.OD_JOB_NO
+						 , CASE WHEN (SELECT TOP 1 tcfs.REFERENCE_NO_ID FROM TB_COM_FILE_SHARE tcfs WHERE tcfs.FUNC_JOB_NO = tbi.OD_JOB_NO ) IS NULL THEN 'N' ELSE 'Y' END AS FILE_SHARE
+				 		 , #{srchCancelYnName} AS lastPodStatus
+				 	 	 <if test='excelDownYn != null and excelDownYn != "" and excelDownYn == "Y"'>
+				 		 	, '조회' AS blStatus
+				 	     </if>
+						 , tbi.AR_DATE
+						 , tbd.RECV_DATE
+						 , tbd.RECV_TIME
+						 , tbd.CANCEL_YN
+						 , tbd.CANCEL_DATE
+						 , tbd.CANCEL_TIME
+						 , tbd.BL_NO
+						 , tbd.MBL_NO
+						 , tbi.CARGO_REFERENCE_NO
+						 , tbd.CUSTOMER_NAME
+						 , tbd.FWD_CODE
+						 , tbd.FWD_NAME
+						 , tbd.FWD_TEL
+						 , tbd.FWD_ATTN_NAME
+						 , tbi.CUSTOMER_CODE AS CUSTOMER_CODE_IN
+						 , tbi.CUSTOMER_NAME AS CUSTOMER_NAME_IN
+						 , tbd.NOTIFY_NAME
+						 , tbi.COMMODITY_ITEM_LOC
+						 , ISNULL(tbd.WT, 0) AS WT
+						 , tbi.CD_TYPE
+					     , IIF(tbi.CD_TYPE = 'Y', 1, 0) AS SIMPLE_CNT
+					     , IIF(tbi.CD_TYPE = 'N', 1, 0) AS GENERAL_CNT
+						 , tbd.LC_YN
+						 , tbd.LC_NO
+						 , tbd.LC_BANK
+						 , tbd.HSN
+						 , tbd.REGISTER_USER_ID
+						 , (SELECT tsu.USER_NAME FROM TB_SMS_USER tsu WHERE tsu.USER_ID = tbd.REGISTER_USER_ID) AS REGISTER_USER_NAME
+						 , tbd.REGISTER_DATE_TIME
+					  FROM TB_BMS_DELIVERY tbd
+				 LEFT JOIN TB_BMS_IN tbi WITH (NOLOCK) ON tbd.BL_NO = tbi.BL_NO
+					 WHERE 1=1
+					 <if test='srchMode == "notSearch"'>
+					 AND 1 = 0
+					 </if>
+					<if test="srchNo != null and srchNo != ''">
+						<!-- AND ${srchNoType} LIKE CONCAT('%',#{srchNo},'%') -->
+						<choose>
+							<when test='searchType == "multi"'>
+							AND ${srchNoType} IN (<foreach collection="searchNoList" item="item" separator=",">#{item}</foreach>)
+							</when>
+							<otherwise>
+							AND ${srchNoType} = #{srchNo}
+							</otherwise>
+						</choose>
+					</if>
+					<if test='srchDateGbn != "noDateChk"'>
+						<choose>
+							<when test='srchDateType == "dateTime"'>
+								AND ${srchDateGbn} >= CONVERT(CHAR(10), #{srchStartDate}, ${srchDateFormat})
+								AND ${srchDateGbn} <![CDATA[<]]> DATEADD(DAY, 1, CONVERT(CHAR(10), #{srchEndDate}, ${srchDateFormat}))
+							</when>
+							<otherwise>
+								AND ${srchDateGbn} >= #{srchStartDate}
+								AND ${srchDateGbn} <![CDATA[<=]]> #{srchEndDate}
+							</otherwise>
+						</choose>
+					</if>
+					<if test="srchCancelYn != null and srchCancelYn != ''">
+					   AND tbd.CANCEL_YN = #{srchCancelYn}
+					</if>
+					<if test="srchCustomerGuBun != null and srchCustomerGuBun != '' and srchCustomerGuBun == 'CUSTOMER'">
+						<choose>
+							<when test="srchCustomerCode != null and srchCustomerCode != ''">
+								AND tbi.CUSTOMER_CODE = #{srchCustomerCode}
+							</when>
+							<when test="srchCustomerName != null and srchCustomerName != ''">
+								AND tbi.CUSTOMER_NAME LIKE CONCAT('%', #{srchCustomerName}, '%')
+							</when>
+						</choose>
+					</if>
+					<if test="srchCustomerGuBun != null and srchCustomerGuBun != '' and srchCustomerGuBun == 'FWD'">
+						<choose>
+							<when test="srchFwdCode != null and srchFwdCode != ''">
+								AND tbd.FWD_CODE = #{srchFwdCode}
+							</when>
+							<when test="srchFwdName != null and srchFwdName != ''">
+								AND tbd.FWD_NAME LIKE CONCAT('%', #{srchFwdName}, '%')
+							</when>
+						</choose>
+					</if>
+					<if test="srchCommodityItemLocName != null and srchCommodityItemLocName != ''">
+						AND tbi.COMMODITY_ITEM_LOC LIKE CONCAT('%', #{srchCommodityItemLocName}, '%')
+					</if>
+			   ) AA
+		<include refid="org.yht.exps.express.mapper.CommonMapper.pageBottom" />
+	</select>
+
+</mapper>

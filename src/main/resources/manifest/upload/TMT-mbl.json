@@ -1,0 +1,86 @@
+[
+	{
+		"size": 20,
+		"func": "setMawb"
+	},
+	{
+		"size": 4,
+		"func": "setMsn"
+	},
+	{
+		"size": 20,
+		"func": "setLoadPortName"
+	},
+	{
+		"size": 3,
+		"func": "setLoadIataCode"
+	},
+	{
+		"size": 20,
+		"func": "setUnldPortName"
+	},
+	{
+		"size": 3,
+		"func": "setUnldIataCode"
+	},
+	{
+		"size": 1,
+		"func": "setCargoClass"
+	},
+	{
+		"size": 1,
+		"func": "setMawbType"
+	},
+	{
+		"size": 10,
+		"func": "setPiecesNo"
+	},
+	{
+		"size": 17,
+		"func": "setWeightKg"
+	},
+	{
+		"size": 200,
+		"func": "setGoodsDescript"
+	},
+	{
+		"size": 100,
+		"func": "setConsigneeName"
+	},
+	{
+		"size": 2,
+		"func": "setConsigneeNationCode"
+	},
+	{
+		"size": 5,
+		"func": "setConsigneeCityCode"
+	},
+	{
+		"size": 150,
+		"func": "setConsigneeAddr"
+	},
+	{
+		"size": 25,
+		"func": "setConsigneeTelFax"
+	},
+	{
+		"size": 4,
+		"func": "setDangerCode1"
+	},
+	{
+		"size": 4,
+		"func": "setDangerCode2"
+	},
+	{
+		"size": 8,
+		"func": "setWarehouseCode"
+	},
+	{
+		"size": 10,
+		"func": "setUnloadSpot"
+	},
+	{
+		"size": 1,
+		"func": "setAcceptCode"
+	}
+]

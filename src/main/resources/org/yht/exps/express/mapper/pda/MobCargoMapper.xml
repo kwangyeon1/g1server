@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.yht.exps.express.mapper.pda.MobCargoMapper">
+		
+	<select id="selectCargoDetailByCarryIn" parameterType="searchMobCargo" resultType="mobCargo" >
+		/* MobCargoMapper.selectCargoDetailByCarryIn : 화물조회 - 화물 상세 조회 By 반입 */
+		SELECT 
+		       I.OD_JOB_NO,
+		       I.CT, /* 수량 */	 
+			   I.WT, /* 중량 */ 
+		       I.LOCATION_PLACE,  /* 장치위치 1) */ 
+		       ISNULL(LOC.NAME_KOR,'') AS LOCATION_PLACE_NAME, /* 장치위치 2) */	  
+			   ISNULL(CD.NAME_DEFAULT,'') AS CD_TYPE_NAME, /* 화물구분 1) */
+			   I.BIG_SIZE_YN, /* 화물구분 2) */
+			   I.REMARKS_1 , /* 화물구분 3) */   
+			   ISNULL(SIC.NAME_DEFAULT,'') AS SE_INSPECTION_CODE_NAME, /* 검사구분 1) */	   
+			   ISNULL(SIC2.NAME_DEFAULT,'') AS XRAY_INSPECTION_CODE_NAME, /* 검사구분 2) */	 
+			   ISNULL(SIC3.NAME_DEFAULT,'') AS PALN5EM_INSPECTION_CODE_NAME, /* 검사구분 3) */	
+			   ISNULL(LIR.INSPECTION_FINISH_YN,'') AS INSPECTION_FINISH_YN, /* 검사구분 4) */		  
+			   CASE WHEN ISNULL(H.CNT,0) = 1 THEN H.HOLD_REASON 
+			        WHEN ISNULL(H.CNT,0) > 1 THEN H.HOLD_REASON + ' 외'+ CAST(H.CNT-1 AS VARCHAR) 
+					ELSE  ''
+		       END AS HOLD_REASON, /* 홀드사유 1) */
+			   H.HOLD_RELEASE_YN, /* 홀드사유 2) */	
+			   ISNULL(POD1.NAME_DEFAULT,'') AS LAST_POD_STATUS_NAME, /* 진행상태 1) */
+			   ISNULL(POD2.NAME_DEFAULT,'') AS LAST_POD_5TL_STATUS_NAME, /* 진행상태 2) */	  
+			   CASE WHEN ISNULL(OP.APPROVAL_CLASS,'') = 31 THEN '승인' 	
+			        WHEN ISNULL(OP.APPROVAL_CLASS,'') = 1 THEN '취하' 	
+					ELSE  ''
+		       END AS APPROVAL_CLASS, /* 진행상태 3) */
+			   ISNULL(O.O_POD_STATUS_NAME,'') AS O_POD_STATUS_NAME, /* 진행상태 4) */
+			   SUBSTRING(I.AR_DATE + ' ' + I.AR_TIME, 3, LEN(I.AR_DATE + ' ' + I.AR_TIME)) AS AR_DATE_TIME , /* 입항일시 1) */
+			   SUBSTRING(I.CARRYIN_DATE+ ' ' + I.CARRYIN_TIME, 3, LEN(I.CARRYIN_DATE+ ' ' + I.CARRYIN_TIME)) AS CARRYIN_DATE_TIME, /* 입항일시 2) */
+	   		   SUBSTRING(ISNULL(OP.NOTIFY_DATE_TIME,''), 3, LEN(ISNULL(OP.NOTIFY_DATE_TIME,''))) AS NOTIFY_DATE_TIME, /* 승인일시 1) */
+			   CASE WHEN ISNULL(O.O_CNT,0) > 1 THEN '분할'
+			        ELSE SUBSTRING(ISNULL(O.CARRYOUT_DATE_TIME, ''), 3, LEN(ISNULL(O.CARRYOUT_DATE_TIME, '')))
+		       END AS CARRYOUT_DATE_TIME, /* 승인일시 2) */	 	  
+			   I.COMMODITY_ITEM_LOC, /* 품명 */
+			   I.SHIPPER_NAME, /* 송하인 */
+		       I.CONSIGNEE_NAME, /* 수하인 */
+			   I.CONSIGNEE_TEL, /* 수하인전화번호 */
+			   I.XRAY_IMAGE_CT, /* 판독수량 */ 	   	  	   	  
+			   I.DELIVERY_NAME, /* 배송사 */
+			   CASE WHEN ISNULL(OP.APPROVAL_CLASS,'') = 31 THEN SUBSTRING(OP.OUT_SCAN_DATE_TIME, 3, LEN(OP.OUT_SCAN_DATE_TIME)) 
+			   		ELSE  ''
+		       END AS OUT_SCAN_DATE_TIME /* 출고 */
+		FROM TB_BMS_IN I WITH (NOLOCK)
+		LEFT JOIN (SELECT O.IN_NO
+		                 ,COUNT(*) AS O_CNT
+						 ,MAX(ISNULL(POD3.NAME_DEFAULT,'')) AS O_POD_STATUS_NAME
+						 ,MAX(O.CARRYOUT_DATE + ' ' + O.CARRYOUT_TIME) AS CARRYOUT_DATE_TIME
+		           FROM TB_BMS_OUT O WITH (NOLOCK)
+				   LEFT JOIN TB_SMS_CODE_DETAIL POD3
+		           ON O.LAST_POD_STATUS = POD3.CODE AND POD3.GROUP_CODE = 'STATUS_ORDER_CARGO'
+				   GROUP BY O.IN_NO ) O   
+		ON I.IN_NO = O.IN_NO AND I.IN_NO > 0 
+		LEFT JOIN TB_SMS_CODE_DETAIL LOC
+		ON I.LOCATION_PLACE = LOC.CODE AND LOC.GROUP_CODE = 'WH_LOCATION'
+		LEFT JOIN TB_SMS_CODE_DETAIL CD
+		ON I.CD_TYPE = CD.CODE AND CD.GROUP_CODE = 'CD_TYPE'
+		LEFT JOIN TB_SMS_CODE_DETAIL SIC
+		ON I.SE_INSPECTION_CODE = SIC.CODE AND SIC.GROUP_CODE = 'SE_INSPECTION_CODE'
+		LEFT JOIN TB_SMS_CODE_DETAIL SIC2
+		ON I.XRAY_INSPECTION_CODE = SIC2.CODE AND SIC2.GROUP_CODE = 'SE_INSPECTION_CODE'
+		LEFT JOIN TB_SMS_CODE_DETAIL SIC3
+		ON I.PALN5EM_INSPECTION_CODE = SIC3.CODE AND SIC3.GROUP_CODE = 'SE_INSPECTION_CODE'
+		LEFT JOIN (SELECT MAX(APPROVAL_CLASS) AS APPROVAL_CLASS
+		                 ,MAX(CONVERT(VARCHAR,NOTIFY_DATE_TIME,20)) AS NOTIFY_DATE_TIME
+						 ,MAX(CONVERT(VARCHAR,OUT_SCAN_DATE_TIME,20)) AS OUT_SCAN_DATE_TIME
+		                 ,IN_NO
+		           FROM TB_BMS_OUT_PLAN WITH (NOLOCK)
+				   GROUP BY IN_NO) OP
+		ON I.IN_NO = OP.IN_NO  AND I.IN_NO > 0
+		LEFT JOIN (SELECT OD_JOB_NO, 
+		                  COUNT(*) AS CNT, 
+						  MAX(HIC.NAME_KOR)  AS HOLD_REASON, 
+						  MIN(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN  
+		           FROM TB_ECM_OD_HOLD H
+				   LEFT JOIN TB_SMS_CODE_DETAIL HIC
+		           ON H.HOLD_CODE = HIC.CODE AND HIC.GROUP_CODE = 'HOLD_CODE'
+		           GROUP BY OD_JOB_NO) AS H
+		ON I.OD_JOB_NO = H.OD_JOB_NO
+		LEFT JOIN (SELECT OD_JOB_NO,
+		                  MAX(CAST(DIM_WIDTH AS VARCHAR) + '*' + CAST(DIM_HEIGHT AS VARCHAR) + '*' + CAST(DIM_HEIGHT AS VARCHAR)) AS DIM
+		           FROM TB_ECM_OD_ITEM
+				   GROUP BY OD_JOB_NO) AS ITEM
+		ON I.OD_JOB_NO = ITEM.OD_JOB_NO
+		LEFT JOIN TB_BMS_LOCAL_INSPECT_RESULT LIR
+		ON I.IN_NO = LIR.IN_NO
+		LEFT JOIN TB_SMS_CODE_DETAIL POD1
+		ON I.LAST_POD_STATUS = POD1.CODE AND POD1.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		LEFT JOIN TB_SMS_CODE_DETAIL POD2
+		ON I.LAST_POD_5TL_STATUS = POD2.CODE AND POD2.GROUP_CODE = 'STATUS_ORDER_CARGO'
+		WHERE I.IN_NO = #{srchNo}			
+	</select>
+	
+	<select id="selectCargoDetailByInPlan" parameterType="searchMobCargo" resultType="mobCargo" >
+		/* MobCargoMapper.selectCargoDetailByInPlan : 화물조회 - 화물 상세 조회 By 반입예정 */
+		SELECT P.OD_JOB_NO,
+			   P.EX_CT AS CT, /* 수량 */	 
+			   P.EX_WT AS WT, /* 중량 */ 
+		       '' AS LOCATION_PLACE,  /* 장치위치 1) */
+		       '' AS LOCATION_PLACE_NAME, /* 장치위치 2) */	  
+			   ISNULL(CD.NAME_DEFAULT,'') AS CD_TYPE_NAME, /* 화물구분 1) */
+			   P.BIG_SIZE_YN, /* 화물구분 2) */
+			   '' AS REMARKS_1 , /* 화물구분 3) */	 	    
+			   ISNULL(SIC.NAME_DEFAULT,'') AS SE_INSPECTION_CODE_NAME, /* 검사구분 1) */	   
+			   '' AS XRAY_INSPECTION_CODE_NAME, /* 검사구분 2) */	 
+			   '' AS PALN5EM_INSPECTION_CODE_NAME, /* 검사구분 3) */	
+			   '' AS INSPECTION_FINISH_YN, /* 검사구분 4) */		  
+			   CASE WHEN ISNULL(H.CNT,0) = 1 THEN H.HOLD_REASON 
+			        WHEN ISNULL(H.CNT,0) > 1 THEN H.HOLD_REASON + ' 외'+ CAST(H.CNT-1 AS VARCHAR) 
+					ELSE  ''
+		       END AS HOLD_REASON, /* 홀드사유 1) */
+			   H.HOLD_RELEASE_YN, /* 홀드사유 2) */	
+			   '' AS LAST_POD_STATUS_NAME, /* 진행상태 1) */
+			   '' AS LAST_POD_5TL_STATUS_NAME, /* 진행상태 2) */	  
+			   '' AS APPROVAL_CLASS, /* 진행상태 3) */
+			   '' AS O_POD_STATUS_NAME, /* 진행상태 4) */
+			   P.AR_DATE + ' ' + P.AR_TIME  AS AR_DATE_TIME , /* 입항일시 1) */
+			   '' AS CARRYIN_DATE_TIME, /* 입항일시 2) */
+			   '' AS NOTIFY_DATE_TIME, /* 승인일시 1) */
+			   '' AS CARRYOUT_DATE_TIME, /* 승인일시 2) */	 	  
+			   P.COMMODITY_ITEM_LOC, /* 품명 */
+			   P.SHIPPER_NAME, /* 송하인 */
+		       P.CONSIGNEE_NAME, /* 수하인 */
+			   P.CONSIGNEE_TEL,/* 수하인전화번호 */
+			   X.XRAY_IMAGE_CT, /* 판독수량 */ 	   	  	   	  
+			   P.DELIVERY_NAME, /* 배송사 */
+			   '' AS OUT_SCAN_DATE_TIME /* 출고 */
+		FROM TB_BMS_IN_PLAN P WITH (NOLOCK)
+		LEFT JOIN TB_BMS_XRAY_RESULT X
+		ON P.IN_PLAN_NO = X.IN_PLAN_NO AND P.IN_PLAN_NO > 0 
+		LEFT JOIN TB_SMS_CODE_DETAIL CD
+		ON P.CD_TYPE = CD.CODE AND CD.GROUP_CODE = 'CD_TYPE'
+		LEFT JOIN TB_SMS_CODE_DETAIL SIC
+		ON P.SE_INSPECTION_CODE = SIC.CODE AND SIC.GROUP_CODE = 'SE_INSPECTION_CODE'
+		LEFT JOIN (SELECT OD_JOB_NO, 
+		                  COUNT(*) AS CNT, 
+						  MAX(HIC.NAME_KOR)  AS HOLD_REASON, 
+						  MIN(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN  
+		           FROM TB_ECM_OD_HOLD H
+				   LEFT JOIN TB_SMS_CODE_DETAIL HIC
+		           ON H.HOLD_CODE = HIC.CODE AND HIC.GROUP_CODE = 'HOLD_CODE'
+		           GROUP BY OD_JOB_NO) AS H
+		ON P.OD_JOB_NO = H.OD_JOB_NO
+		WHERE P.IN_PLAN_NO = #{srchNo}		
+	</select>
+	
+	<select id="selectCargoDetailByOrder" parameterType="searchMobCargo" resultType="mobCargo" >
+		/* MobCargoMapper.selectCargoDetailByOrder : 화물조회 - 화물 상세 조회 By 오더 */
+		SELECT O.OD_JOB_NO,
+			   O.PIECES AS CT, /* 수량 */	 
+			   O.GWT AS WT, /* 중량 */ 
+		       '' AS LOCATION_PLACE,  /* 장치위치 1) */ 
+		       '' AS LOCATION_PLACE_NAME, /* 장치위치 2) */	  
+			   ISNULL(CD.NAME_DEFAULT,'') AS CD_TYPE_NAME, /* 화물구분 1) */
+			   '' AS BIG_SIZE_YN, /* 화물구분 2) */
+			   '' AS REMARKS_1 , /* 화물구분 3) */	 	    
+			   ISNULL(SIC.NAME_DEFAULT,'') AS SE_INSPECTION_CODE_NAME, /* 검사구분 1) */	   
+			   '' AS XRAY_INSPECTION_CODE_NAME, /* 검사구분 2) */	 
+			   '' AS PALN5EM_INSPECTION_CODE_NAME, /* 검사구분 3) */	
+			   '' AS INSPECTION_FINISH_YN, /* 검사구분 4) */		  
+			   CASE WHEN ISNULL(H.CNT,0) = 1 THEN H.HOLD_REASON 
+			        WHEN ISNULL(H.CNT,0) > 1 THEN H.HOLD_REASON + ' 외'+ CAST(H.CNT-1 AS VARCHAR) 
+					ELSE  ''
+		       END AS HOLD_REASON, /* 홀드사유 1) */
+			   H.HOLD_RELEASE_YN, /* 홀드사유 2) */	
+			   '' AS LAST_POD_STATUS_NAME, /* 진행상태 1) */
+			   '' AS LAST_POD_5TL_STATUS_NAME, /* 진행상태 2) */	  
+			   '' AS APPROVAL_CLASS, /* 진행상태 3) */
+			   '' AS O_POD_STATUS_NAME, /* 진행상태 4) */
+			   CONVERT(VARCHAR,O.AR_DATE,21) + ' ' + O.AR_TIME  AS AR_DATE_TIME , /* 입항일시 1) */
+			   '' AS CARRYIN_DATE_TIME, /* 입항일시 2) */
+			   '' AS NOTIFY_DATE_TIME, /* 승인일시 1) */
+			   '' AS CARRYOUT_DATE_TIME, /* 승인일시 2) */	 	  
+			   OA.COMMODITY_ITEM_LOC, /* 품명 */
+			   O.SHIPPER_NAME, /* 송하인 */
+		       O.CONSIGNEE_NAME, /* 수하인 */
+			   O.CONSIGNEE_TEL, /* 수하인전화번호 */
+			   0 AS XRAY_IMAGE_CT, /* 판독수량 */ 	   	  	   	  
+			   O.DELIVERY_NAME, /* 배송사 */
+			   '' AS OUT_SCAN_DATE_TIME /* 출고 */
+		FROM TB_ECM_OD O 
+		LEFT JOIN TB_ECM_OD_ADDITIONAL OA
+		ON O.OD_JOB_NO = OA.OD_JOB_NO
+		LEFT JOIN TB_SMS_CODE_DETAIL CD
+		ON O.CD_TYPE = CD.CODE AND CD.GROUP_CODE = 'CD_TYPE'
+		LEFT JOIN TB_SMS_CODE_DETAIL SIC
+		ON OA.SE_INSPECTION_CODE = SIC.CODE AND SIC.GROUP_CODE = 'SE_INSPECTION_CODE'
+		LEFT JOIN (SELECT OD_JOB_NO, 
+		                  COUNT(*) AS CNT, 
+						  MAX(HIC.NAME_KOR)  AS HOLD_REASON, 
+						  MIN(HOLD_RELEASE_YN) AS HOLD_RELEASE_YN  
+		           FROM TB_ECM_OD_HOLD H
+				   LEFT JOIN TB_SMS_CODE_DETAIL HIC
+		           ON H.HOLD_CODE = HIC.CODE AND HIC.GROUP_CODE = 'HOLD_CODE'
+		           GROUP BY OD_JOB_NO) AS H
+		ON O.OD_JOB_NO = H.OD_JOB_NO
+		WHERE O.OD_JOB_NO = #{srchNo}		
+	</select>
+	
+	<select id="checkCargoListByBlNo" parameterType="searchMobCargo" resultType="mobCargo" >
+		/* MobCargoMapper.checkCargoListByBlNo : 화물조회 - BL 중복체크 */
+			<if test="srchInGbn != null and srchInGbn != '' and srchInGbn == 'in'">
+				SELECT 'IN' AS dGbn
+				      ,ISNULL(SUBSTRING(AR_DATE,3,8), '') AS AR_DATE_TIME
+		      		  ,ISNULL(SUBSTRING(CARRYIN_DATE,3,8) + ' ' + CARRYIN_TIME, '') AS CARRYIN_DATE_TIME
+					  ,CASE WHEN IN_CLASS = '10' THEN '입항'
+					        WHEN IN_CLASS = '21' THEN '이고'
+							WHEN IN_CLASS = '20' THEN '보운'
+							ELSE  '기타'
+							END AS IN_CLASS_NAME
+				       ,IN_NO AS IN_NO
+					   ,IN_PLAN_NO AS IN_PLAN_NO
+					   ,OD_JOB_NO 
+				FROM TB_BMS_IN WITH (NOLOCK)
+				WHERE BL_NO = #{hblNo}
+			</if>
+			<if test="srchInPlanGbn != null and srchInPlanGbn != '' and srchInPlanGbn == 'in_plan'">
+				UNION ALL
+				SELECT 'IN_PLAN' AS dGbn
+				   ,ISNULL(SUBSTRING(AR_DATE,3,8), '') AS AR_DATE_TIME
+				   ,'' AS CARRYIN_DATE_TIME
+				   ,'' AS IN_CLASS_NM
+				      ,0 AS IN_NO
+				      ,IN_PLAN_NO AS IN_PLAN_NO
+					  ,OD_JOB_NO 
+				FROM TB_BMS_IN_PLAN WITH (NOLOCK)
+				WHERE BL_NO = #{hblNo} AND IN_YN = 'N'
+			</if>
+			<if test="srchOrderGbn != null and srchOrderGbn != '' and srchOrderGbn == 'od'">
+				UNION ALL
+				SELECT 'ORDER' AS dGbn
+				   ,ISNULL(SUBSTRING(CONVERT(VARCHAR,AR_DATE,21),3,8), '') AS AR_DATE_TIME
+				   ,'' AS CARRYIN_DATE_TIME
+				   ,'' AS IN_CLASS_NM   
+				   ,0 AS IN_NO
+				   ,0 AS IN_PLAN_NO
+				   ,OD_JOB_NO 
+				FROM TB_ECM_OD
+				WHERE HBL_NO = #{hblNo}
+			</if>
+	</select>
+</mapper>
