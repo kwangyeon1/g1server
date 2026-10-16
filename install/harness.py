@@ -5,10 +5,8 @@ from __future__ import annotations
 import argparse
 import contextlib
 import io
-import fnmatch
 import hashlib
 import json
-import math
 import os
 from pathlib import Path
 import re
@@ -18,7 +16,6 @@ import sys
 import tempfile
 import uuid
 from datetime import datetime, timezone
-from collections import Counter
 from types import SimpleNamespace
 import xml.etree.ElementTree as ET
 
@@ -162,7 +159,7 @@ class Harness:
             git_status = "available" if result.returncode == 0 and result.stdout.strip() == "true" else "unavailable; file hashes still work"
         report = {"at": now(), "python": sys.version.split()[0], "platform": sys.platform,
                   "project_root": str(self.root), "executables": tools, "git": git_status,
-                  "search_engine": "JSON BM25; no database or DDL", "gradle_wrapper": (self.root / "gradlew.bat").exists(),
+                  "search_engine": "Git HEAD BM25 locate; local SQLite; no embeddings", "gradle_wrapper": (self.root / "gradlew.bat").exists(),
                   "application_not_run": True, "database_not_connected": True,
                   "note": "Core requires Python 3.11+. Java/Gradle and sqlcmd are needed only for their execution commands."}
         write_json(self.runtime / "doctor.json", report)
@@ -184,7 +181,7 @@ class Harness:
         if not interpreter.exists():
             raise ValueError("Existing .venv is incomplete or belongs to another OS; do not share venvs")
         subprocess.run([str(interpreter), "-c", "import sys; assert sys.version_info >= (3,11)"], check=True)
-        for name in ("tasks", "runs", "search"):
+        for name in ("tasks", "runs", "locate"):
             (self.runtime / name).mkdir(parents=True, exist_ok=True)
         if not skip_agent_guidance:
             self.install_guidance()
@@ -207,12 +204,14 @@ class Harness:
         marker = self.config.get("guidance_marker", "daemon-harness")
         start, end = f"<!-- {marker}:start -->", f"<!-- {marker}:end -->"
         edits = []
-        for name, template in (("AGENTS.md", "agents-root.md"), ("CLAUDE.md", "claude-root.md")):
+        for name, template in (("AGENTS.md", "agents-root.md"), ("CLAUDE.md", "agents-root.md")):
             path = safe_path(self.root, name)
             if (self.root / name).is_symlink():
                 raise ValueError("Root guidance must not be a symlink")
             old = path.read_text(encoding="utf-8") if path.exists() else ""
             body = (self.install / "templates" / template).read_text(encoding="utf-8").strip()
+            map_path = self.install / 'knowledge/project-map.md'
+            body = body.replace('{{PROJECT_MAP}}', map_path.read_text(encoding='utf-8').strip() if map_path.exists() else '')
             block = start + "\n" + body + "\n" + end
             if old.count(start) != old.count(end) or old.count(start) > 1:
                 raise ValueError(f"Repair malformed managed markers in {name} before installing")
@@ -325,7 +324,7 @@ class Harness:
         text += ["", "## 필요할 때 읽을 원문", "- install/knowledge/generated/project-facts.md",
                  "- install/knowledge/generated/test-facts.md", "- install/knowledge/generated/review-queue.md",
                  f"- install/.runtime/tasks/{task}/handoff.md (전체 제약과 결정)",
-                 "- install/docs/database.md (현재 DB는 MCP로 다시 조회; 저장 결과는 당시 스냅샷)",
+                 "- install/knowledge/database.md (대상 프로젝트의 조회 도구로 현재 상태 확인; 저장 결과는 당시 스냅샷)",
                  "- install/run.ps1 search-code 또는 search-docs (Linux: sh install/run.sh)"]
         path = handoff.parent / "context.md"
         path.write_text("\n".join(text) + "\n", encoding="utf-8")
@@ -472,15 +471,17 @@ class Harness:
                 checks[name] = guidance[name]
         for name in ("project-facts.md", "test-facts.md", "review-queue.md"):
             checks[name] = (self.install / "knowledge/generated" / name).exists()
-        index = read_json(self.runtime / "search/index.json", {})
-        checks["index_current"] = index.get("manifest") == self.documents()
+        from navigation import Locator
+        navigation = Locator(self.root, self.install).status()
+        checks["navigation_initialized"] = navigation.get('status') in ('CURRENT', 'WAITING_GIT_COMMIT', 'DISABLED')
         baseline = read_json(self.install / "knowledge/source-baseline.json", {})
         reviewed = baseline.get("source_hashes") == self.sources()
         status = "READY" if all(checks.values()) and reviewed else "READY_REVIEW_REQUIRED" if all(checks.values()) else "INCOMPLETE"
         if status == "READY" and not requested_guidance:
             status = "READY_LOCAL_ONLY"
         report = {"status": status, "at": now(), "checks": checks, "source_review_current": reviewed,
-                  "root_agent_guidance": guidance, "automatic_project_guidance_installed": requested_guidance and all(guidance.values())}
+                  "root_agent_guidance": guidance, "navigation": navigation,
+                  "automatic_project_guidance_installed": requested_guidance and all(guidance.values())}
         write_json(self.runtime / "installation-check.json", report)
         emit(report)
         return 0 if status in ("READY", "READY_LOCAL_ONLY") else 2 if status == "READY_REVIEW_REQUIRED" else 1
@@ -498,7 +499,8 @@ class Harness:
         return 0
 
     def sensitive_source(self, name):
-        return any(fnmatch.fnmatchcase(name, pattern) for pattern in self.config.get("sensitive_source_globs", []))
+        from navigation import path_matches
+        return path_matches(name, self.config.get("sensitive_source_globs", []))
 
     def task_path(self, task):
         if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}", task):
@@ -571,67 +573,28 @@ class Harness:
         emit(state["evidence"][-1])
         return 0
 
-    def documents(self):
-        docs = {}
-        for pattern in self.config["document_globs"]:
-            for path in self.root.glob(pattern):
-                relative = path.relative_to(self.root).as_posix()
-                if (path.is_file() and path.suffix.lower() == ".md" and not path.is_symlink()
-                        and path.resolve().is_relative_to(self.root) and "/.runtime/" not in relative):
-                    if path.stat().st_size > 2 * 1024 * 1024:
-                        raise ValueError(f"Document too large: {relative}")
-                    docs[relative] = digest(path)
-        return dict(sorted(docs.items()))
-
     def index(self):
-        docs = self.documents()
-        target = self.runtime / "search/index.json"
-        chunks = []
-        for name, sha in docs.items():
-            lines = (self.root / name).read_text(encoding="utf-8").splitlines()
-            for offset in range(0, len(lines), 30):
-                body = "\n".join(lines[offset:offset + 40])
-                chunks.append({"path": name, "start_line": offset + 1, "body": body,
-                               "sha256": sha, "terms": dict(Counter(tokenize(body)))})
-        write_json(target, {"version": 1, "at": now(), "manifest": docs, "chunks": chunks})
-        emit({"status": "INDEXED", "engine": "JSON BM25 lexical only", "documents": len(docs),
-              "chunks": len(chunks), "embedding_calls": 0})
+        """Compatibility alias for the single commit-based locate index."""
+        from navigation import Locator
+        if not self.config.get('navigation', {}).get('locate_enabled', True):
+            report = {'status': 'DISABLED'}
+        else:
+            try:
+                report = Locator(self.root, self.install).update()
+            except (ValueError, FileNotFoundError) as exc:
+                report = {'status': 'WAITING_GIT_COMMIT', 'note': str(exc)}
+        emit(report)
         return 0
 
     def search_docs(self, query, limit):
-        target = self.runtime / "search/index.json"
-        if not target.exists():
-            raise ValueError("No index. Run index-docs first")
-        tokens = sorted(set(tokenize(query)))
-        if not tokens:
-            raise ValueError("Query needs words or identifiers")
-        baseline = read_json(self.install / "knowledge/source-baseline.json", {})
-        if baseline.get("source_hashes") != self.sources():
-            emit({"status": "STALE_KNOWLEDGE", "action": "refresh; review relevant docs; accept-review; index-docs"})
+        """Legacy command alias: location metadata only, no separate document search."""
+        from navigation import Locator
+        try:
+            emit(Locator(self.root, self.install).locate(query, limit))
+            return 0
+        except (ValueError, FileNotFoundError) as exc:
+            emit({'status': 'UNAVAILABLE', 'results': [], 'note': str(exc)})
             return 2
-        index = read_json(target)
-        if index["manifest"] != self.documents():
-            emit({"status": "STALE_INDEX", "action": "Run index-docs; added/changed/deleted documents detected"})
-            return 2
-        chunks = index["chunks"]
-        frequency = Counter(t for c in chunks for t in c["terms"])
-        average = sum(sum(c["terms"].values()) for c in chunks) / max(1, len(chunks)) or 1
-        results = []
-        for chunk in chunks:
-            length = sum(chunk["terms"].values())
-            score = 0.0
-            for token in tokens:
-                tf = chunk["terms"].get(token, 0)
-                if tf:
-                    idf = math.log(1 + (len(chunks) - frequency[token] + 0.5) / (frequency[token] + 0.5))
-                    score += idf * tf * 2.2 / (tf + 1.2 * (0.25 + 0.75 * length / average))
-            if score > 0:
-                results.append({"path": chunk["path"], "start_line": chunk["start_line"],
-                                "excerpt": chunk["body"], "sha256": chunk["sha256"], "score": score})
-        results.sort(key=lambda item: (-item["score"], item["path"], item["start_line"]))
-        emit({"status": "FOUND" if results else "NO_MATCH", "engine": "JSON BM25; no semantic search or answer generation",
-              "results": results[:limit]})
-        return 0
 
     def run_dir(self, kind):
         path = self.runtime / "runs" / (datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + kind + "-" + uuid.uuid4().hex[:8])
@@ -757,7 +720,7 @@ class Harness:
             return 0
         sqlcmd = shutil.which("sqlcmd")
         if not sqlcmd:
-            raise ValueError("sqlcmd is unavailable; use the existing DB MCP workflow in docs/database.md")
+            raise ValueError("sqlcmd is unavailable; configure the project database tools and see install/knowledge/database.md")
         run = self.run_dir("db-schema")
         script = run / "query.sql"
         script.write_text(query, encoding="utf-8", newline="\n")
@@ -777,13 +740,6 @@ class Harness:
         self.attach_run(run, result)
         emit(result)
         return 0 if result["status"] == "SCHEMA_CAPTURED" else 1
-
-
-def tokenize(text):
-    terms = re.findall(r"\w+", text.casefold(), flags=re.UNICODE)
-    # Small local Korean-friendly lexical index. Not a morphological or embedding model.
-    return terms + [word[i:i + 2] for word in re.findall(r"[가-힣]{3,}", text)
-                    for i in range(len(word) - 1)]
 
 
 def parse_junit(folder):
@@ -819,6 +775,8 @@ def main():
     p = sub.add_parser("setup")
     p.add_argument("--execute", action="store_true")
     p.add_argument("--skip-agent-guidance", action="store_true")
+    p = sub.add_parser('install-guidance')
+    p.add_argument('--execute', action='store_true')
     p = sub.add_parser("accept-review")
     p.add_argument("--note", required=True)
     p = sub.add_parser('run-check')
@@ -915,7 +873,8 @@ def main():
         return h.session(args)
     if args.command == "sync":
         code = h.sync()
-        emit({"status": "REVIEW_REQUIRED" if code else "CURRENT", "index": "UPDATED", "generated_knowledge": "UPDATED"})
+        from navigation import Locator
+        emit({"status": "REVIEW_REQUIRED" if code else "CURRENT", "index": Locator(h.root, h.install).status(), "generated_knowledge": "UPDATED"})
         return code
     if args.command == "db-request":
         return h.db_request(args)
@@ -925,6 +884,10 @@ def main():
         return h.doctor()
     if args.command == "setup":
         return h.setup(args.execute, args.skip_agent_guidance)
+    if args.command == 'install-guidance':
+        h.install_guidance(plan=not args.execute)
+        emit({'status': 'UPDATED' if args.execute else 'PLAN', 'files': ['AGENTS.md', 'CLAUDE.md']})
+        return 0
     if args.command == "refresh":
         return h.refresh()
     if args.command == "accept-review":

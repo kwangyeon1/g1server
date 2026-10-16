@@ -44,7 +44,7 @@ def scan_sources(root, install, config):
         for name in sorted(files):
             p = base / name
             rel = p.relative_to(root).as_posix()
-            if p.is_symlink() or name in ('AGENTS.md', 'CLAUDE.md'):
+            if p.is_symlink() or name in ('AGENTS.md', 'CLAUDE.md', '.mcp.json'):
                 continue
             if any(fnmatch.fnmatch(name.lower(), pat.lower()) for pat in SECRETS):
                 continue

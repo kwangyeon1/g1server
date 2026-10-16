@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "term": "세관검사장",
+      "aliases": [
+        "세관 검사장"
+      ],
+      "symbols": [
+        "BMSA2",
+        "LAST_POD_STATUS",
+        "updateCustomsInspect"
+      ],
+      "reviewed": false,
+      "evidence": [
+        {
+          "path": "src/main/java/org/yht/exps/express/model/bms/BmsConsts.java",
+          "line": 163
+        },
+        {
+          "path": "src/main/resources/org/yht/exps/express/mapper/bms/BmsOutMapper.xml",
+          "line": 4878
+        }
+      ]
+    },
+    {
+      "term": "반출",
+      "aliases": [],
+      "symbols": [
+        "BmsOut",
+        "TB_BMS_OUT"
+      ],
+      "reviewed": false,
+      "evidence": [
+        {
+          "path": "src/main/java/org/yht/exps/express/controller/bms/BmsOutController.java",
+          "line": 472
+        },
+        {
+          "path": "src/main/resources/org/yht/exps/express/mapper/bms/BmsOutMapper.xml",
+          "line": 4876
+        }
+      ]
+    }
+  ]
+}

@@ -257,9 +257,9 @@ class Wizard:
                 print(str(exc)); continue
             print('검색 상태: ' + result['status'])
             for item in result.get('results', []):
-                print(f"\n{item['path']}:{item['start_line']}\n{item['excerpt'][:500]}")
-            if result['status'] == 'STALE_KNOWLEDGE':
-                print('원문 검토 기준 등록이 필요합니다. TUI의 검토 단계 또는 run.ps1 accept-review를 사용하세요.')
+                print(f"\n{item['path']}:{item['start_line']}-{item['end_line']} {item['symbol']} stale={item['stale']}")
+            if result['status'] == 'UNAVAILABLE':
+                print('Git 저장소와 첫 커밋을 확인하세요. 미커밋 원문은 grep으로 탐색하세요.')
             if self.choose('1 다른 검색어 / 2 종료 [2]: ', ('1', '2'), '2') == '2':
                 return code
 
@@ -304,11 +304,15 @@ class Wizard:
 def main():
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.parse_args()
+    parser.add_argument('--glossary', action='store_true', help='근거를 읽고 용어 사전 초안 검토')
+    args = parser.parse_args()
     if sys.version_info < (3, 11):
         print('Python 3.11 이상이 필요합니다.')
         return 1
     try:
+        if args.glossary:
+            from installer import review_glossary
+            return review_glossary(INSTALL)
         return Wizard().run()
     except (Cancel, KeyboardInterrupt, EOFError):
         print('\n종료했습니다. 저장 단계 이전 입력은 파일에 반영되지 않습니다.')

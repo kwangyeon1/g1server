@@ -48,28 +48,10 @@ class PortableTests(unittest.TestCase):
             self.assertFalse(any(p in Path(name).parts for p in ('.venv', '.runtime', '__pycache__', 'generated', 'hermes')))
             self.assertNotIn('source-baseline.json', name)
             self.assertNotIn('config.local.json', name)
-        self.assertTrue(files['install/README.md'].decode().startswith('# Portable Codex + Hermes harness'))
+        self.assertTrue(files['install/README.md'].decode().startswith('# Portable Codex + Claude harness'))
         self.assertIn('초기 템플릿', files['install/knowledge/project.md'].decode())
         self.assertFalse(json.loads(files['install/config.json'])['commands'])
-
-    def test_python_and_typescript_reach_hermes_review_packet(self):
-        sys.path.insert(0, str(INSTALL / 'bridge'))
-        from bridge import Bridge
-        from unittest.mock import patch
-        (self.root / 'main.py').write_text('def project_example(): return 1')
-        (self.root / 'app.ts').write_text('export const project_example = 1')
-        bridge = Bridge(self.root, self.install)
-        bridge.queue.initialize()
-        bridge.settings.update(settle_seconds=0, abandoned_turn_seconds=0)
-        bridge.queue.enqueue({'session_id': 'fixture', 'turn_id': 'one',
-                              'hook_event_name': 'Stop', 'cwd': str(self.root),
-                              'prompt': 'project_example'}, bridge.settings)
-        job = bridge.queue.claim('fixture-worker', 60, 3)
-        directory = bridge.runtime / 'fixture-review'
-        directory.mkdir()
-        with patch.object(bridge, 'search', return_value={'status': 'NO_MATCH', 'results': []}):
-            packet, _ = bridge.packet(job, directory)
-        self.assertEqual(set(packet['references']), {'main.py', 'app.ts'})
+        self.assertFalse(any('bridge' in name or 'hermes' in name for name in files))
 
     def test_full_bootstrap_empty_repeat_preserves_user_guidance_and_hooks(self):
         (self.root / 'AGENTS.md').write_text('User project rules\n', encoding='utf-8')
@@ -79,15 +61,17 @@ class PortableTests(unittest.TestCase):
         for _ in range(2):
             result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8')
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((self.install / '.runtime/bridge').exists())
+        self.assertFalse(list(self.install.rglob('queue.sqlite*')))
         agents = (self.root / 'AGENTS.md').read_text(encoding='utf-8')
         self.assertTrue(agents.startswith('User project rules'))
         self.assertEqual(agents.count('<!-- project-harness:start -->'), 1)
         hooks = json.loads((self.root / '.codex/hooks.json').read_text(encoding='utf-8'))
         self.assertIn('echo user-hook', json.dumps(hooks))
-        self.assertEqual(len(hooks['hooks']['Stop']), 2)
+        self.assertEqual(len(hooks['hooks']['Stop']), 1)
         python = self.install / '.venv' / ('Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
-        check = subprocess.run([str(python), str(self.install / 'bridge/verify_search.py')], capture_output=True, text=True, encoding='utf-8')
-        self.assertEqual(check.returncode, 0, check.stdout + check.stderr)
+        check = subprocess.run([str(python), str(self.install / 'verify_search.py')], capture_output=True, text=True, encoding='utf-8')
+        self.assertEqual(check.returncode, 2, check.stdout + check.stderr)
 
     def test_existing_node_project_requires_review_and_configured_checks(self):
         (self.root / 'package.json').write_text('{"name":"fixture"}')
@@ -98,7 +82,7 @@ class PortableTests(unittest.TestCase):
         self.assertFalse((self.install / 'knowledge/source-baseline.json').exists())
         quiet(self.h.accept_review, 'Fixture app and package metadata reviewed')
         quiet(self.h.index)
-        self.assertEqual(quiet(self.h.search_docs, '프로젝트', 3), 0)
+        self.assertEqual(quiet(self.h.search_docs, '프로젝트', 3), 2)  # No Git commit: explicit unavailability.
         with self.assertRaises(ValueError):
             self.h.run_check('test', False, 5)
         self.h.config['commands'] = {'test': [sys.executable, '-c', 'print("fixture check")']}

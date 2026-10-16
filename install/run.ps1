@@ -16,4 +16,4 @@ if (Get-Command py -ErrorAction SilentlyContinue) {
     & py -3 (Join-Path $PSScriptRoot 'harness.py') @args
     exit $LASTEXITCODE
 }
-throw 'Python 3.11+ was not found. See install/docs/windows.md.'
+throw 'Python 3.11+ was not found. See install/README.md.'

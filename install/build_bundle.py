@@ -9,13 +9,12 @@ HERE = Path(__file__).resolve().parent
 SOURCES = ['.gitignore', '.gitattributes', 'harness.py', 'project_profile.py',
            'bootstrap.py', 'bootstrap.ps1', 'bootstrap.sh', 'build_bundle.py',
            'configure.py', 'configure.ps1', 'configure.sh',
-           'install-hermes.ps1', 'install-hermes.sh', 'setup.ps1', 'setup.sh',
-           'setup-bridge.ps1', 'setup-bridge.sh', 'run.ps1', 'run.sh',
-           'bridge.ps1', 'bridge.sh', 'bridge-hook.ps1', 'verify-search.ps1',
-           'bridge/bridge.py', 'bridge/store.py', 'bridge/hermes_adapter.py',
-           'bridge/status_view.py', 'bridge/review-prompt.txt',
+           'setup.ps1', 'setup.sh', 'run.ps1', 'run.sh', 'verify-search.ps1',
            'gradle/harness.init.gradle', 'sql/inspect-table.sql', 'sql/inspect-table-mcp.sql',
-           'tests/test_portable.py', 'tests/test_configure.py']
+           'tests/test_portable.py', 'tests/test_configure.py', 'tests/test_navigation.py',
+           'navigation.py', 'locate_mcp.py', 'glossary.py', 'glossary_hook.py', 'glossary-hook.ps1',
+           'agent_setup.py', 'installer.py', 'navigation_eval.py', 'NAVIGATION.md', 'README.md', 'AGENTS.md',
+           'guide.txt', 'templates/agents-root.md', 'verify_search.py']
 
 
 def default_config():
@@ -25,6 +24,7 @@ def default_config():
             'sensitive_source_globs': ['**/application*', '**/*Config*', '**/*config*',
                                        '*config*', '*Config*', '**/.env*'],
             'document_globs': ['install/knowledge/**/*.md'], 'validated_test_classes': [],
+            'navigation': {'glossary_hook_enabled': True, 'locate_enabled': True, 'exclude_globs': []},
             'commands': {}, 'review_targets': ['install/knowledge/' + name + '.md'
                                               for name in ('project', 'testing', 'database', 'decisions')]}
 

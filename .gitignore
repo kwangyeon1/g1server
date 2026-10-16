@@ -49,3 +49,7 @@ src/bms-security-results/
 
 # Temporary IDE launch arguments
 /.temp-*-classpath-arg-*.txt
+
+# Generated local agent integration
+/.claude/
+/.mcp.json

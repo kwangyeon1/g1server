@@ -76,5 +76,12 @@
     "install/knowledge/testing.md",
     "install/knowledge/database.md",
     "install/knowledge/decisions.md"
-  ]
+  ],
+  "navigation": {
+    "glossary_hook_enabled": true,
+    "locate_enabled": true,
+    "exclude_globs": [
+      "src/main/java/org/yht/config/**"
+    ]
+  }
 }

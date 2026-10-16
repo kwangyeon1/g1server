@@ -10,5 +10,5 @@ for candidate in python3 python; do
     exec "$candidate" "$INSTALL_DIR/harness.py" "$@"
   fi
 done
-echo 'Python 3.11+ not found. See install/docs/linux.md.' >&2
+echo 'Python 3.11+ not found. See install/README.md.' >&2
 exit 1

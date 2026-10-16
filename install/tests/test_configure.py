@@ -67,7 +67,9 @@ class ConfigureTests(unittest.TestCase):
         self.assertNotEqual(json.loads((self.install / 'config.json').read_text())['source_globs'], ['*.py'])
 
     def test_full_flow_saves_review_and_search_without_running_registered_command(self):
-        (self.root / 'main.py').write_text('value = 1')
+        (self.root / 'main.py').write_text('# 프로젝트\nvalue = 1')
+        for argv_git in [['init', '-q'], ['add', 'main.py'], ['-c', 'user.name=Harness Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'fixture']]:
+            subprocess.run(['git', '-C', str(self.root), *argv_git], check=True, capture_output=True)
         marker = self.root / 'must-not-run'
         argv = json.dumps([sys.executable, '-c', 'raise SystemExit(99)'])
         answers = ['', '', '', '', argv, '2', '주문 처리 프로젝트 설명', '.', '', '', '', '1',

@@ -3,3 +3,7 @@
 __pycache__/
 *.pyc
 bridge/config.local.json
+knowledge/generated/
+knowledge/hermes/
+knowledge/source-baseline.json
+dist/

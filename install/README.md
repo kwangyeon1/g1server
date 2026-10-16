@@ -1,120 +1,186 @@
-# Portable Codex + Hermes harness
+# Portable Codex + Claude harness
 
-이 install 폴더를 대상 프로젝트 루트에 압축 해제합니다. 빈 폴더에서도 시작할 수 있습니다.
-기존 install 폴더가 있다면 덮어쓰기 전에 내용을 확인하세요. 기존 하네스의 지식·개인 설정을 배포본으로 덮어쓰지 마세요.
-Python 3.11 이상이 필요합니다. 코어는 표준 라이브러리만 사용하며 프로젝트 패키지를 설치하지 않습니다.
+프로젝트에 `install` 폴더를 놓고 사용하는 Python 3.11+ 기반 하네스입니다.
+주 에이전트의 원문 탐색을 돕는 프로젝트 지도, 용어 매칭 훅, BM25 위치 검색을 제공합니다.
+코어는 Python 표준 라이브러리만 사용하며, 위치 검색에는 Git 저장소와 첫 커밋이 필요합니다.
+아래 명령은 프로젝트 루트에서 실행합니다. POSIX 환경에서 `python` 명령이 없으면 `python3`를 사용하세요.
 
-## Windows 설치
+## 문서와 파일 구조
 
-```powershell
-.\install\bootstrap.ps1             # 설치 계획
-.\install\bootstrap.ps1 -Execute    # 실제 로컬 설치
+| 파일 | 용도 |
+|---|---|
+| [NAVIGATION.md](NAVIGATION.md) | 위치 검색·용어 사전·제외 정책·측정 절차 |
+| [AGENTS.md](AGENTS.md) | 하네스 작업 지침 |
+| [knowledge/project-map.md](knowledge/project-map.md) | 루트 에이전트 지침에 들어갈 프로젝트 지도 |
+| `knowledge/glossary.json` | 업무 용어와 코드 식별자의 대응·검토 여부 |
+| `knowledge/project.md`, `testing.md`, `database.md`, `decisions.md` | 사용자가 작성·검토하는 프로젝트 지식 |
+| `config.json` | 소스 범위, 보호 패턴, 탐색 설정, 선택적인 실행 명령 |
+
+```text
+install/
+├─ bootstrap.py / bootstrap.ps1 / bootstrap.sh  설치 진입점
+├─ installer.py                               한글 설치 화면
+├─ configure.py                               설정·지식·용어 검토 화면
+├─ agent_setup.py                             프로젝트 훅·MCP 설정 병합
+├─ glossary.py / glossary_hook.py              용어 매칭과 요청 훅
+├─ locate_mcp.py / navigation.py               locate MCP와 검색 엔진
+├─ harness.py                                 지식 검토·작업 기록·검사 CLI
+├─ verify_search.py / navigation_eval.py       검색 확인·실측 결과 요약
+├─ templates/                                 공통 에이전트 지침
+├─ knowledge/                                 현재 프로젝트의 지도·사전·지식
+├─ portable/                                  새 프로젝트용 초기 자료
+├─ tests/                                     하네스 테스트
+├─ .venv/                                     설치 시 생성하는 Python 환경
+├─ .runtime/                                  색인·실행 기록·복구 사본
+└─ dist/                                      배포 명령으로 만드는 ZIP
 ```
 
-PowerShell 정책이 스크립트 실행을 차단하면 Python으로 `python install/bootstrap.py --execute`를 실행할 수 있습니다.
-코어 설치는 프로젝트 전용 Python 환경·지침 관리 블록·검색 색인·작업 큐·프로젝트 훅을 만듭니다.
-기존 AGENTS.md/CLAUDE.md의 관리 블록 밖 내용과 다른 훅은 보존합니다. 변경 전 복구본은 .runtime에 남깁니다.
-기존 프로젝트에 원문이 있으면 종료 코드 2와 REVIEW_REQUIRED는 설치 실패가 아니라 문서 검토 필요 상태입니다.
-완전히 빈 프로젝트는 검토할 원문이 없다는 기준만 기록합니다. 코드가 추가되면 다시 검토가 필요합니다.
+`knowledge`는 현재 프로젝트의 편집 대상이고, `portable/knowledge`는 다른 프로젝트에 배포할 초기 자료입니다.
+배포 명령은 두 용도를 구분해 현재 프로젝트의 업무 지식·승인 상태를 새 프로젝트로 옮기지 않습니다.
 
-## Linux / macOS 설치
+## 한글 TUI 설치
+
+대상 프로젝트 루트에 `install` 폴더를 놓고 실행합니다. 기존 프로젝트의 지식·개인 설정은 보존하세요.
+
+```powershell
+.\install\bootstrap.ps1 -Tui
+```
 
 ```sh
-sh install/bootstrap.sh
-sh install/bootstrap.sh --execute
-sh install/run.sh doctor
+sh install/bootstrap.sh --tui
+# 또는
+python install/bootstrap.py --tui
 ```
 
-Python venv 지원이 필요합니다. 해당 OS의 Python 설치 방법을 사용하세요. .venv는 OS·컴퓨터 사이에 복사하지 않습니다.
-이 배포본의 Windows 실제 설치 검증과 POSIX 스크립트 제공은 구분합니다. 다른 OS에서는 자체 확인이 필요합니다.
+설치 화면은 **탐색 방식 → 추가 보호 패턴·사전 현황 → 변경 미리보기 → 설치/취소** 순서입니다.
+탐색 방식은 A(지도), B(A+용어 훅), C(B+locate) 중 선택하며 기본값은 C입니다.
+마지막 설치 확인은 `1`이고 기본값 `2`는 취소입니다. 설치 전에 취소하면 파일을 변경하지 않습니다.
 
-## 프로젝트에 맞게 준비
-
-설정·지식 문서 작성·검토·검색의 구체적인 예시는 [guide.txt](guide.txt)를 참고하세요. 이전 안내 답변을 그대로 저장한 파일입니다.
-guide의 첫 config.json 링크는 이전 답변의 로컬 링크이므로, 실제로 수정할 파일은 대상 프로젝트의 `install/config.json`입니다. Node 예시는 기존 설정에 병합할 일부 항목입니다.
-
-1. install/config.json의 source_globs, exclude_dirs, sensitive_source_globs를 확인합니다. 소스 언어가 목록에 없으면 패턴을 추가합니다.
-2. knowledge/project.md, testing.md, database.md, decisions.md를 실제 코드와 프로젝트 지침에 맞게 작성합니다.
-3. `run.ps1 sync` → generated/review-queue.md와 관련 원문·문서 검토 → `run.ps1 accept-review --note "실제 검토 내용"` → `run.ps1 sync` 순서로 실행합니다. Linux는 run.sh를 사용합니다.
-4. `run.ps1 search-docs '프로젝트' --limit 3`으로 확인합니다. 소스 변경을 승인 없이 무시하는 설정은 없습니다.
-
-위 수동 절차는 그대로 사용할 수 있습니다. 예시를 보며 순서대로 입력하려면 **프로젝트 준비 TUI**를 실행하세요.
-
-```powershell
-.\install\configure.ps1
+```sh
+python install/bootstrap.py --plan     # 변경 없이 계획 확인
+python install/bootstrap.py --execute  # 현재 설정으로 비대화형 설치
 ```
 
-Linux/macOS: `sh install/configure.sh`. Python 직접 실행: `python install/configure.py`.
-Python 3.11+만 필요하며, bootstrap 이후 실행을 권장합니다. 별도 TUI 라이브러리를 설치하지 않습니다.
+Windows 래퍼의 대응 옵션은 `-Plan`, `-Execute`입니다.
+인수 없이 실행하면 터미널에서는 TUI, 파이프/CI에서는 계획을 표시합니다.
+Python 환경은 `--without-pip`으로 생성합니다.
+`setup.ps1`/`setup.sh`는 환경·지침·색인만 구성하는 코어 설치용입니다. 훅과 MCP까지 연결할 때는 위 bootstrap을 사용하세요.
 
-TUI는 다음 순서로 진행합니다.
+설치 결과는 다음과 같이 확인합니다.
 
-1. 소스 패턴·제외 폴더·민감 파일 패턴과 선택적인 빌드/테스트 명령 입력. 각 항목에 짧은 예시를 표시합니다.
-2. project.md의 목적·진입점·처리 흐름 작성.
-3. testing.md의 테스트 명령·성공 조건·검증 범위 작성.
-4. database.md의 저장소·주요 테이블·처리 기준 작성. DB가 없으면 사용 안 함으로 기록합니다.
-5. decisions.md의 설계 결정 작성 후 전체 변경 미리보기와 저장 선택.
-6. sync 결과·검토 목록 확인. 추적 원문을 TUI에서 읽거나 외부 편집기로 검토한 뒤 실제 검토 내용과 `REVIEW`를 입력하면 accept-review와 sync를 실행합니다. 나중에 검토할 수도 있습니다.
-7. 프로젝트 검색어로 BM25 결과 확인. 예: 주문 전송 실패, 중복 주문.
+| 결과 | 의미 |
+|---|---|
+| 종료 코드 0 | 설치 검사 통과 |
+| 종료 코드 2 | 설치됐으며 프로젝트 지식 검토 대기 |
+| 설치 검사 내부 `WAITING_GIT_COMMIT` | Git 또는 첫 커밋 대기; 직접 탐색은 가능 |
+| 그 외 오류 | 출력된 오류를 해결한 뒤 다시 설치 |
 
-Enter는 현재 값 유지입니다. 선택 항목의 `-`는 비우기, `:back`은 이전 단계, `:quit` 또는 Ctrl+C는 종료입니다.
-문서는 유지·추가·전체 다시 작성 중 선택하며 여러 줄 입력 후 한 줄에 `.`을 입력해 마칩니다.
-저장 전에는 설정·문서를 변경하지 않습니다. 저장 후의 종료는 이미 저장한 파일·sync·검토 기준을 되돌리지 않습니다.
-수정 전 사본은 `.runtime/configure/<ID>/`에 보관하며, 입력 도중 다른 작업에서 설정·문서가 바뀌면 덮어쓰지 않고 중단합니다.
-빌드·테스트 명령은 등록만 하며 TUI에서 실행하지 않습니다. Hermes 모델 호출이나 업무 DB 작업도 수행하지 않습니다.
-검토를 미루면 STALE_KNOWLEDGE와 종료 코드 2가 나올 수 있습니다. 작성·입력만으로 검토 완료가 자동 승인되지는 않습니다.
+## 에이전트 연결과 작업 흐름
 
-자동 탐색은 Python, Node/JS/TS, Java/Kotlin, Go, Rust, .NET, C/C++, Ruby, PHP 등 일반 텍스트 원문과 빌드 설정을 대상으로 합니다.
-node_modules, 가상환경, .git, install, build/dist 등은 순회에서 제외합니다. 비밀 파일명 패턴(.env, 개인 키 등)도 제외합니다.
-임의 이름에 저장한 비밀값까지 자동 탐지하는 것은 아니므로 프로젝트별 민감 경로 설정을 검토하세요.
-프로젝트 감지는 안내용이며 프로젝트 빌드·테스트·DB·배포·부하 도구를 자동 설치하거나 실행하지 않습니다.
+설치 시 루트 `AGENTS.md`/`CLAUDE.md`의 관리 블록과 다음 설정을 병합합니다.
 
-## Hermes 연결
+| 클라이언트 | 요청 훅 | MCP |
+|---|---|---|
+| Codex | `.codex/hooks.json` | `.codex/config.toml` |
+| Claude | `.claude/settings.json` | `.mcp.json` |
 
-```powershell
-.\install\install-hermes.ps1 -Execute  # 공식 Hermes가 아직 없을 때만
-hermes setup                          # 모델·인증은 각 사용자 환경에서 설정
-.\install\bridge.ps1 start
-.\install\bridge.ps1 status
+공통 MCP 이름은 `project-harness-locate`이며 `locate` 도구 하나를 제공합니다.
+하네스가 등록하는 이벤트는 `UserPromptSubmit`입니다. 승인된 용어가 매칭되면 별칭을 반환하고, 없으면 `{}`를 반환합니다.
+앱을 다시 열고 프로젝트 MCP/훅 신뢰를 확인하세요. Codex 훅은 사용 중인 클라이언트 버전의 지원 여부를 확인해야 합니다.
+
+```mermaid
+flowchart TD
+    Request[사용자 요청] --> Hook[검토된 용어 별칭 매칭]
+    Hook --> Agent[Codex / Claude]
+    Map[프로젝트 지도와 탐색 규칙] --> Agent
+    Agent --> Known{파일이나 심볼을 아는가?}
+    Known -->|알고 있음| Grep[grep으로 탐색]
+    Known -->|모르거나 연결이 막힘| Locate[locate 호출]
+    Locate --> Locations[경로 · 줄 범위 · 심볼 · 커밋 · stale]
+    Locations --> Read[현재 원문과 관련 코드 읽기]
+    Grep --> Read
+    Read --> Work[수정과 검증]
 ```
 
-Linux/macOS에서는 `sh install/install-hermes.sh --execute`, `sh install/bridge.sh start`를 사용합니다.
-Codex 데스크톱 앱 설정에서 대상 프로젝트 Hooks 정의를 검토·신뢰하고 이 프로젝트에서 요청합니다.
-Hermes 설치·인증·앱 훅 신뢰는 bootstrap만으로 완료되지 않습니다. 패키지에 인증·대화·사용자 경로는 없습니다.
-훅의 즉시 BM25 검색·이전 검토 인계 → Codex 작업 → Hermes 비동기 검토·요약 → 다음 요청 인계 순서입니다.
-status는 작업자, 실제 응답, 수신 기록, 검색 최신성을 구분합니다. JSON은 status --json입니다.
-새 설치에서 앱 컨텍스트 수신 근거가 없으면 미검증으로 표시합니다. 이전 프로젝트의 검증 결과를 가져오지 않습니다.
-설치된 검색 검사: `.\install\verify-search.ps1` 또는 `install/.venv/bin/python install/bridge/verify_search.py`.
-프로젝트별 검색어는 `--query '검색할 단어'`로 지정합니다.
-검색 검사는 모델 호출·가짜 앱 이벤트 없이 검색 경로만 확인합니다. 실제 앱 인계 검증과는 다릅니다.
+재설치는 이전 관리 훅을 정리하고 현재 용어 훅을 등록합니다. 사용자 훅과 다른 MCP 설정은 보존합니다.
+같은 이름의 사용자 MCP와 충돌하면 덮어쓰지 않습니다.
+변경 전 사본은 `.runtime/agent-backups`와 `.runtime/install-backups`에 저장하며 과거 실행 기록은 자동 삭제하지 않습니다.
 
-## 빌드·테스트 연결
+## 지도·용어·지식 준비
 
-config.json의 commands에 사용자가 승인한 명령을 문자열 배열로 등록합니다. 기본은 비어 있습니다.
-예: `"commands": {"test": ["python", "-m", "unittest", "discover"]}`.
-명령은 프로젝트 루트에서 shell=False로 실행합니다. 파이프·리다이렉션은 해석하지 않습니다.
-Windows에서는 도구에 맞는 실행 파일 또는 명시적인 `powershell.exe -File ...` 명령을 등록합니다.
+[knowledge/project-map.md](knowledge/project-map.md)에 모듈 위치와 처리 흐름을 적습니다.
+초안은 사람이 작성하거나 에이전트에게 요청해 준비합니다. 지도와 사전 추출은 설치 프로그램이 자동 수행하지 않습니다.
+지도를 수정한 뒤 공통 템플릿과 함께 두 에이전트의 지침에 반영합니다.
 
-```powershell
-.\install\run.ps1 run-check test              # 계획만 출력
-.\install\run.ps1 run-check test --execute    # 등록된 명령 실행·로그 보존
+```sh
+python install/harness.py install-guidance --execute
+python install/configure.py --glossary
+python install/configure.py
 ```
 
-종료 코드 성공은 명령 성공이며 테스트 개수·업무 정확성까지 보증하지 않습니다. 로그를 확인하세요.
-Gradle Java 전용 check-build/run-tests와 MSSQL 전용 db-*는 선택 어댑터입니다. 다른 스택의 공통 기능이 아닙니다.
-DB는 대상 프로젝트의 연결 도구·스키마·권한을 확인하고 사용합니다. 특정 DB MCP가 있다고 가정하지 않습니다.
+`--glossary`는 사전 항목의 근거 주변 원문을 표시하고 `REVIEW` 입력으로 승인합니다. Enter는 보류입니다.
+일반 configure는 소스 범위·검사 명령·지식 문서 편집, 변경 검토, 위치 검색 확인을 제공합니다.
+새 프로젝트용 ZIP은 빈 용어 사전과 지도 템플릿으로 시작합니다.
 
-## 순정 파일과 생성물
+수동 지식 문서를 검토하는 순서는 다음과 같습니다.
 
-PACKAGE-MANIFEST.json에 ZIP에 포함한 모든 원본의 경로·SHA256이 있습니다.
-bootstrap.py/.ps1/.sh, harness.py, project_profile.py, 실행·설치 래퍼, bridge 코드·기본 설정·프롬프트,
-templates, 초기 knowledge, 선택 gradle/sql 어댑터, tests, 이 문서는 배포 원본입니다.
-source-baseline.json은 원본에 포함되지 않으며 검토 후 생성됩니다.
-.venv, __pycache__, .runtime, knowledge/generated, knowledge/hermes, 개인 config.local.json은 배포에 포함되지 않습니다.
-같은 프로젝트를 이전할 때는 knowledge와 검토 기준을 별도로 보존하세요. 새 프로젝트에는 이전 업무 지식·실행 기록을 이식하지 않습니다.
-배포본에는 과거 삭제용 cleanup-legacy.ps1이 없습니다. 현재 디렉터리를 정리하거나 기존 파일을 삭제하는 설치 단계도 없습니다.
+```sh
+python install/harness.py sync
+# knowledge/generated/review-queue.md와 관련 원문·문서를 확인하고 수정
+python install/harness.py accept-review --note "실제 검토한 내용"
+```
 
-## 순정 ZIP 다시 만들기
+`review-queue.md`는 사람이 확인할 변경 목록입니다.
+`accept-review`는 검토 시점의 파일 해시를 기록합니다. 문서의 의미가 정확한지는 검토자가 판단합니다.
+용어 항목 승인, 수동 지식 검토 기준, Git 커밋 기준 위치 색인은 별개입니다. 수동 지식 검토 대기는 locate를 차단하지 않습니다.
 
-원본 저장소에서 `python install/build_bundle.py`를 실행합니다.
-허용 목록의 코드와 portable 초기 자료만 패키징하며 순정 파일 목록과 ZIP SHA256을 함께 생성합니다.
+## 위치 검색과 직접 확인
+
+```sh
+python install/navigation.py locate "업무 개념" --limit 5
+python install/navigation.py index
+python install/verify_search.py --query "커밋된 소스의 단어"
+```
+
+첫 설치/검색, 새 커밋, 설정 변경 때 색인을 갱신합니다. 같은 정책에서는 바뀐 Git blob만 다시 토큰화합니다.
+결과는 경로·줄 범위·심볼·검색 경로·기준 커밋·stale입니다. 현재 파일을 읽고 수정하세요.
+Git/첫 커밋이 없는 상태에서 위 검색 CLI를 실행하면 `UNAVAILABLE`을 반환합니다.
+
+`search-docs`/`index-docs`는 같은 locate 엔진을 호출하는 호환 CLI입니다.
+`search-code`/`read-code`는 직접 원문을 찾고 읽는 CLI이며 MCP 도구 목록에는 포함하지 않습니다.
+자세한 결과 형식과 제외 범위는 [NAVIGATION.md](NAVIGATION.md)를 참고하세요.
+
+## 작업 기록과 선택적인 검사
+
+`harness.py`에는 다음 명령도 있습니다. 상세 인수는 각 명령의 `--help`로 확인합니다.
+
+| 명령 | 현재 동작 |
+|---|---|
+| `doctor`, `verify-install` | 로컬 도구·설치 상태 확인 |
+| `task`, `session`, `evidence` | 목표·진행·근거를 직접 기록하고 작업 인계 Markdown 생성 |
+| `run-check build`, `run-check test` | `config.json`의 commands에 등록한 명령 실행 |
+| `check-build`, `run-tests` | Gradle Java 컴파일 및 등록된 JUnit 클래스 검사 |
+| `db-inspect`, `db-request`, `db-capture`, `db-capture-objects` | MSSQL 스키마 조회·조회 요청 작성·결과 파일 기록용 어댑터 |
+
+```sh
+python install/harness.py run-check test
+python install/harness.py run-check test --execute
+```
+
+등록된 검사 명령은 `--execute` 없이 계획만 표시합니다. 실행 로그·결과는 `.runtime/runs`에 저장합니다.
+작업 기록은 명시적으로 호출할 때 갱신됩니다. `DONE`과 명령 종료 성공은 업무 테스트 전체 통과를 의미하지 않습니다.
+Gradle·DB 명령은 해당 프로젝트의 도구·설정·권한이 있어야 사용할 수 있습니다.
+
+## 검증과 배포
+
+```sh
+python -m unittest discover -s install/tests -v
+python install/build_bundle.py
+```
+
+테스트는 임시 프로젝트에 설치하고 훅·MCP 프로세스를 호출합니다.
+Windows PowerShell 실행과 실제 앱의 도구 수신은 각 환경에서 확인합니다.
+배포 결과는 `install/dist/harness-bootstrap.zip`, 파일 목록, SHA256이며 ZIP 안에는 해시 manifest가 포함됩니다.
+공통 코드와 portable 초기 자료만 배포하고 `.venv`, `.runtime`, 생성 지식, 개인 설정은 제외합니다.
+현재 저장소의 설치 생성물은 `.gitignore`에 따라 Git에서 제외합니다.
+A/B/C 실측 결과 기록·요약 방법은 [NAVIGATION.md](NAVIGATION.md)에 있습니다.
